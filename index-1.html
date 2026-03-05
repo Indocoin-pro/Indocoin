@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN Presale</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body { margin:0; padding:0; background:#0f172a; font-family:'Arial',sans-serif; color:white; }
+.container { max-width:520px; margin:auto; margin-top:30px; background:#111827; padding:20px; border-radius:16px; box-shadow:0 0 30px #facc15; }
+h2,h3,h4 { text-align:center; margin-bottom:8px; color:#facc15; text-shadow:0 0 6px #facc15; }
+h2 { margin-bottom:12px; }
+.highlight { color:#facc15; font-weight:bold; text-shadow:0 0 6px #facc15; }
+input { width:100%; padding:12px; border-radius:10px; border:none; background:#1e293b; color:white; font-size:14px; margin-top:8px; }
+.calcContainer { display:flex; align-items:center; gap:10px; margin-top:8px; }
+.calcContainer input { margin-top:0; }
+.calcResult { min-width:110px; text-align:right; padding:12px; border-radius:10px; background:#1e293b; color:#facc15; font-weight:bold; font-size:14px; box-shadow:0 0 6px #facc15; white-space:nowrap; }
+button { width:100%; padding:13px; margin-top:10px; border:none; border-radius:10px; cursor:pointer; font-weight:bold; font-size:15px; transition:0.3s; box-shadow:0 0 10px #facc15; }
+.connectBtn { background:#facc15; color:black; }
+.approveBtn { background:#22c55e; color:white; }
+.buyBtn { background:#3b82f6; color:white; }
+.progress { background:#334155; height:28px; border-radius:22px; overflow:hidden; margin-top:20px; position:relative; }
+.bar { height:28px; background:linear-gradient(90deg,#facc15,#fbbf24,#fde68a); width:0%; border-radius:22px; transition:width 1.2s ease; }
+.bar-label { position:absolute; top:0; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; color:#111; }
+.status, .tokenSold, .walletAddress { color:#facc15; font-weight:bold; margin-top:8px; text-align:center; font-size:14px; }
+.walletAddress { font-size:12px; word-break:break-all; }
+.liveTx { color:#facc15; font-size:13px; margin-top:8px; max-height:120px; overflow:auto; border-top:1px solid #facc15; padding-top:6px; }
+.box { background:#1e293b; border:1px solid #facc15; border-radius:12px; padding:12px; margin-top:12px; text-align:center; }
+.box p { margin:6px 0; }
+.countdown.box { font-size:18px; font-weight:bold; letter-spacing:2px; margin-bottom:16px; }
+.tokenSoldContainer { margin-top:20px; }
+#progress { text-align:center; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>🌟INDOCOIN PRESALE🌟</h2>
+  <p style="text-align:center;margin-bottom:20px;">Price : <span class="highlight">$0.003</span></p>
+
+  <button class="connectBtn" id="connectWalletBtn">🔗 Connect Wallet</button>
+  <p class="walletAddress" id="walletAddress"></p>
+
+  <input id="amount" placeholder="Enter USDT Amount">
+  <button class="approveBtn" id="approveBtn">Approve USDT</button>
+  <button class="buyBtn" id="buyBtn">Buy Token</button>
+  <p id="status" class="status"></p>
+
+  <div class="progress">
+    <div class="bar" id="bar"></div>
+    <div class="bar-label" id="barLabel">0%</div>
+  </div>
+  <p id="progress" class="highlight"></p>
+
+  <div class="box">
+    <h4 class="highlight">Bonus Rules</h4>
+    <p>$1–$20 = No Bonus</p>
+    <p>$20.1–$100 = <span class="highlight">50% Bonus</span></p>
+    <p>$101.1–$1000 = <span class="highlight">100% Bonus</span></p>
+  </div>
+
+  <div class="box countdown" id="countdown"></div>
+
+  <h3 class="highlight">🧮 Token Calculator</h3>
+  <div class="calcContainer">
+    <input id="calcUSDT" placeholder="Enter USDT">
+    <div id="calcResult" class="calcResult">0 INDC</div>
+  </div>
+
+  <div class="tokenSoldContainer">
+    <h3 class="highlight">💰 Live Token Sold</h3>
+    <p id="tokenSold" class="tokenSold">Loading...</p>
+  </div>
+
+  <h3 class="highlight">🔔 Live Transactions</h3>
+  <div id="liveTx" class="liveTx">Loading...</div>
+</div>
+
+<script>
+const CA   = "0x3fb43b402460B638035bA13Be7686a8dff595A1C";
+const USDT = "0x55d398326f99059fF775485246999027B3197955";
+const RPC  = "https://bsc-dataseed1.binance.org/";
+const CABI = ["function buy(uint256 usdtAmount) public","function totalRaised() view returns(uint256)","function hardcap() view returns(uint256)"];
+const UABI = ["function approve(address spender,uint256 amount) public returns(bool)","function decimals() view returns(uint8)"];
+
+let provider, signer, contract, usdtC, usdtDec;
+const readP = new ethers.providers.JsonRpcProvider(RPC);
+const readC = new ethers.Contract(CA, CABI, readP);
+
+function setStatus(msg){ document.getElementById("status").innerText = msg; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+document.getElementById("connectWalletBtn").addEventListener("click", async ()=>{
+  setStatus("Mendeteksi wallet...");
+  let eth = null;
+  for(let i=0;i<20;i++){
+    eth = window.ethereum || (window.web3&&window.web3.currentProvider) || null;
+    if(eth) break;
+    await sleep(300);
+  }
+  if(!eth){
+    setStatus("Wallet tidak ditemukan ❌");
+    alert("Buka halaman ini dari dApp browser TokenPocket, TrustWallet, atau MetaMask.\n\nPC: Install ekstensi MetaMask.");
+    return;
+  }
+  try{
+    setStatus("Meminta akses akun...");
+    const accounts = await eth.request({method:"eth_requestAccounts"});
+    if(!accounts||!accounts.length) throw new Error("No accounts");
+    provider = new ethers.providers.Web3Provider(eth,"any");
+    signer   = provider.getSigner();
+    const chainHex = await eth.request({method:"eth_chainId"});
+    if(parseInt(chainHex,16)!==56){
+      setStatus("Switch ke BSC...");
+      try{
+        await eth.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      }catch(se){
+        await eth.request({method:"wallet_addEthereumChain",params:[{
+          chainId:"0x38",chainName:"BNB Smart Chain",
+          nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+          rpcUrls:["https://bsc-dataseed1.binance.org/"],
+          blockExplorerUrls:["https://bscscan.com/"]
+        }]});
+      }
+      provider = new ethers.providers.Web3Provider(eth,"any");
+      signer   = provider.getSigner();
+    }
+    contract = new ethers.Contract(CA,CABI,signer);
+    usdtC    = new ethers.Contract(USDT,UABI,signer);
+    try{ usdtDec = await usdtC.decimals(); }catch(_){ usdtDec=18; }
+    const addr  = await signer.getAddress();
+    const short = addr.slice(0,6)+"..."+addr.slice(-4);
+    const name  = eth.isTokenPocket?"TokenPocket":eth.isTrust?"TrustWallet":eth.isMetaMask?"MetaMask":"Wallet";
+    document.getElementById("walletAddress").innerText = name+": "+short;
+    const btn = document.getElementById("connectWalletBtn");
+    btn.innerText = "✅ "+short;
+    btn.style.background = "#22c55e";
+    btn.style.color = "white";
+    setStatus("Wallet terhubung ✅");
+    updateProgress(); updateTokenSold(); updateLiveTx();
+    eth.on("accountsChanged",()=>location.reload());
+    eth.on("chainChanged",()=>location.reload());
+  }catch(e){
+    console.error(e);
+    setStatus(e.code===4001?"Koneksi ditolak.":"Gagal: "+(e.message||""));
+  }
+});
+
+document.getElementById("approveBtn").addEventListener("click", async ()=>{
+  if(!signer){alert("Hubungkan wallet dulu!"); return;}
+  const amt = document.getElementById("amount").value.trim();
+  if(!amt||isNaN(amt)||Number(amt)<=0){alert("Masukkan jumlah USDT yang valid!"); return;}
+  try{
+    const val = ethers.utils.parseUnits(amt, usdtDec||18);
+    setStatus("Menunggu approval di wallet...");
+    const tx = await usdtC.approve(CA,val);
+    setStatus("Memproses...");
+    await tx.wait();
+    setStatus("USDT Approved ✅ — Klik Buy Token");
+  }catch(e){ setStatus(e.code===4001?"Dibatalkan ❌":"Approve gagal ❌"); }
+});
+
+document.getElementById("buyBtn").addEventListener("click", async ()=>{
+  if(!signer){alert("Hubungkan wallet dulu!"); return;}
+  const amt = document.getElementById("amount").value.trim();
+  if(!amt||isNaN(amt)||Number(amt)<=0){alert("Masukkan jumlah USDT yang valid!"); return;}
+  try{
+    const val = ethers.utils.parseUnits(amt, usdtDec||18);
+    setStatus("Menunggu konfirmasi di wallet...");
+    const tx = await contract.buy(val);
+    setStatus("Diproses...");
+    await tx.wait();
+    setStatus("Pembelian Berhasil! ✅ 🎉");
+    updateProgress(); updateTokenSold(); updateLiveTx();
+  }catch(e){ setStatus(e.code===4001?"Dibatalkan ❌":"Gagal ❌"); }
+});
+
+async function updateProgress(){
+  try{
+    const [raised,hardcap] = await Promise.all([readC.totalRaised(),readC.hardcap()]);
+    const r = parseFloat(ethers.utils.formatUnits(raised,18));
+    const h = parseFloat(ethers.utils.formatUnits(hardcap,18));
+    const p = h>0?Math.min((r/h)*100,100):0;
+    document.getElementById("bar").style.width    = p+"%";
+    document.getElementById("barLabel").innerText = Math.floor(p)+"%";
+    document.getElementById("progress").innerText = r.toLocaleString()+" / "+h.toLocaleString()+" USDT Raised";
+  }catch(e){console.warn(e);}
+}
+
+async function updateTokenSold(){
+  try{
+    const raised = await readC.totalRaised();
+    const r = parseFloat(ethers.utils.formatUnits(raised,18));
+    document.getElementById("tokenSold").innerText = Math.floor(r/0.003).toLocaleString()+" INDC";
+  }catch(e){console.warn(e);}
+}
+
+async function updateLiveTx(){
+  try{
+    const latest = await readP.getBlockNumber();
+    const logs   = await readP.getLogs({
+      address:USDT,
+      topics:[ethers.utils.id("Transfer(address,address,uint256)"),null,ethers.utils.hexZeroPad(CA.toLowerCase(),32)],
+      fromBlock:Math.max(0,latest-200),toBlock:"latest"
+    });
+    if(!logs||!logs.length){document.getElementById("liveTx").innerHTML="Belum ada transaksi.";return;}
+    const iface = new ethers.utils.Interface(["event Transfer(address indexed from,address indexed to,uint256 value)"]);
+    let html="";
+    logs.slice(-15).reverse().forEach(log=>{
+      try{
+        const p=iface.parseLog(log);
+        const from=p.args.from.slice(0,6)+"..."+p.args.from.slice(-4);
+        const val=parseFloat(ethers.utils.formatUnits(p.args.value,18));
+        html+="👤 "+from+" — "+val.toLocaleString()+" USDT<br>";
+      }catch(_){}
+    });
+    document.getElementById("liveTx").innerHTML=html||"Belum ada transaksi.";
+  }catch(e){document.getElementById("liveTx").innerHTML="Tidak dapat memuat transaksi.";}
+}
+
+const listing = new Date("June 1, 2026 12:00:00 GMT+7").getTime();
+setInterval(()=>{
+  const d=listing-Date.now();
+  if(d<=0){document.getElementById("countdown").innerText="🎉 Presale Dimulai!";return;}
+  const days=Math.floor(d/86400000),hrs=Math.floor((d%86400000)/3600000),min=Math.floor((d%3600000)/60000),sec=Math.floor((d%60000)/1000);
+  document.getElementById("countdown").innerText=days+"D "+hrs+"H "+min+"M "+sec+"S";
+},1000);
+
+document.getElementById("calcUSDT").addEventListener("input",function(){
+  const u=parseFloat(this.value)||0;
+  const base=u/0.003;
+  const bonus=u>100?base:u>20?base*0.5:0;
+  document.getElementById("calcResult").innerText=Math.floor(base+bonus).toLocaleString()+" INDC";
+});
+
+updateProgress(); updateTokenSold(); updateLiveTx();
+setInterval(updateProgress,15000);
+setInterval(updateTokenSold,12000);
+setInterval(updateLiveTx,20000);
+</script>
+</body>
+</html>
