@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Growth Lock Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root {
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;--dark4:#162032;
+  --text:#e2e8f0;--muted:#64748b;--green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+  --glow:0 0 20px #facc1566;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);height:min(85vw,85vh);object-fit:contain;opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+.layout{position:relative;z-index:1;min-height:100vh;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(10,15,30,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(250,204,21,0.15);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.btn-back{background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);color:var(--gold);padding:7px 14px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all 0.3s;}
+.btn-back:hover{background:rgba(250,204,21,0.2);}
+.nav-logo{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--gold);}
+.nav-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:1px;}
+.pool-status{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px;}
+.pool-open{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:var(--green);}
+.pool-closed{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:var(--red);}
+
+.main{padding:16px 16px 100px;max-width:480px;margin:0 auto;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* PIN BANNER */
+.pin-banner{background:linear-gradient(135deg,rgba(250,204,21,0.1),rgba(245,158,11,0.05));border:1px solid rgba(250,204,21,0.3);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;animation:fadeUp 0.3s ease both;}
+.pin-info{font-size:12px;color:var(--muted);}
+.pin-info strong{color:var(--gold);display:block;font-family:'Orbitron',sans-serif;font-size:11px;margin-bottom:2px;}
+.btn-pin{background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;padding:8px 16px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.3s;white-space:nowrap;}
+.btn-pin:hover{box-shadow:0 0 20px rgba(250,204,21,0.4);}
+.pin-paid{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:var(--green);border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;font-family:'Orbitron',sans-serif;}
+
+/* TABS */
+.tabs-wrap{margin-bottom:16px;animation:fadeUp 0.4s ease both;}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:rgba(0,0,0,0.3);border-radius:14px;padding:4px;}
+.tab{padding:10px 4px;border-radius:10px;text-align:center;cursor:pointer;transition:all 0.3s;border:1px solid transparent;}
+.tab-period{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--muted);}
+.tab-rate{font-size:11px;color:var(--muted);margin-top:2px;}
+.tab.active{background:linear-gradient(135deg,rgba(250,204,21,0.15),rgba(245,158,11,0.08));border-color:rgba(250,204,21,0.4);}
+.tab.active .tab-period{color:var(--gold);}
+.tab.active .tab-rate{color:var(--gold2);}
+.tab:hover:not(.active){background:rgba(250,204,21,0.05);}
+
+/* TAB CONTENT */
+.tab-content{display:none;animation:fadeUp 0.3s ease both;}
+.tab-content.active{display:block;}
+
+/* OPTION CARD */
+.option-card{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);border:1px solid rgba(250,204,21,0.2);border-radius:18px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden;}
+.option-card::before{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(250,204,21,0.07),transparent);}
+.opt-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+.opt-title{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--gold);text-shadow:var(--glow);}
+.opt-badge{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px;}
+.opt-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.opt-stat{background:rgba(0,0,0,0.3);border-radius:12px;padding:12px;}
+.opt-stat-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:var(--gold);}
+.opt-stat-lbl{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:3px;}
+.opt-rules{display:flex;flex-direction:column;gap:6px;}
+.opt-rule{display:flex;justify-content:space-between;font-size:12px;padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:8px;}
+.opt-rule span{color:var(--muted);}
+.opt-rule strong{color:var(--text);}
+
+/* CALC */
+.calc-card{background:var(--dark4);border:1px solid rgba(250,204,21,0.12);border-radius:18px;padding:18px;margin-bottom:14px;}
+.card-title{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.calc-input{width:100%;padding:13px 16px;background:rgba(0,0,0,0.35);border:1px solid rgba(250,204,21,0.2);border-radius:12px;color:white;font-family:'Rajdhani',sans-serif;font-size:16px;outline:none;transition:border-color 0.3s;margin-bottom:10px;}
+.calc-input:focus{border-color:var(--gold);}
+.calc-input::placeholder{color:var(--muted);}
+.calc-results{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.calc-item{background:rgba(0,0,0,0.3);border-radius:10px;padding:10px 12px;text-align:center;}
+.calc-item-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.calc-item-lbl{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.calc-total{background:linear-gradient(135deg,rgba(250,204,21,0.1),rgba(245,158,11,0.05));border:1px solid rgba(250,204,21,0.25);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+.calc-total span{font-size:13px;color:var(--muted);}
+.calc-total strong{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--gold);text-shadow:var(--glow);}
+
+/* STAKE FORM */
+.stake-form{background:var(--dark4);border:1px solid rgba(250,204,21,0.12);border-radius:18px;padding:18px;margin-bottom:14px;}
+.input-row{display:flex;gap:10px;margin-bottom:10px;}
+.input-wrap{flex:1;}
+.input-wrap input{width:100%;padding:13px 16px;background:rgba(0,0,0,0.35);border:1px solid rgba(250,204,21,0.2);border-radius:12px;color:white;font-family:'Rajdhani',sans-serif;font-size:16px;outline:none;transition:border-color 0.3s;}
+.input-wrap input:focus{border-color:var(--gold);}
+.input-wrap input::placeholder{color:var(--muted);}
+.usdt-bal{background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.2);border-radius:12px;padding:8px 14px;min-width:85px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;}
+.ubl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.ubv{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.btn-approve{width:100%;padding:13px;margin-bottom:10px;background:rgba(34,197,94,0.1);border:1.5px solid rgba(34,197,94,0.4);color:var(--green);border-radius:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-approve:hover{background:rgba(34,197,94,0.2);}
+.btn-stake{width:100%;padding:15px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 20px rgba(250,204,21,0.25);}
+.btn-stake:hover{box-shadow:0 4px 35px rgba(250,204,21,0.5);transform:translateY(-1px);}
+.status-msg{min-height:22px;text-align:center;font-size:13px;font-weight:600;margin-top:10px;color:var(--gold);}
+.status-msg.err{color:var(--red);}
+.status-msg.ok{color:var(--green);}
+
+/* RIWAYAT */
+.history-card{background:var(--dark4);border:1px solid rgba(250,204,21,0.12);border-radius:18px;padding:18px;margin-bottom:14px;}
+.stake-item{background:rgba(0,0,0,0.25);border-radius:12px;padding:14px;margin-bottom:10px;border-left:3px solid var(--gold);}
+.stake-item.pending{border-left-color:var(--red);}
+.stake-item.done{border-left-color:var(--green);opacity:0.6;}
+.si-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.si-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);}
+.si-status{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;}
+.si-active{background:rgba(34,197,94,0.15);color:var(--green);}
+.si-pending{background:rgba(239,68,68,0.15);color:var(--red);}
+.si-done{background:rgba(100,116,139,0.2);color:var(--muted);}
+.si-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.si-item{font-size:11px;}
+.si-item span{color:var(--muted);}
+.si-item strong{color:var(--text);display:block;font-size:12px;}
+.countdown-row{background:rgba(250,204,21,0.05);border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;}
+.countdown-lbl{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.countdown-val{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold);letter-spacing:2px;}
+.btn-claim{width:100%;padding:11px;background:linear-gradient(135deg,var(--blue),#1d4ed8);color:white;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
+.btn-claim:hover{box-shadow:0 0 20px rgba(59,130,246,0.4);}
+.btn-early{width:100%;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.3s;}
+.btn-early:hover{background:rgba(239,68,68,0.2);}
+.empty-state{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px;}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(10,15,30,0.95);backdrop-filter:blur(16px);border-top:1px solid rgba(250,204,21,0.15);display:flex;justify-content:space-around;padding:10px 0 16px;}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);transition:all 0.3s;padding:4px 12px;}
+.bnav-item.active{color:var(--gold);}
+.bnav-icon{font-size:20px;}
+.bnav-label{font-size:9px;font-weight:700;letter-spacing:0.5px;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+
+<div class="layout">
+  <nav class="topnav">
+    <div class="nav-left">
+      <a href="earn.html" class="btn-back">← EARN</a>
+      <img src="1772782967104.png" class="nav-logo" alt="" onerror="this.style.display='none'">
+      <span class="nav-title">GROWTH LOCK</span>
+    </div>
+    <div class="pool-status pool-open" id="poolStatus">⚡ OPEN</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- PIN BANNER -->
+    <div class="pin-banner" id="pinBanner">
+      <div class="pin-info">
+        <strong>🔐 AKSES PIN</strong>
+        Bayar 1 INDC untuk akses staking hari ini
+      </div>
+      <button class="btn-pin" onclick="payPin()" id="pinBtn">BAYAR PIN</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(1)">
+          <div class="tab-period">1 BLN</div>
+          <div class="tab-rate">0.3%/hr</div>
+        </div>
+        <div class="tab" onclick="switchTab(2)">
+          <div class="tab-period">3 BLN</div>
+          <div class="tab-rate">0.5%/hr</div>
+        </div>
+        <div class="tab" onclick="switchTab(3)">
+          <div class="tab-period">6 BLN</div>
+          <div class="tab-rate">0.7%/hr</div>
+        </div>
+        <div class="tab" onclick="switchTab(4)">
+          <div class="tab-period">12 BLN</div>
+          <div class="tab-rate">1%/hr</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPSI 1 -->
+    <div class="tab-content active" id="tab1">
+      <div class="option-card">
+        <div class="opt-header">
+          <div>
+            <div class="opt-title">🔒 OPSI 1</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">30 Hari Lock Period</div>
+          </div>
+          <div class="opt-badge">AKTIF</div>
+        </div>
+        <div class="opt-stats">
+          <div class="opt-stat"><div class="opt-stat-val">0.3%</div><div class="opt-stat-lbl">Reward/Hari</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">9%</div><div class="opt-stat-lbl">Total Reward</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$10</div><div class="opt-stat-lbl">Min Stake</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$300</div><div class="opt-stat-lbl">Max Stake</div></div>
+        </div>
+        <div class="opt-rules">
+          <div class="opt-rule"><span>Fee Dev</span><strong>3% dari reward</strong></div>
+          <div class="opt-rule"><span>Penalti Unstake Dini</span><strong>3% dari modal</strong></div>
+          <div class="opt-rule"><span>Claim Reward</span><strong>Setelah 30 hari</strong></div>
+        </div>
+      </div>
+      <div class="calc-card">
+        <div class="card-title">🧮 Kalkulator Reward</div>
+        <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..." oninput="calcReward(1,this.value)" id="calc1">
+        <div class="calc-results">
+          <div class="calc-item"><div class="calc-item-val" id="c1gross">$0</div><div class="calc-item-lbl">Reward Kotor</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c1fee">$0</div><div class="calc-item-lbl">Fee Dev (3%)</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c1net">$0</div><div class="calc-item-lbl">Reward Bersih</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c1daily">$0</div><div class="calc-item-lbl">Per Hari</div></div>
+        </div>
+        <div class="calc-total"><span>Total Diterima:</span><strong id="c1total">$0 USDT</strong></div>
+      </div>
+      <div class="stake-form">
+        <div class="card-title">💳 STAKE SEKARANG</div>
+        <div class="input-row">
+          <div class="input-wrap"><input type="number" id="stakeAmt1" placeholder="Jumlah USDT (Min $10)"></div>
+          <div class="usdt-bal"><span class="ubl">USDT</span><span class="ubv" id="usdtBal1">—</span></div>
+        </div>
+        <button class="btn-approve" onclick="doApprove(1)">✅ APPROVE USDT</button>
+        <button class="btn-stake" onclick="doStake(1)">🔒 STAKE SEKARANG</button>
+        <div class="status-msg" id="status1"></div>
+      </div>
+    </div>
+
+    <!-- OPSI 2 -->
+    <div class="tab-content" id="tab2">
+      <div class="option-card">
+        <div class="opt-header">
+          <div>
+            <div class="opt-title">🔒 OPSI 2</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">90 Hari Lock Period</div>
+          </div>
+          <div class="opt-badge">AKTIF</div>
+        </div>
+        <div class="opt-stats">
+          <div class="opt-stat"><div class="opt-stat-val">0.5%</div><div class="opt-stat-lbl">Reward/Hari</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">45%</div><div class="opt-stat-lbl">Total Reward</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$10</div><div class="opt-stat-lbl">Min Stake</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$500</div><div class="opt-stat-lbl">Max Stake</div></div>
+        </div>
+        <div class="opt-rules">
+          <div class="opt-rule"><span>Fee Dev</span><strong>5% dari reward</strong></div>
+          <div class="opt-rule"><span>Penalti Unstake Dini</span><strong>3% dari modal</strong></div>
+          <div class="opt-rule"><span>Claim Reward</span><strong>Setelah 90 hari</strong></div>
+        </div>
+      </div>
+      <div class="calc-card">
+        <div class="card-title">🧮 Kalkulator Reward</div>
+        <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..." oninput="calcReward(2,this.value)" id="calc2">
+        <div class="calc-results">
+          <div class="calc-item"><div class="calc-item-val" id="c2gross">$0</div><div class="calc-item-lbl">Reward Kotor</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c2fee">$0</div><div class="calc-item-lbl">Fee Dev (5%)</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c2net">$0</div><div class="calc-item-lbl">Reward Bersih</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c2daily">$0</div><div class="calc-item-lbl">Per Hari</div></div>
+        </div>
+        <div class="calc-total"><span>Total Diterima:</span><strong id="c2total">$0 USDT</strong></div>
+      </div>
+      <div class="stake-form">
+        <div class="card-title">💳 STAKE SEKARANG</div>
+        <div class="input-row">
+          <div class="input-wrap"><input type="number" id="stakeAmt2" placeholder="Jumlah USDT (Min $10)"></div>
+          <div class="usdt-bal"><span class="ubl">USDT</span><span class="ubv" id="usdtBal2">—</span></div>
+        </div>
+        <button class="btn-approve" onclick="doApprove(2)">✅ APPROVE USDT</button>
+        <button class="btn-stake" onclick="doStake(2)">🔒 STAKE SEKARANG</button>
+        <div class="status-msg" id="status2"></div>
+      </div>
+    </div>
+
+    <!-- OPSI 3 -->
+    <div class="tab-content" id="tab3">
+      <div class="option-card">
+        <div class="opt-header">
+          <div>
+            <div class="opt-title">🔒 OPSI 3</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">180 Hari Lock Period</div>
+          </div>
+          <div class="opt-badge">AKTIF</div>
+        </div>
+        <div class="opt-stats">
+          <div class="opt-stat"><div class="opt-stat-val">0.7%</div><div class="opt-stat-lbl">Reward/Hari</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">126%</div><div class="opt-stat-lbl">Total Reward</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$10</div><div class="opt-stat-lbl">Min Stake</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$700</div><div class="opt-stat-lbl">Max Stake</div></div>
+        </div>
+        <div class="opt-rules">
+          <div class="opt-rule"><span>Fee Dev</span><strong>7% dari reward</strong></div>
+          <div class="opt-rule"><span>Penalti Unstake Dini</span><strong>3% dari modal</strong></div>
+          <div class="opt-rule"><span>Claim Reward</span><strong>Setelah 180 hari</strong></div>
+        </div>
+      </div>
+      <div class="calc-card">
+        <div class="card-title">🧮 Kalkulator Reward</div>
+        <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..." oninput="calcReward(3,this.value)" id="calc3">
+        <div class="calc-results">
+          <div class="calc-item"><div class="calc-item-val" id="c3gross">$0</div><div class="calc-item-lbl">Reward Kotor</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c3fee">$0</div><div class="calc-item-lbl">Fee Dev (7%)</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c3net">$0</div><div class="calc-item-lbl">Reward Bersih</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c3daily">$0</div><div class="calc-item-lbl">Per Hari</div></div>
+        </div>
+        <div class="calc-total"><span>Total Diterima:</span><strong id="c3total">$0 USDT</strong></div>
+      </div>
+      <div class="stake-form">
+        <div class="card-title">💳 STAKE SEKARANG</div>
+        <div class="input-row">
+          <div class="input-wrap"><input type="number" id="stakeAmt3" placeholder="Jumlah USDT (Min $10)"></div>
+          <div class="usdt-bal"><span class="ubl">USDT</span><span class="ubv" id="usdtBal3">—</span></div>
+        </div>
+        <button class="btn-approve" onclick="doApprove(3)">✅ APPROVE USDT</button>
+        <button class="btn-stake" onclick="doStake(3)">🔒 STAKE SEKARANG</button>
+        <div class="status-msg" id="status3"></div>
+      </div>
+    </div>
+
+    <!-- OPSI 4 -->
+    <div class="tab-content" id="tab4">
+      <div class="option-card">
+        <div class="opt-header">
+          <div>
+            <div class="opt-title">🔒 OPSI 4</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">365 Hari Lock Period</div>
+          </div>
+          <div class="opt-badge">AKTIF</div>
+        </div>
+        <div class="opt-stats">
+          <div class="opt-stat"><div class="opt-stat-val">1%</div><div class="opt-stat-lbl">Reward/Hari</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">365%</div><div class="opt-stat-lbl">Total Reward</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$10</div><div class="opt-stat-lbl">Min Stake</div></div>
+          <div class="opt-stat"><div class="opt-stat-val">$1,000</div><div class="opt-stat-lbl">Max Stake</div></div>
+        </div>
+        <div class="opt-rules">
+          <div class="opt-rule"><span>Fee Dev</span><strong>10% dari reward</strong></div>
+          <div class="opt-rule"><span>Penalti Unstake Dini</span><strong>3% dari modal</strong></div>
+          <div class="opt-rule"><span>Claim Reward</span><strong>Setelah 365 hari</strong></div>
+        </div>
+      </div>
+      <div class="calc-card">
+        <div class="card-title">🧮 Kalkulator Reward</div>
+        <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..." oninput="calcReward(4,this.value)" id="calc4">
+        <div class="calc-results">
+          <div class="calc-item"><div class="calc-item-val" id="c4gross">$0</div><div class="calc-item-lbl">Reward Kotor</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c4fee">$0</div><div class="calc-item-lbl">Fee Dev (10%)</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c4net">$0</div><div class="calc-item-lbl">Reward Bersih</div></div>
+          <div class="calc-item"><div class="calc-item-val" id="c4daily">$0</div><div class="calc-item-lbl">Per Hari</div></div>
+        </div>
+        <div class="calc-total"><span>Total Diterima:</span><strong id="c4total">$0 USDT</strong></div>
+      </div>
+      <div class="stake-form">
+        <div class="card-title">💳 STAKE SEKARANG</div>
+        <div class="input-row">
+          <div class="input-wrap"><input type="number" id="stakeAmt4" placeholder="Jumlah USDT (Min $10)"></div>
+          <div class="usdt-bal"><span class="ubl">USDT</span><span class="ubv" id="usdtBal4">—</span></div>
+        </div>
+        <button class="btn-approve" onclick="doApprove(4)">✅ APPROVE USDT</button>
+        <button class="btn-stake" onclick="doStake(4)">🔒 STAKE SEKARANG</button>
+        <div class="status-msg" id="status4"></div>
+      </div>
+    </div>
+
+    <!-- RIWAYAT STAKE -->
+    <div class="history-card">
+      <div class="card-title">📋 RIWAYAT STAKE SAYA</div>
+      <div id="historyList"><div class="empty-state">🔌 Hubungkan wallet untuk melihat riwayat stake</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="index.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="earn.html" class="bnav-item active"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="support.html" class="bnav-item"><span class="bnav-icon">🛟</span><span class="bnav-label">SUPPORT</span></a>
+</div>
+
+<script>
+const CA_STAKING = "0xf017dF02f2BEFe09B7969E5E818c320607C5d900";
+const USDT_ADDR  = "0x55d398326f99059fF775485246999027B3197955";
+const INDC_ADDR  = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const RPC        = "https://bsc-dataseed1.binance.org/";
+
+const STAKING_ABI = [
+  "function payPin() external",
+  "function hasPaidPin(address) view returns(bool)",
+  "function stake(uint8,uint256) external",
+  "function claimReward(uint256) external",
+  "function claimPending(uint256) external",
+  "function earlyUnstake(uint256) external",
+  "function getUserStakes(address) view returns(tuple(uint8 optionId,uint256 amount,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool rewardPending)[])",
+  "function getPoolInfo() view returns(uint256,uint256,uint256,bool)",
+  "function getPinInfo() view returns(uint256,bool)",
+  "function pinAmount() view returns(uint256)"
+];
+const ERC20_ABI = [
+  "function approve(address,uint256) returns(bool)",
+  "function balanceOf(address) view returns(uint256)",
+  "function allowance(address,address) view returns(uint256)"
+];
+
+const OPTS = {
+  1:{days:30,rate:0.003,fee:0.03},
+  2:{days:90,rate:0.005,fee:0.05},
+  3:{days:180,rate:0.007,fee:0.07},
+  4:{days:365,rate:0.01,fee:0.1}
+};
+
+let provider, signer, stakingC, usdtC, indcC, userAddr;
+const rp = new ethers.providers.JsonRpcProvider(RPC);
+const rStaking = new ethers.Contract(CA_STAKING, STAKING_ABI, rp);
+
+// TABS
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n-1));
+  document.querySelectorAll('.tab-content').forEach((c,i)=>c.classList.toggle('active',i===n-1));
+}
+
+// CALC
+function calcReward(opt, val) {
+  const u = parseFloat(val)||0;
+  const o = OPTS[opt];
+  const gross = u * o.rate * o.days;
+  const fee   = gross * o.fee;
+  const net   = gross - fee;
+  const daily = u * o.rate;
+  document.getElementById('c'+opt+'gross').textContent = '$'+gross.toFixed(2);
+  document.getElementById('c'+opt+'fee').textContent   = '$'+fee.toFixed(2);
+  document.getElementById('c'+opt+'net').textContent   = '$'+net.toFixed(2);
+  document.getElementById('c'+opt+'daily').textContent = '$'+daily.toFixed(2);
+  document.getElementById('c'+opt+'total').textContent = '$'+(u+net).toFixed(2)+' USDT';
+}
+
+function setStatus(opt, msg, type='') {
+  const el = document.getElementById('status'+opt);
+  el.textContent = msg;
+  el.className = 'status-msg '+(type==='ok'?'ok':type==='err'?'err':'');
+}
+
+// CONNECT (auto detect dari earn.html — tapi tetap support manual)
+async function initWallet() {
+  let eth = window.ethereum||(window.web3&&window.web3.currentProvider)||null;
+  if(!eth) return;
+  try {
+    await eth.request({method:'eth_requestAccounts'});
+    provider = new ethers.providers.Web3Provider(eth,'any');
+    signer   = provider.getSigner();
+    const cid = parseInt(await eth.request({method:'eth_chainId'}),16);
+    if(cid!==56){
+      try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
+      catch(e){await eth.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed1.binance.org/'],blockExplorerUrls:['https://bscscan.com/']}]});}
+      provider = new ethers.providers.Web3Provider(eth,'any');
+      signer   = provider.getSigner();
+    }
+    stakingC = new ethers.Contract(CA_STAKING, STAKING_ABI, signer);
+    usdtC    = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
+    indcC    = new ethers.Contract(INDC_ADDR, ERC20_ABI, signer);
+    userAddr = await signer.getAddress();
+
+    // Saldo USDT di semua tab
+    const bal = await usdtC.balanceOf(userAddr);
+    const usdtBal = parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
+    [1,2,3,4].forEach(i=>document.getElementById('usdtBal'+i).textContent=usdtBal);
+
+    // Cek pin
+    await checkPin();
+    // Load riwayat
+    await loadHistory();
+    // Cek pool
+    await checkPool();
+
+    eth.on('accountsChanged',()=>location.reload());
+    eth.on('chainChanged',()=>location.reload());
+  } catch(e){ console.warn(e); }
+}
+
+// CEK PIN
+async function checkPin() {
+  if(!userAddr) return;
+  try {
+    const paid = await rStaking.hasPaidPin(userAddr);
+    const banner = document.getElementById('pinBanner');
+    if(paid) {
+      document.getElementById('pinBtn').outerHTML = '<div class="pin-paid">✅ PIN AKTIF HARI INI</div>';
+    }
+  } catch(e){}
+}
+
+// BAYAR PIN
+async function payPin() {
+  if(!signer){ alert('Hubungkan wallet dulu!'); await initWallet(); return; }
+  try {
+    // Approve INDC dulu
+    const pinAmt = await stakingC.pinAmount();
+    document.getElementById('pinBtn').textContent = 'Approve INDC...';
+    const approveTx = await indcC.approve(CA_STAKING, pinAmt);
+    await approveTx.wait();
+    document.getElementById('pinBtn').textContent = 'Bayar Pin...';
+    const tx = await stakingC.payPin();
+    await tx.wait();
+    document.getElementById('pinBtn').outerHTML = '<div class="pin-paid">✅ PIN AKTIF HARI INI</div>';
+  } catch(e){
+    document.getElementById('pinBtn').textContent = 'BAYAR PIN';
+    alert('Gagal: '+(e.reason||e.message||''));
+  }
+}
+
+// APPROVE USDT
+async function doApprove(opt) {
+  if(!signer){ alert('Hubungkan wallet!'); await initWallet(); return; }
+  const amt = document.getElementById('stakeAmt'+opt).value.trim();
+  if(!amt||isNaN(amt)||Number(amt)<=0){ setStatus(opt,'Masukkan jumlah USDT!','err'); return; }
+  try {
+    setStatus(opt,'Menunggu approval...');
+    const val = ethers.utils.parseUnits(amt,18);
+    const tx = await usdtC.approve(CA_STAKING, val);
+    setStatus(opt,'Memproses...');
+    await tx.wait();
+    setStatus(opt,'USDT Approved ✅ — Klik Stake!','ok');
+  } catch(e){ setStatus(opt,e.code===4001?'Dibatalkan ❌':'Gagal ❌','err'); }
+}
+
+// STAKE
+async function doStake(opt) {
+  if(!signer){ alert('Hubungkan wallet!'); await initWallet(); return; }
+  const paid = await rStaking.hasPaidPin(userAddr);
+  if(!paid){ setStatus(opt,'Bayar pin INDC dulu!','err'); return; }
+  const amt = document.getElementById('stakeAmt'+opt).value.trim();
+  if(!amt||isNaN(amt)||Number(amt)<=0){ setStatus(opt,'Masukkan jumlah USDT!','err'); return; }
+  try {
+    setStatus(opt,'Menunggu konfirmasi wallet...');
+    const val = ethers.utils.parseUnits(amt,18);
+    const tx = await stakingC.stake(opt, val);
+    setStatus(opt,'Diproses...');
+    await tx.wait();
+    setStatus(opt,'🎉 Stake Berhasil! Token terkunci!','ok');
+    await loadHistory();
+  } catch(e){ setStatus(opt,e.code===4001?'Dibatalkan ❌':'Gagal: '+(e.reason||''),'err'); }
+}
+
+// CLAIM
+async function doClaim(idx) {
+  if(!signer) return;
+  try {
+    const tx = await stakingC.claimReward(idx);
+    await tx.wait();
+    await loadHistory();
+    alert('🎉 Claim berhasil!');
+  } catch(e){ alert('Gagal: '+(e.reason||e.message||'')); }
+}
+
+async function doClaimPending(idx) {
+  if(!signer) return;
+  try {
+    const tx = await stakingC.claimPending(idx);
+    await tx.wait();
+    await loadHistory();
+    alert('🎉 Claim berhasil!');
+  } catch(e){ alert('Gagal: '+(e.reason||e.message||'')); }
+}
+
+async function doEarlyUnstake(idx) {
+  if(!signer) return;
+  if(!confirm('Unstake dini kena penalti 3% dari modal. Lanjutkan?')) return;
+  try {
+    const tx = await stakingC.earlyUnstake(idx);
+    await tx.wait();
+    await loadHistory();
+    alert('Unstake berhasil. Modal dikembalikan dikurangi 3% penalti.');
+  } catch(e){ alert('Gagal: '+(e.reason||e.message||'')); }
+}
+
+// LOAD HISTORY
+async function loadHistory() {
+  if(!userAddr) return;
+  const container = document.getElementById('historyList');
+  try {
+    const stakeList = await rStaking.getUserStakes(userAddr);
+    if(!stakeList||!stakeList.length){
+      container.innerHTML='<div class="empty-state">📭 Belum ada stake aktif</div>';
+      return;
+    }
+    const optNames = {1:'1 Bulan',2:'3 Bulan',3:'6 Bulan',4:'12 Bulan'};
+    const optRates = {1:{r:0.003,d:30,f:0.03},2:{r:0.005,d:90,f:0.05},3:{r:0.007,d:180,f:0.07},4:{r:0.01,d:365,f:0.1}};
+    let html = '';
+    const now = Math.floor(Date.now()/1000);
+
+    stakeList.forEach((s,i)=>{
+      const opt  = s.optionId;
+      const amt  = parseFloat(ethers.utils.formatUnits(s.amount,18));
+      const end  = s.endTime.toNumber();
+      const done = s.claimed || s.unstaked;
+      const pending = s.rewardPending;
+      const finished = now >= end;
+      const o = optRates[opt]||optRates[1];
+      const gross = amt * o.r * o.d;
+      const net   = gross * (1-o.f);
+      let statusHtml='', statusClass='';
+
+      if(s.claimed){ statusHtml='<span class="si-status si-done">SELESAI</span>'; statusClass='done'; }
+      else if(s.unstaked){ statusHtml='<span class="si-status si-done">UNSTAKED</span>'; statusClass='done'; }
+      else if(pending){ statusHtml='<span class="si-status si-pending">PENDING</span>'; statusClass='pending'; }
+      else { statusHtml='<span class="si-status si-active">AKTIF</span>'; statusClass=''; }
+
+      // Countdown
+      let cdHtml = '';
+      if(!done){
+        if(finished){
+          cdHtml = `<div class="countdown-row"><div class="countdown-lbl">Status</div><div class="countdown-val" style="color:var(--green)">✅ SIAP DIKLAIM</div></div>`;
+        } else {
+          const diff = end - now;
+          const d = Math.floor(diff/86400), h = Math.floor(diff%86400/3600), m = Math.floor(diff%3600/60);
+          cdHtml = `<div class="countdown-row" id="cd${i}"><div class="countdown-lbl">⏳ Sisa Waktu Lock</div><div class="countdown-val">${d}H ${h}J ${m}M</div></div>`;
+        }
+      }
+
+      // Buttons
+      let btnHtml = '';
+      if(!done){
+        if(finished){
+          btnHtml = `<button class="btn-claim" onclick="doClaim(${i})">💰 CLAIM REWARD</button>`;
+        } else if(pending){
+          btnHtml = `<button class="btn-claim" onclick="doClaimPending(${i})">🔄 COBA CLAIM LAGI</button>`;
+          btnHtml += `<button class="btn-early" onclick="doEarlyUnstake(${i})">⚠️ UNSTAKE DINI (-3%)</button>`;
+        } else {
+          btnHtml = `<button class="btn-early" onclick="doEarlyUnstake(${i})">⚠️ UNSTAKE DINI (-3%)</button>`;
+        }
+      }
+
+      html += `
+        <div class="stake-item ${statusClass}">
+          <div class="si-top">
+            <span class="si-name">🔒 OPSI ${opt} — ${optNames[opt]||''}</span>
+            ${statusHtml}
+          </div>
+          <div class="si-grid">
+            <div class="si-item"><span>Modal Stake</span><strong>$${amt.toFixed(2)} USDT</strong></div>
+            <div class="si-item"><span>Reward Bersih</span><strong>$${net.toFixed(2)} USDT</strong></div>
+            <div class="si-item"><span>Mulai</span><strong>${new Date(s.startTime*1000).toLocaleDateString('id-ID')}</strong></div>
+            <div class="si-item"><span>Selesai</span><strong>${new Date(end*1000).toLocaleDateString('id-ID')}</strong></div>
+          </div>
+          ${cdHtml}
+          ${btnHtml}
+        </div>`;
+    });
+    container.innerHTML = html;
+  } catch(e){
+    container.innerHTML='<div class="empty-state">⚠️ Gagal memuat riwayat</div>';
+  }
+}
+
+// CEK POOL
+async function checkPool() {
+  try {
+    const info = await rStaking.getPoolInfo();
+    const open = info[3];
+    const el = document.getElementById('poolStatus');
+    el.textContent = open ? '⚡ OPEN' : '🔒 CLOSED';
+    el.className = 'pool-status '+(open?'pool-open':'pool-closed');
+  } catch(e){}
+}
+
+// STARS
+for(let i=0;i<40;i++){
+  const s=document.createElement('div');s.className='star';
+  const sz=Math.random()*2+0.5;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s;`;
+  document.body.appendChild(s);
+}
+
+// INIT
+window.addEventListener('load', ()=>{
+  checkPool();
+  initWallet();
+});
+</script>
+</body>
+</html>
