@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Flexi Yield Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#060f12;--bg2:#0a1a1f;--bg3:#0f2027;--bg4:#0d1e24;
+  --cyan:#22d3ee;--cyan2:#06b6d4;--cyan3:#67e8f9;
+  --teal:#14b8a6;--teal2:#0d9488;
+  --green:#22c55e;--green2:#16a34a;
+  --gold:#facc15;--red:#ef4444;
+  --text:#e2e8f0;--muted:#64748b;
+  --glow-cyan:0 0 24px rgba(34,211,238,0.5);
+  --glow-teal:0 0 24px rgba(20,184,166,0.5);
+  --glow-green:0 0 24px rgba(34,197,94,0.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* WAVE BG */
+.wave-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+.wave{position:absolute;width:200%;height:200%;border-radius:40%;opacity:0.04;}
+.wave1{background:var(--cyan);bottom:-60%;left:-50%;animation:wave1 12s linear infinite;}
+.wave2{background:var(--teal);bottom:-65%;left:-50%;animation:wave2 16s linear infinite;}
+.wave3{background:var(--green);bottom:-70%;left:-50%;animation:wave3 20s linear infinite;}
+@keyframes wave1{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes wave2{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+@keyframes wave3{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* PARTICLES */
+.particle{position:fixed;border-radius:50%;pointer-events:none;animation:float var(--d) ease-in-out infinite alternate;}
+@keyframes float{from{transform:translateY(0) scale(1);opacity:0.3}to{transform:translateY(-20px) scale(1.2);opacity:0.8}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse-ring{0%{transform:scale(0.9);opacity:0.8}100%{transform:scale(1.4);opacity:0}}
+@keyframes glow-wave{0%,100%{box-shadow:0 0 10px rgba(34,211,238,0.2)}50%{box-shadow:0 0 30px rgba(34,211,238,0.6),0 0 60px rgba(34,211,238,0.2)}}
+@keyframes resume-pulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,0.6)}50%{box-shadow:0 0 0 12px rgba(250,204,21,0)}}
+@keyframes counter-tick{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+@keyframes slide-up{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+
+.layout{position:relative;z-index:1;min-height:100vh;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(6,15,18,0.95);backdrop-filter:blur(20px);border-bottom:1px solid rgba(34,211,238,0.15);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.btn-back{background:rgba(34,211,238,0.08);border:1px solid rgba(34,211,238,0.25);color:var(--cyan3);padding:7px 14px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:all 0.3s;}
+.btn-back:hover{background:rgba(34,211,238,0.15);}
+.nav-logo{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--cyan);}
+.nav-center{display:flex;flex-direction:column;}
+.nav-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--cyan3);letter-spacing:1px;}
+.nav-sub{font-size:9px;color:var(--muted);letter-spacing:0.5px;}
+.pool-badge{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px;font-family:'Orbitron',sans-serif;}
+.pool-open{background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--green);}
+.pool-closed{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);color:var(--red);}
+
+.main{padding:14px 14px 100px;max-width:480px;margin:0 auto;}
+
+/* PIN BANNER */
+.pin-banner{background:linear-gradient(135deg,rgba(250,204,21,0.07),rgba(245,158,11,0.03));border:1px solid rgba(250,204,21,0.2);border-radius:14px;padding:12px 15px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;animation:fadeUp 0.3s ease both;}
+.pin-info strong{color:var(--gold);display:block;font-family:'Orbitron',sans-serif;font-size:10px;margin-bottom:2px;}
+.pin-info span{font-size:11px;color:var(--muted);}
+.btn-pin{background:linear-gradient(135deg,var(--gold),#f59e0b);color:#000;border:none;border-radius:10px;padding:8px 16px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.3s;}
+.pin-paid{background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);border-radius:10px;padding:8px 14px;font-size:11px;font-weight:700;font-family:'Orbitron',sans-serif;}
+
+/* HERO BALANCE CARD */
+.hero-card{background:linear-gradient(135deg,rgba(34,211,238,0.08),rgba(20,184,166,0.04));border:1px solid rgba(34,211,238,0.2);border-radius:22px;padding:24px 20px;margin-bottom:14px;text-align:center;position:relative;overflow:hidden;animation:fadeUp 0.35s ease both;}
+.hero-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% -20%,rgba(34,211,238,0.08),transparent 70%);pointer-events:none;}
+.hero-label{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;}
+.hero-amount{font-family:'Orbitron',sans-serif;font-size:42px;font-weight:900;color:var(--cyan3);text-shadow:var(--glow-cyan);line-height:1;animation:counter-tick 1s ease infinite;}
+.hero-usdt{font-size:14px;color:var(--muted);margin-top:4px;letter-spacing:1px;}
+.hero-divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);margin:14px auto;}
+.hero-sub{display:flex;justify-content:center;gap:24px;}
+.hsub-item{text-align:center;}
+.hsub-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--teal);}
+.hsub-lbl{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+
+/* PERIOD PROGRESS */
+.period-card{background:var(--bg4);border:1px solid rgba(34,211,238,0.12);border-radius:16px;padding:16px;margin-bottom:14px;animation:fadeUp 0.4s ease both;}
+.period-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.period-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--cyan3);letter-spacing:1px;}
+.period-days{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text);}
+.period-bar-bg{background:rgba(0,0,0,0.35);border-radius:20px;height:10px;overflow:hidden;margin-bottom:8px;}
+.period-bar-fill{height:10px;border-radius:20px;background:linear-gradient(90deg,var(--cyan),var(--teal));transition:width 1s ease;box-shadow:0 0 10px rgba(34,211,238,0.4);}
+.period-info{display:flex;justify-content:space-between;font-size:11px;}
+.period-info span{color:var(--muted);}
+.period-info strong{color:var(--cyan3);}
+
+/* PAUSE BANNER */
+.pause-banner{background:linear-gradient(135deg,rgba(250,204,21,0.1),rgba(245,158,11,0.05));border:1.5px solid rgba(250,204,21,0.35);border-radius:14px;padding:16px;margin-bottom:14px;text-align:center;display:none;}
+.pause-icon{font-size:32px;margin-bottom:8px;display:block;}
+.pause-title{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold);font-weight:900;margin-bottom:4px;}
+.pause-desc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;}
+.btn-resume{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#000;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:2px;cursor:pointer;animation:resume-pulse 2s ease-in-out infinite;transition:all 0.3s;}
+.btn-resume:hover{transform:scale(1.02);}
+
+/* QUICK STATS */
+.quick-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;animation:fadeUp 0.45s ease both;}
+.qstat{background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.12);border-radius:12px;padding:11px 8px;text-align:center;}
+.qstat-val{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:var(--cyan3);}
+.qstat-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px;}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:14px;background:rgba(0,0,0,0.2);border-radius:14px;padding:5px;}
+.tab{flex:1;padding:10px 6px;text-align:center;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.5px;cursor:pointer;transition:all 0.3s;color:var(--muted);border:none;background:transparent;}
+.tab.active{background:linear-gradient(135deg,rgba(34,211,238,0.2),rgba(20,184,166,0.1));color:var(--cyan3);border:1px solid rgba(34,211,238,0.3);}
+
+/* PANEL */
+.panel{display:none;animation:fadeUp 0.3s ease both;}
+.panel.active{display:block;}
+
+/* STAKE PANEL */
+.form-card{background:var(--bg4);border:1px solid rgba(34,211,238,0.1);border-radius:16px;padding:16px;margin-bottom:12px;}
+.form-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--cyan3);letter-spacing:1px;margin-bottom:12px;}
+.input-row{display:flex;gap:8px;margin-bottom:10px;}
+.input-wrap{flex:1;position:relative;}
+.input-wrap input{width:100%;padding:12px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.18);border-radius:11px;color:white;font-family:'Rajdhani',sans-serif;font-size:16px;outline:none;transition:border-color 0.3s;}
+.input-wrap input:focus{border-color:var(--cyan);}
+.input-wrap input::placeholder{color:var(--muted);}
+.bal-box{background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.15);border-radius:11px;padding:8px 12px;min-width:80px;display:flex;flex-direction:column;justify-content:center;align-items:center;}
+.bal-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;}
+.bal-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--cyan3);}
+
+/* CALC PREVIEW */
+.calc-preview{background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.1);border-radius:11px;padding:12px;margin-bottom:10px;}
+.calc-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;}
+.calc-row span{color:var(--muted);}
+.calc-row strong{color:var(--text);}
+.calc-row.highlight strong{color:var(--cyan3);font-family:'Orbitron',sans-serif;}
+
+.btn-approve{width:100%;padding:12px;margin-bottom:8px;background:rgba(34,197,94,0.08);border:1.5px solid rgba(34,197,94,0.3);color:var(--green);border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-approve:hover{background:rgba(34,197,94,0.15);}
+.btn-main{width:100%;padding:14px;background:linear-gradient(135deg,var(--cyan2),var(--teal));color:#000;border:none;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:2px;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 20px rgba(34,211,238,0.25);}
+.btn-main:hover{box-shadow:0 4px 35px rgba(34,211,238,0.5);transform:translateY(-1px);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.status-msg{min-height:18px;text-align:center;font-size:12px;font-weight:600;margin-top:8px;}
+.status-msg.err{color:var(--red);}
+.status-msg.ok{color:var(--green);}
+.status-msg.info{color:var(--cyan3);}
+
+/* WD SLIDER */
+.wd-info{background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.1);border-radius:12px;padding:14px;margin-bottom:12px;}
+.wd-balance-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.wd-bal-label{font-size:11px;color:var(--muted);}
+.wd-bal-val{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--cyan3);font-weight:700;}
+.slider-wrap{margin-bottom:10px;}
+.slider-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:8px;}
+.slider-label span{color:var(--muted);}
+.slider-label strong{color:var(--cyan3);font-family:'Orbitron',sans-serif;}
+input[type=range]{width:100%;-webkit-appearance:none;height:6px;border-radius:20px;background:rgba(0,0,0,0.3);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--teal));cursor:pointer;box-shadow:0 0 10px rgba(34,211,238,0.5);}
+.wd-presets{display:flex;gap:6px;margin-bottom:12px;}
+.wd-preset{flex:1;padding:7px;background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.15);border-radius:8px;color:var(--cyan3);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;cursor:pointer;text-align:center;transition:all 0.3s;}
+.wd-preset:hover,.wd-preset.active{background:rgba(34,211,238,0.15);border-color:var(--cyan);}
+.wd-amount-row{background:rgba(0,0,0,0.2);border-radius:9px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;}
+.wd-amount-row span{font-size:11px;color:var(--muted);}
+.wd-amount-row strong{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--cyan3);}
+.btn-wd{width:100%;padding:14px;background:linear-gradient(135deg,rgba(34,211,238,0.15),rgba(20,184,166,0.1));border:1.5px solid rgba(34,211,238,0.3);color:var(--cyan3);border-radius:11px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-wd:hover{background:rgba(34,211,238,0.2);box-shadow:var(--glow-cyan);}
+
+/* TOPUP */
+.topup-note{background:rgba(34,211,238,0.04);border:1px solid rgba(34,211,238,0.1);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--muted);line-height:1.5;}
+.topup-note strong{color:var(--cyan3);}
+
+/* HISTORY */
+.history-card{background:var(--bg4);border:1px solid rgba(34,211,238,0.1);border-radius:16px;padding:16px;}
+.tx-item{background:rgba(0,0,0,0.2);border-left:3px solid var(--cyan);border-radius:10px;padding:12px;margin-bottom:8px;}
+.tx-item.wd{border-left-color:var(--teal);}
+.tx-item.topup{border-left-color:var(--green);}
+.tx-item.resume{border-left-color:var(--gold);}
+.tx-top{display:flex;justify-content:space-between;margin-bottom:6px;}
+.tx-type{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--cyan3);}
+.tx-item.wd .tx-type{color:var(--teal);}
+.tx-item.topup .tx-type{color:var(--green);}
+.tx-item.resume .tx-type{color:var(--gold);}
+.tx-time{font-size:10px;color:var(--muted);}
+.tx-amount{font-size:13px;font-weight:700;color:var(--text);}
+.empty-state{text-align:center;padding:28px;color:var(--muted);font-size:13px;}
+
+/* RULES CARD */
+.rules-card{background:var(--bg4);border:1px solid rgba(34,211,238,0.1);border-radius:16px;padding:16px;margin-bottom:14px;}
+.rule-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(34,211,238,0.06);}
+.rule-item:last-child{border-bottom:none;padding-bottom:0;}
+.rule-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.rule-text strong{display:block;font-size:13px;color:var(--text);margin-bottom:2px;}
+.rule-text span{font-size:11px;color:var(--muted);line-height:1.4;}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(6,15,18,0.96);backdrop-filter:blur(16px);border-top:1px solid rgba(34,211,238,0.12);display:flex;justify-content:space-around;padding:10px 0 16px;}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);transition:all 0.3s;padding:4px 12px;}
+.bnav-item.active{color:var(--cyan3);}
+.bnav-icon{font-size:20px;}
+.bnav-label{font-size:9px;font-weight:700;letter-spacing:0.5px;font-family:'Orbitron',sans-serif;}
+
+/* TOAST */
+.toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-100px);opacity:0;background:rgba(6,20,24,0.97);border:1px solid var(--cyan);border-radius:12px;padding:10px 20px;z-index:99;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:8px;box-shadow:var(--glow-cyan);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast-icon{font-size:18px;}
+.toast-msg{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--cyan3);font-weight:700;}
+</style>
+</head>
+<body>
+
+<!-- WAVE BG -->
+<div class="wave-bg">
+  <div class="wave wave1"></div>
+  <div class="wave wave2"></div>
+  <div class="wave wave3"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast">
+  <span class="toast-icon" id="toastIcon">💧</span>
+  <span class="toast-msg" id="toastMsg">Berhasil!</span>
+</div>
+
+<div class="layout">
+  <nav class="topnav">
+    <div class="nav-left">
+      <a href="earn.html" class="btn-back">← EARN</a>
+      <img src="1772782967104.png" class="nav-logo" alt="" onerror="this.style.display='none'">
+      <div class="nav-center">
+        <span class="nav-title">FLEXI YIELD</span>
+        <span class="nav-sub">STAKING</span>
+      </div>
+    </div>
+    <div class="pool-badge pool-open" id="poolStatus">💧 OPEN</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- PIN -->
+    <div class="pin-banner" id="pinBanner">
+      <div class="pin-info">
+        <strong>🔐 AKSES PIN</strong>
+        <span>Bayar 1 INDC untuk akses hari ini</span>
+      </div>
+      <button class="btn-pin" id="pinBtn" onclick="payPin()">BAYAR PIN</button>
+    </div>
+
+    <!-- HERO BALANCE -->
+    <div class="hero-card">
+      <div class="hero-label">💧 TOTAL SALDO SAYA</div>
+      <div class="hero-amount" id="heroAmount">0.000000</div>
+      <div class="hero-usdt">USDT</div>
+      <div class="hero-divider"></div>
+      <div class="hero-sub">
+        <div class="hsub-item">
+          <div class="hsub-val" id="heroPrincipal">$0.00</div>
+          <div class="hsub-lbl">MODAL</div>
+        </div>
+        <div class="hsub-item">
+          <div class="hsub-val" id="heroReward">$0.00</div>
+          <div class="hsub-lbl">REWARD</div>
+        </div>
+        <div class="hsub-item">
+          <div class="hsub-val" id="heroRate">0.2%</div>
+          <div class="hsub-lbl">PER HARI</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERIOD PROGRESS -->
+    <div class="period-card" id="periodCard" style="display:none;">
+      <div class="period-header">
+        <span class="period-title">⏱ PERIODE AKTIF</span>
+        <span class="period-days" id="periodDays">— hari</span>
+      </div>
+      <div class="period-bar-bg">
+        <div class="period-bar-fill" id="periodBar" style="width:0%"></div>
+      </div>
+      <div class="period-info">
+        <span>Mulai: <strong id="periodStart">—</strong></span>
+        <span>Sisa: <strong id="periodLeft" style="color:var(--cyan3)">—</strong></span>
+      </div>
+    </div>
+
+    <!-- PAUSE BANNER -->
+    <div class="pause-banner" id="pauseBanner">
+      <span class="pause-icon">⏸️</span>
+      <div class="pause-title">REWARD DIJEDA</div>
+      <div class="pause-desc">30 hari periode aktif sudah selesai.<br>Klik <strong>LANJUTKAN</strong> untuk reward mengalir kembali!</div>
+      <button class="btn-resume" onclick="doResume()">🌊 LANJUTKAN STAKING</button>
+      <div class="status-msg" id="resumeStatus"></div>
+    </div>
+
+    <!-- QUICK STATS -->
+    <div class="quick-stats">
+      <div class="qstat">
+        <div class="qstat-val">0.2%</div>
+        <div class="qstat-lbl">REWARD/HARI</div>
+      </div>
+      <div class="qstat">
+        <div class="qstat-val" id="statDays">—</div>
+        <div class="qstat-lbl">HARI BERJALAN</div>
+      </div>
+      <div class="qstat" style="background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.15);">
+        <div class="qstat-val" id="statTotalReward" style="color:var(--green);">$0.00</div>
+        <div class="qstat-lbl">TOTAL REWARD</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('stake')">💰 STAKE</button>
+      <button class="tab" onclick="switchTab('topup')">➕ TOPUP</button>
+      <button class="tab" onclick="switchTab('wd')">💸 TARIK</button>
+      <button class="tab" onclick="switchTab('info')">📋 INFO</button>
+    </div>
+
+    <!-- PANEL: STAKE -->
+    <div class="panel active" id="panel-stake">
+      <div class="form-card">
+        <div class="form-title">🌊 MULAI FLEXI STAKING</div>
+        <div class="input-row">
+          <div class="input-wrap">
+            <input type="number" id="stakeAmt" placeholder="Jumlah USDT ($50–$500)"
+              oninput="calcStake(this.value)">
+          </div>
+          <div class="bal-box">
+            <span class="bal-lbl">USDT</span>
+            <span class="bal-val" id="usdtBal">—</span>
+          </div>
+        </div>
+        <div class="calc-preview" id="calcPreview" style="display:none;">
+          <div class="calc-row"><span>Jumlah stake</span><strong id="cpRaw">$0</strong></div>
+          <div class="calc-row"><span>Fee Dev (1%)</span><strong id="cpFeeD" style="color:#ef4444">-$0</strong></div>
+          <div class="calc-row"><span>Fee Pool (1%)</span><strong id="cpFeeP" style="color:#ef4444">-$0</strong></div>
+          <div class="calc-row"><span>Modal aktif</span><strong id="cpNet">$0</strong></div>
+          <div class="calc-row"><span>Reward/hari</span><strong id="cpDaily" style="color:var(--cyan3)">$0</strong></div>
+          <div class="calc-row highlight"><span>Total 30 hari</span><strong id="cpTotal">$0</strong></div>
+        </div>
+        <button class="btn-approve" onclick="doApproveStake()">✅ APPROVE USDT</button>
+        <button class="btn-main" onclick="doStake()" id="btnStake">💧 MULAI STAKING</button>
+        <div class="status-msg" id="stakeStatus"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: TOPUP -->
+    <div class="panel" id="panel-topup">
+      <div class="form-card">
+        <div class="form-title">➕ TOPUP MODAL</div>
+        <div class="topup-note">
+          <strong>⚠️ Catatan:</strong> Setiap topup dikenakan fee <strong>1% Dev + 1% Pool</strong>.
+          Jika sedang pause, topup akan otomatis <strong>resume</strong> staking.
+        </div>
+        <div class="input-row">
+          <div class="input-wrap">
+            <input type="number" id="topupAmt" placeholder="Jumlah USDT (min $1)"
+              oninput="calcTopup(this.value)">
+          </div>
+          <div class="bal-box">
+            <span class="bal-lbl">USDT</span>
+            <span class="bal-val" id="usdtBal2">—</span>
+          </div>
+        </div>
+        <div class="calc-preview" id="calcTopup" style="display:none;">
+          <div class="calc-row"><span>Topup</span><strong id="tu-raw">$0</strong></div>
+          <div class="calc-row"><span>Fee Dev (1%)</span><strong id="tu-fd" style="color:#ef4444">-$0</strong></div>
+          <div class="calc-row"><span>Fee Pool (1%)</span><strong id="tu-fp" style="color:#ef4444">-$0</strong></div>
+          <div class="calc-row highlight"><span>Masuk ke modal</span><strong id="tu-net">$0</strong></div>
+        </div>
+        <button class="btn-approve" onclick="doApproveTopup()">✅ APPROVE USDT</button>
+        <button class="btn-main" onclick="doTopup()">➕ TOPUP SEKARANG</button>
+        <div class="status-msg" id="topupStatus"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: WD -->
+    <div class="panel" id="panel-wd">
+      <div class="form-card">
+        <div class="form-title">💸 TARIK DANA</div>
+        <div class="wd-info">
+          <div class="wd-balance-row">
+            <span class="wd-bal-label">Total saldo (modal + reward)</span>
+            <span class="wd-bal-val" id="wdTotalBal">$0.00</span>
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-label">
+              <span>Jumlah tarik</span>
+              <strong id="sliderPct">50%</strong>
+            </div>
+            <input type="range" id="wdSlider" min="1" max="100" value="50"
+              oninput="updateSlider(this.value)">
+          </div>
+          <div class="wd-presets">
+            <div class="wd-preset" onclick="setPreset(25)">25%</div>
+            <div class="wd-preset" onclick="setPreset(50)">50%</div>
+            <div class="wd-preset" onclick="setPreset(75)">75%</div>
+            <div class="wd-preset active" onclick="setPreset(100)">MAX</div>
+          </div>
+          <div class="wd-amount-row">
+            <span>Jumlah ditarik:</span>
+            <strong id="wdAmount">$0.00 USDT</strong>
+          </div>
+        </div>
+        <div class="topup-note" style="margin-bottom:10px;">
+          💡 Reward otomatis <strong>merge ke saldo</strong> sebelum penarikan. Tidak ada penalti WD!
+        </div>
+        <button class="btn-wd" onclick="doWithdraw()">💸 TARIK SEKARANG</button>
+        <div class="status-msg" id="wdStatus"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: INFO -->
+    <div class="panel" id="panel-info">
+      <div class="rules-card">
+        <div class="form-title" style="margin-bottom:14px;">📋 CARA KERJA FLEXI YIELD</div>
+        <div class="rule-item">
+          <span class="rule-icon">💧</span>
+          <div class="rule-text">
+            <strong>Reward 0.2% Per Hari</strong>
+            <span>Dihitung per detik dari modal aktif. Saldo naik terus selama aktif.</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">✂️</span>
+          <div class="rule-text">
+            <strong>Fee 2% di Awal</strong>
+            <span>1% ke Dev + 1% ke Pool. Dipotong saat stake & setiap topup.</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">💸</span>
+          <div class="rule-text">
+            <strong>Tarik Kapan Saja</strong>
+            <span>Bebas tarik sebagian atau semua. Tidak ada penalti, tidak ada lock.</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">🔄</span>
+          <div class="rule-text">
+            <strong>Reward Merge Saat WD</strong>
+            <span>Reward terkumpul otomatis masuk ke saldo sebelum penarikan.</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">⏸️</span>
+          <div class="rule-text">
+            <strong>Pause Setelah 30 Hari</strong>
+            <span>Reward berhenti otomatis. Klik Lanjutkan untuk mulai lagi — gratis!</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">➕</span>
+          <div class="rule-text">
+            <strong>Topup Fleksibel</strong>
+            <span>Bisa topup kapan saja. Fee 2% berlaku. Jika pause, topup = auto resume.</span>
+          </div>
+        </div>
+        <div class="rule-item">
+          <span class="rule-icon">📊</span>
+          <div class="rule-text">
+            <strong>Min $50 — Max $500</strong>
+            <span>Stake minimal $50, maksimal $500 modal aktif per wallet.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="index.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="earn.html" class="bnav-item active"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="support.html" class="bnav-item"><span class="bnav-icon">🛟</span><span class="bnav-label">SUPPORT</span></a>
+</div>
+
+<script>
+const CA   = "0x1EfE297BE37f3FDa2a6eb933e609CBb951fC37D9";
+const USDT = "0x55d398326f99059fF775485246999027B3197955";
+const INDC = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const RPC  = "https://bsc-dataseed1.binance.org/";
+
+const ABI = [
+  "function payPin() external",
+  "function hasPaidPin(address) view returns(bool)",
+  "function pinAmount() view returns(uint256)",
+  "function stake(uint256) external",
+  "function topUp(uint256) external",
+  "function withdraw(uint256) external",
+  "function resume() external",
+  "function getBalance(address) view returns(uint256,uint256,uint256,bool,uint256,bool)",
+  "function getPoolInfo() view returns(uint256,uint256,uint256,bool)",
+  "function stakes(address) view returns(uint256,uint256,uint256,uint256,bool,bool)"
+];
+const ERC20 = [
+  "function approve(address,uint256) returns(bool)",
+  "function balanceOf(address) view returns(uint256)"
+];
+
+let provider, signer, stakingC, usdtC, indcC, userAddr;
+let totalBalance = 0;
+let rewardTimer  = null;
+let stakeInfo    = null;
+
+const rp = new ethers.providers.JsonRpcProvider(RPC);
+const rC = new ethers.Contract(CA, ABI, rp);
+
+// PARTICLES
+for(let i=0;i<20;i++){
+  const p=document.createElement('div');
+  p.className='particle';
+  const sz=Math.random()*3+1;
+  const colors=['#22d3ee','#14b8a6','#22c55e'];
+  p.style.cssText=`width:${sz}px;height:${sz}px;
+    left:${Math.random()*100}%;top:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*3)]};
+    --d:${Math.random()*4+2}s;animation-delay:${Math.random()*4}s;`;
+  document.body.appendChild(p);
+}
+
+// INIT
+async function initWallet(){
+  const eth=window.ethereum||null;
+  if(!eth) return;
+  try{
+    await eth.request({method:'eth_requestAccounts'});
+    provider=new ethers.providers.Web3Provider(eth,'any');
+    signer=provider.getSigner();
+    const cid=parseInt(await eth.request({method:'eth_chainId'}),16);
+    if(cid!==56){
+      try{
+        await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});
+      }catch(e){
+        await eth.request({method:'wallet_addEthereumChain',params:[{
+          chainId:'0x38',chainName:'BNB Smart Chain',
+          nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
+          rpcUrls:['https://bsc-dataseed1.binance.org/'],
+          blockExplorerUrls:['https://bscscan.com/']
+        }]});
+      }
+      provider=new ethers.providers.Web3Provider(eth,'any');
+      signer=provider.getSigner();
+    }
+    stakingC = new ethers.Contract(CA, ABI, signer);
+    usdtC    = new ethers.Contract(USDT, ERC20, signer);
+    indcC    = new ethers.Contract(INDC, ERC20, signer);
+    userAddr = await signer.getAddress();
+
+    await checkPin();
+    await loadBalance();
+    await loadUsdtBal();
+    await checkPool();
+
+    eth.on('accountsChanged', ()=>location.reload());
+    eth.on('chainChanged', ()=>location.reload());
+  }catch(e){ console.warn(e); }
+}
+
+// POOL
+async function checkPool(){
+  try{
+    const info = await rC.getPoolInfo();
+    const open = info[3];
+    const el   = document.getElementById('poolStatus');
+    el.textContent = open ? '💧 OPEN' : '🔒 CLOSED';
+    el.className   = 'pool-badge ' + (open ? 'pool-open' : 'pool-closed');
+  }catch(e){}
+}
+
+// PIN
+async function checkPin(){
+  if(!userAddr) return;
+  try{
+    const paid = await rC.hasPaidPin(userAddr);
+    if(paid){
+      document.getElementById('pinBanner').innerHTML=
+        '<div class="pin-info"><strong>🔐 AKSES PIN</strong><span>Aktif hari ini</span></div><div class="pin-paid">✅ AKTIF</div>';
+    }
+  }catch(e){}
+}
+async function payPin(){
+  if(!signer){ await initWallet(); return; }
+  try{
+    const amt = await stakingC.pinAmount();
+    document.getElementById('pinBtn').textContent='Approve...';
+    const t1 = await indcC.approve(CA, amt);
+    await t1.wait();
+    document.getElementById('pinBtn').textContent='Bayar...';
+    const t2 = await stakingC.payPin();
+    await t2.wait();
+    document.getElementById('pinBanner').innerHTML=
+      '<div class="pin-info"><strong>🔐 AKSES PIN</strong><span>Aktif hari ini</span></div><div class="pin-paid">✅ AKTIF</div>';
+    showToast('✅','Pin harian aktif!');
+  }catch(e){
+    document.getElementById('pinBtn').textContent='BAYAR PIN';
+  }
+}
+
+// LOAD BALANCE
+async function loadBalance(){
+  if(!userAddr) return;
+  if(rewardTimer) clearInterval(rewardTimer);
+  try{
+    const s = await rC.stakes(userAddr);
+    stakeInfo = {
+      principal:      parseFloat(ethers.utils.formatUnits(s[0], 18)),
+      rewardAccrued:  parseFloat(ethers.utils.formatUnits(s[1], 18)),
+      lastUpdateTime: s[2].toNumber(),
+      periodStart:    s[3].toNumber(),
+      paused:         s[4],
+      active:         s[5]
+    };
+
+    if(!stakeInfo.active){
+      updateHero(0, 0);
+      document.getElementById('periodCard').style.display='none';
+      document.getElementById('pauseBanner').style.display='none';
+      return;
+    }
+
+    document.getElementById('periodCard').style.display='block';
+
+    // Period progress
+    const now       = Math.floor(Date.now()/1000);
+    const elapsed   = now - stakeInfo.periodStart;
+    const MAX       = 30*86400;
+    const pct       = Math.min((elapsed/MAX)*100, 100);
+    const daysActive= Math.floor(elapsed/86400);
+    const secLeft   = Math.max(0, MAX - elapsed);
+    const dLeft     = Math.floor(secLeft/86400);
+    const hLeft     = Math.floor(secLeft%86400/3600);
+
+    document.getElementById('periodBar').style.width   = pct+'%';
+    document.getElementById('periodDays').textContent  = daysActive+' / 30 hari';
+    document.getElementById('periodStart').textContent =
+      new Date(stakeInfo.periodStart*1000).toLocaleDateString('id-ID');
+    document.getElementById('periodLeft').textContent  =
+      stakeInfo.paused ? 'PAUSE' : `${dLeft}H ${hLeft}J`;
+    document.getElementById('statDays').textContent    = daysActive+'H';
+
+    if(stakeInfo.paused){
+      document.getElementById('pauseBanner').style.display='block';
+      updateHero(stakeInfo.principal, stakeInfo.rewardAccrued);
+      document.getElementById('statTotalReward').textContent = '$'+stakeInfo.rewardAccrued.toFixed(4);
+    } else {
+      document.getElementById('pauseBanner').style.display='none';
+      // Live reward timer
+      rewardTimer = setInterval(()=>{
+        const n      = Math.floor(Date.now()/1000);
+        const e2     = n - stakeInfo.lastUpdateTime;
+        const limitE = (stakeInfo.periodStart + MAX) - stakeInfo.lastUpdateTime;
+        const eff    = Math.min(e2, limitE);
+        const live   = stakeInfo.rewardAccrued + (stakeInfo.principal * 0.002 / 86400) * eff;
+        updateHero(stakeInfo.principal, live);
+        // Update total reward kotak kanan
+        document.getElementById('statTotalReward').textContent = '$'+live.toFixed(4);
+        // Hari berjalan update
+        const nowElapsed = Math.floor(Date.now()/1000) - stakeInfo.periodStart;
+        document.getElementById('statDays').textContent = Math.floor(nowElapsed/86400)+'H';
+        // Check if period just ended
+        if(n - stakeInfo.periodStart >= MAX){
+          clearInterval(rewardTimer);
+          document.getElementById('pauseBanner').style.display='block';
+          document.getElementById('periodLeft').textContent='PAUSE';
+        }
+      }, 500);
+    }
+
+    // WD slider
+    updateWdBalance();
+  }catch(e){ console.warn(e); }
+}
+
+function updateHero(principal, reward){
+  const total = principal + reward;
+  totalBalance = total;
+  document.getElementById('heroAmount').textContent     = total.toFixed(6);
+  document.getElementById('heroPrincipal').textContent  = '$'+principal.toFixed(2);
+  document.getElementById('heroReward').textContent     = '$'+reward.toFixed(4);
+  updateWdBalance();
+}
+
+function updateWdBalance(){
+  document.getElementById('wdTotalBal').textContent = '$'+totalBalance.toFixed(4);
+  updateSlider(document.getElementById('wdSlider').value);
+}
+
+// USDT BALANCE
+async function loadUsdtBal(){
+  if(!usdtC||!userAddr) return;
+  try{
+    const b = await usdtC.balanceOf(userAddr);
+    const v = parseFloat(ethers.utils.formatUnits(b,18)).toFixed(2);
+    document.getElementById('usdtBal').textContent  = v;
+    document.getElementById('usdtBal2').textContent = v;
+  }catch(e){}
+}
+
+// TABS
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const tabs=['stake','topup','wd','info'];
+    t.classList.toggle('active', tabs[i]===tab);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+
+// CALC STAKE
+function calcStake(v){
+  const amt = parseFloat(v)||0;
+  const preview = document.getElementById('calcPreview');
+  if(amt < 1){ preview.style.display='none'; return; }
+  preview.style.display='block';
+  const fd  = amt*0.01, fp = amt*0.01;
+  const net = amt - fd - fp;
+  const daily = net*0.002;
+  const total30 = net + daily*30;
+  document.getElementById('cpRaw').textContent   = '$'+amt.toFixed(2);
+  document.getElementById('cpFeeD').textContent  = '-$'+fd.toFixed(2);
+  document.getElementById('cpFeeP').textContent  = '-$'+fp.toFixed(2);
+  document.getElementById('cpNet').textContent   = '$'+net.toFixed(2);
+  document.getElementById('cpDaily').textContent = '$'+daily.toFixed(4);
+  document.getElementById('cpTotal').textContent = '$'+total30.toFixed(2)+' USDT';
+}
+
+// CALC TOPUP
+function calcTopup(v){
+  const amt = parseFloat(v)||0;
+  const prev = document.getElementById('calcTopup');
+  if(amt < 1){ prev.style.display='none'; return; }
+  prev.style.display='block';
+  const fd=amt*0.01, fp=amt*0.01, net=amt-fd-fp;
+  document.getElementById('tu-raw').textContent = '$'+amt.toFixed(2);
+  document.getElementById('tu-fd').textContent  = '-$'+fd.toFixed(2);
+  document.getElementById('tu-fp').textContent  = '-$'+fp.toFixed(2);
+  document.getElementById('tu-net').textContent = '$'+net.toFixed(2);
+}
+
+// SLIDER WD
+function updateSlider(val){
+  document.getElementById('sliderPct').textContent = val+'%';
+  const amt = totalBalance * (val/100);
+  document.getElementById('wdAmount').textContent = '$'+amt.toFixed(4)+' USDT';
+  document.querySelectorAll('.wd-preset').forEach(p=>p.classList.remove('active'));
+  if(val==100) document.querySelectorAll('.wd-preset')[3].classList.add('active');
+}
+function setPreset(pct){
+  document.getElementById('wdSlider').value = pct;
+  updateSlider(pct);
+}
+
+// STATUS HELPER
+function setStatus(id, msg, type='info'){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'status-msg '+ type;
+}
+
+// TOAST
+function showToast(icon, msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent  = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// APPROVE STAKE
+async function doApproveStake(){
+  if(!signer){ await initWallet(); return; }
+  const amt = document.getElementById('stakeAmt').value.trim();
+  if(!amt||Number(amt)<50){ setStatus('stakeStatus','Min stake $50','err'); return; }
+  try{
+    setStatus('stakeStatus','Menunggu approval...','info');
+    const val = ethers.utils.parseUnits(amt, 18);
+    const tx  = await usdtC.approve(CA, val);
+    await tx.wait();
+    setStatus('stakeStatus','Approved ✅ — Klik Stake!','ok');
+    showToast('✅','USDT Approved!');
+  }catch(e){ setStatus('stakeStatus', e.code===4001?'Dibatalkan':'Gagal ❌','err'); }
+}
+
+// STAKE
+async function doStake(){
+  if(!signer){ await initWallet(); return; }
+  const amt = document.getElementById('stakeAmt').value.trim();
+  if(!amt||Number(amt)<50){ setStatus('stakeStatus','Min stake $50','err'); return; }
+  if(Number(amt)>500){ setStatus('stakeStatus','Max stake $500','err'); return; }
+  try{
+    setStatus('stakeStatus','Konfirmasi di wallet...','info');
+    const val = ethers.utils.parseUnits(amt, 18);
+    const tx  = await stakingC.stake(val);
+    setStatus('stakeStatus','Diproses...','info');
+    await tx.wait();
+    setStatus('stakeStatus','🌊 Staking berhasil!','ok');
+    showToast('💧','Flexi Staking dimulai!');
+    await loadBalance();
+    await loadUsdtBal();
+  }catch(e){ setStatus('stakeStatus', e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err'); }
+}
+
+// APPROVE TOPUP
+async function doApproveTopup(){
+  if(!signer){ await initWallet(); return; }
+  const amt = document.getElementById('topupAmt').value.trim();
+  if(!amt||Number(amt)<1){ setStatus('topupStatus','Min topup $1','err'); return; }
+  try{
+    setStatus('topupStatus','Menunggu approval...','info');
+    const val = ethers.utils.parseUnits(amt, 18);
+    const tx  = await usdtC.approve(CA, val);
+    await tx.wait();
+    setStatus('topupStatus','Approved ✅ — Klik Topup!','ok');
+    showToast('✅','USDT Approved!');
+  }catch(e){ setStatus('topupStatus', e.code===4001?'Dibatalkan':'Gagal ❌','err'); }
+}
+
+// TOPUP
+async function doTopup(){
+  if(!signer){ await initWallet(); return; }
+  const amt = document.getElementById('topupAmt').value.trim();
+  if(!amt||Number(amt)<1){ setStatus('topupStatus','Min topup $1','err'); return; }
+  try{
+    setStatus('topupStatus','Konfirmasi di wallet...','info');
+    const val = ethers.utils.parseUnits(amt, 18);
+    const tx  = await stakingC.topUp(val);
+    setStatus('topupStatus','Diproses...','info');
+    await tx.wait();
+    setStatus('topupStatus','➕ Topup berhasil!','ok');
+    showToast('➕','Topup berhasil!');
+    await loadBalance();
+    await loadUsdtBal();
+  }catch(e){ setStatus('topupStatus', e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err'); }
+}
+
+// WITHDRAW
+async function doWithdraw(){
+  if(!signer){ await initWallet(); return; }
+  const pct = parseInt(document.getElementById('wdSlider').value);
+  const amt = totalBalance * (pct/100);
+  if(amt<=0){ setStatus('wdStatus','Saldo kosong','err'); return; }
+  try{
+    setStatus('wdStatus','Konfirmasi di wallet...','info');
+    // Round down to avoid precision issues
+    const amtStr = amt.toFixed(6);
+    const val    = ethers.utils.parseUnits(amtStr, 18);
+    const tx     = await stakingC.withdraw(val);
+    setStatus('wdStatus','Diproses...','info');
+    await tx.wait();
+    setStatus('wdStatus','💸 Penarikan berhasil!','ok');
+    showToast('💸','Dana berhasil ditarik!');
+    await loadBalance();
+    await loadUsdtBal();
+  }catch(e){ setStatus('wdStatus', e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err'); }
+}
+
+// RESUME
+async function doResume(){
+  if(!signer){ await initWallet(); return; }
+  try{
+    document.getElementById('resumeStatus').textContent='Konfirmasi di wallet...';
+    const tx = await stakingC.resume();
+    await tx.wait();
+    document.getElementById('pauseBanner').style.display='none';
+    showToast('🌊','Staking dilanjutkan!');
+    await loadBalance();
+  }catch(e){
+    document.getElementById('resumeStatus').textContent = e.code===4001?'Dibatalkan':'Gagal';
+    document.getElementById('resumeStatus').className='status-msg err';
+  }
+}
+
+window.addEventListener('load', ()=>{
+  checkPool();
+  initWallet();
+});
+</script>
+</body>
+</html>
