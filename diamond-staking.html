@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Diamond Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#08050f;--bg2:#0f0a1a;--bg3:#140d22;--bg4:#120e1e;
+  --orange:#f97316;--orange2:#ea580c;--orange3:#fed7aa;
+  --red:#ef4444;--red2:#dc2626;
+  --yellow:#facc15;--green:#22c55e;--purple:#a855f7;
+  --cyan:#00F5FF;--silver:#C0C0C0;--gold:#FFD700;--bd:#BF5FFF;
+  --text:#f1e8ff;--muted:#6b5f7a;
+  --glow-orange:0 0 24px rgba(249,115,22,0.45);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.bg-g1{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(249,115,22,0.07),transparent 70%);top:-80px;left:-80px;animation:drift1 14s ease-in-out infinite alternate;}
+.bg-g2{position:absolute;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(0,245,255,0.05),transparent 70%);bottom:-60px;right:-60px;animation:drift2 17s ease-in-out infinite alternate;}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(249,115,22,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.025) 1px,transparent 1px);background-size:40px 40px;}
+@keyframes drift1{to{transform:translate(50px,30px)}}
+@keyframes drift2{to{transform:translate(-30px,-50px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes gem-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes glow-pulse{0%,100%{opacity:0.6}50%{opacity:1}}
+@keyframes claim-glow{0%,100%{box-shadow:0 0 6px rgba(250,204,21,0.3)}50%{box-shadow:0 0 20px rgba(250,204,21,0.7)}}
+@keyframes slide-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.layout{position:relative;z-index:1;min-height:100vh;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:rgba(8,5,15,0.96);backdrop-filter:blur(20px);border-bottom:1px solid rgba(249,115,22,0.12);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.btn-back{background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);color:var(--orange3);padding:6px 11px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;}
+.nav-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--orange3);letter-spacing:1px;}
+.nav-sub{font-size:9px;color:var(--muted);}
+.nav-right{display:flex;align-items:center;gap:7px;}
+.pool-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:glow-pulse 2s infinite;}
+.pool-dot.closed{background:var(--red);box-shadow:0 0 8px var(--red);}
+.pool-txt{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--green);}
+.wallet-chip-nav{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:20px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:9px;color:var(--green);cursor:pointer;display:none;}
+
+.main{padding:12px 12px 90px;max-width:480px;margin:0 auto;}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+.stat-card{background:rgba(255,255,255,0.03);border:1px solid rgba(249,115,22,0.1);border-radius:14px;padding:12px 14px;position:relative;overflow:hidden;animation:fadeUp 0.3s ease both;}
+.stat-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 0% 0%,rgba(249,115,22,0.06),transparent 70%);pointer-events:none;}
+.stat-icon{font-size:18px;margin-bottom:4px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--orange3);line-height:1;}
+.stat-lbl{font-size:10px;color:var(--muted);letter-spacing:0.5px;margin-top:3px;}
+.s-green .stat-val{color:var(--green);}
+.s-cyan .stat-val{color:var(--cyan);}
+.s-yellow .stat-val{color:var(--yellow);}
+
+/* TIER CARDS */
+.section-label{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;padding-left:2px;}
+.tier-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+.tier-card{border-radius:18px;padding:18px 12px 14px;position:relative;overflow:hidden;cursor:pointer;transition:transform 0.25s,box-shadow 0.25s;text-align:center;opacity:0;animation:cardEntrance 0.5s ease forwards;}
+.tier-card:nth-child(1){animation-delay:0.05s;}
+.tier-card:nth-child(2){animation-delay:0.15s;}
+.tier-card:nth-child(3){animation-delay:0.25s;}
+.tier-card:nth-child(4){animation-delay:0.35s;}
+@keyframes cardEntrance{from{opacity:0;transform:translateY(22px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.tier-card:active{transform:scale(0.96);}
+
+/* shimmer sweep */
+.tier-card::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);transform:skewX(-20deg);transition:left 0s;}
+.tier-card:hover::after{left:160%;transition:left 0.5s ease;}
+
+.tc-silver{background:linear-gradient(160deg,rgba(192,192,192,0.1) 0%,rgba(80,80,100,0.06) 100%);border:1px solid rgba(192,192,192,0.22);box-shadow:0 4px 24px rgba(192,192,192,0.06);}
+.tc-gold{background:linear-gradient(160deg,rgba(255,215,0,0.12) 0%,rgba(180,100,0,0.05) 100%);border:1px solid rgba(255,215,0,0.28);box-shadow:0 4px 24px rgba(255,215,0,0.07);}
+.tc-diamond{background:linear-gradient(160deg,rgba(0,245,255,0.09) 0%,rgba(0,100,180,0.05) 100%);border:1px solid rgba(0,245,255,0.22);box-shadow:0 4px 24px rgba(0,245,255,0.07);}
+.tc-bd{background:linear-gradient(160deg,rgba(191,95,255,0.12) 0%,rgba(0,245,255,0.04) 100%);border:1px solid rgba(191,95,255,0.28);box-shadow:0 4px 24px rgba(191,95,255,0.08);}
+
+/* glow orb top-right */
+.tc-silver::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(192,192,192,0.18),transparent 70%);pointer-events:none;}
+.tc-gold::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(255,215,0,0.22),transparent 70%);pointer-events:none;}
+.tc-diamond::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(0,245,255,0.18),transparent 70%);pointer-events:none;}
+.tc-bd::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(191,95,255,0.22),transparent 70%);pointer-events:none;}
+
+.tc-gem{font-size:32px;margin-bottom:8px;display:block;animation:gem-float 3s ease-in-out infinite;filter:drop-shadow(0 0 8px currentColor);}
+.tc-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;letter-spacing:2px;margin-bottom:10px;text-align:center;}
+.tc-silver .tc-name{color:var(--silver);text-shadow:0 0 12px rgba(192,192,192,0.5);}
+.tc-gold .tc-name{color:var(--gold);text-shadow:0 0 12px rgba(255,215,0,0.5);}
+.tc-diamond .tc-name{color:var(--cyan);text-shadow:0 0 12px rgba(0,245,255,0.5);}
+.tc-bd .tc-name{background:linear-gradient(90deg,var(--bd),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 8px rgba(191,95,255,0.4));}
+
+.tc-rate{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;line-height:1;text-align:center;}
+.tc-silver .tc-rate{color:var(--silver);text-shadow:0 0 16px rgba(192,192,192,0.6);}
+.tc-gold .tc-rate{color:var(--gold);text-shadow:0 0 16px rgba(255,215,0,0.6);}
+.tc-diamond .tc-rate{color:var(--cyan);text-shadow:0 0 16px rgba(0,245,255,0.6);}
+.tc-bd .tc-rate{color:var(--bd);text-shadow:0 0 16px rgba(191,95,255,0.6);}
+.tc-rate-lbl{font-size:9px;color:var(--muted);margin-bottom:10px;text-align:center;}
+
+.tc-divider{height:1px;background:rgba(255,255,255,0.07);margin:10px 0;}
+
+.tc-info-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:4px;padding:0 2px;}
+.tc-info-row span{color:var(--muted);}
+.tc-silver .tc-info-row strong{color:var(--silver);font-family:'Space Mono',monospace;font-size:9px;}
+.tc-gold .tc-info-row strong{color:var(--gold);font-family:'Space Mono',monospace;font-size:9px;}
+.tc-diamond .tc-info-row strong{color:var(--cyan);font-family:'Space Mono',monospace;font-size:9px;}
+.tc-bd .tc-info-row strong{color:var(--bd);font-family:'Space Mono',monospace;font-size:9px;}
+
+.tc-badge{display:inline-block;font-size:8px;font-family:'Orbitron',sans-serif;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:9px;letter-spacing:1px;}
+.tc-silver .tc-badge{background:rgba(192,192,192,0.1);color:var(--silver);border:1px solid rgba(192,192,192,0.25);box-shadow:0 0 8px rgba(192,192,192,0.15);}
+.tc-gold .tc-badge{background:rgba(255,215,0,0.1);color:var(--gold);border:1px solid rgba(255,215,0,0.25);box-shadow:0 0 8px rgba(255,215,0,0.2);}
+.tc-diamond .tc-badge{background:rgba(0,245,255,0.08);color:var(--cyan);border:1px solid rgba(0,245,255,0.22);box-shadow:0 0 8px rgba(0,245,255,0.15);}
+.tc-bd .tc-badge{background:rgba(191,95,255,0.1);color:var(--bd);border:1px solid rgba(191,95,255,0.28);box-shadow:0 0 8px rgba(191,95,255,0.2);}
+
+/* pulse ring on tap */
+@keyframes ring-pulse{0%{transform:scale(1);opacity:0.6}100%{transform:scale(1.5);opacity:0}}
+.tier-card .ring{position:absolute;inset:0;border-radius:18px;pointer-events:none;}
+.tier-card.tapped .ring{animation:ring-pulse 0.4s ease-out forwards;}
+
+/* CONNECT WALLET — PREMIUM CARD */
+@keyframes breathe{0%,100%{box-shadow:0 0 30px rgba(255,215,0,0.08),0 8px 32px rgba(0,0,0,0.4)}50%{box-shadow:0 0 50px rgba(255,215,0,0.18),0 8px 40px rgba(0,0,0,0.5)}}
+@keyframes gold-shift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes line-grow{from{width:0;opacity:0}to{width:60px;opacity:1}}
+
+.connect-strip{
+  position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(20,14,34,0.98),rgba(12,8,22,0.99));
+  border:1px solid rgba(255,215,0,0.2);
+  border-radius:20px;padding:24px 20px;margin-bottom:14px;
+  text-align:center;
+  animation:breathe 3s ease-in-out infinite, fadeUp 0.5s ease both;
+}
+/* top gold line */
+.connect-strip::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  height:2px;width:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,215,0,0.5),rgba(249,115,22,0.4),rgba(255,215,0,0.5),transparent);
+}
+/* subtle grid texture */
+.connect-strip::after{
+  content:'';position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,215,0,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,215,0,0.015) 1px,transparent 1px);
+  background-size:20px 20px;pointer-events:none;
+}
+.cs-crown{font-size:36px;margin-bottom:10px;filter:drop-shadow(0 0 12px rgba(255,215,0,0.6));animation:gem-float 3s ease-in-out infinite;}
+.cs-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;letter-spacing:2px;
+  background:linear-gradient(90deg,#FFD700,#fed7aa,#FFD700);
+  background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:gold-shift 3s ease infinite;
+  margin-bottom:6px;
+}
+.cs-line{width:60px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,215,0,0.5),transparent);margin:10px auto;animation:line-grow 0.8s ease 0.5s both;}
+.cs-desc{font-size:11px;color:rgba(255,255,255,0.35);line-height:1.6;margin-bottom:18px;letter-spacing:0.5px;}
+.cs-desc strong{color:rgba(255,215,0,0.7);}
+.cs-features{display:flex;justify-content:center;gap:16px;margin-bottom:20px;}
+.cs-feat{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.cs-feat-icon{font-size:16px;}
+.cs-feat-txt{font-size:9px;color:var(--muted);font-family:'Orbitron',sans-serif;letter-spacing:0.5px;}
+.btn-connect-premium{
+  position:relative;overflow:hidden;
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,#b8860b,#FFD700,#f97316,#FFD700,#b8860b);
+  background-size:300% auto;
+  color:#08050f;border:none;border-radius:12px;
+  font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;
+  cursor:pointer;letter-spacing:2px;
+  animation:gold-shift 3s ease infinite;
+  box-shadow:0 4px 20px rgba(255,215,0,0.25);
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.btn-connect-premium:active{transform:scale(0.98);}
+.btn-connect-premium::before{
+  content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+  transform:skewX(-20deg);animation:shimmer-btn 2.5s ease infinite;
+}
+@keyframes shimmer-btn{0%{left:-100%}100%{left:200%}}
+.cs-secure{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:12px;font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:1px;}
+
+/* CONNECTED STRIP */
+.wallet-connected-strip{display:none;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,rgba(34,197,94,0.06),rgba(0,245,255,0.03));
+  border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:12px 16px;margin-bottom:14px;}
+.wcs-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:glow-pulse 2s infinite;}
+.wcs-left{display:flex;align-items:center;gap:8px;}
+.wcs-addr{font-family:'Space Mono',monospace;font-size:11px;color:var(--green);}
+.wcs-bal{font-size:11px;color:var(--muted);}
+.wcs-bal strong{color:var(--text);}
+
+/* TABS */
+.tabs{display:flex;gap:5px;margin-bottom:12px;background:rgba(0,0,0,0.25);border-radius:12px;padding:4px;}
+.tab{flex:1;padding:8px 4px;text-align:center;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;transition:all 0.25s;color:var(--muted);border:none;background:transparent;}
+.tab.active{background:linear-gradient(135deg,rgba(249,115,22,0.2),rgba(239,68,68,0.1));color:var(--orange3);border:1px solid rgba(249,115,22,0.3);}
+.panel{display:none;animation:fadeUp 0.25s ease both;}
+.panel.active{display:block;}
+
+/* STAKE CARDS */
+.stakes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.stakes-title{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--orange3);letter-spacing:1px;}
+.btn-new-stake{background:linear-gradient(135deg,var(--orange),var(--red2));color:#fff;border:none;border-radius:8px;padding:7px 13px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;}
+.stake-card{border-radius:14px;padding:13px;margin-bottom:9px;animation:slide-in 0.3s ease both;}
+.stake-card.tier-0{background:linear-gradient(135deg,rgba(192,192,192,0.07),rgba(8,5,15,0.9));border:1px solid rgba(192,192,192,0.18);}
+.stake-card.tier-1{background:linear-gradient(135deg,rgba(255,215,0,0.07),rgba(8,5,15,0.9));border:1px solid rgba(255,215,0,0.18);}
+.stake-card.tier-2{background:linear-gradient(135deg,rgba(0,245,255,0.06),rgba(8,5,15,0.9));border:1px solid rgba(0,245,255,0.18);}
+.stake-card.tier-3{background:linear-gradient(135deg,rgba(191,95,255,0.08),rgba(8,5,15,0.9));border:1px solid rgba(191,95,255,0.22);}
+.sc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;}
+.sc-idx{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--muted);letter-spacing:2px;}
+.sc-amount{font-family:'Orbitron',sans-serif;font-size:19px;font-weight:700;}
+.sc-amount span{font-size:10px;color:var(--muted);font-family:'Rajdhani',sans-serif;}
+.sc-tier-pill{font-size:8px;font-family:'Orbitron',sans-serif;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:4px;display:inline-block;}
+.sc-right{text-align:right;}
+.sc-days{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
+.sc-enddate{font-size:9px;color:var(--muted);margin-top:2px;}
+.sc-prog-wrap{height:5px;background:rgba(0,0,0,0.35);border-radius:20px;overflow:hidden;margin-bottom:9px;}
+.sc-prog-fill{height:100%;border-radius:20px;}
+.sc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:9px;}
+.sc-stat{background:rgba(0,0,0,0.25);border-radius:8px;padding:7px 6px;text-align:center;}
+.sc-stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
+.sc-stat-lbl{font-size:8px;color:var(--muted);margin-top:2px;}
+.sc-actions{display:flex;gap:5px;}
+.sc-btn{flex:1;padding:8px 4px;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;border:1px solid transparent;text-align:center;}
+.sc-btn:disabled{opacity:0.28;cursor:not-allowed;}
+.sc-btn.b-cicilan{background:rgba(250,204,21,0.08);border-color:rgba(250,204,21,0.3);color:var(--yellow);}
+.sc-btn.b-cicilan:not(:disabled){animation:claim-glow 2s ease-in-out infinite;}
+.sc-btn.b-full{background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:var(--green);}
+.sc-btn.b-emer{background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.22);color:var(--red);}
+.sc-status{font-size:10px;margin-top:6px;font-weight:600;min-height:14px;text-align:center;}
+.sc-status.ok{color:var(--green);}
+.sc-status.err{color:var(--red);}
+.sc-status.info{color:var(--orange3);}
+.empty-stakes{text-align:center;padding:28px 20px;color:var(--muted);}
+.empty-stakes .ei{font-size:38px;margin-bottom:8px;display:block;}
+
+/* INFO */
+.info-card{background:var(--bg4);border:1px solid rgba(249,115,22,0.1);border-radius:14px;padding:14px;margin-bottom:12px;}
+.rule-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(249,115,22,0.05);}
+.rule-item:last-child{border-bottom:none;padding-bottom:0;}
+.rule-icon{font-size:15px;flex-shrink:0;}
+.rule-text strong{display:block;font-size:12px;color:var(--text);margin-bottom:1px;}
+.rule-text span{font-size:10px;color:var(--muted);line-height:1.4;}
+.rt-title{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--orange3);letter-spacing:1.5px;margin-bottom:12px;}
+
+/* FORM */
+.form-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.82);backdrop-filter:blur(10px);display:none;align-items:flex-end;justify-content:center;}
+.form-overlay.show{display:flex;}
+.form-sheet{background:var(--bg2);border-radius:22px 22px 0 0;border:1px solid rgba(249,115,22,0.18);border-bottom:none;padding:18px 16px 38px;width:100%;max-width:480px;animation:slide-up 0.32s cubic-bezier(0.34,1.56,0.64,1);}
+.sheet-handle{width:36px;height:4px;background:rgba(249,115,22,0.3);border-radius:4px;margin:0 auto 16px;}
+.sheet-title{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--orange3);font-weight:900;margin-bottom:14px;}
+.form-label{font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;display:block;text-transform:uppercase;}
+.form-input{width:100%;padding:12px 14px;background:rgba(0,0,0,0.4);border:1px solid rgba(249,115,22,0.2);border-radius:11px;color:white;font-family:'Space Mono',monospace;font-size:15px;outline:none;margin-bottom:11px;transition:border-color 0.3s;}
+.form-input:focus{border-color:var(--orange);}
+.form-input::placeholder{color:var(--muted);font-size:12px;}
+.form-tier-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:11px;}
+.ftier-btn{padding:9px 8px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;cursor:pointer;text-align:center;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.3);color:var(--muted);transition:all 0.2s;}
+.ftier-btn .fn{font-size:11px;margin-bottom:2px;}
+.ftier-btn .fr{font-size:8px;opacity:0.6;font-family:'Rajdhani',sans-serif;font-weight:400;}
+.ftier-btn.sel-0{border-color:var(--silver);color:var(--silver);background:rgba(192,192,192,0.08);}
+.ftier-btn.sel-1{border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,0.08);}
+.ftier-btn.sel-2{border-color:var(--cyan);color:var(--cyan);background:rgba(0,245,255,0.07);}
+.ftier-btn.sel-3{border-color:var(--bd);color:var(--bd);background:rgba(191,95,255,0.1);}
+.form-calc{background:rgba(249,115,22,0.04);border:1px solid rgba(249,115,22,0.09);border-radius:11px;padding:11px;margin-bottom:10px;}
+.fc-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;}
+.fc-row span{color:var(--muted);}
+.fc-row strong{color:var(--text);}
+.fc-row.hl strong{color:var(--yellow);font-family:'Orbitron',sans-serif;font-size:12px;}
+.form-note{font-size:10px;color:var(--muted);line-height:1.5;padding:9px 12px;background:rgba(0,0,0,0.2);border-radius:9px;margin-bottom:10px;border-left:2px solid rgba(249,115,22,0.3);}
+.btn-approve-f{width:100%;padding:11px;margin-bottom:7px;background:rgba(34,197,94,0.08);border:1.5px solid rgba(34,197,94,0.28);color:var(--green);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;cursor:pointer;}
+.form-btns{display:flex;gap:7px;}
+.btn-cancel{flex:1;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:var(--muted);border-radius:11px;font-family:'Orbitron',sans-serif;font-size:10px;cursor:pointer;}
+.btn-stake-f{flex:2;padding:12px;background:linear-gradient(135deg,var(--orange),var(--red2));color:#fff;border:none;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;cursor:pointer;}
+.fs{min-height:16px;text-align:center;font-size:11px;font-weight:600;margin-top:7px;}
+.fs.err{color:var(--red);}
+.fs.ok{color:var(--green);}
+.fs.info{color:var(--orange3);}
+
+/* TOAST */
+.toast{position:fixed;top:66px;left:50%;transform:translateX(-50%) translateY(-90px);opacity:0;background:rgba(8,5,15,0.97);border:1px solid var(--orange);border-radius:11px;padding:9px 18px;z-index:300;transition:all 0.38s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:7px;box-shadow:var(--glow-orange);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast-msg{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--orange3);font-weight:700;}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(8,5,15,0.97);backdrop-filter:blur(16px);border-top:1px solid rgba(249,115,22,0.1);display:flex;justify-content:space-around;padding:9px 0 14px;}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);padding:3px 10px;}
+.bnav-item.active .bnav-label{color:var(--orange3);}
+.bnav-icon{font-size:19px;}
+.bnav-label{font-size:8px;font-weight:700;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+<div class="bg-layer"><div class="bg-grid"></div><div class="bg-g1"></div><div class="bg-g2"></div></div>
+<div id="toast" class="toast"><span id="toastIcon">💎</span><span class="toast-msg" id="toastMsg"></span></div>
+
+<!-- FORM -->
+<div class="form-overlay" id="formOverlay" onclick="if(event.target===this)closeFormDirect()">
+  <div class="form-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">💎 STAKE BARU</div>
+    <label class="form-label">Pilih Tier</label>
+    <div class="form-tier-grid">
+      <div class="ftier-btn" id="ftier-0" onclick="selectTier(0)"><div class="fn">🥈 SILVER</div><div class="fr">1,000–2,000 USDT · 12 bln</div></div>
+      <div class="ftier-btn" id="ftier-1" onclick="selectTier(1)"><div class="fn">🥇 GOLD</div><div class="fr">2,000–3,000 USDT · 24 bln</div></div>
+      <div class="ftier-btn" id="ftier-2" onclick="selectTier(2)"><div class="fn">💎 DIAMOND</div><div class="fr">3,000–4,000 USDT · 36 bln</div></div>
+      <div class="ftier-btn" id="ftier-3" onclick="selectTier(3)"><div class="fn">🖤 BLACK DIAMOND</div><div class="fr">4,000–5,000 USDT · 48 bln</div></div>
+    </div>
+    <label class="form-label">Jumlah USDT</label>
+    <input class="form-input" type="number" id="newAmt" placeholder="Contoh: 1000" oninput="calcStake(this.value)">
+    <div class="form-calc" id="fCalc" style="display:none">
+      <div class="fc-row"><span>Modal</span><strong id="fc-p">$0</strong></div>
+      <div class="fc-row"><span>Rate/hari</span><strong id="fc-r" style="color:var(--cyan)">—</strong></div>
+      <div class="fc-row"><span>Lock period</span><strong id="fc-l">—</strong></div>
+      <div class="fc-row"><span>Total reward</span><strong id="fc-g" style="color:var(--orange3)">$0</strong></div>
+      <div class="fc-row"><span>Fee</span><strong id="fc-f" style="color:var(--red)">-$0</strong></div>
+      <div class="fc-row hl"><span>Cicilan/bulan (5%)</span><strong id="fc-c">$0/bln</strong></div>
+    </div>
+    <div class="form-note">💡 Reward dihitung berdasarkan <strong style="color:var(--orange3)">periode lock & jumlah stake</strong>. Cicilan 5% bisa diklaim tiap bulan. Full reward cair saat jatuh tempo. Emergency WD max <strong style="color:var(--orange3)">5%/bulan</strong>.</div>
+    <button class="btn-approve-f" onclick="doApprove()">✅ APPROVE USDT DULU</button>
+    <div class="form-btns">
+      <button class="btn-cancel" onclick="closeFormDirect()">BATAL</button>
+      <button class="btn-stake-f" onclick="doStake()">💎 MULAI STAKING</button>
+    </div>
+    <div class="fs" id="fStatus"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="topnav">
+    <div class="nav-left">
+      <a href="earn.html" class="btn-back">← EARN</a>
+      <div>
+        <div class="nav-title">DIAMOND STAKING</div>
+        <div class="nav-sub">INDOCOIN · BSC</div>
+      </div>
+    </div>
+    <div class="nav-right">
+      <div class="pool-dot" id="poolDot"></div>
+      <span class="pool-txt" id="poolTxt">OPEN</span>
+      <div class="wallet-chip-nav" id="walletChipNav" onclick="copyAddr()">—</div>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- 4 TIER CARDS -->
+    <div class="section-label">⬡ PILIH TIER STAKING</div>
+    <div class="tier-cards">
+      <div class="tier-card tc-silver" onclick="openFormTier(0);tapCard(this)">
+        <div class="ring"></div>
+        <span class="tc-gem">🥈</span>
+        <div class="tc-name">SILVER</div>
+        <div class="tc-rate">1.1%</div>
+        <div class="tc-rate-lbl">per hari</div>
+        <div class="tc-divider"></div>
+        <div class="tc-info-row"><span>Min</span><strong>1,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Max</span><strong>2,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Lock</span><strong>12 Bulan</strong></div>
+        <div class="tc-badge">STARTER</div>
+      </div>
+      <div class="tier-card tc-gold" onclick="openFormTier(1);tapCard(this)">
+        <div class="ring"></div>
+        <span class="tc-gem" style="animation-delay:0.4s">🥇</span>
+        <div class="tc-name">GOLD</div>
+        <div class="tc-rate">1.3%</div>
+        <div class="tc-rate-lbl">per hari</div>
+        <div class="tc-divider"></div>
+        <div class="tc-info-row"><span>Min</span><strong>2,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Max</span><strong>3,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Lock</span><strong>24 Bulan</strong></div>
+        <div class="tc-badge">POPULAR</div>
+      </div>
+      <div class="tier-card tc-diamond" onclick="openFormTier(2);tapCard(this)">
+        <div class="ring"></div>
+        <span class="tc-gem" style="animation-delay:0.8s">💎</span>
+        <div class="tc-name">DIAMOND</div>
+        <div class="tc-rate">1.5%</div>
+        <div class="tc-rate-lbl">per hari</div>
+        <div class="tc-divider"></div>
+        <div class="tc-info-row"><span>Min</span><strong>3,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Max</span><strong>4,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Lock</span><strong>36 Bulan</strong></div>
+        <div class="tc-badge">PREMIUM</div>
+      </div>
+      <div class="tier-card tc-bd" onclick="openFormTier(3);tapCard(this)">
+        <div class="ring"></div>
+        <span class="tc-gem" style="animation-delay:1.2s">🖤</span>
+        <div class="tc-name">BLACK DIAMOND</div>
+        <div class="tc-rate">1.7%</div>
+        <div class="tc-rate-lbl">per hari</div>
+        <div class="tc-divider"></div>
+        <div class="tc-info-row"><span>Min</span><strong>4,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Max</span><strong>5,000 USDT</strong></div>
+        <div class="tc-info-row"><span>Lock</span><strong>48 Bulan</strong></div>
+        <div class="tc-badge">EXCLUSIVE</div>
+      </div>
+    </div>
+
+    <!-- 4 STAT CARDS -->
+    <div class="stat-grid">
+      <div class="stat-card" style="animation-delay:0s">
+        <div class="stat-icon" id="poolStatIcon">🟢</div>
+        <div class="stat-val" id="poolStatVal">OPEN</div>
+        <div class="stat-lbl">POOL STATUS</div>
+      </div>
+      <div class="stat-card s-cyan" style="animation-delay:0.06s">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" id="statStaked">—</div>
+        <div class="stat-lbl">TOTAL STAKED</div>
+      </div>
+      <div class="stat-card s-yellow" style="animation-delay:0.12s">
+        <div class="stat-icon">📈</div>
+        <div class="stat-val">1.7%</div>
+        <div class="stat-lbl">APY MAKS/HARI</div>
+      </div>
+      <div class="stat-card s-green" style="animation-delay:0.18s">
+        <div class="stat-icon">💵</div>
+        <div class="stat-val" id="statSaldo">—</div>
+        <div class="stat-lbl">SALDO USDT</div>
+      </div>
+    </div>
+
+    <!-- CONNECT WALLET PREMIUM -->
+    <div class="connect-strip" id="connectStrip">
+      <div class="cs-crown">👑</div>
+      <div class="cs-title">EXCLUSIVE INVESTOR ACCESS</div>
+      <div class="cs-line"></div>
+      <div class="cs-desc">Hubungkan wallet untuk mengakses<br><strong>program staking eksklusif</strong> dengan<br>return hingga <strong>1.7% per hari</strong></div>
+      <div class="cs-features">
+        <div class="cs-feat"><div class="cs-feat-icon">🔐</div><div class="cs-feat-txt">SECURE</div></div>
+        <div class="cs-feat"><div class="cs-feat-icon">⚡</div><div class="cs-feat-txt">INSTANT</div></div>
+        <div class="cs-feat"><div class="cs-feat-icon">💎</div><div class="cs-feat-txt">PREMIUM</div></div>
+        <div class="cs-feat"><div class="cs-feat-icon">📈</div><div class="cs-feat-txt">HIGH ROI</div></div>
+      </div>
+      <button class="btn-connect-premium" onclick="initWallet()">🔗 &nbsp; CONNECT WALLET</button>
+      <div class="cs-secure">🛡️ &nbsp; BSC NETWORK &nbsp;·&nbsp; NON-CUSTODIAL &nbsp;·&nbsp; SMART CONTRACT</div>
+    </div>
+
+    <!-- CONNECTED STRIP -->
+    <div class="wallet-connected-strip" id="connectedStrip">
+      <div class="wcs-left">
+        <div class="wcs-dot"></div>
+        <div class="wcs-addr" id="wcsAddr">0x…</div>
+      </div>
+      <div class="wcs-bal">USDT: <strong id="wcsBal">$0.00</strong></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('stakes')">💎 STAKES</button>
+      <button class="tab" onclick="switchTab('info')">📋 INFO</button>
+    </div>
+
+    <div class="panel active" id="panel-stakes">
+      <div class="stakes-header">
+        <span class="stakes-title">💼 STAKE AKTIF SAYA</span>
+        <button class="btn-new-stake" onclick="openFormTier(0)">+ STAKE BARU</button>
+      </div>
+      <div id="stakesList">
+        <div class="empty-stakes">
+          <span class="ei">💎</span>
+          <p style="font-size:13px;">Belum ada stake aktif.<br><span style="color:var(--orange3);font-size:12px;">Tap kartu tier di atas untuk mulai!</span></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-info">
+      <div class="info-card" style="border-color:rgba(0,245,255,0.15);background:linear-gradient(135deg,rgba(0,245,255,0.04),var(--bg4));text-align:center;padding:20px;margin-bottom:12px;">
+        <div style="font-size:34px;margin-bottom:8px;">💎</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:12px;color:var(--cyan);font-weight:900;margin-bottom:5px;">INVESTOR DIAMOND STAKING</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:10px;">Smart contract BSC terverifikasi. Reward dihitung berdasarkan periode lock dan jumlah stake. Transparan & trustless.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(0,245,255,0.4);word-break:break-all;">0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504</div>
+      </div>
+      <div class="info-card">
+        <div class="rt-title">📋 CARA KERJA</div>
+        <div class="rule-item"><span class="rule-icon">1️⃣</span><div class="rule-text"><strong>Pilih Tier & Approve USDT</strong><span>Approve USDT dulu, lalu stake sesuai tier yang dipilih.</span></div></div>
+        <div class="rule-item"><span class="rule-icon">2️⃣</span><div class="rule-text"><strong>Klaim Cicilan Tiap Bulan</strong><span>5% dari total reward bisa diklaim setiap genap 1 bulan.</span></div></div>
+        <div class="rule-item"><span class="rule-icon">3️⃣</span><div class="rule-text"><strong>Full Withdraw Jatuh Tempo</strong><span>Klaim semua sisa reward setelah lock period selesai.</span></div></div>
+        <div class="rule-item"><span class="rule-icon">🚨</span><div class="rule-text"><strong>Emergency Withdraw</strong><span>Tarik max 5% dari principal per bulan kapan saja.</span></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="index.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="earn.html" class="bnav-item active"><span class="bnav-icon">💎</span><span class="bnav-label">EARN</span></a>
+  <a href="support.html" class="bnav-item"><span class="bnav-icon">🛟</span><span class="bnav-label">SUPPORT</span></a>
+</div>
+
+<script>
+const CA="0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504";
+const USDT_ADDR="0x55d398326f99059fF775485246999027B3197955";
+const RPC="https://bsc-dataseed1.binance.org/";
+const ABI=["function stake(uint8,uint256) external","function claimCicilan(uint256) external","function claimFull(uint256) external","function emergencyWithdraw(uint256) external","function getStakeCount(address) view returns(uint256)","function getStakeInfo(address,uint256) view returns(uint8,string,uint256,uint256,uint256,uint256,uint256)","function getStakeInfo2(address,uint256) view returns(uint256,uint256,uint256,uint256,bool,bool,bool)","function totalStakers() view returns(uint256)","function totalStaked() view returns(uint256)","function poolOpen() view returns(bool)"];
+const ERC20=["function approve(address,uint256) returns(bool)","function balanceOf(address) view returns(uint256)"];
+const TIERS=[
+  {name:"Silver",emoji:"🥈",color:"#C0C0C0",prog:"#C0C0C0",lock:12,rate:1.1,fee:10,min:1000,max:2000},
+  {name:"Gold",emoji:"🥇",color:"#FFD700",prog:"#FFD700",lock:24,rate:1.3,fee:20,min:2000,max:3000},
+  {name:"Diamond",emoji:"💎",color:"#00F5FF",prog:"#00F5FF",lock:36,rate:1.5,fee:30,min:3000,max:4000},
+  {name:"BlackDiamond",emoji:"🖤",color:"#BF5FFF",prog:"#BF5FFF",lock:48,rate:1.7,fee:40,min:4000,max:5000}
+];
+let provider,signer,stakingC,usdtC,userAddr,stakesData=[],selTier=0;
+const rp=new ethers.providers.JsonRpcProvider(RPC);
+const rC=new ethers.Contract(CA,ABI,rp);
+
+async function checkPool(){
+  try{
+    const[open,staked]=await Promise.all([rC.poolOpen(),rC.totalStaked()]);
+    const dot=document.getElementById('poolDot'),txt=document.getElementById('poolTxt');
+    const pIcon=document.getElementById('poolStatIcon'),pVal=document.getElementById('poolStatVal');
+    if(open){
+      dot.classList.remove('closed');txt.style.color='var(--green)';txt.textContent='OPEN';
+      pIcon.textContent='🟢';pVal.textContent='OPEN';pVal.style.color='var(--green)';
+    } else {
+      dot.classList.add('closed');txt.style.color='var(--red)';txt.textContent='CLOSED';
+      pIcon.textContent='🔴';pVal.textContent='CLOSED';pVal.style.color='var(--red)';
+    }
+    const s=parseFloat(ethers.utils.formatUnits(staked,18));
+    document.getElementById('statStaked').textContent=s>=1000?'$'+(s/1000).toFixed(1)+'K':'$'+s.toFixed(0);
+  }catch(e){}
+}
+
+async function initWallet(){
+  const eth=window.ethereum;
+  if(!eth){toast('⚠️','Install MetaMask!');return;}
+  try{
+    await eth.request({method:'eth_requestAccounts'});
+    provider=new ethers.providers.Web3Provider(eth,'any');
+    signer=provider.getSigner();
+    const cid=parseInt(await eth.request({method:'eth_chainId'}),16);
+    if(cid!==56){try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){}}
+    provider=new ethers.providers.Web3Provider(eth,'any');
+    signer=provider.getSigner();
+    stakingC=new ethers.Contract(CA,ABI,signer);
+    usdtC=new ethers.Contract(USDT_ADDR,ERC20,signer);
+    userAddr=await signer.getAddress();
+    document.getElementById('connectStrip').style.display='none';
+    document.getElementById('connectedStrip').style.display='flex';
+    document.getElementById('walletChipNav').style.display='block';
+    const short=userAddr.slice(0,6)+'…'+userAddr.slice(-4);
+    document.getElementById('wcsAddr').textContent=short;
+    document.getElementById('walletChipNav').textContent=short;
+    await loadAll();
+    eth.on('accountsChanged',()=>location.reload());
+    toast('✅','Wallet terhubung!');
+  }catch(e){console.warn(e);toast('❌','Gagal connect');}
+}
+
+async function loadAll(){
+  if(!userAddr)return;
+  try{
+    const bal=await usdtC.balanceOf(userAddr);
+    const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
+    document.getElementById('statSaldo').textContent=bf;
+    document.getElementById('wcsBal').textContent=bf;
+    const count=(await rC.getStakeCount(userAddr)).toNumber();
+    stakesData=[];
+    for(let i=0;i<count;i++){
+      const a=await rC.getStakeInfo(userAddr,i);
+      const b=await rC.getStakeInfo2(userAddr,i);
+      stakesData.push({idx:i,tier:a[0],tierName:a[1],principal:parseFloat(ethers.utils.formatUnits(a[2],18)),startTime:a[3].toNumber(),endTime:a[4].toNumber(),totalReward:parseFloat(ethers.utils.formatUnits(a[5],18)),rewardClaimed:parseFloat(ethers.utils.formatUnits(a[6],18)),rewardRemaining:parseFloat(ethers.utils.formatUnits(b[0],18)),cicilanPerMonth:parseFloat(ethers.utils.formatUnits(b[1],18)),nextCicilan:b[2].toNumber(),emergencyMax:parseFloat(ethers.utils.formatUnits(b[3],18)),emergencyAvail:b[4],active:b[5],completed:b[6]});
+    }
+    renderCards();
+  }catch(e){console.warn(e);}
+}
+
+function renderCards(){
+  const c=document.getElementById('stakesList');
+  const active=stakesData.filter(s=>s.active);
+  if(!active.length){c.innerHTML='<div class="empty-stakes"><span class="ei">💎</span><p style="font-size:13px;">Belum ada stake aktif.<br><span style="color:var(--orange3);font-size:12px;">Tap kartu tier di atas untuk mulai!</span></p></div>';return;}
+  c.innerHTML='';
+  active.forEach(s=>{
+    const t=TIERS[s.tier];
+    const now=Math.floor(Date.now()/1000);
+    const pct=Math.min(100,((now-s.startTime)/(s.endTime-s.startTime))*100);
+    const canCicilan=now>=s.nextCicilan&&s.rewardRemaining>0;
+    const canFull=now>=s.endTime;
+    const dL=Math.max(0,Math.ceil((s.endTime-now)/86400));
+    const eD=new Date(s.endTime*1000).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'2-digit'});
+    const d=document.createElement('div');
+    d.className='stake-card tier-'+s.tier;
+    d.innerHTML=`
+      <div class="sc-top">
+        <div><div class="sc-idx">STAKE #${s.idx+1}</div><div class="sc-amount" style="color:${t.color}">$${s.principal.toFixed(0)}<span> USDT</span></div><span class="sc-tier-pill" style="background:${t.color}18;color:${t.color};border:1px solid ${t.color}40">${t.emoji} ${t.name}</span></div>
+        <div class="sc-right"><div class="sc-days" style="color:${canFull?'var(--green)':t.color}">${canFull?'✅ JATUH TEMPO':dL+'H LAGI'}</div><div class="sc-enddate">${eD}</div><div class="sc-enddate" style="color:${t.color}">${t.rate}%/hari</div></div>
+      </div>
+      <div class="sc-prog-wrap"><div class="sc-prog-fill" style="width:${pct.toFixed(1)}%;background:linear-gradient(90deg,${t.prog},var(--orange))"></div></div>
+      <div class="sc-stats">
+        <div class="sc-stat"><div class="sc-stat-val" style="color:var(--yellow)">$${s.rewardRemaining.toFixed(2)}</div><div class="sc-stat-lbl">REWARD SISA</div></div>
+        <div class="sc-stat"><div class="sc-stat-val" style="color:${t.color}">$${s.cicilanPerMonth.toFixed(2)}</div><div class="sc-stat-lbl">CICILAN/BLN</div></div>
+        <div class="sc-stat"><div class="sc-stat-val" style="color:var(--green)">$${s.rewardClaimed.toFixed(2)}</div><div class="sc-stat-lbl">DIKLAIM</div></div>
+      </div>
+      <div class="sc-actions">
+        <button class="sc-btn b-cicilan" ${canCicilan?'':'disabled'} onclick="doCicilan(${s.idx})">${canCicilan?'💰 CICILAN':'⏳ CICILAN'}</button>
+        <button class="sc-btn b-full" ${canFull?'':'disabled'} onclick="doFull(${s.idx})">🏁 FULL WD</button>
+        <button class="sc-btn b-emer" ${s.emergencyAvail?'':'disabled'} onclick="doEmer(${s.idx})">🚨 $${s.emergencyMax.toFixed(0)}</button>
+      </div>
+      <div class="sc-status" id="scs-${s.idx}"></div>`;
+    c.appendChild(d);
+  });
+}
+
+function openFormTier(t){
+  if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
+  selTier=t;selectTier(t);
+  document.getElementById('newAmt').value='';
+  document.getElementById('fCalc').style.display='none';
+  document.getElementById('fStatus').textContent='';
+  document.getElementById('formOverlay').classList.add('show');
+}
+function selectTier(t){
+  selTier=t;
+  for(let i=0;i<4;i++){const el=document.getElementById('ftier-'+i);el.className='ftier-btn'+(i===t?' sel-'+t:'');}
+  calcStake(document.getElementById('newAmt').value);
+}
+function calcStake(v){
+  const amt=parseFloat(v)||0;const c=document.getElementById('fCalc');
+  if(amt<1){c.style.display='none';return;}
+  c.style.display='block';
+  const t=TIERS[selTier];const gross=amt*(t.rate/100)*t.lock*30;const fee=gross*t.fee/100;
+  document.getElementById('fc-p').textContent='$'+amt.toFixed(2);
+  document.getElementById('fc-r').textContent=t.rate+'%/hari';
+  document.getElementById('fc-l').textContent=t.lock+' bulan';
+  document.getElementById('fc-g').textContent='$'+gross.toFixed(2);
+  document.getElementById('fc-f').textContent='-$'+fee.toFixed(2)+' ('+t.fee+'%)';
+  document.getElementById('fc-c').textContent='$'+(gross*0.05).toFixed(2)+'/bln';
+}
+function closeFormDirect(){document.getElementById('formOverlay').classList.remove('show');}
+
+async function doApprove(){
+  if(!signer){await initWallet();return;}
+  const amt=document.getElementById('newAmt').value;
+  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
+  try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
+  catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
+}
+async function doStake(){
+  if(!signer){await initWallet();return;}
+  const amt=document.getElementById('newAmt').value;if(!amt){setFS('fStatus','Masukkan jumlah','err');return;}
+  const t=TIERS[selTier];
+  if(Number(amt)<t.min){setFS('fStatus','Min '+t.min.toLocaleString()+' USDT','err');return;}
+  if(Number(amt)>t.max){setFS('fStatus','Max '+t.max.toLocaleString()+' USDT','err');return;}
+  try{setFS('fStatus','Konfirmasi di wallet...','info');const tx=await stakingC.stake(selTier,ethers.utils.parseUnits(amt,18));setFS('fStatus','Diproses...','info');await tx.wait();setFS('fStatus','💎 Staking dimulai!','ok');toast('💎','Staking berhasil!');closeFormDirect();await loadAll();}
+  catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+}
+async function doCicilan(idx){if(!signer)return;try{setSCS(idx,'Konfirmasi...','info');const tx=await stakingC.claimCicilan(idx);await tx.wait();setSCS(idx,'💰 Diklaim!','ok');toast('💰','Cicilan berhasil!');await loadAll();}catch(e){setSCS(idx,e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}}
+async function doFull(idx){if(!signer)return;try{setSCS(idx,'Konfirmasi...','info');const tx=await stakingC.claimFull(idx);await tx.wait();setSCS(idx,'🏁 Full diklaim!','ok');toast('🏁','Full reward berhasil!');await loadAll();}catch(e){setSCS(idx,e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}}
+async function doEmer(idx){if(!signer)return;if(!confirm('Emergency withdraw max 5% principal bulan ini?'))return;try{setSCS(idx,'Konfirmasi...','info');const tx=await stakingC.emergencyWithdraw(idx);await tx.wait();setSCS(idx,'🚨 WD OK!','ok');toast('🚨','Emergency WD berhasil!');await loadAll();}catch(e){setSCS(idx,e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}}
+
+function tapCard(el){el.classList.add('tapped');setTimeout(()=>el.classList.remove('tapped'),400);}
+function switchTab(tab){document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['stakes','info'][i]===tab));document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+tab).classList.add('active');}
+function copyAddr(){if(userAddr){navigator.clipboard.writeText(userAddr);toast('📋','Alamat disalin!');}}
+function setFS(id,msg,t){const el=document.getElementById(id);if(el){el.textContent=msg;el.className='fs '+t;}}
+function setSCS(idx,msg,t){setFS('scs-'+idx,msg,t);}
+function toast(icon,msg){document.getElementById('toastIcon').textContent=icon;document.getElementById('toastMsg').textContent=msg;const el=document.getElementById('toast');el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
+
+window.addEventListener('load',()=>{checkPool();initWallet();});
+</script>
+</body>
+</html>
