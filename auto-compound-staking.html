@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>INDOCOIN — EduStaking Mahasiswa</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Caveat:wght@600;700&family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#050e07;--bg2:#071408;--bg3:#0a1c0c;
+  --chalk:#e8ffee;--chalk2:#c8f5d8;--chalk3:#a0e8bc;
+  --green:#00ff88;--green2:#00e673;--teal:#00ffcc;
+  --lime:#aaff00;--gold:#ffd700;--gold2:#ffaa00;
+  --board:#0a1a0d;--board2:#0d2010;
+  --red:#ff4466;--muted:#2d6b45;--muted2:#1a4a2a;
+  --text:#d0ffdf;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ═══ WORLD BG ═══ */
+.world{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}
+/* chalkboard texture */
+.chalk-bg{position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,136,0.008) 3px,rgba(0,255,136,0.008) 4px),
+  repeating-linear-gradient(90deg,transparent,transparent 5px,rgba(0,255,136,0.005) 5px,rgba(0,255,136,0.005) 6px);}
+/* floating math formulas */
+.formula{position:absolute;font-family:'Caveat',cursive;color:rgba(0,255,136,0.08);
+  animation:formula-drift linear infinite;white-space:nowrap;pointer-events:none;}
+/* chalk dust particles */
+.dust{position:absolute;border-radius:50%;background:rgba(200,245,216,0.15);
+  animation:dust-float ease-in-out infinite;filter:blur(1px);}
+/* orb glow */
+.orb-edu{position:absolute;border-radius:50%;filter:blur(70px);animation:orb-pulse ease-in-out infinite alternate;}
+.orb1{width:350px;height:350px;background:radial-gradient(circle,rgba(0,255,136,0.07),transparent 70%);top:-100px;right:-80px;animation-duration:16s;}
+.orb2{width:280px;height:280px;background:radial-gradient(circle,rgba(255,215,0,0.05),transparent 70%);bottom:-80px;left:-60px;animation-duration:20s;animation-delay:-8s;}
+.orb3{width:200px;height:200px;background:radial-gradient(circle,rgba(0,255,204,0.04),transparent 70%);top:45%;left:25%;animation-duration:24s;animation-delay:-12s;}
+
+@keyframes formula-drift{from{transform:translateY(110vh) rotate(-5deg);opacity:0}5%{opacity:1}95%{opacity:.6}to{transform:translateY(-100px) rotate(5deg);opacity:0}}
+@keyframes dust-float{0%,100%{transform:translateY(0) scale(1);opacity:.3}50%{transform:translateY(-15px) scale(1.3);opacity:.7}}
+@keyframes orb-pulse{from{transform:scale(1)}to{transform:scale(1.15)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(105%)}to{transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes spin-rev{from{transform:rotate(360deg)}to{transform:rotate(0)}}
+@keyframes bounce-in{0%{transform:scale(0.7);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes chalk-write{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0% 0 0)}}
+@keyframes number-pop{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+@keyframes bar-grow{from{width:0}to{width:var(--w)}}
+@keyframes shimmer{0%{left:-100%}100%{left:160%}}
+@keyframes pulse-gold{0%,100%{box-shadow:0 0 15px rgba(255,215,0,.2)}50%{box-shadow:0 0 35px rgba(255,215,0,.5)}}
+@keyframes card-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes trophy-bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6px) rotate(3deg)}}
+@keyframes star-spin{from{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.2)}to{transform:rotate(360deg) scale(1)}}
+
+.app{position:relative;z-index:1;min-height:100vh;}
+.scroller{padding-bottom:88px;}
+
+/* ═══ TOPBAR ═══ */
+.topbar{position:sticky;top:0;z-index:100;
+  background:rgba(5,14,7,.95);backdrop-filter:blur(20px);
+  border-bottom:2px solid rgba(0,255,136,.12);padding:9px 13px;
+  display:flex;align-items:center;justify-content:space-between;}
+.tb-left{display:flex;align-items:center;gap:8px;}
+.back-btn{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.2);
+  border-radius:7px;padding:5px 9px;font-family:'Bebas Neue',sans-serif;
+  font-size:10px;letter-spacing:1px;color:var(--green);text-decoration:none;display:flex;align-items:center;gap:3px;}
+.brand{display:flex;align-items:center;gap:6px;}
+.brand-icon{font-size:20px;animation:trophy-bob 3s ease-in-out infinite;}
+.brand-name{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--green);line-height:1;}
+.brand-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1.5px;}
+.tb-right{display:flex;align-items:center;gap:6px;}
+.pool-badge{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:20px;
+  background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.15);}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2.5s infinite;}
+.pdot.off{background:var(--red);box-shadow:0 0 6px var(--red);}
+.ptxt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--green);font-weight:700;}
+.wallet-chip{display:none;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--teal);
+  background:rgba(0,255,204,.06);border:1px solid rgba(0,255,204,.18);border-radius:20px;padding:4px 8px;cursor:pointer;}
+
+/* ═══ KYC BANNER — ALWAYS VISIBLE ═══ */
+.kyc-banner{margin:12px 12px 0;animation:card-in .4s ease both;}
+
+/* Not connected */
+.kyc-not-connected{
+  background:linear-gradient(135deg,rgba(0,255,136,.05),rgba(0,20,10,.98));
+  border:1px solid rgba(0,255,136,.15);border-radius:14px;padding:12px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.knc-left{display:flex;align-items:center;gap:10px;}
+.knc-icon{font-size:22px;}
+.knc-text strong{display:block;font-size:13px;font-weight:700;color:var(--green);margin-bottom:1px;}
+.knc-text span{font-size:10px;color:var(--muted);}
+.btn-connect-sm{background:linear-gradient(135deg,var(--green2),var(--teal));color:#050e07;
+  border:none;border-radius:9px;padding:9px 14px;font-family:'Bebas Neue',sans-serif;
+  font-size:11px;letter-spacing:1.5px;cursor:pointer;font-weight:900;white-space:nowrap;}
+
+/* KYC not done */
+.kyc-alert{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,215,0,.07),rgba(0,255,136,.04));
+  border:1.5px solid rgba(255,215,0,.3);border-radius:14px;padding:14px;}
+.kyc-alert::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--green),transparent);}
+.ka-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.ka-badge{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);
+  border-radius:8px;padding:6px 8px;font-size:20px;animation:star-spin 8s linear infinite;}
+.ka-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--gold);}
+.ka-sub{font-size:10px;color:rgba(255,215,0,.6);}
+.ka-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
+.ka-step{background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.1);border-radius:9px;padding:8px 6px;text-align:center;}
+.kas-num{width:20px;height:20px;border-radius:50%;background:rgba(0,255,136,.1);border:1px solid var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--green);margin:0 auto 4px;}
+.kas-icon{font-size:14px;margin-bottom:3px;}
+.kas-txt{font-size:8px;color:var(--muted);line-height:1.3;}
+.btn-kyc-main{width:100%;padding:11px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(0,255,136,.1));
+  border:1.5px solid var(--gold);color:var(--gold);border-radius:11px;
+  font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:3px;
+  cursor:pointer;animation:pulse-gold 2.5s ease-in-out infinite;}
+.btn-kyc-main::before{content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,215,0,.2),transparent);
+  transform:skewX(-20deg);animation:shimmer 2s ease infinite;}
+
+/* KYC pending */
+.kyc-pending{background:linear-gradient(135deg,rgba(255,221,0,.05),rgba(0,255,136,.03));
+  border:1px solid rgba(255,221,0,.25);border-radius:14px;padding:12px 14px;
+  display:flex;align-items:center;gap:10px;}
+.kp-anim{font-size:24px;animation:spin 3s linear infinite;}
+.kp-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--gold);margin-bottom:2px;}
+.kp-sub{font-size:10px;color:rgba(255,221,0,.5);}
+
+/* KYC approved */
+.kyc-approved{background:linear-gradient(135deg,rgba(0,255,136,.06),rgba(0,255,204,.03));
+  border:1px solid rgba(0,255,136,.2);border-radius:14px;padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between;}
+.ka-ok-left{display:flex;align-items:center;gap:8px;}
+.ka-ok-icon{font-size:22px;}
+.ka-ok-title{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--green);margin-bottom:1px;}
+.ka-ok-sub{font-size:9px;color:var(--muted);}
+.ka-ok-badge{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);
+  border-radius:20px;padding:5px 10px;font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--green);font-weight:700;}
+
+/* ═══ HERO CHALKBOARD ═══ */
+.chalkboard{margin:12px 12px 0;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#0d2010,#071408);
+  border:2px solid rgba(0,255,136,.2);border-radius:18px;padding:16px;
+  box-shadow:inset 0 0 60px rgba(0,0,0,.5),0 8px 32px rgba(0,0,0,.4);}
+/* chalk border effect */
+.chalkboard::before{content:'';position:absolute;inset:3px;border-radius:15px;
+  border:1px dashed rgba(0,255,136,.08);pointer-events:none;}
+/* corner decorations */
+.cb-corner{position:absolute;width:12px;height:12px;border-color:rgba(0,255,136,.3);border-style:solid;}
+.cb-corner.tl{top:8px;left:8px;border-width:2px 0 0 2px;}
+.cb-corner.tr{top:8px;right:8px;border-width:2px 2px 0 0;}
+.cb-corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px;}
+.cb-corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0;}
+
+.cb-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.cb-title-wrap{}
+.cb-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
+.cb-title{font-family:'Caveat',cursive;font-size:26px;color:var(--chalk);line-height:1.1;
+  text-shadow:0 0 20px rgba(0,255,136,.3);}
+.cb-title span{color:var(--green);}
+.cb-formula-box{background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.1);
+  border-radius:8px;padding:6px 10px;text-align:center;}
+.cb-formula{font-family:'Caveat',cursive;font-size:13px;color:var(--chalk3);line-height:1.4;}
+.cb-formula .hl{color:var(--green);}
+
+/* compound meter */
+.cb-meter{margin-bottom:14px;}
+.cb-meter-header{display:flex;justify-content:space-between;margin-bottom:5px;}
+.cb-meter-label{font-family:'Caveat',cursive;font-size:13px;color:var(--chalk3);}
+.cb-meter-val{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--green);}
+.meter-track{height:10px;background:rgba(0,255,136,.06);border-radius:20px;
+  overflow:hidden;border:1px solid rgba(0,255,136,.1);}
+.meter-fill{height:100%;border-radius:20px;
+  background:linear-gradient(90deg,var(--green2),var(--green),var(--teal));
+  box-shadow:0 0 10px rgba(0,255,136,.5);transition:width 1.5s ease;}
+
+/* 4 stat chalk boxes */
+.cb-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+.cbs{background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.1);border-radius:10px;padding:9px;}
+.cbs-icon{font-size:14px;margin-bottom:3px;}
+.cbs-val{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--green);line-height:1;letter-spacing:1px;}
+.cbs-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px;}
+.cbs.t-gold .cbs-val{color:var(--gold);}
+.cbs.t-teal .cbs-val{color:var(--teal);}
+.cbs.t-lime .cbs-val{color:var(--lime);}
+
+/* chalk eraser line */
+.cb-divider{height:2px;background:linear-gradient(90deg,transparent,rgba(0,255,136,.15),transparent);margin:10px 0;}
+
+/* 3 hero numbers */
+.cb-numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:rgba(0,255,136,.07);border-radius:10px;overflow:hidden;}
+.cbn{background:var(--bg2);padding:9px 5px;text-align:center;}
+.cbn-val{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--green);line-height:1;letter-spacing:1px;}
+.cbn-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+
+/* ═══ POOL TICKER ═══ */
+.pool-ticker{margin:10px 12px 0;overflow:hidden;background:rgba(0,0,0,.4);
+  border:1px solid rgba(0,255,136,.1);border-radius:10px;padding:7px 14px;
+  display:flex;align-items:center;gap:10px;}
+.pt-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;white-space:nowrap;}
+.pt-items{display:flex;gap:18px;overflow:hidden;flex:1;}
+.pt-item{display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.pt-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);}
+.pt-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--chalk3);}
+.pt-val{font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--green);letter-spacing:1px;}
+
+/* ═══ CONNECT WALLET BAR ═══ */
+.wallet-bar{margin:10px 12px 0;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.12);
+  border-radius:11px;padding:9px 13px;display:none;align-items:center;justify-content:space-between;}
+.wb-left{display:flex;align-items:center;gap:7px;}
+.wb-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);}
+.wb-addr{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);}
+.wb-bal{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.wb-bal strong{color:var(--text);}
+
+/* ═══ PROGRAM RULES STRIP ═══ */
+.rules-strip{margin:10px 12px 0;
+  background:linear-gradient(135deg,rgba(0,255,136,.04),rgba(255,215,0,.03));
+  border:1px solid rgba(0,255,136,.1);border-radius:12px;overflow:hidden;}
+.rs-header{display:flex;align-items:center;gap:7px;padding:8px 12px;
+  border-bottom:1px solid rgba(0,255,136,.07);}
+.rs-icon{font-size:14px;}
+.rs-title{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:var(--green);}
+.rs-items{display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
+.rs-item{padding:8px 10px;text-align:center;border-right:1px solid rgba(0,255,136,.06);}
+.rs-item:last-child{border-right:none;}
+.rsi-val{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--green);line-height:1;}
+.rsi-lbl{font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:1px;}
+.rsi-lbl.warn{color:rgba(255,68,102,.6);}
+
+/* ═══ TABS ═══ */
+.tabs-wrap{margin:10px 12px 0;}
+.tabs{display:flex;gap:4px;background:rgba(0,0,0,.45);border-radius:12px;padding:4px;}
+.tab-btn{flex:1;padding:8px 3px;border:none;background:transparent;border-radius:8px;
+  font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:1.5px;color:var(--muted);cursor:pointer;transition:all .2s;}
+.tab-btn.on{background:rgba(0,255,136,.09);color:var(--green);border:1px solid rgba(0,255,136,.2);}
+.panel{display:none;margin:10px 12px 0;animation:fadeUp .25s ease both;}
+.panel.on{display:block;}
+
+/* ═══ STAKES PANEL ═══ */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sh-left{display:flex;align-items:center;gap:7px;}
+.sh-line{width:3px;height:14px;background:linear-gradient(180deg,var(--green),var(--teal));border-radius:2px;}
+.sh-title{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--green);}
+.sh-cnt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-stake-new{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--green2),var(--teal));color:#050e07;
+  border:none;border-radius:9px;padding:8px 14px;font-family:'Bebas Neue',sans-serif;
+  font-size:10px;letter-spacing:1.5px;cursor:pointer;font-weight:900;}
+.btn-stake-new::before{content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:rgba(255,255,255,.2);transform:skewX(-20deg);animation:shimmer 2s ease infinite;}
+
+/* stake card */
+.stake-card{position:relative;overflow:hidden;background:var(--bg2);
+  border-radius:14px;padding:13px;border:1px solid rgba(0,255,136,.12);
+  margin-bottom:9px;animation:card-in .35s ease both;}
+/* chalk top line */
+.stake-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;
+  background:linear-gradient(90deg,transparent,var(--green),var(--teal),transparent);}
+/* level badge */
+.sc-level{position:absolute;top:10px;right:10px;}
+
+.sk-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;}
+.sk-num{width:32px;height:32px;border-radius:8px;background:rgba(0,255,136,.08);
+  border:1px solid rgba(0,255,136,.2);display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--green);flex-shrink:0;}
+.sk-info{}
+.sk-idx{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:2px;}
+.sk-amt{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--green);line-height:1;}
+.sk-amt sub{font-size:10px;color:var(--muted);font-family:'Exo 2',sans-serif;}
+.sk-cur{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--teal);margin-top:1px;}
+
+/* ROI bar */
+.roi-wrap{margin-bottom:8px;}
+.roi-hdr{display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px;}
+.roi-hdr span{color:var(--muted);}
+.roi-hdr strong{color:var(--green);}
+.roi-track{height:5px;background:rgba(0,255,136,.06);border-radius:10px;overflow:hidden;}
+.roi-fill{height:100%;border-radius:10px;background:linear-gradient(90deg,#00cc5a,var(--green),var(--teal));
+  box-shadow:0 0 7px rgba(0,255,136,.4);transition:width 1.2s ease;}
+
+/* 4 mini stats */
+.sk-4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:9px;}
+.skm{background:rgba(0,0,0,.3);border-radius:8px;padding:6px 3px;text-align:center;border:1px solid rgba(0,255,136,.06);}
+.skm-val{font-family:'Share Tech Mono',monospace;font-size:10px;}
+.skm-lbl{font-size:7px;color:var(--muted);margin-top:1px;}
+
+/* status + action */
+.sk-footer{display:flex;align-items:center;gap:6px;}
+.sk-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sk-status-txt{font-size:10px;font-weight:700;flex:1;}
+.sk-wd{padding:8px 12px;border-radius:8px;border:1px solid transparent;
+  font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;white-space:nowrap;}
+.wd-safe{background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.2);color:var(--green);}
+.wd-early{background:rgba(255,68,102,.07);border-color:rgba(255,68,102,.2);color:var(--red);}
+.sk-msg{min-height:12px;margin-top:6px;font-size:9px;font-weight:700;text-align:center;}
+.sk-msg.ok{color:var(--green);}
+.sk-msg.err{color:var(--red);}
+.sk-msg.info{color:var(--teal);}
+
+/* empty */
+.empty-state{text-align:center;padding:28px 16px;background:rgba(0,0,0,.2);border-radius:14px;border:1px dashed rgba(0,255,136,.1);}
+.es-icon{font-size:44px;margin-bottom:10px;display:block;animation:bounce-in .5s ease both;}
+.es-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--green);margin-bottom:4px;}
+.es-sub{font-size:11px;color:var(--muted);line-height:1.6;}
+
+/* ═══ REFERRAL PANEL ═══ */
+.ref-header-card{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(0,255,136,.05),rgba(255,215,0,.03));
+  border:1px solid rgba(0,255,136,.18);border-radius:14px;padding:13px;margin-bottom:9px;}
+.ref-header-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--green),var(--gold),transparent);}
+.rhc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.rhc-left .rhc-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
+.rhc-left .rhc-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--green);line-height:1;}
+.rhc-left .rhc-note{font-size:9px;color:var(--muted);margin-top:2px;}
+.btn-claim{background:linear-gradient(135deg,var(--green2),var(--teal));color:#050e07;
+  border:none;border-radius:9px;padding:10px 14px;font-family:'Bebas Neue',sans-serif;
+  font-size:10px;letter-spacing:1px;cursor:pointer;font-weight:900;}
+.btn-claim:disabled{opacity:.2;cursor:not-allowed;}
+.ref-chain{display:flex;align-items:center;gap:4px;overflow-x:auto;padding-bottom:2px;}
+.rc-node{background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.15);border-radius:7px;
+  padding:4px 7px;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
+.rc-node .rcn-l{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.rc-node .rcn-p{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:1px;}
+.rc-arrow{color:var(--muted);font-size:10px;}
+
+.ref-link-card{background:rgba(0,0,0,.25);border:1px solid rgba(0,255,136,.08);
+  border-radius:12px;padding:11px;margin-bottom:9px;}
+.rlc-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;}
+.rlc-url{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--teal);word-break:break-all;line-height:1.5;}
+.btn-copy-link{width:100%;margin-top:7px;padding:8px;background:rgba(0,255,136,.05);
+  border:1px solid rgba(0,255,136,.12);color:var(--green);border-radius:8px;
+  font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:2px;cursor:pointer;}
+
+/* ═══ INFO PANEL ═══ */
+.chalk-block{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,var(--board2),var(--bg2));
+  border:1px solid rgba(0,255,136,.1);border-radius:14px;padding:14px;margin-bottom:9px;}
+.chalk-block::before{content:'';position:absolute;inset:4px;border-radius:11px;
+  border:1px dashed rgba(0,255,136,.06);pointer-events:none;}
+.chalk-block-title{font-family:'Caveat',cursive;font-size:16px;color:var(--chalk);
+  margin-bottom:11px;display:flex;align-items:center;gap:7px;}
+.chalk-block-title .icon{font-size:18px;}
+.chalk-rule{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid rgba(0,255,136,.05);}
+.chalk-rule:last-child{border-bottom:none;padding-bottom:0;}
+.cr-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.cr-body strong{display:block;font-family:'Exo 2',sans-serif;font-size:12px;font-weight:700;color:var(--chalk);margin-bottom:1px;}
+.cr-body span{font-size:10px;color:var(--muted);line-height:1.5;}
+
+.chalk-table{width:100%;border-collapse:collapse;}
+.chalk-table th{padding:6px 7px;text-align:left;font-family:'Share Tech Mono',monospace;
+  font-size:8px;color:var(--muted);letter-spacing:1px;border-bottom:1px solid rgba(0,255,136,.1);}
+.chalk-table td{padding:8px 7px;font-size:11px;border-bottom:1px solid rgba(0,255,136,.04);}
+.chalk-table tr:last-child td{border-bottom:none;}
+.chalk-table td:first-child{color:var(--muted);font-size:10px;}
+.c-red{color:var(--red)!important;font-weight:700;}
+.c-green{color:var(--green)!important;font-weight:700;}
+.c-gold{color:var(--gold)!important;font-weight:700;}
+.c-teal{color:var(--teal)!important;font-weight:700;}
+.c-lime{color:var(--lime)!important;font-weight:700;}
+
+/* ref level colored rows */
+.ref-lv-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(0,255,136,.04);}
+.ref-lv-row:last-child{border-bottom:none;}
+.rlr-badge{padding:3px 8px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:700;}
+.rlr-src{font-size:9px;color:var(--muted);}
+.rlr-pct{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;}
+
+/* contract info */
+.contract-info-box{background:rgba(0,0,0,.35);border:1px solid rgba(0,255,136,.08);
+  border-radius:11px;padding:11px;font-family:'Share Tech Mono',monospace;
+  font-size:9px;color:var(--teal);line-height:2;word-break:break-all;}
+
+/* ═══ FORM OVERLAY ═══ */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.9);
+  backdrop-filter:blur(14px);display:none;align-items:flex-end;justify-content:center;}
+.overlay.on{display:flex;}
+.form-sheet{background:var(--bg2);border-radius:22px 22px 0 0;
+  border:1px solid rgba(0,255,136,.2);border-bottom:none;
+  padding:15px 15px 36px;width:100%;max-width:460px;
+  animation:slideUp .3s cubic-bezier(.34,1.2,.64,1);}
+.fsh{width:32px;height:3px;background:rgba(0,255,136,.25);border-radius:3px;margin:0 auto 13px;}
+.fs-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:var(--green);margin-bottom:2px;}
+.fs-sub{font-size:10px;color:var(--muted);margin-bottom:13px;}
+.cd-bar{background:rgba(255,221,0,.04);border:1px solid rgba(255,221,0,.18);
+  border-radius:8px;padding:8px 11px;margin-bottom:10px;font-size:10px;color:var(--gold);text-align:center;}
+.inp-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;display:block;}
+.inp{width:100%;padding:11px 12px;background:rgba(0,0,0,.55);border:1px solid rgba(0,255,136,.18);
+  border-radius:10px;color:white;font-family:'Share Tech Mono',monospace;font-size:15px;
+  outline:none;margin-bottom:9px;transition:border-color .3s;}
+.inp:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(0,255,136,.07);}
+.inp::placeholder{color:var(--muted);font-size:12px;}
+.pv-box{background:rgba(0,255,136,.02);border:1px solid rgba(0,255,136,.08);border-radius:9px;padding:9px;margin-bottom:9px;display:none;}
+.pv-row{display:flex;justify-content:space-between;font-size:11px;padding:2.5px 0;}
+.pv-row span{color:var(--muted);}
+.pv-row strong{font-family:'Share Tech Mono',monospace;color:var(--text);}
+.pv-hl strong{color:var(--green);}
+.warn-note{font-size:10px;color:var(--muted);line-height:1.5;padding:8px 10px;
+  background:rgba(0,0,0,.2);border-radius:8px;border-left:2px solid rgba(0,255,136,.25);margin-bottom:9px;}
+.btn-approve{width:100%;padding:10px;margin-bottom:6px;background:rgba(0,255,136,.05);
+  border:1.5px solid rgba(0,255,136,.22);color:var(--green);border-radius:9px;
+  font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;}
+.form-btns{display:flex;gap:6px;}
+.btn-cancel{flex:1;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  color:var(--muted);border-radius:9px;font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:1px;cursor:pointer;}
+.btn-go{flex:2;padding:12px;background:linear-gradient(135deg,var(--green2),var(--teal));color:#050e07;
+  border:none;border-radius:9px;font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;cursor:pointer;font-weight:900;}
+.fmsg{min-height:14px;margin-top:7px;font-size:10px;font-weight:700;text-align:center;}
+.fmsg.ok{color:var(--green);}
+.fmsg.err{color:var(--red);}
+.fmsg.info{color:var(--teal);}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-70px);opacity:0;
+  background:rgba(5,14,7,.97);border:1px solid var(--green);border-radius:10px;
+  padding:8px 16px;z-index:400;transition:all .35s cubic-bezier(.34,1.3,.64,1);
+  display:flex;align-items:center;gap:6px;box-shadow:0 0 20px rgba(0,255,136,.3);}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast-txt{font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--green);letter-spacing:2px;}
+
+/* ═══ BOTTOM NAV ═══ */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,14,7,.97);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(0,255,136,.1);display:flex;padding:7px 0 13px;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);}
+.bn-item.on .bn-lbl{color:var(--green);}
+.bn-icon{font-size:17px;}
+.bn-lbl{font-size:7px;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- WORLD -->
+<div class="world">
+  <div class="chalk-bg"></div>
+  <div class="orb-edu orb1"></div>
+  <div class="orb-edu orb2"></div>
+  <div class="orb-edu orb3"></div>
+  <div id="formulaWrap"></div>
+  <div id="dustWrap"></div>
+</div>
+
+<div class="toast" id="toast"><span id="tIco">📚</span><span class="toast-txt" id="tTxt"></span></div>
+
+<!-- FORM OVERLAY -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeSheet()">
+  <div class="form-sheet">
+    <div class="fsh"></div>
+    <div class="fs-title">⚡ STAKE BARU</div>
+    <div class="fs-sub" id="fsSub">Stake ke — dari 5 maksimal · Jarak min 7 hari</div>
+    <div class="cd-bar" id="cdBar" style="display:none">⏳ Stake berikutnya: <strong id="cdTxt">—</strong></div>
+    <label class="inp-lbl">JUMLAH USDT · MIN $1 — MAX $10 PER STAKE</label>
+    <input class="inp" type="number" id="inpAmt" placeholder="Masukkan jumlah..." min="1" max="10" step="0.01" oninput="onAmt(this.value)">
+    <div class="pv-box" id="pvBox">
+      <div class="pv-row"><span>💰 Modal stake</span><strong id="pv-p">$0</strong></div>
+      <div class="pv-row"><span>⚡ Compound /hari (0.4%)</span><strong id="pv-d" style="color:var(--teal)">+$0</strong></div>
+      <div class="pv-row"><span>📅 Nilai setelah 30 hari</span><strong id="pv-30" style="color:var(--lime)">$0</strong></div>
+      <div class="pv-row"><span>📅 Nilai setelah 60 hari</span><strong id="pv-60" style="color:var(--lime)">$0</strong></div>
+      <div class="pv-row pv-hl"><span>🏁 Nilai max ROI 1000%</span><strong id="pv-cap">$0</strong></div>
+    </div>
+    <div class="warn-note">⚠️ Penalti <strong style="color:var(--red)">25%</strong> masuk pool likuiditas jika WD sebelum 60 hari. Bebas WD setelah 60 hari + fee <strong style="color:var(--green)">1%</strong> Dev. Compound terus berjalan sampai ROI <strong style="color:var(--green)">1000%</strong>.</div>
+    <button class="btn-approve" onclick="doApprove()">✅ &nbsp;APPROVE USDT DULU</button>
+    <div class="form-btns">
+      <button class="btn-cancel" onclick="closeSheet()">BATAL</button>
+      <button class="btn-go" onclick="doStake()">⚡ MULAI COMPOUND</button>
+    </div>
+    <div class="fmsg" id="fmsg"></div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="scroller">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="tb-left">
+        <a href="earn.html" class="back-btn">← EARN</a>
+        <div class="brand">
+          <span class="brand-icon">🎓</span>
+          <div>
+            <div class="brand-name">EDU COMPOUND STAKING</div>
+            <div class="brand-sub">KHUSUS MAHASISWA · INDOCOIN BSC</div>
+          </div>
+        </div>
+      </div>
+      <div class="tb-right">
+        <div class="pool-badge"><div class="pdot" id="pdot"></div><span class="ptxt" id="ptxt">OPEN</span></div>
+        <div class="wallet-chip" id="wChip" onclick="copyAddr()">—</div>
+      </div>
+    </div>
+
+    <!-- KYC BANNER — ALWAYS VISIBLE -->
+    <div class="kyc-banner" id="kycBanner">
+      <!-- rendered by JS -->
+      <div class="kyc-not-connected">
+        <div class="knc-left">
+          <span class="knc-icon">🎓</span>
+          <div class="knc-text">
+            <strong>Program Eksklusif Mahasiswa</strong>
+            <span>Connect wallet & verifikasi KYC untuk mulai</span>
+          </div>
+        </div>
+        <button class="btn-connect-sm" onclick="initWallet()">🔗 CONNECT</button>
+      </div>
+    </div>
+
+    <!-- CHALKBOARD HERO -->
+    <div class="chalkboard">
+      <div class="cb-corner tl"></div><div class="cb-corner tr"></div>
+      <div class="cb-corner bl"></div><div class="cb-corner br"></div>
+
+      <div class="cb-header">
+        <div class="cb-title-wrap">
+          <div class="cb-label">AUTO COMPOUND STAKING · 0.4%/HARI</div>
+          <div class="cb-title">Investasi<br><span>Mahasiswa</span> 🎓</div>
+        </div>
+        <div class="cb-formula-box">
+          <div class="cb-formula">A = P(1 + <span class="hl">r</span>)^t</div>
+          <div class="cb-formula" style="font-size:11px;color:var(--muted)">r = <span class="hl">0.4%</span>/hari</div>
+          <div class="cb-formula" style="font-size:11px;color:var(--muted)">max ROI = <span class="hl">1000%</span></div>
+        </div>
+      </div>
+
+      <div class="cb-meter">
+        <div class="cb-meter-header">
+          <span class="cb-meter-label">📊 Portfolio ROI Progress</span>
+          <span class="cb-meter-val" id="heroROI">0%</span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-fill" id="heroROIBar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="cb-stats">
+        <div class="cbs"><div class="cbs-icon">⚡</div><div class="cbs-val" id="cbsActive">0/5</div><div class="cbs-lbl">STAKE AKTIF</div></div>
+        <div class="cbs t-gold"><div class="cbs-icon">💰</div><div class="cbs-val" id="cbsValue">$0.00</div><div class="cbs-lbl">TOTAL VALUE</div></div>
+        <div class="cbs t-teal"><div class="cbs-icon">🌿</div><div class="cbs-val" id="cbsBonus">$0.00</div><div class="cbs-lbl">REF BONUS</div></div>
+        <div class="cbs t-lime"><div class="cbs-icon">💵</div><div class="cbs-val" id="cbsSaldo">—</div><div class="cbs-lbl">USDT SALDO</div></div>
+      </div>
+
+      <div class="cb-divider"></div>
+
+      <div class="cb-numbers">
+        <div class="cbn"><div class="cbn-val" id="cbnPool">—</div><div class="cbn-lbl">POOL USDT</div></div>
+        <div class="cbn"><div class="cbn-val" id="cbnMem">—</div><div class="cbn-lbl">MEMBERS</div></div>
+        <div class="cbn"><div class="cbn-val" style="color:var(--gold)">1000%</div><div class="cbn-lbl">ROI CAP</div></div>
+      </div>
+    </div>
+
+    <!-- TICKER -->
+    <div class="pool-ticker">
+      <span class="pt-label">LIVE ·</span>
+      <div class="pt-items">
+        <div class="pt-item"><div class="pt-dot"></div><span class="pt-txt">COMPOUND</span><span class="pt-val">0.4%/HARI</span></div>
+        <div class="pt-item"><div class="pt-dot" style="background:var(--gold);box-shadow:0 0 4px var(--gold)"></div><span class="pt-txt">ROI CAP</span><span class="pt-val" style="color:var(--gold)">1000%</span></div>
+        <div class="pt-item"><div class="pt-dot" style="background:var(--teal);box-shadow:0 0 4px var(--teal)"></div><span class="pt-txt">MIN STAKE</span><span class="pt-val" style="color:var(--teal)">$1 USDT</span></div>
+        <div class="pt-item"><div class="pt-dot" style="background:var(--lime);box-shadow:0 0 4px var(--lime)"></div><span class="pt-txt">MAX STAKE</span><span class="pt-val" style="color:var(--lime)">$10 USDT</span></div>
+        <div class="pt-item"><div class="pt-dot" style="background:var(--red);box-shadow:0 0 4px var(--red)"></div><span class="pt-txt">PENALTI DINI</span><span class="pt-val" style="color:var(--red)">25%</span></div>
+      </div>
+    </div>
+
+    <!-- WALLET BAR (after connect) -->
+    <div class="wallet-bar" id="wBar">
+      <div class="wb-left"><div class="wb-dot"></div><div class="wb-addr" id="wbAddr">—</div></div>
+      <div class="wb-bal">USDT: <strong id="wbBal">$0.00</strong></div>
+    </div>
+
+    <!-- ATURAN STRIP -->
+    <div class="rules-strip">
+      <div class="rs-header"><span class="rs-icon">📋</span><span class="rs-title">ATURAN PROGRAM</span></div>
+      <div class="rs-items">
+        <div class="rs-item"><div class="rsi-val">$1–$10</div><div class="rsi-lbl">PER STAKE</div></div>
+        <div class="rs-item"><div class="rsi-val">5x</div><div class="rsi-lbl">MAX STAKE</div></div>
+        <div class="rs-item"><div class="rsi-val" style="color:var(--red)">25%</div><div class="rsi-lbl warn">PENALTI DINI</div></div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <button class="tab-btn on" onclick="switchTab('stakes')">⚡ STAKES</button>
+        <button class="tab-btn" onclick="switchTab('referral')">🌿 REFERRAL</button>
+        <button class="tab-btn" onclick="switchTab('kyc')">🎓 KYC</button>
+        <button class="tab-btn" onclick="switchTab('info')">📚 INFO</button>
+      </div>
+    </div>
+
+    <!-- PANEL STAKES -->
+    <div class="panel on" id="panel-stakes">
+      <div class="section-head">
+        <div class="sh-left"><div class="sh-line"></div><span class="sh-title">STAKE AKTIF</span><span class="sh-cnt" id="shCnt">0/5</span></div>
+        <button class="btn-stake-new" onclick="openSheet()">+ STAKE BARU</button>
+      </div>
+      <div id="stakeList">
+        <div class="empty-state">
+          <span class="es-icon">🎓</span>
+          <div class="es-title">MULAI PERJALANANMU!</div>
+          <div class="es-sub">Belum ada stake aktif.<br>Selesaikan KYC lalu stake pertamamu.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL REFERRAL -->
+    <div class="panel" id="panel-referral">
+      <div class="ref-header-card">
+        <div class="rhc-top">
+          <div class="rhc-left">
+            <div class="rhc-lbl">BONUS REFERRAL PENDING</div>
+            <div class="rhc-val" id="rbVal">$0.0000</div>
+            <div class="rhc-note">Fee 1% saat klaim · dibayar dari pool</div>
+          </div>
+          <button class="btn-claim" id="btnClaim" onclick="doClaimRef()" disabled>KLAIM BONUS</button>
+        </div>
+        <!-- bonus chain visual L1-L10 -->
+        <div class="ref-chain" id="refChain"></div>
+      </div>
+
+      <div class="ref-link-card">
+        <div class="rlc-lbl">🔗 LINK REFERRAL KAMU</div>
+        <div class="rlc-url" id="refUrl">Connect wallet untuk lihat link referral</div>
+        <button class="btn-copy-link" onclick="copyRef()">📋 &nbsp;SALIN LINK REFERRAL</button>
+      </div>
+
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">🌿</span> Struktur Bonus Referral L1–L10</div>
+        <div id="refLevelList"></div>
+      </div>
+    </div>
+
+    <!-- PANEL KYC -->
+    <div class="panel" id="panel-kyc">
+      <div class="chalk-block" style="text-align:center">
+        <div class="chalk-block-title" style="justify-content:center"><span class="icon">🎓</span> Verifikasi KYC Mahasiswa</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px;">
+          Program ini <strong style="color:var(--chalk)">KHUSUS</strong> untuk mahasiswa aktif.<br>
+          Verifikasi identitas diperlukan untuk melindungi komunitas<br>dan memastikan hanya mahasiswa aktif yang berpartisipasi.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;" id="kycStepsVisual"></div>
+        <div style="margin-bottom:14px;" id="kycStatusDetail"></div>
+        <button class="btn-kyc-main" id="btnKYCPanel" onclick="doKYC()">🪪 &nbsp;MULAI VERIFIKASI KYC</button>
+        <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5;">
+          Data KYC diproses secara aman · Privasi terjaga<br>
+          Hanya admin terverifikasi yang melihat data kamu
+        </div>
+      </div>
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">📋</span> Dokumen yang Diperlukan</div>
+        <div class="chalk-rule"><span class="cr-icon">🪪</span><div class="cr-body"><strong>Kartu Tanda Mahasiswa (KTM)</strong><span>Pastikan foto jelas, nama dan NIM terbaca. Masa berlaku masih aktif.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">🤳</span><div class="cr-body"><strong>Verifikasi Wajah Live</strong><span>Gerakkan kepala kiri-kanan mengikuti instruksi. Tidak bisa menggunakan foto atau video.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">⏱️</span><div class="cr-body"><strong>Proses Review Admin</strong><span>Data dikirim ke admin untuk diverifikasi. Notifikasi melalui status wallet on-chain.</span></div></div>
+      </div>
+    </div>
+
+    <!-- PANEL INFO -->
+    <div class="panel" id="panel-info">
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">⚡</span> Cara Kerja Auto Compound</div>
+        <div class="chalk-rule"><span class="cr-icon">🎓</span><div class="cr-body"><strong>KYC Wajib Sebelum Stake</strong><span>Upload KTM + verifikasi wajah gerak kepala. Tombol stake tidak aktif sebelum KYC disetujui admin.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">💰</span><div class="cr-body"><strong>Min $1 · Max $10 · Max 5 Stake</strong><span>Jarak antar stake minimal 7 hari. Setiap stake berjalan independen dengan compound masing-masing.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">⚡</span><div class="cr-body"><strong>Auto Compound 0.4%/Hari</strong><span>Nilai stake bertumbuh otomatis setiap detik dihitung dari rumus A = P(1+r)^t. Tidak perlu klik manual.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">💸</span><div class="cr-body"><strong>Withdraw Kapan Saja</strong><span>Hari 2-60: penalti 25% masuk pool likuiditas. Setelah hari ke-60: bebas WD, fee 1% ke dev wallet.</span></div></div>
+        <div class="chalk-rule"><span class="cr-icon">🏁</span><div class="cr-body"><strong>ROI Cap 1000%</strong><span>Compound otomatis berhenti saat nilai = 10× modal awal. Segera withdraw setelah ROI cap tercapai.</span></div></div>
+      </div>
+
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">💸</span> Tabel Penalti & Fee Withdraw</div>
+        <table class="chalk-table">
+          <thead><tr><th>PERIODE</th><th>PENALTI</th><th>FEE DEV</th><th>KAMU DAPAT</th></tr></thead>
+          <tbody>
+            <tr><td>Hari 1 (min 2 hari)</td><td class="c-red">LOCKED</td><td>—</td><td class="c-red">TIDAK BISA</td></tr>
+            <tr><td>Hari 2 – 60</td><td class="c-red">25%</td><td>1%</td><td class="c-red">74%</td></tr>
+            <tr><td>Hari 61+</td><td class="c-green">0%</td><td>1%</td><td class="c-green">99%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">🌿</span> Bonus Referral L1–L10</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Bonus dihitung dari <strong style="color:var(--chalk)">reward harian downline</strong> dan dibayar dari pool likuiditas. Tidak memotong reward downline.</div>
+        <div id="refInfoTable"></div>
+        <div style="font-size:9px;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px solid rgba(0,255,136,.06)">✅ Downline wajib KYC aktif · Bonus real-time per detik · Klaim kapan saja</div>
+      </div>
+
+      <div class="chalk-block">
+        <div class="chalk-block-title"><span class="icon">📄</span> Contract Info</div>
+        <div class="contract-info-box">
+          CONTRACT: 0x5A1EBe20493DbF69d781453870F96953EdB16f34<br>
+          NETWORK: BSC Mainnet · Chain ID: 56<br>
+          TOKEN: USDT BEP-20 · 18 Decimals<br>
+          COMPOUND: 0.4% / hari · ROI CAP: 1000%<br>
+          MAX STAKE: 5 · JARAK: 7 hari · MIN: $1 · MAX: $10
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottomnav">
+  <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-lbl">HOME</span></a>
+  <a href="index.html" class="bn-item"><span class="bn-icon">🚀</span><span class="bn-lbl">PRESALE</span></a>
+  <div class="bn-item on"><span class="bn-icon">💚</span><span class="bn-lbl">EARN</span></div>
+  <a href="support.html" class="bn-item"><span class="bn-icon">🛟</span><span class="bn-lbl">SUPPORT</span></a>
+</div>
+
+<script>
+const CA="0x5A1EBe20493DbF69d781453870F96953EdB16f34";
+const USDT_CA="0x55d398326f99059fF775485246999027B3197955";
+const RPC="https://bsc-dataseed1.binance.org/";
+const ABI=["function submitKYC() external","function register(address) external","function stake(uint256) external","function withdraw(uint256) external","function claimRefBonus() external","function getStakeCount(address) view returns(uint256)","function getStakeInfo(address,uint256) view returns(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool,bool)","function getCurrentValue(address,uint256) view returns(uint256)","function getNextStakeAvailable(address) view returns(uint256,uint256)","function getKYCStatus(address) view returns(bool,bool)","function getPoolInfo() view returns(uint256,uint256,bool)","function refBonus(address) view returns(uint256)"];
+const ERC20=["function approve(address,uint256) returns(bool)","function balanceOf(address) view returns(uint256)"];
+
+const REF_DATA=[
+  {l:1,pct:"5%",c:"#00ff88"},{l:2,pct:"4%",c:"#00e673"},
+  {l:3,pct:"3%",c:"#00ffcc"},{l:4,pct:"2%",c:"#aaff00"},
+  {l:5,pct:"1%",c:"#ffd700"},{l:6,pct:"1%",c:"#ffaa00"},
+  {l:7,pct:"1%",c:"#ffaa00"},{l:8,pct:"1%",c:"#ffaa00"},
+  {l:9,pct:"1%",c:"#ffaa00"},{l:10,pct:"1%",c:"#ffaa00"}
+];
+
+let provider,signer,cS,cU,myAddr,stakesArr=[],nextTs=0,cdTimer=null;
+let kycApproved=false,kycPending=false;
+const rpc=new ethers.providers.JsonRpcProvider(RPC);
+const rC=new ethers.Contract(CA,ABI,rpc);
+
+// ═══ FLOATING FORMULAS ═══
+(function(){
+  const formulas=["A = P(1+r)^t","ROI = 1000%","r = 0.4%/hari","Σ bonus = L1+L2...L10","compound daily","∫ growth dt","ΔWealth > 0","P × 1.004^t","max 5 stakes","KYC verified ✓","7 hari jarak","fee = 1%","penalti = 25%","BSC mainnet","USDT BEP-20","auto compound ∞"];
+  const w=document.getElementById('formulaWrap');
+  formulas.forEach((f,i)=>{
+    const el=document.createElement('div');el.className='formula';
+    el.textContent=f;
+    const sz=Math.random()*10+12;
+    el.style.cssText=`font-size:${sz}px;left:${Math.random()*90}%;animation-duration:${Math.random()*20+15}s;animation-delay:${Math.random()*15}s;`;
+    w.appendChild(el);
+  });
+  // dust
+  const dw=document.getElementById('dustWrap');
+  for(let i=0;i<25;i++){
+    const d=document.createElement('div');d.className='dust';
+    const sz=Math.random()*4+2;
+    d.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*6}s;`;
+    dw.appendChild(d);
+  }
+})();
+
+// ═══ BUILD REF UI ═══
+function buildRefUI(){
+  // chain visual
+  document.getElementById('refChain').innerHTML=REF_DATA.map(r=>`
+    <div class="rc-node"><span class="rcn-l">L${r.l}</span><span class="rcn-p" style="color:${r.c}">${r.pct}</span></div>
+    ${r.l<10?'<span class="rc-arrow">→</span>':''}`).join('');
+  // level list in referral panel
+  document.getElementById('refLevelList').innerHTML=REF_DATA.map(r=>`
+    <div class="ref-lv-row">
+      <div class="rlr-badge" style="background:${r.c}18;color:${r.c};border:1px solid ${r.c}30">L${r.l}</div>
+      <span class="rlr-src">dari reward harian downline</span>
+      <span class="rlr-pct" style="color:${r.c}">${r.pct}</span>
+    </div>`).join('');
+  // table in info panel
+  document.getElementById('refInfoTable').innerHTML=REF_DATA.map(r=>`
+    <div class="ref-lv-row">
+      <div class="rlr-badge" style="background:${r.c}18;color:${r.c};border:1px solid ${r.c}30">Level ${r.l}</div>
+      <span class="rlr-src">reward harian downline</span>
+      <span class="rlr-pct" style="color:${r.c}">${r.pct}</span>
+    </div>`).join('');
+  // KYC steps visual
+  const steps=[{icon:"🪪",txt:"Upload KTM"},{icon:"🤳",txt:"Verifikasi Wajah"},{icon:"✅",txt:"Approve Admin"}];
+  document.getElementById('kycStepsVisual').innerHTML=steps.map(s=>`
+    <div class="ka-step" style="background:rgba(0,0,0,.3);border:1px solid rgba(0,255,136,.1);border-radius:10px;padding:10px 6px;text-align:center">
+      <div style="font-size:24px;margin-bottom:5px">${s.icon}</div>
+      <div style="font-size:9px;color:var(--muted)">${s.txt}</div>
+    </div>`).join('');
+}
+
+// ═══ POOL CHECK ═══
+async function checkPool(){
+  try{
+    const info=await rC.getPoolInfo();
+    const open=info[2];
+    document.getElementById('pdot').className='pdot'+(open?'':' off');
+    document.getElementById('ptxt').textContent=open?'OPEN':'CLOSED';
+    document.getElementById('ptxt').style.color=open?'var(--green)':'var(--red)';
+    const p=+ethers.utils.formatUnits(info[0],18);
+    document.getElementById('cbnPool').textContent=p>=1000?'$'+(p/1000).toFixed(1)+'K':'$'+p.toFixed(2);
+    document.getElementById('cbnMem').textContent=info[1].toString();
+  }catch(e){}
+}
+
+// ═══ CONNECT WALLET ═══
+async function initWallet(){
+  if(!window.ethereum){toast('⚠️','Install MetaMask!');return;}
+  try{
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider=new ethers.providers.Web3Provider(window.ethereum,'any');
+    signer=provider.getSigner();
+    const cid=parseInt(await window.ethereum.request({method:'eth_chainId'}),16);
+    if(cid!==56){try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){}
+      provider=new ethers.providers.Web3Provider(window.ethereum,'any');signer=provider.getSigner();}
+    cS=new ethers.Contract(CA,ABI,signer);
+    cU=new ethers.Contract(USDT_CA,ERC20,signer);
+    myAddr=await signer.getAddress();
+    const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
+    document.getElementById('wBar').style.display='flex';
+    document.getElementById('wChip').style.display='block';
+    document.getElementById('wbAddr').textContent=short;
+    document.getElementById('wChip').textContent=short;
+    document.getElementById('refUrl').textContent=location.origin+location.pathname+'?ref='+myAddr;
+    await loadAll();
+    window.ethereum.on('accountsChanged',()=>location.reload());
+    toast('✅','Wallet terhubung!');
+  }catch(e){console.warn(e);toast('❌','Gagal connect');}
+}
+
+// ═══ LOAD ALL ═══
+async function loadAll(){
+  if(!myAddr)return;
+  try{
+    const bal=+ethers.utils.formatUnits(await cU.balanceOf(myAddr),18);
+    const bs='$'+bal.toFixed(2);
+    document.getElementById('cbsSaldo').textContent=bs;
+    document.getElementById('wbBal').textContent=bs;
+
+    const kyc=await rC.getKYCStatus(myAddr);
+    kycApproved=kyc[0];kycPending=kyc[1];
+    renderKYCBanner();renderKYCPanel();
+
+    const rb=+ethers.utils.formatUnits(await rC.refBonus(myAddr),18);
+    document.getElementById('rbVal').textContent='$'+rb.toFixed(4);
+    document.getElementById('cbsBonus').textContent='$'+rb.toFixed(4);
+    document.getElementById('btnClaim').disabled=rb<=0;
+
+    const nxt=await rC.getNextStakeAvailable(myAddr);nextTs=nxt[0].toNumber();
+    const cnt=(await rC.getStakeCount(myAddr)).toNumber();
+    stakesArr=[];let tv=0,tp=0,an=0;
+    for(let i=0;i<cnt;i++){
+      const info=await rC.getStakeInfo(myAddr,i);
+      const curv=await rC.getCurrentValue(myAddr,i);
+      const s={i,
+        principal:+ethers.utils.formatUnits(info[0],18),
+        curVal:+ethers.utils.formatUnits(curv,18),
+        startTime:info[3].toNumber(),daysStaked:info[4].toNumber(),
+        roiPct:info[5].toNumber(),penalty:info[6],roiCap:info[7],active:info[8]};
+      stakesArr.push(s);
+      if(s.active){an++;tv+=s.curVal;tp+=s.principal;}
+    }
+    document.getElementById('cbsActive').textContent=an+'/5';
+    document.getElementById('cbsValue').textContent='$'+tv.toFixed(2);
+    document.getElementById('shCnt').textContent=an+'/5';
+    const avgROI=tp>0?((tv-tp)/tp)*100:0;
+    document.getElementById('heroROI').textContent=avgROI.toFixed(1)+'%';
+    document.getElementById('heroROIBar').style.width=Math.min(100,avgROI/10)+'%';
+    renderStakes();
+  }catch(e){console.warn(e);}
+}
+
+// ═══ KYC BANNER ═══
+function renderKYCBanner(){
+  const b=document.getElementById('kycBanner');
+  if(kycApproved){
+    b.innerHTML=`<div class="kyc-approved">
+      <div class="ka-ok-left"><span class="ka-ok-icon">🎓</span>
+        <div><div class="ka-ok-title">KYC TERVERIFIKASI</div><div class="ka-ok-sub">Kamu adalah mahasiswa terverifikasi INDOCOIN</div></div>
+      </div><div class="ka-ok-badge">✅ AKTIF</div></div>`;return;
+  }
+  if(kycPending){
+    b.innerHTML=`<div class="kyc-pending">
+      <span class="kp-anim">⏳</span>
+      <div><div class="kp-title">KYC SEDANG DIPROSES</div><div class="kp-sub">Menunggu verifikasi admin · Segera diproses</div></div>
+    </div>`;return;
+  }
+  // not done — show alert with button
+  b.innerHTML=`<div class="kyc-alert">
+    <div class="ka-top">
+      <div class="ka-badge">🎓</div>
+      <div><div class="ka-title">VERIFIKASI KYC MAHASISWA</div><div class="ka-sub">Wajib sebelum bisa stake · Upload KTM + verifikasi wajah</div></div>
+    </div>
+    <div class="ka-steps">
+      <div class="ka-step"><div class="kas-icon">🪪</div><div class="kas-txt">Upload Kartu Tanda Mahasiswa</div></div>
+      <div class="ka-step"><div class="kas-icon">🤳</div><div class="kas-txt">Verifikasi Wajah Gerak Kepala</div></div>
+      <div class="ka-step"><div class="kas-icon">✅</div><div class="kas-txt">Tunggu Approve Admin</div></div>
+    </div>
+    <button class="btn-kyc-main" onclick="doKYC()">🪪 &nbsp;MULAI VERIFIKASI KYC SEKARANG</button>
+  </div>`;
+}
+
+// ═══ KYC PANEL TAB ═══
+function renderKYCPanel(){
+  const d=document.getElementById('kycStatusDetail');
+  const btn=document.getElementById('btnKYCPanel');
+  if(kycApproved){
+    d.innerHTML=`<div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:28px">🎓</span>
+      <div><div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--green)">STATUS: TERVERIFIKASI</div>
+      <div style="font-size:10px;color:var(--muted)">Kamu adalah mahasiswa aktif terverifikasi INDOCOIN</div></div></div>`;
+    btn.textContent='✅ KYC SUDAH DISETUJUI';btn.disabled=true;btn.style.opacity='.5';return;
+  }
+  if(kycPending){
+    d.innerHTML=`<div style="background:rgba(255,221,0,.05);border:1px solid rgba(255,221,0,.2);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:28px;animation:spin 3s linear infinite;display:inline-block">⏳</span>
+      <div><div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--gold)">STATUS: MENUNGGU REVIEW</div>
+      <div style="font-size:10px;color:rgba(255,221,0,.5)">Data KYC kamu sedang ditinjau admin · Harap tunggu</div></div></div>`;
+    btn.textContent='⏳ KYC SEDANG DIPROSES';btn.disabled=true;btn.style.opacity='.5';return;
+  }
+  d.innerHTML=`<div style="font-size:11px;color:var(--muted);line-height:1.6;padding:8px">Status: <strong style="color:var(--red)">BELUM TERVERIFIKASI</strong> · Tombol stake tidak aktif</div>`;
+  btn.disabled=false;btn.style.opacity='1';
+}
+
+// ═══ RENDER STAKES ═══
+function renderStakes(){
+  const c=document.getElementById('stakeList');
+  const active=stakesArr.filter(s=>s.active);
+  if(!active.length){
+    c.innerHTML=`<div class="empty-state"><span class="es-icon">🎓</span><div class="es-title">MULAI PERJALANANMU!</div><div class="es-sub">Belum ada stake aktif.<br>Selesaikan KYC lalu stake pertamamu.</div></div>`;return;
+  }
+  c.innerHTML='';
+  active.forEach((s,idx)=>{
+    const roi=(s.roiPct/100).toFixed(2);
+    const bar=Math.min(100,s.roiPct/100);
+    const dt=new Date(s.startTime*1000).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'2-digit'});
+    const gain=s.curVal-s.principal;
+    const safeDay=60-s.daysStaked;
+    const statusDotC=s.roiCap?'var(--lime)':s.penalty?'var(--red)':'var(--green)';
+    const statusTxt=s.roiCap?'🏁 ROI CAP TERCAPAI!':s.penalty?`⚠️ Penalti aktif (${Math.max(0,safeDay)}hr lagi bebas)`:'✅ Bebas withdraw';
+    const d=document.createElement('div');d.className='stake-card';
+    d.innerHTML=`
+      <div class="sk-top">
+        <div class="sk-num">${s.i+1}</div>
+        <div class="sk-info">
+          <div class="sk-idx">STAKE #${s.i+1} · MULAI ${dt} · ${s.daysStaked} HARI</div>
+          <div class="sk-amt">$${s.principal.toFixed(2)}<sub> principal</sub></div>
+          <div class="sk-cur">→ $${s.curVal.toFixed(6)} sekarang</div>
+        </div>
+      </div>
+      <div class="roi-wrap">
+        <div class="roi-hdr"><span>Progress ROI (cap 1000%)</span><strong>${roi}%</strong></div>
+        <div class="roi-track"><div class="roi-fill" style="width:${bar}%"></div></div>
+      </div>
+      <div class="sk-4">
+        <div class="skm"><div class="skm-val" style="color:var(--lime)">+$${gain.toFixed(4)}</div><div class="skm-lbl">COMPOUND</div></div>
+        <div class="skm"><div class="skm-val" style="color:${s.penalty?'var(--red)':'var(--green)'}">${s.penalty?'25%':'0%'}</div><div class="skm-lbl">PENALTI</div></div>
+        <div class="skm"><div class="skm-val" style="color:var(--teal)">${roi}%</div><div class="skm-lbl">ROI</div></div>
+        <div class="skm"><div class="skm-val" style="color:var(--gold)">${s.daysStaked}h</div><div class="skm-lbl">HARI</div></div>
+      </div>
+      <div class="sk-footer">
+        <div class="sk-status-dot" style="background:${statusDotC};box-shadow:0 0 6px ${statusDotC}"></div>
+        <span class="sk-status-txt" style="color:${statusDotC};font-size:9px">${statusTxt}</span>
+        ${s.penalty
+          ?`<button class="sk-wd wd-early" onclick="doWD(${s.i})">⚠️ WD DINI</button>`
+          :`<button class="sk-wd wd-safe" onclick="doWD(${s.i})">💚 WITHDRAW</button>`}
+      </div>
+      <div class="sk-msg" id="msg-${s.i}"></div>`;
+    c.appendChild(d);
+  });
+}
+
+// ═══ FORM ═══
+function openSheet(){
+  if(!myAddr){toast('🦊','Connect wallet dulu!');return;}
+  if(!kycApproved){toast('🎓','Selesaikan KYC dulu!');switchTab('kyc');return;}
+  const an=stakesArr.filter(s=>s.active).length;
+  if(an>=5){toast('❌','Sudah 5 stake aktif!');return;}
+  document.getElementById('fsSub').textContent=`Stake ke ${an+1} dari 5 · Jarak min 7 hari dari stake sebelumnya`;
+  const now=Math.floor(Date.now()/1000);const left=nextTs>now?nextTs-now:0;
+  if(left>0){document.getElementById('cdBar').style.display='block';startCd(left);}
+  else document.getElementById('cdBar').style.display='none';
+  document.getElementById('inpAmt').value='';
+  document.getElementById('pvBox').style.display='none';
+  document.getElementById('fmsg').textContent='';
+  document.getElementById('overlay').classList.add('on');
+}
+function closeSheet(){document.getElementById('overlay').classList.remove('on');if(cdTimer)clearInterval(cdTimer);}
+function startCd(s){
+  if(cdTimer)clearInterval(cdTimer);
+  const upd=()=>{const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sc=s%60;
+    document.getElementById('cdTxt').textContent=`${d}h ${h}j ${m}m ${sc}d`;if(s--<=0){clearInterval(cdTimer);document.getElementById('cdBar').style.display='none';}};
+  upd();cdTimer=setInterval(upd,1000);
+}
+function onAmt(v){
+  const a=parseFloat(v)||0,pv=document.getElementById('pvBox');
+  if(a<1){pv.style.display='none';return;}
+  pv.style.display='block';
+  document.getElementById('pv-p').textContent='$'+a.toFixed(2);
+  document.getElementById('pv-d').textContent='+$'+(a*0.004).toFixed(4);
+  document.getElementById('pv-30').textContent='$'+(a*Math.pow(1.004,30)).toFixed(4);
+  document.getElementById('pv-60').textContent='$'+(a*Math.pow(1.004,60)).toFixed(4);
+  document.getElementById('pv-cap').textContent='$'+(a*10).toFixed(2)+' (1000% ROI)';
+}
+
+// ═══ ACTIONS ═══
+async function doKYC(){
+  if(!myAddr){await initWallet();return;}
+  if(kycApproved){toast('✅','KYC sudah approved!');return;}
+  if(kycPending){toast('⏳','KYC sudah tersubmit, tunggu admin');return;}
+  try{
+    toast('⏳','Submit KYC on-chain...');
+    const tx=await cS.submitKYC();await tx.wait();
+    toast('✅','KYC tersubmit! Tunggu approve admin.');loadAll();
+  }catch(e){toast('❌',e.code===4001?'Dibatalkan':'Gagal submit KYC');}
+}
+async function doApprove(){
+  if(!signer){await initWallet();return;}
+  const a=document.getElementById('inpAmt').value;
+  if(!a||+a<1){setFM('Min $1','err');return;}
+  try{setFM('Menunggu approval di MetaMask...','info');
+    const tx=await cU.approve(CA,ethers.utils.parseUnits(a,18));await tx.wait();
+    setFM('Approved ✅  Klik Mulai Compound!','ok');toast('✅','USDT Approved!');
+  }catch(e){setFM(e.code===4001?'Dibatalkan':'Gagal approve','err');}
+}
+async function doStake(){
+  if(!signer){await initWallet();return;}
+  const a=document.getElementById('inpAmt').value;
+  if(!a){setFM('Masukkan jumlah','err');return;}
+  if(+a<1){setFM('Min $1','err');return;}
+  if(+a>10){setFM('Max $10','err');return;}
+  try{setFM('Konfirmasi di MetaMask...','info');
+    const tx=await cS.stake(ethers.utils.parseUnits(a,18));setFM('Diproses...','info');await tx.wait();
+    setFM('⚡ Compound dimulai!','ok');toast('⚡','Compound berhasil dimulai!');closeSheet();loadAll();
+  }catch(e){setFM(e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+}
+async function doWD(idx){
+  if(!signer)return;
+  const s=stakesArr.find(x=>x.i===idx);
+  if(s&&s.penalty&&!confirm('⚠️ Penalti 25% akan dipotong!\nYakin withdraw sekarang?'))return;
+  try{setMsg(idx,'Konfirmasi di MetaMask...','info');
+    const tx=await cS.withdraw(idx);await tx.wait();
+    setMsg(idx,'💚 Withdraw berhasil!','ok');toast('💚','Withdraw berhasil!');loadAll();
+  }catch(e){setMsg(idx,e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+}
+async function doClaimRef(){
+  if(!signer)return;
+  try{toast('⏳','Klaim bonus referral...');const tx=await cS.claimRefBonus();await tx.wait();toast('🌿','Bonus diklaim!');loadAll();}
+  catch(e){toast('❌',e.code===4001?'Dibatalkan':(e.reason||'Gagal'));}
+}
+
+// ═══ UTILS ═══
+function switchTab(t){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('on',['stakes','referral','kyc','info'][i]===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+t).classList.add('on');
+}
+function copyAddr(){if(myAddr){navigator.clipboard.writeText(myAddr);toast('📋','Alamat disalin!');}}
+function copyRef(){navigator.clipboard.writeText(document.getElementById('refUrl').textContent);toast('📋','Link referral disalin!');}
+function setFM(m,t){const e=document.getElementById('fmsg');e.textContent=m;e.className='fmsg '+t;}
+function setMsg(i,m,t){const e=document.getElementById('msg-'+i);if(e){e.textContent=m;e.className='sk-msg '+t;}}
+function toast(ico,msg){document.getElementById('tIco').textContent=ico;document.getElementById('tTxt').textContent=msg;const el=document.getElementById('toast');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),3200);}
+
+setInterval(()=>{if(myAddr)loadAll();},30000);
+window.addEventListener('load',()=>{
+  checkPool();buildRefUI();
+  const urlRef=new URLSearchParams(location.search).get('ref');
+  if(urlRef)localStorage.setItem('indocoin_ref',urlRef);
+  if(window.ethereum)initWallet();
+});
+</script>
+</body>
+</html>
