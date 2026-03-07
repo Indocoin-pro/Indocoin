@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>INDOCOIN — Referral Power Staking</title>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0a0503;--bg2:#110806;--bg3:#160a07;
+  --red:#cc2200;--red2:#ff3311;--red3:#ff6644;
+  --ember:#ff8800;--gold:#ffcc00;--gold2:#ffaa00;
+  --steel:#8899aa;--steel2:#556677;--steel3:#334455;
+  --ash:#c8bfb5;--ash2:#9a9088;--ash3:#5a5248;
+  --text:#e8ddd5;--muted:#5a4a40;--muted2:#3a2a20;
+  --crack:#ff440022;--fire1:#ff660033;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ═══ WORLD — BATTLEFIELD ═══ */
+.world{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+
+/* Ground texture — diagonal scratch lines */
+.scratch{position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(127deg,transparent,transparent 80px,rgba(255,68,0,.015) 80px,rgba(255,68,0,.015) 81px),
+    repeating-linear-gradient(53deg,transparent,transparent 120px,rgba(200,180,160,.008) 120px,rgba(200,180,160,.008) 121px),
+    repeating-linear-gradient(170deg,transparent,transparent 200px,rgba(255,68,0,.008) 200px,rgba(255,68,0,.008) 201px);}
+
+/* Cracks on ground */
+.crack{position:absolute;background:rgba(255,50,0,.06);transform-origin:center;}
+.crack1{width:2px;height:200px;top:20%;left:30%;transform:rotate(23deg);}
+.crack2{width:1px;height:150px;top:45%;right:25%;transform:rotate(-15deg);}
+.crack3{width:2px;height:100px;top:65%;left:55%;transform:rotate(40deg);}
+.crack4{width:1px;height:180px;top:10%;right:40%;transform:rotate(-30deg);}
+
+/* Fire embers */
+.ember{position:absolute;border-radius:50%;animation:ember-rise linear infinite;}
+.orb-fire{position:absolute;border-radius:50%;filter:blur(80px);animation:fire-breathe ease-in-out infinite alternate;}
+.orb-f1{width:500px;height:300px;background:radial-gradient(ellipse,rgba(180,30,0,.12),transparent 70%);bottom:-100px;left:-100px;animation-duration:8s;}
+.orb-f2{width:400px;height:250px;background:radial-gradient(ellipse,rgba(255,80,0,.07),transparent 70%);top:-80px;right:-80px;animation-duration:12s;animation-delay:-5s;}
+.orb-f3{width:300px;height:200px;background:radial-gradient(ellipse,rgba(255,150,0,.05),transparent 70%);top:40%;right:10%;animation-duration:10s;animation-delay:-3s;}
+
+/* Vignette */
+.vignette{position:absolute;inset:0;background:radial-gradient(ellipse 80% 80% at 50% 50%,transparent 40%,rgba(0,0,0,.7) 100%);}
+
+@keyframes ember-rise{0%{transform:translateY(0) translateX(0) scale(1);opacity:.8}50%{transform:translateY(-40vh) translateX(20px) scale(.6);opacity:.4}100%{transform:translateY(-85vh) translateX(-10px) scale(.2);opacity:0}}
+@keyframes fire-breathe{from{transform:scale(1) rotate(-2deg)}to{transform:scale(1.15) rotate(2deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(108%)}to{transform:translateY(0)}}
+@keyframes march{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.04)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.1}}
+@keyframes card-in{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes shimmer{0%{left:-100%}100%{left:160%}}
+@keyframes pulse-red{0%,100%{box-shadow:0 0 8px rgba(204,34,0,.3)}50%{box-shadow:0 0 25px rgba(204,34,0,.7),0 0 50px rgba(255,68,0,.3)}}
+@keyframes flag-wave{0%,100%{transform:skewX(-1deg)}50%{transform:skewX(1deg)}}
+@keyframes battle-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-1px)}75%{transform:translateX(1px)}}
+@keyframes burn-line{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes charge{from{width:0}to{width:var(--w)}}
+@keyframes number-slam{0%{transform:scale(1.3);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes glow-text{0%,100%{text-shadow:0 0 8px rgba(255,136,0,.4)}50%{text-shadow:0 0 20px rgba(255,136,0,.9),0 0 40px rgba(255,68,0,.4)}}
+@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+
+.app{position:relative;z-index:1;min-height:100vh;}
+.scroller{padding-bottom:90px;}
+
+/* ═══ TOPBAR ═══ */
+.topbar{position:sticky;top:0;z-index:100;
+  background:rgba(10,5,3,.97);backdrop-filter:blur(12px);
+  border-bottom:2px solid rgba(204,34,0,.25);padding:9px 13px;
+  display:flex;align-items:center;justify-content:space-between;}
+/* scanline effect on topbar */
+.topbar::after{content:'';position:absolute;inset:0;overflow:hidden;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,50,0,.015) 2px,rgba(255,50,0,.015) 4px);}
+.tb-left{display:flex;align-items:center;gap:8px;}
+.back-btn{background:rgba(204,34,0,.1);border:1px solid rgba(204,34,0,.3);border-radius:4px;
+  padding:5px 9px;font-family:'Arial Black',Arial,sans-serif;font-size:9px;letter-spacing:1px;
+  color:var(--red3);text-decoration:none;}
+.brand-emblem{width:30px;height:30px;background:rgba(204,34,0,.15);border:1px solid rgba(204,34,0,.4);
+  border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;
+  animation:march 4s ease-in-out infinite;}
+.brand-name{font-family:'Arial Black',Arial,sans-serif;font-size:13px;letter-spacing:2px;color:var(--red2);line-height:1;}
+.brand-sub{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin-top:1px;}
+.tb-right{display:flex;align-items:center;gap:6px;}
+.status-pill{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:3px;
+  background:rgba(204,34,0,.07);border:1px solid rgba(204,34,0,.2);}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--red2);box-shadow:0 0 6px var(--red2);animation:blink 2s infinite;}
+.sdot.off{background:var(--steel2);box-shadow:none;}
+.stxt{font-family:Arial,sans-serif;font-size:8px;color:var(--red3);}
+.w-chip{display:none;font-family:Arial,sans-serif;font-size:8px;color:var(--gold2);
+  background:rgba(255,170,0,.06);border:1px solid rgba(255,170,0,.2);border-radius:3px;padding:4px 8px;cursor:pointer;}
+
+/* ═══ WAR BANNER — HERO ═══ */
+.war-banner{margin:12px 12px 0;position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(150,20,0,.15),rgba(10,5,3,.99));
+  border:1px solid rgba(204,34,0,.25);border-radius:8px;padding:16px;}
+/* top burn line */
+.war-banner::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--red),var(--ember),var(--gold),var(--ember),var(--red),transparent);
+  background-size:200% 100%;animation:burn-line 3s linear infinite;}
+/* battle texture overlay */
+.war-banner::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,50,0,.008) 3px,rgba(255,50,0,.008) 4px);}
+
+/* BIG SLOGAN */
+.slogan-wrap{position:relative;z-index:1;margin-bottom:14px;}
+.slogan-tag{font-family:Arial,sans-serif;font-size:8px;color:var(--muted);letter-spacing:4px;margin-bottom:6px;}
+.slogan-main{font-family:'Arial Black',Arial,sans-serif;font-size:30px;line-height:.95;letter-spacing:1px;margin-bottom:4px;}
+.slogan-main .s-fight{color:var(--red2);}
+.slogan-main .s-for{color:var(--ash2);font-size:22px;}
+.slogan-main .s-wealth{color:var(--gold);animation:glow-text 3s ease infinite;}
+.slogan-sub{font-size:11px;color:var(--ash3);line-height:1.4;}
+.slogan-sub strong{color:var(--red3);}
+
+/* Rate badge — like a military rank badge */
+.rank-badge{position:absolute;top:0;right:0;z-index:1;
+  background:linear-gradient(135deg,rgba(204,34,0,.2),rgba(255,100,0,.1));
+  border:1px solid rgba(204,34,0,.4);border-left:3px solid var(--red2);
+  padding:10px 12px;text-align:center;}
+.rb-rank{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;}
+.rb-val{font-family:'Arial Black',Arial,sans-serif;font-size:26px;color:var(--red2);line-height:1;animation:glow-text 3s ease infinite;}
+.rb-unit{font-size:9px;color:var(--ember);letter-spacing:1px;}
+.rb-bonus{font-size:9px;color:var(--gold2);margin-top:3px;}
+
+/* RATE BREAKDOWN — military report style */
+.intel-report{position:relative;z-index:1;
+  background:rgba(0,0,0,.5);border:1px solid rgba(204,34,0,.15);
+  border-left:3px solid rgba(204,34,0,.4);border-radius:4px;padding:10px;margin-bottom:12px;}
+.ir-header{font-family:Arial,sans-serif;font-size:8px;color:var(--red3);letter-spacing:3px;margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;}
+.ir-total{font-family:'Arial Black',Arial,sans-serif;font-size:14px;color:var(--ember);}
+.ir-rows{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.ir-row{display:flex;justify-content:space-between;padding:4px 7px;background:rgba(0,0,0,.3);border-radius:3px;border-left:2px solid transparent;}
+.ir-row.base{border-left-color:var(--steel2);}
+.ir-row.l1{border-left-color:var(--red2);}
+.ir-row.l2{border-left-color:var(--ember);}
+.ir-row.l3{border-left-color:var(--gold);}
+.ir-lbl{font-size:9px;color:var(--muted);}
+.ir-val{font-family:Arial,sans-serif;font-size:10px;font-weight:700;}
+
+/* 4 BATTLE STATS */
+.battle-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;position:relative;z-index:1;}
+.bs{background:rgba(0,0,0,.5);border:1px solid rgba(204,34,0,.12);border-radius:5px;padding:7px 3px;text-align:center;
+  position:relative;overflow:hidden;}
+.bs::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--clr,var(--red2));}
+.bs-val{font-family:'Arial Black',Arial,sans-serif;font-size:13px;color:var(--red2);line-height:1;}
+.bs-lbl{font-family:Arial,sans-serif;font-size:6px;color:var(--muted);margin-top:2px;letter-spacing:.5px;}
+
+/* ═══ REF NETWORK — WAR MAP ═══ */
+.war-map{margin:10px 12px 0;background:rgba(0,0,0,.55);
+  border:1px solid rgba(204,34,0,.15);border-radius:6px;padding:10px 12px;}
+.wm-title{font-family:Arial,sans-serif;font-size:8px;color:var(--red3);letter-spacing:3px;margin-bottom:9px;}
+.wm-nodes{display:flex;align-items:center;gap:4px;overflow-x:auto;padding-bottom:3px;}
+.wm-you{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+.wm-you-icon{width:36px;height:36px;border-radius:4px;background:rgba(204,34,0,.2);
+  border:2px solid var(--red2);display:flex;align-items:center;justify-content:center;
+  font-size:16px;animation:pulse-red 3s ease infinite;}
+.wm-you-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--red3);}
+.wm-line{flex:1;height:2px;min-width:14px;
+  background:repeating-linear-gradient(90deg,var(--red2) 0,var(--red2) 4px,transparent 4px,transparent 8px);
+  flex-shrink:0;}
+.wm-node{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+.wm-node-icon{width:30px;height:30px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.wm-node-lv{font-family:'Arial Black',Arial,sans-serif;font-size:9px;}
+.wm-node-bonus{font-family:Arial,sans-serif;font-size:7px;}
+.wm-node-cnt{font-size:7px;color:var(--muted);}
+
+/* ═══ POOL INTEL ═══ */
+.pool-intel{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;padding:10px 12px 0;}
+.pi{background:var(--bg2);border-radius:5px;padding:10px 11px;border:1px solid rgba(204,34,0,.1);
+  position:relative;overflow:hidden;animation:card-in .4s ease both;}
+.pi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--bar-clr,var(--red2));}
+.pi-icon{font-size:13px;margin-bottom:3px;}
+.pi-val{font-family:'Arial Black',Arial,sans-serif;font-size:17px;color:var(--red2);line-height:1;}
+.pi-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);margin-top:2px;}
+.pi.t-ember .pi-val{color:var(--ember);}
+.pi.t-gold .pi-val{color:var(--gold);}
+.pi.t-steel .pi-val{color:var(--steel);}
+
+/* ═══ CONNECT ═══ */
+.connect-war{margin:10px 12px 0;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(204,34,0,.1),rgba(10,5,3,.98));
+  border:1px solid rgba(204,34,0,.3);border-radius:7px;padding:14px;animation:card-in .4s ease both;}
+.connect-war::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--red2),var(--ember),transparent);}
+.cw-inner{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.cw-icon{font-size:28px;animation:flag-wave 3s ease-in-out infinite;}
+.cw-text .cw-title{font-family:'Arial Black',Arial,sans-serif;font-size:15px;color:var(--red2);margin-bottom:3px;}
+.cw-text .cw-sub{font-size:10px;color:var(--muted);}
+.btn-join{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--red),rgba(200,20,0,.9));
+  color:white;border:none;border-radius:5px;padding:11px 18px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:11px;letter-spacing:2px;
+  cursor:pointer;white-space:nowrap;box-shadow:0 4px 20px rgba(204,34,0,.4);}
+.btn-join::before{content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:rgba(255,255,255,.15);transform:skewX(-20deg);animation:shimmer 2s ease infinite;}
+
+.wallet-bar{display:none;margin:10px 12px 0;background:rgba(0,0,0,.4);
+  border:1px solid rgba(204,34,0,.15);border-radius:6px;padding:9px 13px;
+  align-items:center;justify-content:space-between;}
+.wb-dot{width:7px;height:7px;border-radius:50%;background:var(--red2);box-shadow:0 0 8px var(--red2);}
+.wb-addr{font-family:Arial,sans-serif;font-size:10px;color:var(--red3);}
+.wb-bal{font-family:Arial,sans-serif;font-size:10px;color:var(--muted);}
+.wb-bal strong{color:var(--ash);}
+
+/* ═══ TABS — COMMAND TABS ═══ */
+.tabs-wrap{margin:10px 12px 0;}
+.tabs{display:flex;gap:3px;background:rgba(0,0,0,.6);border-radius:6px;padding:4px;
+  border:1px solid rgba(204,34,0,.12);}
+.tab-btn{flex:1;padding:8px 3px;border:none;background:transparent;border-radius:4px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:8px;letter-spacing:1px;color:var(--muted);cursor:pointer;transition:all .2s;}
+.tab-btn.on{background:rgba(204,34,0,.15);color:var(--red3);border:1px solid rgba(204,34,0,.3);}
+.panel{display:none;margin:10px 12px 0;animation:fadeUp .25s ease both;}
+.panel.on{display:block;}
+
+/* ═══ PANEL STAKE ═══ */
+.mission-card{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(150,20,0,.08),var(--bg2));
+  border:1px solid rgba(204,34,0,.2);border-radius:7px;padding:14px;margin-bottom:10px;}
+.mission-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--red2),var(--ember),transparent);}
+.mc-title{font-family:'Arial Black',Arial,sans-serif;font-size:12px;letter-spacing:2px;color:var(--red2);margin-bottom:12px;
+  display:flex;align-items:center;gap:7px;}
+.mc-title::before{content:'▶';font-size:8px;color:var(--ember);}
+
+/* register */
+.reg-section{background:rgba(0,0,0,.45);border:1px solid rgba(204,34,0,.12);
+  border-left:3px solid rgba(204,34,0,.4);border-radius:4px;padding:11px;margin-bottom:11px;}
+.reg-status{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.reg-dot{width:8px;height:8px;border-radius:50%;background:var(--steel2);}
+.reg-dot.ok{background:var(--red2);box-shadow:0 0 8px var(--red2);animation:pulse-red 2s infinite;}
+.reg-txt{font-size:12px;font-weight:700;}
+.reg-txt.ok{color:var(--red3);}
+.reg-txt.no{color:var(--muted);}
+
+.inp-lbl{font-family:Arial,sans-serif;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;display:block;}
+.inp{width:100%;padding:10px 12px;background:rgba(0,0,0,.65);border:1px solid rgba(204,34,0,.2);
+  border-radius:4px;color:var(--ash);font-family:Arial,sans-serif;font-size:13px;
+  outline:none;margin-bottom:8px;transition:border-color .3s;}
+.inp:focus{border-color:var(--red2);box-shadow:0 0 0 2px rgba(204,34,0,.08);}
+.inp::placeholder{color:var(--muted);font-size:11px;}
+
+.btn-enlist{width:100%;padding:10px;background:rgba(204,34,0,.1);border:1px solid rgba(204,34,0,.3);
+  color:var(--red3);border-radius:4px;font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:2px;cursor:pointer;}
+.btn-enlist:disabled{opacity:.25;cursor:not-allowed;}
+
+/* principal bar */
+.ammo-bar{margin-bottom:11px;}
+.ab-header{display:flex;justify-content:space-between;margin-bottom:4px;}
+.ab-lbl{font-size:9px;color:var(--muted);}
+.ab-val{font-family:Arial,sans-serif;font-size:9px;color:var(--red3);}
+.ab-track{height:8px;background:rgba(204,34,0,.07);border-radius:2px;overflow:hidden;border:1px solid rgba(204,34,0,.12);}
+.ab-fill{height:100%;border-radius:2px;
+  background:repeating-linear-gradient(90deg,var(--red) 0,var(--red) 8px,var(--red2) 8px,var(--red2) 10px);
+  box-shadow:0 0 8px rgba(204,34,0,.5);transition:width 1.2s ease;}
+
+/* war note */
+.war-note{display:flex;gap:8px;padding:10px;background:rgba(204,34,0,.06);
+  border:1px solid rgba(204,34,0,.2);border-radius:4px;margin-bottom:10px;}
+.wn-icon{font-size:18px;flex-shrink:0;}
+.wn-text{font-size:10px;color:var(--ash2);line-height:1.5;}
+.wn-text strong{color:var(--red3);}
+
+/* preview */
+.field-report{background:rgba(0,0,0,.4);border:1px solid rgba(204,34,0,.1);
+  border-radius:4px;padding:9px;margin-bottom:9px;display:none;
+  border-left:3px solid rgba(255,136,0,.4);}
+.fr-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;}
+.fr-row span{color:var(--muted);}
+.fr-row strong{font-family:Arial,sans-serif;color:var(--ash);}
+.fr-hl strong{color:var(--ember);}
+
+.btn-approve{width:100%;padding:10px;margin-bottom:6px;background:rgba(204,34,0,.07);
+  border:1px solid rgba(204,34,0,.25);color:var(--red3);border-radius:4px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:2px;cursor:pointer;}
+.form-btns{display:flex;gap:6px;}
+.btn-abort{flex:1;padding:11px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+  color:var(--muted);border-radius:4px;font-family:'Arial Black',Arial,sans-serif;font-size:9px;cursor:pointer;}
+.btn-charge{flex:2;padding:11px;
+  background:linear-gradient(135deg,var(--red),rgba(200,20,0,.95));
+  color:white;border:none;border-radius:4px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:11px;letter-spacing:2px;
+  cursor:pointer;box-shadow:0 3px 15px rgba(204,34,0,.4);position:relative;overflow:hidden;}
+.btn-charge::before{content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:rgba(255,255,255,.12);transform:skewX(-20deg);animation:shimmer 2.5s ease infinite;}
+.fmsg{min-height:14px;margin-top:7px;font-size:10px;font-weight:700;text-align:center;}
+.fmsg.ok{color:var(--red3);}
+.fmsg.err{color:var(--ember);}
+.fmsg.info{color:var(--gold2);}
+
+/* ═══ PANEL STATUS ═══ */
+.command-center{position:relative;overflow:hidden;
+  background:var(--bg2);border-radius:7px;padding:14px;border:1px solid rgba(204,34,0,.15);margin-bottom:10px;}
+.command-center::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--red2),var(--ember),transparent);}
+
+/* ROI war meter */
+.roi-war{text-align:center;margin-bottom:14px;}
+.roi-title{font-family:Arial,sans-serif;font-size:8px;color:var(--muted);letter-spacing:3px;margin-bottom:6px;}
+.roi-number{font-family:'Arial Black',Arial,sans-serif;font-size:44px;color:var(--red2);line-height:1;
+  animation:glow-text 3s ease infinite;}
+.roi-sub{font-size:10px;color:var(--ash3);margin-top:2px;}
+
+/* battle progress bar */
+.battle-progress{margin-bottom:14px;}
+.bp-label{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:5px;}
+.bp-track{height:12px;background:rgba(204,34,0,.07);border-radius:2px;overflow:hidden;
+  border:1px solid rgba(204,34,0,.15);position:relative;}
+.bp-fill{height:100%;border-radius:2px;
+  background:repeating-linear-gradient(90deg,var(--red) 0,var(--red) 8px,var(--red2) 8px,var(--red2) 10px);
+  box-shadow:0 0 12px rgba(204,34,0,.5);transition:width 1.5s ease;}
+.bp-marker{position:absolute;top:0;bottom:0;width:2px;background:var(--gold);box-shadow:0 0 6px var(--gold);right:0;}
+
+/* 4 command stats */
+.cmd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:12px;}
+.cmd-item{background:rgba(0,0,0,.4);border-radius:5px;padding:10px;border:1px solid rgba(204,34,0,.08);
+  border-left:3px solid var(--item-clr,rgba(204,34,0,.4));}
+.ci-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;}
+.ci-val{font-family:'Arial Black',Arial,sans-serif;font-size:18px;color:var(--red2);line-height:1;}
+.ci-sub{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* daily power */
+.daily-power{display:flex;justify-content:space-between;align-items:center;
+  background:linear-gradient(135deg,rgba(204,34,0,.1),rgba(255,100,0,.05));
+  border:1px solid rgba(204,34,0,.2);border-radius:5px;padding:11px;margin-bottom:12px;}
+.dp-left .dp-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
+.dp-left .dp-val{font-family:'Arial Black',Arial,sans-serif;font-size:22px;color:var(--ember);line-height:1;animation:glow-text 3s ease infinite;}
+.dp-left .dp-sub{font-size:9px;color:var(--muted);margin-top:2px;}
+.dp-right{text-align:right;}
+.dp-rate{font-family:Arial,sans-serif;font-size:10px;color:var(--red3);}
+.dp-bonus{font-size:9px;color:var(--gold2);margin-top:2px;}
+
+/* claim */
+.claim-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.cr-left .cr-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
+.cr-left .cr-val{font-family:'Arial Black',Arial,sans-serif;font-size:26px;color:var(--red2);line-height:1;}
+.cr-left .cr-note{font-size:9px;color:var(--muted);margin-top:2px;}
+.btn-claim{background:linear-gradient(135deg,var(--red),rgba(200,20,0,.95));color:white;border:none;
+  border-radius:5px;padding:12px 16px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+  letter-spacing:2px;cursor:pointer;white-space:nowrap;position:relative;overflow:hidden;
+  box-shadow:0 4px 20px rgba(204,34,0,.4);}
+.btn-claim::before{content:'';position:absolute;top:0;left:-100%;width:40%;height:100%;
+  background:rgba(255,255,255,.12);transform:skewX(-20deg);animation:shimmer 2.5s ease infinite;}
+.btn-claim:disabled{opacity:.2;cursor:not-allowed;}
+.claim-msg{min-height:12px;margin-top:7px;font-size:10px;font-weight:700;text-align:center;}
+.claim-msg.ok{color:var(--red3);}
+.claim-msg.err{color:var(--ember);}
+.claim-msg.info{color:var(--gold2);}
+
+.empty-field{text-align:center;padding:30px 16px;background:rgba(0,0,0,.3);
+  border:1px dashed rgba(204,34,0,.15);border-radius:7px;}
+.ef-icon{font-size:40px;display:block;margin-bottom:10px;}
+.ef-txt{font-size:12px;color:var(--muted);line-height:1.6;}
+.ef-txt strong{color:var(--red3);}
+
+/* ═══ PANEL REFERRAL ═══ */
+.ref-command{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(204,34,0,.08),rgba(10,5,3,.98));
+  border:1px solid rgba(204,34,0,.2);border-radius:7px;padding:13px;margin-bottom:9px;}
+.ref-command::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--red2),var(--ember),transparent);}
+.rc-title{font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:2px;color:var(--red2);margin-bottom:10px;}
+
+.ref-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:9px;}
+.rs-box{background:rgba(0,0,0,.4);border-radius:5px;padding:9px 6px;text-align:center;border:1px solid rgba(204,34,0,.1);}
+.rsb-lv{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);margin-bottom:3px;}
+.rsb-total{font-family:'Arial Black',Arial,sans-serif;font-size:20px;line-height:1;}
+.rsb-active{font-size:9px;color:var(--muted);margin-top:2px;}
+.rsb-bonus{font-family:Arial,sans-serif;font-size:8px;margin-top:3px;}
+
+.ref-link-box{background:rgba(0,0,0,.35);border:1px solid rgba(204,34,0,.1);border-radius:5px;padding:11px;margin-bottom:9px;}
+.rlb-lbl{font-family:Arial,sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;}
+.rlb-url{font-family:Arial,sans-serif;font-size:9px;color:var(--ember);word-break:break-all;line-height:1.5;}
+.btn-copy{width:100%;margin-top:7px;padding:8px;background:rgba(204,34,0,.07);
+  border:1px solid rgba(204,34,0,.2);color:var(--red3);border-radius:4px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:9px;letter-spacing:2px;cursor:pointer;}
+
+.troop-table{background:rgba(0,0,0,.3);border:1px solid rgba(204,34,0,.1);border-radius:5px;overflow:hidden;}
+.tt-head{padding:9px 12px;border-bottom:1px solid rgba(204,34,0,.1);
+  font-family:Arial,sans-serif;font-size:8px;color:var(--red3);letter-spacing:2px;}
+.tt-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid rgba(204,34,0,.06);}
+.tt-row:last-child{border-bottom:none;}
+.tt-left{display:flex;align-items:center;gap:9px;}
+.tt-badge{width:28px;height:28px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-family:'Arial Black',Arial,sans-serif;font-size:10px;}
+.tt-name{font-size:12px;color:var(--ash);font-weight:700;}
+.tt-src{font-size:9px;color:var(--muted);}
+.tt-bonus{font-family:'Arial Black',Arial,sans-serif;font-size:14px;}
+
+/* ═══ PANEL INFO ═══ */
+.intel-block{background:rgba(0,0,0,.3);border:1px solid rgba(204,34,0,.1);border-radius:6px;padding:13px;margin-bottom:9px;}
+.ib-title{font-family:'Arial Black',Arial,sans-serif;font-size:9px;letter-spacing:2px;color:var(--red2);margin-bottom:11px;
+  display:flex;align-items:center;gap:6px;}
+.ib-title::before{content:'';width:20px;height:2px;background:var(--red2);}
+.rule-row{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid rgba(204,34,0,.05);}
+.rule-row:last-child{border-bottom:none;padding-bottom:0;}
+.rr-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
+.rr-body strong{display:block;font-size:12px;font-weight:700;color:var(--ash);margin-bottom:1px;}
+.rr-body span{font-size:10px;color:var(--muted);line-height:1.5;}
+.dtable{width:100%;border-collapse:collapse;}
+.dtable th{padding:6px 7px;font-family:Arial,sans-serif;font-size:8px;color:var(--muted);
+  letter-spacing:1px;border-bottom:1px solid rgba(204,34,0,.12);text-align:left;}
+.dtable td{padding:7px 7px;font-size:11px;border-bottom:1px solid rgba(204,34,0,.05);}
+.dtable tr:last-child td{border-bottom:none;}
+.dtable td:first-child{color:var(--muted);font-size:10px;}
+.c-r{color:var(--red2)!important;font-weight:700;}
+.c-e{color:var(--ember)!important;font-weight:700;}
+.c-g{color:var(--gold)!important;font-weight:700;}
+.c-a{color:var(--ash)!important;font-weight:700;}
+.c-s{color:var(--steel)!important;font-weight:700;}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;top:62px;left:50%;transform:translateX(-50%) translateY(-70px);opacity:0;
+  background:rgba(10,5,3,.98);border:1px solid var(--red2);border-radius:5px;
+  padding:8px 16px;z-index:400;transition:all .35s cubic-bezier(.34,1.3,.64,1);
+  display:flex;align-items:center;gap:6px;box-shadow:0 0 20px rgba(204,34,0,.3);}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast-txt{font-family:'Arial Black',Arial,sans-serif;font-size:10px;color:var(--red3);letter-spacing:2px;}
+
+/* ═══ BOTTOMNAV ═══ */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(10,5,3,.98);backdrop-filter:blur(12px);
+  border-top:2px solid rgba(204,34,0,.2);display:flex;padding:8px 0 14px;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);}
+.bn-item.on .bn-lbl{color:var(--red3);}
+.bn-icon{font-size:18px;}
+.bn-lbl{font-size:7px;font-family:'Arial Black',Arial,sans-serif;letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- BATTLEFIELD WORLD -->
+<div class="world">
+  <div class="scratch"></div>
+  <div class="crack crack1"></div>
+  <div class="crack crack2"></div>
+  <div class="crack crack3"></div>
+  <div class="crack crack4"></div>
+  <div class="orb-fire orb-f1"></div>
+  <div class="orb-fire orb-f2"></div>
+  <div class="orb-fire orb-f3"></div>
+  <div id="emberWrap"></div>
+  <div class="vignette"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="tIco">⚔️</span><span class="toast-txt" id="tTxt"></span></div>
+
+<div class="app">
+  <div class="scroller">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="tb-left">
+        <a href="earn.html" class="back-btn">← KEMBALI</a>
+        <div class="brand-emblem">⚔️</div>
+        <div>
+          <div class="brand-name">REFERRAL POWER</div>
+          <div class="brand-sub">INDOCOIN · BSC · STAKING</div>
+        </div>
+      </div>
+      <div class="tb-right">
+        <div class="status-pill"><div class="sdot" id="sdot"></div><span class="stxt" id="stxt">OPEN</span></div>
+        <div class="w-chip" id="wChip" onclick="copyAddr()">—</div>
+      </div>
+    </div>
+
+    <!-- WAR BANNER -->
+    <div class="war-banner">
+      <div style="position:relative;z-index:1;">
+        <div style="padding-right:85px;">
+          <div class="slogan-wrap">
+            <div class="slogan-tag">▶ REFERRAL POWER STAKING · INDOCOIN BSC</div>
+            <div class="slogan-main">
+              <span class="s-fight">BERJUANG</span><br>
+              <span class="s-for">UNTUK</span><br>
+              <span class="s-wealth">KEKAYAAN</span>
+            </div>
+            <div class="slogan-sub" style="margin-top:6px">
+              Setiap referral adalah <strong>prajurit</strong> yang memperkuat pasukanmu.<br>
+              Base <strong>0.2%/hari</strong> — tumbuh seiring jaringan meluas.
+            </div>
+          </div>
+        </div>
+        <div class="rank-badge">
+          <div class="rb-rank">BASE RATE</div>
+          <div class="rb-val">0.2%</div>
+          <div class="rb-unit">PER HARI</div>
+          <div class="rb-bonus">+ BONUS REF</div>
+        </div>
+
+        <!-- Intel report -->
+        <div class="intel-report">
+          <div class="ir-header">
+            <span>▶ INTEL RATE — REAL TIME</span>
+            <span class="ir-total" id="liveTotal">0.2%/hari</span>
+          </div>
+          <div class="ir-rows">
+            <div class="ir-row base"><span class="ir-lbl">🔘 Base rate</span><span class="ir-val" style="color:var(--steel)">0.2%/hari</span></div>
+            <div class="ir-row l1"><span class="ir-lbl">🔴 Bonus L1</span><span class="ir-val" style="color:var(--red3)" id="irL1">+0%</span></div>
+            <div class="ir-row l2"><span class="ir-lbl">🟠 Bonus L2</span><span class="ir-val" style="color:var(--ember)" id="irL2">+0%</span></div>
+            <div class="ir-row l3"><span class="ir-lbl">🟡 Bonus L3</span><span class="ir-val" style="color:var(--gold)" id="irL3">+0%</span></div>
+          </div>
+        </div>
+
+        <!-- Battle stats -->
+        <div class="battle-stats">
+          <div class="bs" style="--clr:var(--red2)"><div class="bs-val" id="bsPrincipal">$0</div><div class="bs-lbl">PRINCIPAL</div></div>
+          <div class="bs" style="--clr:var(--ember)"><div class="bs-val" id="bsPending" style="color:var(--ember)">$0</div><div class="bs-lbl">PENDING</div></div>
+          <div class="bs" style="--clr:var(--gold)"><div class="bs-val" id="bsL1" style="color:var(--gold)">0</div><div class="bs-lbl">L1 AKTIF</div></div>
+          <div class="bs" style="--clr:var(--steel)"><div class="bs-val" id="bsSaldo" style="color:var(--ash)">—</div><div class="bs-lbl">SALDO</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WAR MAP -->
+    <div class="war-map">
+      <div class="wm-title">▶ PETA JARINGAN PRAJURIT — BONUS PER ORANG AKTIF / HARI</div>
+      <div class="wm-nodes">
+        <div class="wm-you">
+          <div class="wm-you-icon">⚔️</div>
+          <div class="wm-you-lbl">KAMU</div>
+        </div>
+        <div class="wm-line"></div>
+        <div class="wm-node">
+          <div class="wm-node-icon" style="background:rgba(204,34,0,.15);border:1px solid rgba(204,34,0,.35)">🪖</div>
+          <div class="wm-node-lv" style="color:var(--red2)">L1</div>
+          <div class="wm-node-bonus" style="color:var(--red2)">+0.003%</div>
+          <div class="wm-node-cnt" id="wmL1">0 aktif</div>
+        </div>
+        <div class="wm-line"></div>
+        <div class="wm-node">
+          <div class="wm-node-icon" style="background:rgba(255,100,0,.1);border:1px solid rgba(255,100,0,.3)">🛡️</div>
+          <div class="wm-node-lv" style="color:var(--ember)">L2</div>
+          <div class="wm-node-bonus" style="color:var(--ember)">+0.0009%</div>
+          <div class="wm-node-cnt" id="wmL2">0 aktif</div>
+        </div>
+        <div class="wm-line"></div>
+        <div class="wm-node">
+          <div class="wm-node-icon" style="background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.25)">⚡</div>
+          <div class="wm-node-lv" style="color:var(--gold)">L3</div>
+          <div class="wm-node-bonus" style="color:var(--gold)">+0.0005%</div>
+          <div class="wm-node-cnt" id="wmL3">0 aktif</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POOL INTEL -->
+    <div class="pool-intel">
+      <div class="pi" style="--bar-clr:var(--red2);animation-delay:.05s"><div class="pi-icon">🏦</div><div class="pi-val" id="piPool">—</div><div class="pi-lbl">POOL LIKUIDITAS</div></div>
+      <div class="pi t-ember" style="--bar-clr:var(--ember);animation-delay:.1s"><div class="pi-icon">⚔️</div><div class="pi-val" id="piMem">—</div><div class="pi-lbl">TOTAL PEJUANG</div></div>
+      <div class="pi t-gold" style="--bar-clr:var(--gold);animation-delay:.15s"><div class="pi-icon">🏁</div><div class="pi-val">100K%</div><div class="pi-lbl">ROI CAP MAKS</div></div>
+      <div class="pi t-steel" style="--bar-clr:var(--steel2);animation-delay:.2s"><div class="pi-icon">🔒</div><div class="pi-val">PERMANEN</div><div class="pi-lbl">MODAL DI POOL</div></div>
+    </div>
+
+    <!-- CONNECT -->
+    <div class="connect-war" id="connectCard">
+      <div class="cw-inner">
+        <span class="cw-icon">🚩</span>
+        <div class="cw-text">
+          <div class="cw-title">BERGABUNG KE PASUKAN</div>
+          <div class="cw-sub">Connect wallet & mulai perjuangan finansialmu</div>
+        </div>
+        <button class="btn-join" onclick="initWallet()">BERGABUNG</button>
+      </div>
+    </div>
+    <div class="wallet-bar" id="wBar">
+      <div style="display:flex;align-items:center;gap:7px"><div class="wb-dot"></div><div class="wb-addr" id="wbAddr">—</div></div>
+      <div class="wb-bal">USDT: <strong id="wbBal">$0.00</strong></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <button class="tab-btn on" onclick="switchTab('stake')">⚔️ STAKE</button>
+        <button class="tab-btn" onclick="switchTab('status')">📊 STATUS</button>
+        <button class="tab-btn" onclick="switchTab('referral')">🚩 PASUKAN</button>
+        <button class="tab-btn" onclick="switchTab('info')">📋 INTEL</button>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL STAKE ═══ -->
+    <div class="panel on" id="panel-stake">
+      <div class="mission-card">
+        <div class="mc-title">MISI: DAFTAR & STAKE</div>
+
+        <!-- Step 1 Register -->
+        <div class="reg-section">
+          <div class="inp-lbl">LANGKAH 1 — PENDAFTARAN PRAJURIT</div>
+          <div class="reg-status">
+            <div class="reg-dot" id="regDot"></div>
+            <span class="reg-txt" id="regTxt">Belum terdaftar sebagai prajurit</span>
+          </div>
+          <label class="inp-lbl">KODE SPONSOR (alamat wallet yang mereferralmu)</label>
+          <input class="inp" type="text" id="inpRef" placeholder="0x... (kosongkan jika tidak ada sponsor)">
+          <button class="btn-enlist" id="btnRegister" onclick="doRegister()">🪖 DAFTAR SEBAGAI PRAJURIT</button>
+        </div>
+
+        <!-- Step 2 Stake -->
+        <div class="inp-lbl" style="margin-bottom:8px">LANGKAH 2 — SETOR KE POOL LIKUIDITAS ($20–$100)</div>
+
+        <div class="ammo-bar" id="ammoBarWrap" style="display:none">
+          <div class="ab-header">
+            <span class="ab-lbl">Kapasitas terpakai</span>
+            <span class="ab-val" id="abVal">$0 / $100</span>
+          </div>
+          <div class="ab-track"><div class="ab-fill" id="abFill" style="width:0%"></div></div>
+        </div>
+
+        <div class="war-note">
+          <span class="wn-icon">⚔️</span>
+          <div class="wn-text">
+            <strong>MODAL MASUK LIQUIDITY POOL PERMANEN</strong> — USDT yang kamu setorkan akan dikunci di smart contract sebagai likuiditas pool. Modal tidak bisa ditarik kembali. Hanya <strong>reward</strong> yang bisa diklaim kapan saja.
+          </div>
+        </div>
+
+        <label class="inp-lbl">JUMLAH SETOR (MIN $20 — AKUMULASI MAX $100)</label>
+        <input class="inp" type="number" id="inpAmt" placeholder="Masukkan jumlah USDT..." min="20" max="100" step="1" oninput="onAmt(this.value)">
+
+        <div class="field-report" id="fieldReport">
+          <div class="fr-row"><span>💰 Jumlah setor</span><strong id="fr-amt">$0</strong></div>
+          <div class="fr-row"><span>📊 Base rate (0.2%/hari)</span><strong id="fr-daily" style="color:var(--ember)">$0</strong></div>
+          <div class="fr-row"><span>📅 Estimasi 30 hari</span><strong id="fr-30" style="color:var(--gold)">$0</strong></div>
+          <div class="fr-row fr-hl"><span>🏁 Maks reward (ROI 100K%)</span><strong id="fr-cap">$0</strong></div>
+        </div>
+
+        <button class="btn-approve" onclick="doApprove()">✅ APPROVE USDT DULU</button>
+        <div class="form-btns">
+          <button class="btn-abort" onclick="resetForm()">BATAL</button>
+          <button class="btn-charge" onclick="doStake()">⚔️ SETOR KE POOL</button>
+        </div>
+        <div class="fmsg" id="fmsg"></div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL STATUS ═══ -->
+    <div class="panel" id="panel-status">
+      <div id="statusContent">
+        <div class="empty-field">
+          <span class="ef-icon">⚔️</span>
+          <div class="ef-txt">Belum ada posisi aktif.<br><strong>Daftar & setor untuk memulai perjuangan!</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL REFERRAL ═══ -->
+    <div class="panel" id="panel-referral">
+      <div class="ref-command">
+        <div class="rc-title">▶ KOMANDO PASUKAN REFERRAL</div>
+        <div class="ref-stats">
+          <div class="rs-box">
+            <div class="rsb-lv">GARIS DEPAN L1</div>
+            <div class="rsb-total" style="color:var(--red2)" id="rsTotal1">0</div>
+            <div class="rsb-active" id="rsActive1">0 aktif</div>
+            <div class="rsb-bonus" style="color:var(--red3)">+0.003%/orang</div>
+          </div>
+          <div class="rs-box">
+            <div class="rsb-lv">SAYAP L2</div>
+            <div class="rsb-total" style="color:var(--ember)" id="rsTotal2">0</div>
+            <div class="rsb-active" id="rsActive2">0 aktif</div>
+            <div class="rsb-bonus" style="color:var(--ember)">+0.0009%/orang</div>
+          </div>
+          <div class="rs-box">
+            <div class="rsb-lv">BELAKANG L3</div>
+            <div class="rsb-total" style="color:var(--gold)" id="rsTotal3">0</div>
+            <div class="rsb-active" id="rsActive3">0 aktif</div>
+            <div class="rsb-bonus" style="color:var(--gold)">+0.0005%/orang</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ref-link-box">
+        <div class="rlb-lbl">🚩 LINK REKRUTMEN PASUKANMU</div>
+        <div class="rlb-url" id="refUrl">Connect wallet untuk lihat link rekrutmen</div>
+        <button class="btn-copy" onclick="copyRef()">📋 SALIN LINK REKRUTMEN</button>
+      </div>
+
+      <div class="troop-table">
+        <div class="tt-head">⚔️ STRUKTUR BONUS PER PRAJURIT AKTIF / HARI</div>
+        <div class="tt-row">
+          <div class="tt-left">
+            <div class="tt-badge" style="background:rgba(204,34,0,.15);color:var(--red2);border:1px solid rgba(204,34,0,.3)">L1</div>
+            <div><div class="tt-name">Garis Depan — Downline Langsung</div><div class="tt-src">+0.003% per prajurit aktif (≥$20) per hari</div></div>
+          </div>
+          <div class="tt-bonus" style="color:var(--red2)">+0.003%</div>
+        </div>
+        <div class="tt-row">
+          <div class="tt-left">
+            <div class="tt-badge" style="background:rgba(255,100,0,.1);color:var(--ember);border:1px solid rgba(255,100,0,.25)">L2</div>
+            <div><div class="tt-name">Sayap — Downline dari L1</div><div class="tt-src">+0.0009% per prajurit aktif per hari</div></div>
+          </div>
+          <div class="tt-bonus" style="color:var(--ember)">+0.0009%</div>
+        </div>
+        <div class="tt-row">
+          <div class="tt-left">
+            <div class="tt-badge" style="background:rgba(255,200,0,.07);color:var(--gold);border:1px solid rgba(255,200,0,.2)">L3</div>
+            <div><div class="tt-name">Cadangan — Downline dari L2</div><div class="tt-src">+0.0005% per prajurit aktif per hari</div></div>
+          </div>
+          <div class="tt-bonus" style="color:var(--gold)">+0.0005%</div>
+        </div>
+        <div style="padding:9px 12px;font-size:9px;color:var(--muted);border-top:1px solid rgba(204,34,0,.06)">
+          ✅ Tidak ada batas jumlah prajurit · Syarat aktif: setor ≥$20 · Bonus terakumulasi otomatis
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PANEL INFO ═══ -->
+    <div class="panel" id="panel-info">
+      <div class="intel-block">
+        <div class="ib-title">CARA KERJA</div>
+        <div class="rule-row"><span class="rr-icon">1️⃣</span><div class="rr-body"><strong>Daftar Dulu (register)</strong><span>Panggil register(sponsor). Jika tidak punya sponsor, isi address(0). Satu kali seumur hidup.</span></div></div>
+        <div class="rule-row"><span class="rr-icon">2️⃣</span><div class="rr-body"><strong>Setor $20–$100 ke Pool Likuiditas</strong><span>Modal masuk liquidity pool permanen — dikunci di smart contract. Tidak bisa ditarik kembali. Principal hanya sebagai indikator hitung reward dan ROI cap.</span></div></div>
+        <div class="rule-row"><span class="rr-icon">3️⃣</span><div class="rr-body"><strong>Reward 0.2%/Hari + Bonus Pasukan</strong><span>Setiap prajurit L1 aktif +0.003%, L2 +0.0009%, L3 +0.0005% per hari ke rate-mu. Dihitung detik per detik.</span></div></div>
+        <div class="rule-row"><span class="rr-icon">4️⃣</span><div class="rr-body"><strong>Klaim Reward Min $10</strong><span>Fee 1% ke devWallet. Reward berhenti otomatis saat total = 1000× principal (ROI 100.000%).</span></div></div>
+      </div>
+      <div class="intel-block">
+        <div class="ib-title">SIMULASI KEKUATAN</div>
+        <table class="dtable">
+          <thead><tr><th>KONDISI PASUKAN</th><th>BONUS</th><th>TOTAL RATE</th></tr></thead>
+          <tbody>
+            <tr><td>Tanpa pasukan</td><td>+0%</td><td class="c-s">0.2%/hari</td></tr>
+            <tr><td>10 prajurit L1</td><td class="c-r">+0.03%</td><td class="c-r">0.23%/hari</td></tr>
+            <tr><td>10L1 + 20L2</td><td class="c-e">+0.048%</td><td class="c-e">0.248%/hari</td></tr>
+            <tr><td>10L1+20L2+50L3</td><td class="c-g">+0.073%</td><td class="c-g">0.273%/hari</td></tr>
+            <tr><td>100 prajurit L1 saja</td><td class="c-r">+0.3%</td><td class="c-r">0.5%/hari</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="intel-block">
+        <div class="ib-title">ATURAN PERANG</div>
+        <table class="dtable">
+          <thead><tr><th>KETENTUAN</th><th>NILAI</th></tr></thead>
+          <tbody>
+            <tr><td>Min setor</td><td class="c-r">$20 USDT</td></tr>
+            <tr><td>Maks setor (akumulasi)</td><td class="c-r">$100 USDT</td></tr>
+            <tr><td>Status modal</td><td class="c-e">Masuk liquidity pool permanen</td></tr>
+            <tr><td>Min klaim reward</td><td class="c-r">$10 USDT</td></tr>
+            <tr><td>Fee klaim</td><td class="c-a">1% ke devWallet</td></tr>
+            <tr><td>ROI cap</td><td class="c-g">100.000% (1000× principal)</td></tr>
+            <tr><td>Durasi aktif</td><td class="c-g">Selamanya sampai ROI cap</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="intel-block">
+        <div class="ib-title">DATA KONTRAK</div>
+        <div style="font-family:Arial,sans-serif;font-size:9px;color:var(--ember);word-break:break-all;line-height:2">
+          CONTRACT: <span id="caDisplay">Belum deploy</span><br>
+          NETWORK: BSC Mainnet · Chain ID: 56<br>
+          TOKEN: USDT BEP-20 · 18 Decimals<br>
+          BASE RATE: 0.2%/hari · ROI CAP: 100.000%<br>
+          MIN SETOR: $20 · MAX AKUMULASI: $100
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOMNAV -->
+<div class="bottomnav">
+  <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-lbl">HOME</span></a>
+  <a href="index.html" class="bn-item"><span class="bn-icon">🚀</span><span class="bn-lbl">PRESALE</span></a>
+  <div class="bn-item on"><span class="bn-icon">⚔️</span><span class="bn-lbl">EARN</span></div>
+  <a href="support.html" class="bn-item"><span class="bn-icon">🛟</span><span class="bn-lbl">SUPPORT</span></a>
+</div>
+
+<script>
+const CA      = "0x0000000000000000000000000000000000000000"; // ← ISI SETELAH DEPLOY
+const USDT_CA = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_RPC = "https://bsc-dataseed1.binance.org/";
+
+const ABI = [
+  "function register(address referrer) external",
+  "function stake(uint256 amount) external",
+  "function claimReward() external",
+  "function getRate(address) view returns(uint256,uint256,uint256,uint256,uint256)",
+  "function getPending(address) view returns(uint256)",
+  "function getROI(address) view returns(uint256)",
+  "function getReferralInfo(address) view returns(uint256,uint256,uint256,uint256,uint256,uint256)",
+  "function getUserInfo(address) view returns(bool,bool,address,uint256,uint256,uint256,uint256,bool)",
+  "function estimateDailyReward(address) view returns(uint256)",
+  "function getPoolInfo() view returns(uint256,uint256,bool)"
+];
+const ERC20 = ["function approve(address,uint256) returns(bool)","function balanceOf(address) view returns(uint256)"];
+
+let provider,signer,cS,cU,myAddr;
+let isRegistered=false, userActive=false, userPrincipal=0;
+const rpc = new ethers.providers.JsonRpcProvider(BSC_RPC);
+const rC  = new ethers.Contract(CA,ABI,rpc);
+
+document.getElementById('caDisplay').textContent =
+  CA==="0x0000000000000000000000000000000000000000" ? "Belum deploy — isi CA dulu!" : CA;
+
+// EMBERS
+(function(){
+  const w=document.getElementById('emberWrap');
+  const colors=['#ff4400','#ff6600','#ffaa00','#ff2200'];
+  for(let i=0;i<18;i++){
+    const e=document.createElement('div'); e.className='ember';
+    const sz=Math.random()*4+1.5, c=colors[Math.floor(Math.random()*colors.length)];
+    e.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;bottom:${Math.random()*20}%;background:${c};box-shadow:0 0 ${sz*2}px ${c};animation-duration:${Math.random()*8+5}s;animation-delay:${Math.random()*8}s;`;
+    w.appendChild(e);
+  }
+})();
+
+// POOL CHECK
+async function checkPool(){
+  try{
+    const info=await rC.getPoolInfo();
+    const open=info[2];
+    document.getElementById('sdot').className='sdot'+(open?'':' off');
+    document.getElementById('stxt').textContent=open?'OPEN':'CLOSED';
+    const p=+ethers.utils.formatUnits(info[0],18);
+    document.getElementById('piPool').textContent=p>=1000?'$'+(p/1000).toFixed(1)+'K':'$'+p.toFixed(2);
+    document.getElementById('piMem').textContent=info[1].toString();
+  }catch(e){}
+}
+
+// CONNECT
+async function initWallet(){
+  if(!window.ethereum){toast('⚠️','Install MetaMask!');return;}
+  try{
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider=new ethers.providers.Web3Provider(window.ethereum,'any');
+    signer=provider.getSigner();
+    const cid=parseInt(await window.ethereum.request({method:'eth_chainId'}),16);
+    if(cid!==56){try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){}
+      provider=new ethers.providers.Web3Provider(window.ethereum,'any');signer=provider.getSigner();}
+    cS=new ethers.Contract(CA,ABI,signer);
+    cU=new ethers.Contract(USDT_CA,ERC20,signer);
+    myAddr=await signer.getAddress();
+    const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
+    document.getElementById('connectCard').style.display='none';
+    document.getElementById('wBar').style.display='flex';
+    document.getElementById('wChip').style.display='block';
+    document.getElementById('wbAddr').textContent=short;
+    document.getElementById('wChip').textContent=short;
+    document.getElementById('refUrl').textContent=location.origin+location.pathname+'?ref='+myAddr;
+    await loadAll();
+    window.ethereum.on('accountsChanged',()=>location.reload());
+    toast('⚔️','Bergabung ke pasukan!');
+  }catch(e){console.warn(e);toast('💥','Gagal connect');}
+}
+
+// LOAD ALL
+async function loadAll(){
+  if(!myAddr)return;
+  try{
+    const bal=+ethers.utils.formatUnits(await cU.balanceOf(myAddr),18);
+    document.getElementById('bsSaldo').textContent='$'+bal.toFixed(2);
+    document.getElementById('wbBal').textContent='$'+bal.toFixed(2);
+
+    const ui=await rC.getUserInfo(myAddr);
+    isRegistered=ui[0]; userActive=ui[1];
+    userPrincipal=+ethers.utils.formatUnits(ui[3],18);
+    const claimed=+ethers.utils.formatUnits(ui[4],18);
+    const capRem=+ethers.utils.formatUnits(ui[6],18);
+    const capReached=ui[7];
+
+    document.getElementById('regDot').className='reg-dot'+(isRegistered?' ok':'');
+    document.getElementById('regTxt').textContent=isRegistered?'✅ Sudah terdaftar sebagai prajurit':'Belum terdaftar sebagai prajurit';
+    document.getElementById('regTxt').className='reg-txt'+(isRegistered?' ok':' no');
+    document.getElementById('btnRegister').disabled=isRegistered;
+
+    if(userActive){
+      document.getElementById('ammoBarWrap').style.display='block';
+      const pct=Math.min(100,(userPrincipal/100)*100);
+      document.getElementById('abVal').textContent='$'+userPrincipal.toFixed(2)+' / $100';
+      document.getElementById('abFill').style.width=pct+'%';
+    }
+    document.getElementById('bsPrincipal').textContent='$'+userPrincipal.toFixed(2);
+
+    const rate=await rC.getRate(myAddr);
+    const totalR=rate[0].toNumber()/1e9*100;
+    const bL1=rate[2].toNumber()/1e9*100;
+    const bL2=rate[3].toNumber()/1e9*100;
+    const bL3=rate[4].toNumber()/1e9*100;
+    document.getElementById('liveTotal').textContent=totalR.toFixed(4)+'%/hari';
+    document.getElementById('irL1').textContent='+'+bL1.toFixed(4)+'%';
+    document.getElementById('irL2').textContent='+'+bL2.toFixed(4)+'%';
+    document.getElementById('irL3').textContent='+'+bL3.toFixed(4)+'%';
+
+    const pend=+ethers.utils.formatUnits(await rC.getPending(myAddr),18);
+    document.getElementById('bsPending').textContent='$'+pend.toFixed(4);
+
+    const roi=((await rC.getROI(myAddr)).toNumber())/100;
+    const daily=+ethers.utils.formatUnits(await rC.estimateDailyReward(myAddr),18);
+
+    const ref=await rC.getReferralInfo(myAddr);
+    const tL1=ref[0].toNumber(),aL1=ref[1].toNumber();
+    const tL2=ref[2].toNumber(),aL2=ref[3].toNumber();
+    const tL3=ref[4].toNumber(),aL3=ref[5].toNumber();
+    document.getElementById('bsL1').textContent=aL1;
+    document.getElementById('wmL1').textContent=aL1+' aktif';
+    document.getElementById('wmL2').textContent=aL2+' aktif';
+    document.getElementById('wmL3').textContent=aL3+' aktif';
+    document.getElementById('rsTotal1').textContent=tL1;
+    document.getElementById('rsActive1').textContent=aL1+' aktif';
+    document.getElementById('rsTotal2').textContent=tL2;
+    document.getElementById('rsActive2').textContent=aL2+' aktif';
+    document.getElementById('rsTotal3').textContent=tL3;
+    document.getElementById('rsActive3').textContent=aL3+' aktif';
+
+    renderStatus(userPrincipal,pend,claimed,roi,capReached,capRem,daily,totalR);
+  }catch(e){console.warn(e);}
+}
+
+function renderStatus(principal,pend,claimed,roi,capReached,capRem,daily,totalRate){
+  const c=document.getElementById('statusContent');
+  if(!userActive){
+    c.innerHTML=`<div class="empty-field"><span class="ef-icon">⚔️</span><div class="ef-txt">Belum ada posisi aktif.<br><strong>Daftar & setor untuk memulai perjuangan!</strong></div></div>`;
+    return;
+  }
+  const bar=Math.min(100,roi/1000);
+  const maxReward=principal*1000;
+  c.innerHTML=`
+    <div class="command-center">
+      <div class="roi-war">
+        <div class="roi-title">▶ ROI PERJUANGANMU</div>
+        <div class="roi-number">${roi.toFixed(2)}%</div>
+        <div class="roi-sub">dari principal $${principal.toFixed(2)} · Target: 100.000%</div>
+      </div>
+      <div class="battle-progress">
+        <div class="bp-label"><span>▶ Progress menuju ROI Cap</span><span style="color:var(--red3)">${roi.toFixed(2)}% / 100.000%</span></div>
+        <div class="bp-track"><div class="bp-fill" style="width:${bar}%"></div><div class="bp-marker"></div></div>
+      </div>
+      ${capReached?'<div style="text-align:center;font-family:\'Arial Black\',Arial,sans-serif;font-size:12px;color:var(--gold);margin-bottom:10px;animation:glow-text 2s ease infinite">🏁 ROI CAP TERCAPAI! MISI SELESAI — KLAIM REWARD!</div>':''}
+      <div class="cmd-grid">
+        <div class="cmd-item" style="--item-clr:var(--red2)"><div class="ci-lbl">MODAL DI POOL</div><div class="ci-val">$${principal.toFixed(2)}</div><div class="ci-sub">Liquidity pool permanen</div></div>
+        <div class="cmd-item" style="--item-clr:var(--ember)"><div class="ci-lbl">TOTAL DIKLAIM</div><div class="ci-val" style="color:var(--ember)">$${claimed.toFixed(4)}</div><div class="ci-sub">Reward sudah dicairkan</div></div>
+        <div class="cmd-item" style="--item-clr:var(--gold)"><div class="ci-lbl">SISA ROI CAP</div><div class="ci-val" style="color:var(--gold)">$${capRem.toFixed(2)}</div><div class="ci-sub">Max $${maxReward.toFixed(2)}</div></div>
+        <div class="cmd-item" style="--item-clr:var(--steel2)"><div class="ci-lbl">RATE AKTIF</div><div class="ci-val" style="color:var(--ash)">${totalRate.toFixed(4)}%</div><div class="ci-sub">per hari</div></div>
+      </div>
+      <div class="daily-power">
+        <div class="dp-left">
+          <div class="dp-lbl">KEKUATAN HARIAN</div>
+          <div class="dp-val">$${daily.toFixed(6)}</div>
+          <div class="dp-sub">Bertambah setiap detik</div>
+        </div>
+        <div class="dp-right">
+          <div class="dp-rate">${totalRate.toFixed(4)}%/hari</div>
+          <div class="dp-bonus">rate total pasukanmu</div>
+        </div>
+      </div>
+      <div class="claim-row">
+        <div class="cr-left">
+          <div class="cr-lbl">REWARD TERSEDIA</div>
+          <div class="cr-val">$${pend.toFixed(6)}</div>
+          <div class="cr-note">Min klaim $10 · Fee 1%</div>
+        </div>
+        <button class="btn-claim" id="btnClaim" onclick="doClaim()" ${pend<10?'disabled':''}>
+          ${pend>=10?'⚔️ KLAIM REWARD':'MIN $10'}
+        </button>
+      </div>
+      <div class="claim-msg" id="claimMsg"></div>
+    </div>`;
+}
+
+// ACTIONS
+async function doRegister(){
+  if(!signer){await initWallet();return;}
+  if(isRegistered){toast('✅','Sudah terdaftar!');return;}
+  let ref=document.getElementById('inpRef').value.trim();
+  if(!ref||!ethers.utils.isAddress(ref))ref=ethers.constants.AddressZero;
+  try{
+    setFM('Konfirmasi di MetaMask...','info');
+    const tx=await cS.register(ref);setFM('Diproses...','info');await tx.wait();
+    setFM('⚔️ Bergabung ke pasukan!','ok');toast('⚔️','Registrasi berhasil!');await loadAll();
+  }catch(e){setFM(e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+}
+async function doApprove(){
+  if(!signer){await initWallet();return;}
+  const a=document.getElementById('inpAmt').value;
+  if(!a||+a<20){setFM('Min setor $20','err');return;}
+  try{
+    setFM('Menunggu approval di MetaMask...','info');
+    const tx=await cU.approve(CA,ethers.utils.parseUnits(a,18));await tx.wait();
+    setFM('Approved ✅ Klik Setor ke Pool!','ok');toast('✅','USDT Approved!');
+  }catch(e){setFM(e.code===4001?'Dibatalkan':'Gagal','err');}
+}
+async function doStake(){
+  if(!signer){await initWallet();return;}
+  if(!isRegistered){setFM('Daftar dulu di Langkah 1!','err');return;}
+  const a=document.getElementById('inpAmt').value;
+  if(!a){setFM('Masukkan jumlah','err');return;}
+  if(+a<20){setFM('Min $20','err');return;}
+  if(userPrincipal + parseFloat(a)>100){setFM(`Max $100 total. Sisa: $${(100-userPrincipal).toFixed(2)}`,'err');return;}
+  try{
+    setFM('Konfirmasi di MetaMask...','info');
+    const tx=await cS.stake(ethers.utils.parseUnits(a,18));
+    setFM('Diproses di blockchain...','info');await tx.wait();
+    setFM('⚔️ Modal berhasil masuk ke pool!','ok');toast('⚔️','Stake berhasil!');
+    document.getElementById('inpAmt').value='';
+    document.getElementById('fieldReport').style.display='none';
+    await loadAll();
+  }catch(e){setFM(e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+}
+async function doClaim(){
+  if(!signer)return;
+  const el=document.getElementById('claimMsg');
+  try{
+    if(el){el.textContent='Konfirmasi di MetaMask...';el.className='claim-msg info';}
+    const tx=await cS.claimReward();
+    if(el)el.textContent='Diproses...';
+    await tx.wait();
+    if(el){el.textContent='⚔️ Reward berhasil diklaim!';el.className='claim-msg ok';}
+    toast('⚔️','Reward diklaim!');await loadAll();
+  }catch(e){if(el){el.textContent=e.code===4001?'Dibatalkan':(e.reason||'Gagal');el.className='claim-msg err';}}
+}
+
+function onAmt(v){
+  const a=parseFloat(v)||0,fr=document.getElementById('fieldReport');
+  if(a<20){fr.style.display='none';return;}
+  fr.style.display='block';
+  document.getElementById('fr-amt').textContent='$'+a.toFixed(2);
+  document.getElementById('fr-daily').textContent='+$'+(a*0.002).toFixed(4)+'/hari';
+  document.getElementById('fr-30').textContent='$'+(a*0.002*30).toFixed(2);
+  document.getElementById('fr-cap').textContent='$'+(a*1000).toFixed(2)+' (ROI 100K%)';
+}
+function resetForm(){document.getElementById('inpAmt').value='';document.getElementById('inpRef').value='';document.getElementById('fieldReport').style.display='none';document.getElementById('fmsg').textContent='';}
+function switchTab(t){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('on',['stake','status','referral','info'][i]===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+t).classList.add('on');
+}
+function copyAddr(){if(myAddr){navigator.clipboard.writeText(myAddr);toast('📋','Alamat disalin!');}}
+function copyRef(){navigator.clipboard.writeText(document.getElementById('refUrl').textContent);toast('📋','Link rekrutmen disalin!');}
+function setFM(m,t){const e=document.getElementById('fmsg');e.textContent=m;e.className='fmsg '+t;}
+function toast(ico,msg){document.getElementById('tIco').textContent=ico;document.getElementById('tTxt').textContent=msg;const el=document.getElementById('toast');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),3200);}
+
+setInterval(()=>{if(myAddr)loadAll();},30000);
+window.addEventListener('load',()=>{
+  checkPool();
+  const urlRef=new URLSearchParams(location.search).get('ref');
+  if(urlRef)localStorage.setItem('indocoin_ref',urlRef);
+  if(window.ethereum)initWallet();
+});
+</script>
+</body>
+</html>
