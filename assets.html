@@ -234,9 +234,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <div class="card-title"><div class="title-dot" style="background:var(--violet);box-shadow:0 0 5px var(--violet)"></div>ALOKASI ASET</div>
         <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)">Pie Chart</span>
       </div>
-      <div style="padding:16px;">
-        <canvas id="pieChart" width="100%" height="160" style="width:100%;height:160px;display:block;"></canvas>
-        <div id="pieLegend" style="display:flex;justify-content:center;gap:16px;margin-top:10px;flex-wrap:wrap;"></div>
+      <div class="pie-section">
+        <div class="pie-wrap">
+          <canvas id="pieChart" width="130" height="130"></canvas>
+        </div>
+        <div class="pie-legend" id="pieLegend"></div>
       </div>
     </div>
 
@@ -475,85 +477,69 @@ function renderTokenList(bnbPrice, indcPrice, bnbChg) {
     </div>`).join("");
 }
 
-/* ═══ BUBBLE CHART ═══ */
+/* ═══ RING GLOW CHART ═══ */
 function renderPie(bnbUSD, indcUSD) {
   const total = bnbUSD + indcUSD || 1;
-  const tokens = [
-    { label:"INDC", val:indcUSD, color:"#facc15", glow:"rgba(250,204,21,0.35)", icon:"I", pct:(indcUSD/total*100).toFixed(1) },
-    { label:"BNB",  val:bnbUSD,  color:"#38bdf8", glow:"rgba(56,189,248,0.35)", icon:"B", pct:(bnbUSD/total*100).toFixed(1) },
+  const slices = [
+    { label:"INDC", val:indcUSD, color:"#facc15", pct:(indcUSD/total*100).toFixed(1) },
+    { label:"BNB",  val:bnbUSD,  color:"#38bdf8", pct:(bnbUSD/total*100).toFixed(1)  },
   ];
   const canvas = document.getElementById("pieChart");
   const DPR = window.devicePixelRatio || 2;
-  const W = canvas.offsetWidth || 300;
-  const H = 160;
-  canvas.width  = W * DPR;
-  canvas.height = H * DPR;
-  canvas.style.width  = W + "px";
-  canvas.style.height = H + "px";
+  const size = 130;
+  canvas.width = size*DPR; canvas.height = size*DPR;
+  canvas.style.width = size+"px"; canvas.style.height = size+"px";
   const ctx = canvas.getContext("2d");
   ctx.scale(DPR, DPR);
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0,0,size,size);
+  const cx=size/2, cy=size/2, outerR=54, innerR=34, gap=0.07;
+  let angle = -Math.PI/2;
 
-  const maxVal = Math.max(...tokens.map(t => t.val), 0.0001);
-  const minR = 28, maxR = 62;
-
-  // Posisi bubble: spread horizontal
-  const positions = [
-    { x: W * 0.28, y: H * 0.5 },
-    { x: W * 0.72, y: H * 0.5 },
-  ];
-
-  tokens.forEach((t, i) => {
-    const ratio = Math.sqrt((t.val || 0.001) / maxVal);
-    const r = minR + ratio * (maxR - minR);
-    const { x, y } = positions[i];
-
+  slices.forEach(s => {
+    const sweep = (s.val/total)*Math.PI*2;
+    const a1=angle+gap, a2=angle+sweep-gap;
     // Glow
-    const grd = ctx.createRadialGradient(x, y, r*0.2, x, y, r*1.4);
-    grd.addColorStop(0, t.glow);
-    grd.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.beginPath(); ctx.arc(x, y, r*1.4, 0, Math.PI*2);
-    ctx.fillStyle = grd; ctx.fill();
-
-    // Bubble fill gradient
-    const fill = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.1, x, y, r);
-    fill.addColorStop(0, t.color + "cc");
-    fill.addColorStop(0.6, t.color + "55");
-    fill.addColorStop(1, t.color + "11");
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.fillStyle = fill; ctx.fill();
-
-    // Border
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.strokeStyle = t.color + "99";
-    ctx.lineWidth = 1.5; ctx.stroke();
-
-    // Highlight top-left
-    const hl = ctx.createRadialGradient(x-r*0.35, y-r*0.35, 0, x-r*0.2, y-r*0.2, r*0.55);
-    hl.addColorStop(0, "rgba(255,255,255,0.25)");
-    hl.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.fillStyle = hl; ctx.fill();
-
-    // Icon/symbol dalam bubble
-    ctx.fillStyle = t.color;
-    ctx.font = `bold ${Math.floor(r*0.38)}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(t.label, x, y - r*0.1);
-
-    // Persentase bawah
-    ctx.font = `bold ${Math.floor(r*0.28)}px Share Tech Mono`;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.fillText(t.pct + "%", x, y + r*0.28);
+    ctx.save();
+    ctx.shadowColor = s.color;
+    ctx.shadowBlur  = 16;
+    // Ring arc
+    ctx.beginPath();
+    ctx.arc(cx,cy,outerR,a1,a2);
+    ctx.arc(cx,cy,innerR,a2,a1,true);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(
+      cx+Math.cos(a1)*outerR, cy+Math.sin(a1)*outerR,
+      cx+Math.cos(a2)*outerR, cy+Math.sin(a2)*outerR
+    );
+    grad.addColorStop(0, s.color+"cc");
+    grad.addColorStop(1, s.color+"44");
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+    // Border tipis
+    ctx.beginPath();
+    ctx.arc(cx,cy,outerR,a1,a2);
+    ctx.arc(cx,cy,innerR,a2,a1,true);
+    ctx.closePath();
+    ctx.strokeStyle = s.color+"88"; ctx.lineWidth=0.8; ctx.stroke();
+    angle += sweep;
   });
 
-  // Legend
-  document.getElementById("pieLegend").innerHTML = tokens.map(t => `
-    <div style="display:flex;align-items:center;gap:6px;">
-      <div style="width:10px;height:10px;border-radius:50%;background:${t.color};box-shadow:0 0 6px ${t.color}"></div>
-      <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">${t.label}</span>
-      <span style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:${t.color}">${t.pct}%</span>
+  // Tengah gelap
+  ctx.beginPath(); ctx.arc(cx,cy,innerR-1,0,Math.PI*2);
+  ctx.fillStyle="#0a0f1e"; ctx.fill();
+  // Teks tengah
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle="rgba(255,255,255,0.85)";
+  ctx.font="bold 10px Orbitron"; ctx.fillText("ASET",cx,cy-6);
+  ctx.font="8px Share Tech Mono"; ctx.fillStyle="#64748b";
+  ctx.fillText(slices.length+" token",cx,cy+8);
+
+  document.getElementById("pieLegend").innerHTML = slices.map(s=>`
+    <div class="pie-item">
+      <div class="pie-dot" style="background:${s.color};box-shadow:0 0 6px ${s.color}"></div>
+      <div class="pie-name">${s.label}</div>
+      <div class="pie-pct" style="color:${s.color}">${s.pct}%</div>
     </div>`).join("");
 }
 
