@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POINT VAULT STAKING — INDOCOIN</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Arial Black','Arial Bold',Gadget,sans-serif; }
+:root {
+  --bg:#040d06; --bg2:#071209; --panel:#0a1a0c;
+  --green:#00c853; --green2:#69f0ae; --green3:#1b5e20;
+  --gold:#f9a825; --gold2:#ffd54f;
+  --teal:#00bfa5; --teal2:#64ffda;
+  --white:#e8f5e9; --dim:#81c784; --dark:#1b2e1c;
+  --border:#1a3d1c; --red:#e53935;
+}
+body { background:var(--bg); color:var(--white); min-height:100vh; overflow-x:hidden; padding-bottom:70px; }
+
+/* GRID BG */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0,200,83,.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(0,191,165,.04) 0%, transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(0,200,83,.02) 60px,rgba(0,200,83,.02) 61px),
+    repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(0,200,83,.02) 60px,rgba(0,200,83,.02) 61px);
+}
+
+/* ═══ HEADER ═══ */
+/* TOPBAR BARU */
+.topbar-new {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  background:rgba(8,5,15,0.97);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(255,255,255,0.5);
+  position:sticky;top:0;z-index:100;
+}
+.topbar-left{display:flex;align-items:center;gap:9px;}
+.topbar-logo{width:40px;height:40px;border-radius:50%;border:2.5px solid rgba(255,255,255,0.85);box-shadow:0 0 10px rgba(255,255,255,0.3),0 0 20px rgba(0,100,255,0.25);object-fit:cover;flex-shrink:0;}
+.topbar-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:2px;color:#FFD700;line-height:1;}
+.topbar-sub{font-family:'Rajdhani',sans-serif;font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:1.5px;margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:6px;}
+.pool-dot-new{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:glow-pulse-new 2s infinite;}
+@keyframes glow-pulse-new{0%,100%{opacity:0.6}50%{opacity:1}}
+.pool-txt-new{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#22c55e;}
+
+header {
+  text-align:center; padding:28px 20px 20px;
+  background:linear-gradient(180deg,#021005 0%,transparent 100%);
+  border-bottom:2px solid var(--green3); position:relative; z-index:1; overflow:hidden;
+}
+header::before {
+  content:'🌿'; position:absolute; font-size:200px; opacity:.03;
+  top:-30px; left:50%; transform:translateX(-50%); pointer-events:none;
+}
+.logo-sub { font-size:9px; letter-spacing:3px; color:var(--teal); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; text-align:center; }
+h1 { white-space:nowrap;
+  font-size:clamp(18px,5.5vw,38px); color:var(--white); line-height:1;
+  font-weight:900; -webkit-text-stroke:1px rgba(105,240,174,.2);
+  text-shadow:0 0 40px rgba(0,200,83,.5), 0 0 80px rgba(0,200,83,.2);
+  overflow:hidden; text-overflow:ellipsis;
+}
+h1 span { color:var(--green); }
+h1 small { display:block; font-size:clamp(14px,4vw,22px); color:var(--teal2); letter-spacing:4px; margin-top:4px; }
+.tagline { font-size:9px; letter-spacing:3px; color:var(--dim); margin-top:10px; white-space:nowrap; }
+.live-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(0,200,83,.1); border:1px solid var(--green);
+  padding:4px 12px; border-radius:20px; font-size:10px; color:var(--green2);
+  margin-top:10px; letter-spacing:1px;
+}
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+
+/* ═══ WALLET BAR ═══ */
+.wallet-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 16px; background:#020a03; border-bottom:1px solid var(--border);
+  gap:8px; flex-wrap:nowrap; position:relative; z-index:1;
+}
+.wallet-info { font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+.wallet-info span { color:var(--green2); }
+.wallet-right { display:flex; gap:8px; flex-shrink:0; }
+.btn-connect {
+  background:linear-gradient(135deg,var(--green3),#0a3d0c); border:1px solid var(--green);
+  color:var(--green2); padding:7px 14px; font-family:'Arial Black',sans-serif;
+  font-size:10px; letter-spacing:1px; cursor:pointer; border-radius:20px;
+  white-space:nowrap; transition:all .3s; box-shadow:0 0 15px rgba(0,200,83,.2);
+}
+.btn-connect:hover { box-shadow:0 0 25px rgba(0,200,83,.5); }
+#btnAdmin {
+  display:none; background:linear-gradient(135deg,#1a3d0a,#0d2a08);
+  border:1px solid var(--gold); color:var(--gold2); padding:7px 12px;
+  font-family:'Arial Black',sans-serif; font-size:10px; cursor:pointer;
+  border-radius:20px; white-space:nowrap; transition:all .3s;
+}
+#btnAdmin:hover { box-shadow:0 0 15px rgba(249,168,37,.4); }
+
+/* ═══ CONTAINER ═══ */
+.container { max-width:880px; margin:0 auto; padding:16px 12px; position:relative; z-index:1; }
+
+/* ═══ STATS ROW ═══ */
+.stats-row { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px; }
+@media(min-width:480px){ .stats-row{ grid-template-columns:repeat(4,1fr); } }
+.stat-card {
+  background:linear-gradient(135deg,var(--panel),#071009);
+  border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center;
+  position:relative; overflow:hidden;
+}
+.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--green),transparent); }
+.stat-card .slabel { font-size:9px; letter-spacing:2px; color:var(--dim); margin-bottom:5px; }
+.stat-card .sval   { font-size:20px; color:var(--green2); }
+.stat-card .ssub   { font-size:9px; color:var(--dim); margin-top:2px; }
+
+/* ═══ POINT DISPLAY ═══ */
+.point-hero {
+  background:linear-gradient(135deg,#071a09,#030e04);
+  border:1px solid var(--green3); border-radius:12px; padding:20px;
+  text-align:center; margin-bottom:16px; position:relative; overflow:hidden;
+}
+.point-hero::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at center,rgba(0,200,83,.06),transparent 70%);
+}
+.ph-label { font-size:10px; letter-spacing:3px; color:var(--dim); margin-bottom:8px; }
+.ph-value { font-size:clamp(36px,10vw,64px); color:var(--green2); line-height:1; font-weight:900; }
+.ph-sub   { font-size:12px; color:var(--teal); margin-top:6px; }
+.ph-rp    { font-size:14px; color:var(--gold2); margin-top:4px; }
+.ph-bar   { height:6px; background:#0a1a0c; border-radius:3px; margin:12px 0 6px; overflow:hidden; }
+.ph-fill  { height:100%; background:linear-gradient(90deg,var(--teal),var(--green),var(--green2)); transition:width .5s; border-radius:3px; }
+.ph-info  { display:flex; justify-content:space-between; font-size:10px; color:var(--dim); }
+
+/* ═══ POINT CARDS ═══ */
+.pin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+.pin-card {
+  background:linear-gradient(135deg,#0a1f0c,#061209);
+  border:1px solid; border-radius:8px; padding:14px; text-align:center;
+  transition:all .3s; position:relative;
+}
+.pin-card.active   { border-color:var(--green); box-shadow:0 0 15px rgba(0,200,83,.15); }
+.pin-card.expired  { border-color:#2a2a2a; opacity:.5; }
+.pin-card.empty    { border-color:var(--border); border-style:dashed; cursor:pointer; }
+.pin-card.empty:hover { border-color:var(--green); background:rgba(0,200,83,.05); }
+.pin-icon   { font-size:28px; margin-bottom:6px; }
+.point-label  { font-size:11px; color:var(--white); letter-spacing:1px; margin-bottom:4px; }
+.pin-status { font-size:10px; }
+.pin-days   { font-size:10px; color:var(--dim); margin-top:3px; }
+
+/* ═══ PANEL ═══ */
+.panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-bottom:14px; overflow:hidden; }
+.panel-header {
+  background:linear-gradient(90deg,#021005,#071209);
+  border-bottom:1px solid var(--border); padding:10px 16px;
+  display:flex; align-items:center; gap:8px;
+}
+.panel-header h3 { font-size:13px; letter-spacing:2px; color:var(--green2); }
+.panel-body { padding:16px; }
+
+/* ═══ TABS ═══ */
+.tabs { display:flex; border-bottom:1px solid var(--border); overflow-x:auto; }
+.tab { padding:10px 16px; font-size:11px; letter-spacing:1px; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; transition:all .3s; }
+.tab.active { color:var(--green2); border-bottom-color:var(--green); }
+.tab-content { display:none; padding:16px; }
+.tab-content.active { display:block; }
+
+/* ═══ SHOP ITEMS ═══ */
+.shop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.shop-item {
+  background:#071209; border:1px solid var(--border); border-radius:8px;
+  padding:14px; text-align:center; cursor:pointer; transition:all .3s;
+}
+.shop-item:hover { border-color:var(--green); transform:translateY(-2px); box-shadow:0 4px 20px rgba(0,200,83,.15); }
+.shop-item.disabled { opacity:.4; cursor:not-allowed; }
+.si-icon  { font-size:28px; margin-bottom:6px; }
+.si-name  { font-size:11px; color:var(--white); margin-bottom:4px; letter-spacing:.5px; }
+.si-cat   { font-size:9px; color:var(--dim); margin-bottom:6px; }
+.si-cost  { font-size:13px; color:var(--green2); }
+.si-rp    { font-size:9px; color:var(--gold2); margin-top:2px; }
+.si-btn   { display:block; width:100%; margin-top:8px; padding:6px; background:rgba(0,200,83,.1); border:1px solid var(--green); color:var(--green2); border-radius:4px; font-family:'Arial Black',sans-serif; font-size:9px; cursor:pointer; transition:all .2s; }
+.si-btn:hover { background:var(--green); color:#000; }
+
+/* ═══ FORM ═══ */
+.form-row { margin-bottom:12px; }
+.flabel { display:block; font-size:9px; letter-spacing:2px; color:var(--dim); margin-bottom:5px; text-transform:uppercase; }
+input, select, textarea {
+  width:100%; background:#050f06; border:1px solid var(--border); color:var(--white);
+  padding:9px 12px; border-radius:6px; font-family:'Arial Black',sans-serif;
+  font-size:13px; outline:none; transition:border-color .3s;
+}
+input:focus, select:focus, textarea:focus { border-color:var(--green); }
+select option { background:#0a1a0c; }
+textarea { resize:vertical; min-height:60px; font-size:12px; }
+
+/* ═══ BUTTONS ═══ */
+.btn { display:inline-block; padding:10px 20px; border:none; border-radius:6px; font-family:'Arial Black',sans-serif; font-size:12px; letter-spacing:1px; cursor:pointer; transition:all .3s; }
+.btn-green { background:linear-gradient(135deg,var(--green3),#0d4a10); color:var(--green2); border:1px solid var(--green); }
+.btn-green:hover { box-shadow:0 0 20px rgba(0,200,83,.4); transform:translateY(-2px); }
+.btn-teal  { background:linear-gradient(135deg,#004d40,#00251a); color:var(--teal2); border:1px solid var(--teal); }
+.btn-teal:hover  { box-shadow:0 0 20px rgba(0,191,165,.4); transform:translateY(-2px); }
+.btn-gold  { background:linear-gradient(135deg,#e65100,#bf360c); color:var(--gold2); border:1px solid var(--gold); }
+.btn-gold:hover  { box-shadow:0 0 20px rgba(249,168,37,.4); transform:translateY(-2px); }
+.btn-red   { background:rgba(229,57,53,.15); color:#ef5350; border:1px solid #ef5350; }
+.btn-red:hover   { background:#e53935; color:#fff; }
+.btn-full  { width:100%; text-align:center; display:block; }
+.btn-sm    { padding:5px 12px; font-size:10px; }
+
+/* ═══ ALERT ═══ */
+.alert { padding:10px 14px; border-radius:6px; font-size:11px; margin-bottom:12px; border-left:3px solid; }
+.alert-info  { background:rgba(0,191,165,.08); border-color:var(--teal); color:var(--teal2); }
+.alert-warn  { background:rgba(249,168,37,.08); border-color:var(--gold); color:var(--gold2); }
+.alert-ok    { background:rgba(0,200,83,.08);   border-color:var(--green); color:var(--green2); }
+.alert-red   { background:rgba(229,57,53,.08);  border-color:#ef5350; color:#ef5350; }
+
+/* ═══ TABLE ═══ */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+th { background:#030c04; color:var(--green2); padding:8px 10px; text-align:left; font-size:10px; letter-spacing:1px; white-space:nowrap; }
+td { padding:8px 10px; border-bottom:1px solid var(--border); color:var(--dim); vertical-align:middle; }
+tr:hover td { background:rgba(0,200,83,.03); }
+.badge { display:inline-block; font-size:9px; padding:2px 8px; border-radius:10px; }
+.badge-pending   { background:rgba(249,168,37,.15); color:var(--gold2); border:1px solid var(--gold2); }
+.badge-processed { background:rgba(0,200,83,.15);   color:var(--green2); border:1px solid var(--green2); }
+.badge-rejected  { background:rgba(229,57,53,.15);  color:#ef5350; border:1px solid #ef5350; }
+
+/* ═══ DIVIDER ═══ */
+.divider { height:1px; background:linear-gradient(90deg,transparent,var(--green3),transparent); margin:14px 0; }
+
+/* ═══ ADMIN PANEL ═══ */
+#adminPanel { display:none; }
+.admin-bar {
+  background:linear-gradient(135deg,#0a1f03,#071209);
+  border:1px solid var(--gold); border-radius:8px; padding:14px 16px;
+  margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+}
+.admin-bar h2 { font-size:15px; color:var(--gold2); letter-spacing:2px; }
+.admin-tabs  { display:flex; border-bottom:1px solid var(--border); overflow-x:auto; margin-bottom:14px; }
+.admin-tab   { padding:10px 14px; font-size:11px; letter-spacing:1px; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; transition:all .3s; }
+.admin-tab.active { color:var(--gold2); border-bottom-color:var(--gold); }
+.admin-content { display:none; }
+.admin-content.active { display:block; }
+.admin-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+.admin-card { background:#071209; border:1px solid var(--border); border-radius:8px; padding:14px; }
+.admin-card .clabel { font-size:9px; letter-spacing:2px; color:var(--dim); margin-bottom:5px; }
+.admin-card .cval   { font-size:20px; color:var(--gold2); }
+.tpanel { background:var(--panel); border:1px solid var(--border); border-radius:8px; margin-bottom:12px; overflow:hidden; }
+.tpanel-hdr { padding:10px 16px; border-bottom:1px solid var(--border); }
+.tpanel-hdr h3 { font-size:12px; color:var(--gold2); letter-spacing:1px; }
+.tpanel-body { padding:14px; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media(max-width:480px){ .form-grid{ grid-template-columns:1fr; } }
+
+/* ═══ MODAL ═══ */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.8); z-index:500; align-items:center; justify-content:center; padding:16px; }
+.modal-overlay.show { display:flex; }
+.modal { background:#071209; border:1px solid var(--green); border-radius:12px; padding:20px; width:100%; max-width:400px; }
+.modal h3 { font-size:15px; color:var(--green2); margin-bottom:14px; letter-spacing:1px; }
+.modal-btns { display:flex; gap:8px; margin-top:14px; }
+
+/* ═══ BOTTOM NAV ═══ */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; z-index:999;
+  background:#020a03; border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-around;
+  padding:8px 0 12px; box-shadow:0 -4px 20px rgba(0,0,0,.7);
+}
+.nav-btn { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 14px; border:none; background:transparent; cursor:pointer; transition:all .2s; border-radius:8px; }
+.nav-btn:hover { background:rgba(0,200,83,.05); }
+.nav-btn.active .nav-btn-icon  { filter:drop-shadow(0 0 8px var(--green2)); }
+.nav-btn.active .nav-btn-label { color:var(--green2); }
+.nav-btn-icon  { font-size:24px; line-height:1; }
+.nav-btn-label { font-size:9px; letter-spacing:1px; color:var(--dim); }
+
+/* ═══ FOOTER ═══ */
+.footer { font-size:10px; color:var(--dim); text-align:center; padding:10px; border-top:1px solid var(--border); opacity:.6; }
+
+/* ═══ TOAST ═══ */
+#toast { position:fixed; bottom:80px; right:16px; background:#071209; border:1px solid var(--green); color:var(--white); padding:10px 16px; border-radius:8px; font-size:12px; transform:translateY(80px); opacity:0; transition:all .4s; z-index:9999; max-width:300px; box-shadow:0 4px 20px rgba(0,200,83,.3); }
+#toast.show { transform:translateY(0); opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="topbar-new">
+  <div class="topbar-left">
+    <img src="data:image/png;base64,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" class="topbar-logo" alt="INDOCOIN">
+    <div>
+      <div class="topbar-title">INDOCOIN</div>
+      <div class="topbar-sub">DEFI PLATFORM</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="pool-dot-new"></div>
+    <span class="pool-txt-new">LIVE</span>
+  </div>
+</div>
+<header>
+  <div class="logo-sub">◆ VAULT OF DIGITAL TREASURE ◆</div>
+  <h1><span>POINT</span> VAULT STAKING<small>EARN · REDEEM · GROW</small></h1>
+  <div class="live-badge"><span class="live-dot"></span> PROGRAM AKTIF</div>
+  <div class="tagline">🌿 TANAM HARI INI · PANEN SEPANJANG WAKTU 🌿</div>
+</header>
+
+<!-- WALLET BAR -->
+<div class="wallet-bar">
+  <div class="wallet-info">💼 <span id="walletAddr">Belum terhubung</span> &nbsp;|&nbsp; INDC: <span id="indcBal">0</span></div>
+  <div class="wallet-right">
+    <button id="btnAdmin" onclick="toggleAdmin()">⚙ ADMIN</button>
+    <button class="btn-connect" id="btnConnect">🔗 CONNECT</button>
+  </div>
+</div>
+
+<!-- ═══ USER SECTION ═══ -->
+<div class="container" id="userSection">
+
+  <!-- GLOBAL STATS -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="slabel">Total Member</div><div class="sval" id="s-members">-</div><div class="ssub">Bergabung</div></div>
+    <div class="stat-card"><div class="slabel">Total POINT Terjual</div><div class="sval" id="s-points">-</div><div class="ssub">POINT Aktif</div></div>
+    <div class="stat-card"><div class="slabel">Total Point</div><div class="sval" id="s-points">-</div><div class="ssub">Didistribusi</div></div>
+    <div class="stat-card"><div class="slabel">Harga POINT</div><div class="sval" id="s-price">-</div><div class="ssub">INDC / POINT</div></div>
+  </div>
+
+  <!-- POINT HERO (hanya muncul kalau registered) -->
+  <div id="pointHero" style="display:none">
+    <div class="point-hero">
+      <div class="ph-label">TOTAL POINT KAMU</div>
+      <div class="ph-value" id="ph-total">0</div>
+      <div class="ph-sub">≈ <span id="ph-usd">$0</span> USD</div>
+      <div class="ph-rp">Rp <span id="ph-rp">0</span></div>
+      <div class="ph-bar"><div class="ph-fill" id="ph-fill" style="width:0%"></div></div>
+      <div class="ph-info">
+        <span>Terpakai: <span id="ph-used">0</span></span>
+        <span>Tersedia: <span id="ph-avail">0</span></span>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="slabel">POINT Aktif</div><div class="sval" style="color:var(--green2)" id="u-activePoints">0</div></div>
+      <div class="stat-card"><div class="slabel">Point/Hari</div><div class="sval" style="color:var(--teal2)" id="u-ppd">0</div></div>
+      <div class="stat-card"><div class="slabel">Pending Hari Ini</div><div class="sval" style="color:var(--gold2)" id="u-pending">0</div></div>
+      <div class="stat-card"><div class="slabel">Nilai/Hari</div><div class="sval" style="color:var(--green2)" id="u-rpday">Rp0</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-green" onclick="claimPoints()" style="flex:1">🌿 KLAIM POINT HARI INI</button>
+      <button class="btn btn-teal" onclick="showTab('shop',document.querySelectorAll('.tab')[1])" style="flex:1">🛒 TUKAR POINT</button>
+    </div>
+  </div>
+
+  <!-- POINT CARDS -->
+  <div id="pinSection" style="display:none">
+    <div class="panel">
+      <div class="panel-header"><span>📌</span><h3>POINT KAMU</h3></div>
+      <div class="panel-body">
+        <div class="pin-grid" id="pinGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('beli',this)">📌 BELI POINT</div>
+      <div class="tab" onclick="showTab('shop',this)">🛒 TUKAR POINT</div>
+      <div class="tab" onclick="showTab('riwayat',this)">📋 RIWAYAT</div>
+      <div class="tab" onclick="showTab('info',this)">ℹ️ INFO</div>
+    </div>
+
+    <!-- BELI POINT -->
+    <div class="tab-content active" id="tab-beli">
+      <div class="alert alert-info">💡 Beli POINT pakai token INDC. POINT aktif 2 tahun. Point masuk otomatis setiap hari!</div>
+
+      <div style="background:#030c04;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+          <div><div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:4px">HARGA POINT</div><div style="font-size:20px;color:var(--green2)" id="b-price">-</div><div style="font-size:10px;color:var(--dim)">INDC/POINT</div></div>
+          <div><div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:4px">POINT/HARI</div><div style="font-size:20px;color:var(--teal2)" id="b-ppd">-</div><div style="font-size:10px;color:var(--dim)">per POINT</div></div>
+          <div><div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:4px">MAX POINT</div><div style="font-size:20px;color:var(--gold2)" id="b-max">-</div><div style="font-size:10px;color:var(--dim)">per wallet</div></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <span class="flabel">Jumlah POINT yang ingin dibeli</span>
+        <input type="number" id="buyAmt" value="1" min="1" oninput="updateBuyEst()">
+      </div>
+
+      <div style="background:#030c04;border:1px solid var(--green3);border-radius:8px;padding:12px;margin-bottom:14px;text-align:center">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:6px">ESTIMASI REWARD</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+          <div><div style="font-size:10px;color:var(--dim)">Per Hari</div><div style="font-size:14px;color:var(--green2)" id="est-day">-</div></div>
+          <div><div style="font-size:10px;color:var(--dim)">Per Bulan</div><div style="font-size:14px;color:var(--teal2)" id="est-month">-</div></div>
+          <div><div style="font-size:10px;color:var(--dim)">2 Tahun</div><div style="font-size:14px;color:var(--gold2)" id="est-2yr">-</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:8px">Total Biaya: <span style="color:var(--green2)" id="est-cost">-</span> INDC</div>
+      </div>
+
+      <button class="btn btn-green btn-full" onclick="buyPin()">🌿 BELI POINT SEKARANG</button>
+
+      <div style="margin-top:10px;text-align:center;font-size:10px;color:var(--dim)">
+        Belum punya INDC? <span style="color:var(--teal2);cursor:pointer" onclick="goTo('presale')">→ Beli di PRESALE</span>
+      </div>
+    </div>
+
+    <!-- SHOP / TUKAR POINT -->
+    <div class="tab-content" id="tab-shop">
+      <div class="alert alert-ok">🛒 Pilih item & tukar pointmu! Admin akan proses dalam 1x24 jam.</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:12px">Point tersedia: <span style="color:var(--green2);font-size:14px" id="sh-avail">0</span> Point = <span style="color:var(--gold2)">Rp <span id="sh-rp">0</span></span></div>
+      <div class="shop-grid" id="shopGrid">
+        <div style="text-align:center;color:var(--dim);padding:20px;grid-column:1/-1">Connect wallet untuk melihat item</div>
+      </div>
+    </div>
+
+    <!-- RIWAYAT -->
+    <div class="tab-content" id="tab-riwayat">
+      <div class="alert alert-info">📋 Riwayat penukaran point kamu.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>ITEM</th><th>POINT</th><th>DETAIL</th><th>WAKTU</th><th>STATUS</th><th>CATATAN</th></tr></thead>
+          <tbody id="redeemTable"><tr><td colspan="7" style="text-align:center;padding:20px;color:var(--dim)">Connect wallet dulu</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INFO -->
+    <div class="tab-content" id="tab-info">
+      <div style="background:#030c04;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--green2);letter-spacing:1px;margin-bottom:10px">📊 CARA KERJA POINT</div>
+        <div style="font-size:12px;color:var(--dim);line-height:2">
+          🌿 Beli POINT menggunakan token INDC<br>
+          📌 POINT aktif selama 2 tahun<br>
+          💰 Point masuk otomatis setiap hari<br>
+          🛒 Tukar point dengan pulsa, token listrik, voucher, dll<br>
+          ⚡ 1 Point = Rp 7 = $0.0004375<br>
+          🔄 Klaim point tiap hari agar tidak hangus
+        </div>
+      </div>
+      <div style="background:#030c04;border:1px solid var(--border);border-radius:8px;padding:14px">
+        <div style="font-size:12px;color:var(--green2);letter-spacing:1px;margin-bottom:10px">💱 NILAI POINT</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+          <div style="background:#071209;border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+            <div style="color:var(--dim);font-size:9px;margin-bottom:4px">1 POINT</div>
+            <div style="color:var(--green2)">Rp 7</div>
+          </div>
+          <div style="background:#071209;border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+            <div style="color:var(--dim);font-size:9px;margin-bottom:4px">1 POINT</div>
+            <div style="color:var(--teal2)">$0.0004375</div>
+          </div>
+          <div style="background:#071209;border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+            <div style="color:var(--dim);font-size:9px;margin-bottom:4px">1000 POINT</div>
+            <div style="color:var(--gold2)">Rp 7.000</div>
+          </div>
+          <div style="background:#071209;border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center">
+            <div style="color:var(--dim);font-size:9px;margin-bottom:4px">10.000 POINT</div>
+            <div style="color:var(--gold2)">Rp 70.000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">🌿 Tanam Hari Ini, Panen Sepanjang Waktu 🌿 &nbsp;|&nbsp; © 2025 INDOCOIN</div>
+</div>
+
+<!-- ═══ ADMIN SECTION ═══ -->
+<div class="container" id="adminPanel">
+  <div class="admin-bar">
+    <div><h2>⚙ ADMIN PANEL — POINT</h2><p style="font-size:10px;color:var(--dim);margin-top:3px">Hanya terlihat wallet devWallet</p></div>
+    <button class="btn btn-teal btn-sm" onclick="toggleAdmin()">✖ TUTUP</button>
+  </div>
+
+  <!-- ADMIN STATS -->
+  <div class="admin-cards">
+    <div class="admin-card"><div class="clabel">Total Member</div><div class="cval" id="a-members">-</div></div>
+    <div class="admin-card"><div class="clabel">POINT Terjual</div><div class="cval" id="a-points">-</div></div>
+    <div class="admin-card"><div class="clabel">Total Point</div><div class="cval" id="a-points">-</div></div>
+    <div class="admin-card"><div class="clabel">Pending Redeem</div><div class="cval" id="a-pending">-</div></div>
+  </div>
+
+  <!-- ADMIN TABS -->
+  <div class="admin-tabs">
+    <div class="admin-tab active" onclick="showAdminTab('config',this)">⚙ Config</div>
+    <div class="admin-tab" onclick="showAdminTab('redeem',this)">🛒 Redeem</div>
+    <div class="admin-tab" onclick="showAdminTab('items',this)">📦 Items</div>
+    <div class="admin-tab" onclick="showAdminTab('member',this)">👥 Member</div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="admin-content active" id="atab-config">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+      <div class="tpanel">
+        <div class="tpanel-hdr"><h3>💰 HARGA POINT (INDC)</h3></div>
+        <div class="tpanel-body">
+          <div class="form-row"><input type="number" id="cfg-price" placeholder="Contoh: 100"></div>
+          <button class="btn btn-gold btn-full btn-sm" onclick="setConfig('price')">UPDATE HARGA</button>
+        </div>
+      </div>
+      <div class="tpanel">
+        <div class="tpanel-hdr"><h3>🌿 POINT/HARI</h3></div>
+        <div class="tpanel-body">
+          <div class="form-row"><input type="number" id="cfg-ppd" placeholder="Contoh: 700"></div>
+          <button class="btn btn-green btn-full btn-sm" onclick="setConfig('ppd')">UPDATE POINT</button>
+        </div>
+      </div>
+      <div class="tpanel">
+        <div class="tpanel-hdr"><h3>📌 MAX POINT/WALLET</h3></div>
+        <div class="tpanel-body">
+          <div class="form-row"><input type="number" id="cfg-max" placeholder="Contoh: 5"></div>
+          <button class="btn btn-teal btn-full btn-sm" onclick="setConfig('max')">UPDATE MAX</button>
+        </div>
+      </div>
+      <div class="tpanel">
+        <div class="tpanel-hdr"><h3>➕ POINT MANUAL</h3></div>
+        <div class="tpanel-body">
+          <div class="form-row"><input type="text" id="m-addr" placeholder="0x..."></div>
+          <div class="form-row"><input type="number" id="m-pts" placeholder="Jumlah point"></div>
+          <div class="form-row"><input type="text" id="m-reason" placeholder="Alasan..."></div>
+          <button class="btn btn-green btn-full btn-sm" onclick="adminAddPoints()">➕ TAMBAH POINT</button>
+        </div>
+      </div>
+    </div>
+    <div class="tpanel" style="margin-top:12px">
+      <div class="tpanel-hdr"><h3>⚡ KLAIM POINT BATCH (Semua User)</h3></div>
+      <div class="tpanel-body">
+        <div class="alert alert-warn">Masukkan daftar alamat user untuk klaim point harian otomatis.</div>
+        <div class="form-row"><textarea id="batchAddrs" placeholder="0xABC...&#10;0xDEF...&#10;0xGHI..." rows="4"></textarea></div>
+        <button class="btn btn-green" onclick="adminBatchClaim()">⚡ KLAIM BATCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REDEEM REQUESTS -->
+  <div class="admin-content" id="atab-redeem">
+    <div class="alert alert-info">📋 Proses request penukaran point dari user.</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-teal btn-sm" onclick="loadRedeemRequests(0)">⏳ PENDING</button>
+      <button class="btn btn-green btn-sm" onclick="loadRedeemRequests(1)">✅ PROCESSED</button>
+      <button class="btn btn-red btn-sm" onclick="loadRedeemRequests(2)">❌ REJECTED</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>USER</th><th>ITEM</th><th>POINT</th><th>DETAIL</th><th>WAKTU</th><th>STATUS</th><th>AKSI</th></tr></thead>
+        <tbody id="adminRedeemTable"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--dim)">Klik filter di atas</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ITEMS -->
+  <div class="admin-content" id="atab-items">
+    <div class="tpanel">
+      <div class="tpanel-hdr"><h3>➕ TAMBAH ITEM BARU</h3></div>
+      <div class="tpanel-body">
+        <div class="form-grid">
+          <div class="form-row"><span class="flabel">Nama Item</span><input type="text" id="i-name" placeholder="Pulsa Telkomsel 10rb"></div>
+          <div class="form-row"><span class="flabel">Kategori</span>
+            <select id="i-cat">
+              <option>Pulsa HP</option><option>Token Listrik</option>
+              <option>Paket Data</option><option>E-Wallet</option><option>Voucher</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row"><span class="flabel">Harga (Point)</span><input type="number" id="i-cost" placeholder="1429 = Rp 10.000"></div>
+        <button class="btn btn-green" onclick="addItem()">➕ TAMBAH ITEM</button>
+      </div>
+    </div>
+    <div class="tpanel">
+      <div class="tpanel-hdr"><h3>📦 DAFTAR ITEM</h3></div>
+      <div class="tpanel-body">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>NAMA</th><th>KATEGORI</th><th>POINT</th><th>NILAI RP</th><th>STATUS</th><th>AKSI</th></tr></thead>
+            <tbody id="itemsTable"><tr><td colspan="7" style="text-align:center;padding:16px;color:var(--dim)">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMBER -->
+  <div class="admin-content" id="atab-member">
+    <div class="tpanel">
+      <div class="tpanel-hdr"><h3>🔍 CEK MEMBER</h3></div>
+      <div class="tpanel-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" id="m-check-addr" placeholder="0x... alamat wallet" style="flex:1">
+          <button class="btn btn-teal btn-sm" onclick="checkMember()">🔍 CEK</button>
+        </div>
+        <div id="memberInfo" style="font-size:12px;color:var(--dim);line-height:2"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end adminPanel -->
+
+<!-- MODAL REDEEM -->
+<div class="modal-overlay" id="redeemModal">
+  <div class="modal">
+    <h3>🛒 TUKAR POINT</h3>
+    <div id="modal-item-info" style="background:#030c04;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--dim);line-height:1.8"></div>
+    <div class="form-row">
+      <span class="flabel">Detail (No HP / ID PLN / dll)</span>
+      <input type="text" id="modal-detail" placeholder="Contoh: 08123456789">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-green" style="flex:1" onclick="confirmRedeem()">✅ KONFIRMASI</button>
+      <button class="btn btn-red" style="flex:1" onclick="closeModal()">❌ BATAL</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn" onclick="goTo('home')"><span class="nav-btn-icon">🏠</span><span class="nav-btn-label">HOME</span></button>
+  <button class="nav-btn active"><span class="nav-btn-icon">💰</span><span class="nav-btn-label">EARN</span></button>
+  <button class="nav-btn" onclick="goTo('referral')"><span class="nav-btn-icon">🌐</span><span class="nav-btn-label">REFERRAL</span></button>
+  <button class="nav-btn" onclick="goTo('analytics')"><span class="nav-btn-icon">📊</span><span class="nav-btn-label">ANALYTICS</span></button>
+  <button class="nav-btn" onclick="goTo('presale')"><span class="nav-btn-icon">🚀</span><span class="nav-btn-label">PRESALE</span></button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+const CA   = "0x3A5729aAa08167E71bD4EA73B583DA668D330Af9";
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+
+const ADMIN_WALLETS = [
+  "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc", // devWallet
+];
+
+const POINT_TO_RP  = 7;
+const POINT_TO_USD = 0.0004375;
+
+const CAT_ICONS = {
+  'Pulsa HP':'📱', 'Token Listrik':'⚡', 'Paket Data':'🌐',
+  'E-Wallet':'💳', 'Voucher':'🎁'
+};
+
+const ABI = [{"inputs":[{"internalType":"address","name":"_indc","type":"address"},{"internalType":"address","name":"_devWallet","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"param","type":"string"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"ConfigUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"itemId","type":"uint256"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"uint256","name":"pointCost","type":"uint256"}],"name":"ItemAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"itemId","type":"uint256"},{"indexed":false,"internalType":"string","name":"name","type":"string"},{"indexed":false,"internalType":"uint256","name":"pointCost","type":"uint256"},{"indexed":false,"internalType":"bool","name":"isActive","type":"bool"}],"name":"ItemUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"pointCount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"indcPaid","type":"uint256"}],"name":"PinBought","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"points","type":"uint256"},{"indexed":false,"internalType":"string","name":"reason","type":"string"}],"name":"PointsAdded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"points","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"day","type":"uint256"}],"name":"PointsClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"reqId","type":"uint256"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"status","type":"uint8"},{"indexed":false,"internalType":"string","name":"note","type":"string"}],"name":"RedeemProcessed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"reqId","type":"uint256"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"itemId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"points","type":"uint256"},{"indexed":false,"internalType":"string","name":"detail","type":"string"}],"name":"RedeemRequested","type":"event"},{"inputs":[],"name":"INDC","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"_name","type":"string"},{"internalType":"string","name":"_category","type":"string"},{"internalType":"uint256","name":"_pointCost","type":"uint256"}],"name":"addItem","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"},{"internalType":"uint256","name":"_points","type":"uint256"},{"internalType":"string","name":"_reason","type":"string"}],"name":"adminAddPoints","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address[]","name":"_users","type":"address[]"}],"name":"adminClaimForUsers","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_amount","type":"uint256"}],"name":"buyPin","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"claimDailyPoints","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"devWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getConfig","outputs":[{"internalType":"uint256","name":"price","type":"uint256"},{"internalType":"uint256","name":"ppd","type":"uint256"},{"internalType":"uint256","name":"maxPin","type":"uint256"},{"internalType":"bool","name":"active","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getItem","outputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"category","type":"string"},{"internalType":"uint256","name":"pointCost","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getPendingPointsToday","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getPinCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"},{"internalType":"uint256","name":"_idx","type":"uint256"}],"name":"getPinInfo","outputs":[{"internalType":"uint256","name":"buyTime","type":"uint256"},{"internalType":"uint256","name":"expireTime","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"uint256","name":"daysLeft","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getRedeemRequest","outputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"itemId","type":"uint256"},{"internalType":"uint256","name":"pointsUsed","type":"uint256"},{"internalType":"string","name":"detail","type":"string"},{"internalType":"uint256","name":"requestTime","type":"uint256"},{"internalType":"uint8","name":"status","type":"uint8"},{"internalType":"string","name":"adminNote","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserInfo","outputs":[{"internalType":"uint256","name":"pointCount","type":"uint256"},{"internalType":"uint256","name":"totalPoints","type":"uint256"},{"internalType":"uint256","name":"usedPoints","type":"uint256"},{"internalType":"uint256","name":"availablePoints","type":"uint256"},{"internalType":"uint256","name":"activePoints","type":"uint256"},{"internalType":"uint256","name":"lastClaimDay","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isRegistered","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"masterContract","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxPinPerWallet","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pinDuration","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pinPriceINDC","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pointPerPinPerDay","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_reqId","type":"uint256"},{"internalType":"uint8","name":"_status","type":"uint8"},{"internalType":"string","name":"_note","type":"string"}],"name":"processRedeem","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"programActive","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"redeemItems","outputs":[{"internalType":"string","name":"name","type":"string"},{"internalType":"string","name":"category","type":"string"},{"internalType":"uint256","name":"pointCost","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"redeemRequests","outputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"itemId","type":"uint256"},{"internalType":"uint256","name":"pointsUsed","type":"uint256"},{"internalType":"string","name":"detail","type":"string"},{"internalType":"uint256","name":"requestTime","type":"uint256"},{"internalType":"uint8","name":"status","type":"uint8"},{"internalType":"string","name":"adminNote","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_itemId","type":"uint256"},{"internalType":"string","name":"_detail","type":"string"}],"name":"requestRedeem","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_dev","type":"address"}],"name":"setDevWallet","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_master","type":"address"}],"name":"setMasterContract","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_max","type":"uint256"}],"name":"setMaxPinPerWallet","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_price","type":"uint256"}],"name":"setPinPrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_points","type":"uint256"}],"name":"setPointPerPinPerDay","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_active","type":"bool"}],"name":"setProgramActive","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"totalItems","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalMembers","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalPinSold","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalPointsDistributed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalRedeemRequests","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_name","type":"string"},{"internalType":"uint256","name":"_pointCost","type":"uint256"},{"internalType":"bool","name":"_active","type":"bool"}],"name":"updateItem","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userPins","outputs":[{"internalType":"uint256","name":"buyTime","type":"uint256"},{"internalType":"uint256","name":"expireTime","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"pointCount","type":"uint256"},{"internalType":"uint256","name":"totalPoints","type":"uint256"},{"internalType":"uint256","name":"usedPoints","type":"uint256"},{"internalType":"uint256","name":"lastClaimDay","type":"uint256"},{"internalType":"uint256","name":"joinTime","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+const INDC_ABI = [
+  {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"}
+];
+
+let web3, contract, indcContract, account;
+let isAdmin = false, adminVisible = false;
+let configData = { price:100, ppd:700, maxPin:5 };
+let selectedItemId = null;
+let itemsCache = [];
+
+// ═══ CONNECT WALLET ═══
+async function connectWallet() {
+  if (!window.ethereum) { toast('❌ Install MetaMask!'); return; }
+  try {
+    web3 = new Web3(window.ethereum);
+    const accounts = await window.ethereum.request({ method:'eth_requestAccounts' });
+    account = accounts[0];
+    const chainId = await web3.eth.getChainId();
+    if (Number(chainId) !== 56) {
+      try { await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:'0x38'}] }); }
+      catch(e) { toast('❌ Switch ke BSC!'); return; }
+    }
+    contract     = new web3.eth.Contract(ABI, CA);
+    indcContract = new web3.eth.Contract(INDC_ABI, INDC_ADDR);
+
+    document.getElementById('walletAddr').textContent = account.slice(0,6)+'...'+account.slice(-4);
+    document.getElementById('btnConnect').textContent = '✅ TERHUBUNG';
+
+    isAdmin = ADMIN_WALLETS.map(a=>a.toLowerCase()).includes(account.toLowerCase());
+    if (isAdmin) { document.getElementById('btnAdmin').style.display='block'; toast('👑 Selamat datang Admin!'); }
+    else toast('✅ Wallet terhubung!');
+
+    await loadGlobalStats();
+    await loadConfig();
+    await loadUserData();
+    await loadShopItems();
+  } catch(e) { toast('❌ '+(e.message||'Gagal')); }
+}
+
+// ═══ LOAD DATA ═══
+async function loadGlobalStats() {
+  if (!contract) return;
+  try {
+    const [tm,tp,tpts,price] = await Promise.all([
+      contract.methods.totalMembers().call(),
+      contract.methods.totalPinSold().call(),
+      contract.methods.totalPointsDistributed().call(),
+      contract.methods.pinPriceINDC().call()
+    ]);
+    document.getElementById('s-members').textContent = tm;
+    document.getElementById('s-points').textContent    = tp;
+    document.getElementById('s-points').textContent  = Number(tpts).toLocaleString();
+    document.getElementById('s-price').textContent   = (Number(price)/1e18).toFixed(0);
+    document.getElementById('a-members').textContent = tm;
+    document.getElementById('a-points').textContent    = tp;
+    document.getElementById('a-points').textContent  = Number(tpts).toLocaleString();
+
+    const bal = await indcContract.methods.balanceOf(account).call();
+    document.getElementById('indcBal').textContent = (Number(bal)/1e18).toFixed(2);
+  } catch(e){}
+}
+
+async function loadConfig() {
+  if (!contract) return;
+  try {
+    const cfg = await contract.methods.getConfig().call();
+    configData = { price: Number(cfg.price)/1e18, ppd: Number(cfg.ppd), maxPin: Number(cfg.maxPin) };
+    document.getElementById('b-price').textContent = configData.price.toFixed(0);
+    document.getElementById('b-ppd').textContent   = configData.ppd;
+    document.getElementById('b-max').textContent   = configData.maxPin;
+    updateBuyEst();
+  } catch(e){}
+}
+
+async function loadUserData() {
+  if (!account || !contract) return;
+  try {
+    const reg = await contract.methods.isRegistered(account).call();
+    if (!reg) return;
+
+    document.getElementById('pointHero').style.display = 'block';
+    document.getElementById('pinSection').style.display = 'block';
+
+    const [info, pending] = await Promise.all([
+      contract.methods.getUserInfo(account).call(),
+      contract.methods.getPendingPointsToday(account).call()
+    ]);
+
+    const total = Number(info.totalPoints);
+    const used  = Number(info.usedPoints);
+    const avail = total - used;
+    const aPins = Number(info.activePoints);
+    const ppd   = configData.ppd * aPins;
+
+    document.getElementById('ph-total').textContent = total.toLocaleString();
+    document.getElementById('ph-usd').textContent   = (total * POINT_TO_USD).toFixed(4);
+    document.getElementById('ph-rp').textContent    = (total * POINT_TO_RP).toLocaleString('id-ID');
+    document.getElementById('ph-used').textContent  = used.toLocaleString();
+    document.getElementById('ph-avail').textContent = avail.toLocaleString();
+    document.getElementById('ph-fill').style.width  = total > 0 ? Math.min(100,(avail/total)*100)+'%' : '0%';
+    document.getElementById('u-activePoints').textContent = aPins;
+    document.getElementById('u-ppd').textContent        = ppd.toLocaleString();
+    document.getElementById('u-pending').textContent    = Number(pending).toLocaleString();
+    document.getElementById('u-rpday').textContent      = 'Rp'+(ppd*POINT_TO_RP).toLocaleString('id-ID');
+    document.getElementById('sh-avail').textContent     = avail.toLocaleString();
+    document.getElementById('sh-rp').textContent        = (avail*POINT_TO_RP).toLocaleString('id-ID');
+
+    await loadPinCards();
+    await loadRedeemHistory();
+  } catch(e) { console.log(e); }
+}
+
+async function loadPinCards() {
+  const count = await contract.methods.getPinCount(account).call();
+  const n = Number(count);
+  const grid = document.getElementById('pinGrid');
+  let html = '';
+  for (let i=0; i<n; i++) {
+    const p = await contract.methods.getPinInfo(account, i).call();
+    const active = p.isActive && block_timestamp_approx() < Number(p.expireTime);
+    const dl = Number(p.daysLeft);
+    const exp = new Date(Number(p.expireTime)*1000).toLocaleDateString('id-ID');
+    html += `<div class="pin-card ${active?'active':'expired'}">
+      <div class="pin-icon">${active?'📌':'🔓'}</div>
+      <div class="point-label">POINT #${i+1}</div>
+      <div class="pin-status" style="color:${active?'var(--green2)':'var(--dim)'}">${active?'● AKTIF':'○ EXPIRED'}</div>
+      <div class="pin-days">${active?dl+' hari lagi':'Expired '+exp}</div>
+    </div>`;
+  }
+  // Tombol beli POINT baru
+  html += `<div class="pin-card empty" onclick="showTab('beli',document.querySelectorAll('.tab')[0])">
+    <div class="pin-icon">➕</div>
+    <div class="point-label" style="color:var(--green2)">BELI POINT</div>
+    <div class="pin-days" style="color:var(--dim)">Tambah POINT baru</div>
+  </div>`;
+  grid.innerHTML = html;
+}
+
+function block_timestamp_approx() { return Math.floor(Date.now()/1000); }
+
+async function loadShopItems() {
+  if (!contract) return;
+  try {
+    const totalItems = await contract.methods.totalItems().call();
+    const n = Number(totalItems);
+    itemsCache = [];
+    for (let i=0; i<n; i++) {
+      const item = await contract.methods.getItem(i).call();
+      itemsCache.push({ id:i, name:item.name, category:item.category, pointCost:Number(item.pointCost), isActive:item.isActive });
+    }
+
+    // Render shop
+    const avail = parseInt(document.getElementById('sh-avail').textContent.replace(/\./g,'')||'0');
+    let html = '';
+    itemsCache.filter(i=>i.isActive).forEach(item => {
+      const canAfford = avail >= item.pointCost;
+      const icon = CAT_ICONS[item.category]||'🎁';
+      html += `<div class="shop-item ${!canAfford?'disabled':''}">
+        <div class="si-icon">${icon}</div>
+        <div class="si-name">${item.name}</div>
+        <div class="si-cat">${item.category}</div>
+        <div class="si-cost">${item.pointCost.toLocaleString()} Point</div>
+        <div class="si-rp">≈ Rp ${(item.pointCost*POINT_TO_RP).toLocaleString('id-ID')}</div>
+        ${canAfford?`<button class="si-btn" onclick="openRedeem(${item.id})">🛒 TUKAR</button>`:`<button class="si-btn" disabled style="opacity:.4;cursor:not-allowed">Point kurang</button>`}
+      </div>`;
+    });
+    document.getElementById('shopGrid').innerHTML = html || '<div style="color:var(--dim);text-align:center;padding:20px;grid-column:1/-1">Belum ada item</div>';
+
+    // Render admin items table
+    await loadAdminItems();
+  } catch(e){}
+}
+
+async function loadAdminItems() {
+  let html='';
+  itemsCache.forEach(item => {
+    html+=`<tr>
+      <td>${item.id}</td><td>${item.name}</td><td>${item.category}</td>
+      <td style="color:var(--green2)">${item.pointCost.toLocaleString()}</td>
+      <td style="color:var(--gold2)">Rp ${(item.pointCost*POINT_TO_RP).toLocaleString('id-ID')}</td>
+      <td><span class="badge ${item.isActive?'badge-processed':'badge-rejected'}">${item.isActive?'AKTIF':'OFF'}</span></td>
+      <td>
+        <button class="btn btn-red btn-sm" onclick="toggleItem(${item.id},${item.isActive})">${item.isActive?'NONAKTIF':'AKTIF'}KAN</button>
+      </td>
+    </tr>`;
+  });
+  const el = document.getElementById('itemsTable');
+  if (el) el.innerHTML = html||'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--dim)">Belum ada item</td></tr>';
+}
+
+async function loadRedeemHistory() {
+  if (!contract || !account) return;
+  try {
+    const total = await contract.methods.totalRedeemRequests().call();
+    const n = Number(total);
+    let html='';
+    for (let i=n-1; i>=0 && i>=n-20; i--) {
+      const r = await contract.methods.getRedeemRequest(i).call();
+      if (r.user.toLowerCase() !== account.toLowerCase()) continue;
+      const item = itemsCache[Number(r.itemId)] || {name:'Item #'+r.itemId};
+      const st=Number(r.status);
+      const bc=['badge-pending','badge-processed','badge-rejected'][st];
+      const sl=['PENDING','PROCESSED','REJECTED'][st];
+      const d=new Date(Number(r.requestTime)*1000);
+      html+=`<tr><td>${i+1}</td><td>${item.name||'-'}</td>
+        <td style="color:var(--green2)">${Number(r.pointsUsed).toLocaleString()}</td>
+        <td style="font-size:10px">${r.detail}</td>
+        <td style="font-size:10px">${d.toLocaleDateString('id-ID')}</td>
+        <td><span class="badge ${bc}">${sl}</span></td>
+        <td style="font-size:10px;color:var(--dim)">${r.adminNote||'-'}</td></tr>`;
+    }
+    document.getElementById('redeemTable').innerHTML = html||'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--dim)">Belum ada request</td></tr>';
+  } catch(e){}
+}
+
+// ═══ USER ACTIONS ═══
+async function buyPin() {
+  if (!account) { toast('❌ Connect wallet!'); return; }
+  const amt = parseInt(document.getElementById('buyAmt').value)||1;
+  if (amt < 1) { toast('❌ Min 1 POINT!'); return; }
+  try {
+    const totalCost = BigInt(Math.floor(configData.price * amt * 1e18)).toString();
+    const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    toast('⏳ Approve INDC...');
+    await indcContract.methods.approve(CA, max).send({ from:account });
+    toast('⏳ Beli POINT...');
+    await contract.methods.buyPin(amt).send({ from:account });
+    toast('✅ '+amt+' POINT berhasil dibeli! Point akan masuk besok.');
+    await loadGlobalStats(); await loadConfig(); await loadUserData();
+  } catch(e) { toast('❌ '+(e.message||'Gagal')); }
+}
+
+async function claimPoints() {
+  if (!account) { toast('❌ Connect wallet!'); return; }
+  try {
+    toast('⏳ Klaim point...');
+    await contract.methods.claimDailyPoints().send({ from:account });
+    toast('✅ Point berhasil diklaim!');
+    await loadUserData();
+  } catch(e) { toast('❌ '+(e.message?.slice(0,80)||'Gagal')); }
+}
+
+function openRedeem(itemId) {
+  selectedItemId = itemId;
+  const item = itemsCache[itemId];
+  document.getElementById('modal-item-info').innerHTML = `
+    <strong style="color:var(--green2)">${item.name}</strong><br>
+    Kategori: ${item.category}<br>
+    Biaya: <strong style="color:var(--green2)">${item.pointCost.toLocaleString()} Point</strong><br>
+    Nilai: Rp ${(item.pointCost*POINT_TO_RP).toLocaleString('id-ID')}
+  `;
+  document.getElementById('modal-detail').value = '';
+  document.getElementById('redeemModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('redeemModal').classList.remove('show');
+  selectedItemId = null;
+}
+
+async function confirmRedeem() {
+  const detail = document.getElementById('modal-detail').value.trim();
+  if (!detail) { toast('❌ Isi detail (No HP/ID PLN)!'); return; }
+  if (selectedItemId === null) return;
+  try {
+    toast('⏳ Request tukar point...');
+    await contract.methods.requestRedeem(selectedItemId, detail).send({ from:account });
+    toast('✅ Request terkirim! Admin akan proses dalam 24 jam.');
+    closeModal();
+    await loadUserData();
+  } catch(e) { toast('❌ '+(e.message||'Gagal')); }
+}
+
+// ═══ ADMIN ACTIONS ═══
+async function setConfig(type) {
+  if (!contract) { toast('❌ Connect!'); return; }
+  try {
+    if (type==='price') {
+      const v = parseFloat(document.getElementById('cfg-price').value);
+      if (!v) { toast('❌ Isi harga!'); return; }
+      toast('⏳...'); await contract.methods.setPinPrice(BigInt(Math.floor(v*1e18)).toString()).send({from:account});
+      toast('✅ Harga POINT diupdate!');
+    } else if (type==='ppd') {
+      const v = parseInt(document.getElementById('cfg-ppd').value);
+      if (!v) { toast('❌ Isi point!'); return; }
+      toast('⏳...'); await contract.methods.setPointPerPinPerDay(v).send({from:account});
+      toast('✅ Point/hari diupdate!');
+    } else if (type==='max') {
+      const v = parseInt(document.getElementById('cfg-max').value);
+      if (!v) { toast('❌ Isi max!'); return; }
+      toast('⏳...'); await contract.methods.setMaxPinPerWallet(v).send({from:account});
+      toast('✅ Max POINT diupdate!');
+    }
+    await loadConfig();
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function adminAddPoints() {
+  const addr   = document.getElementById('m-addr').value.trim();
+  const pts    = parseInt(document.getElementById('m-pts').value);
+  const reason = document.getElementById('m-reason').value.trim()||'Admin bonus';
+  if (!addr||!pts) { toast('❌ Lengkapi data!'); return; }
+  try {
+    toast('⏳...'); await contract.methods.adminAddPoints(addr, pts, reason).send({from:account});
+    toast('✅ Point ditambahkan!');
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function adminBatchClaim() {
+  const raw = document.getElementById('batchAddrs').value.trim();
+  if (!raw) { toast('❌ Isi alamat!'); return; }
+  const addrs = raw.split('\n').map(a=>a.trim()).filter(a=>a.startsWith('0x'));
+  if (!addrs.length) { toast('❌ Format salah!'); return; }
+  try {
+    toast(`⏳ Klaim untuk ${addrs.length} user...`);
+    await contract.methods.adminClaimForUsers(addrs).send({from:account});
+    toast('✅ Batch klaim berhasil!');
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function loadRedeemRequests(statusFilter) {
+  if (!contract) return;
+  try {
+    const total = await contract.methods.totalRedeemRequests().call();
+    const n = Number(total);
+    let html='', count=0;
+    for (let i=n-1; i>=0; i--) {
+      const r = await contract.methods.getRedeemRequest(i).call();
+      if (Number(r.status) !== statusFilter) continue;
+      count++;
+      const item = itemsCache[Number(r.itemId)]||{name:'Item #'+r.itemId};
+      const st=Number(r.status);
+      const bc=['badge-pending','badge-processed','badge-rejected'][st];
+      const sl=['PENDING','PROCESSED','REJECTED'][st];
+      const d=new Date(Number(r.requestTime)*1000);
+      html+=`<tr>
+        <td>${i+1}</td>
+        <td class="addr" style="font-size:10px">${r.user.slice(0,8)}...</td>
+        <td>${item.name||'-'}</td>
+        <td style="color:var(--green2)">${Number(r.pointsUsed).toLocaleString()}</td>
+        <td style="font-size:11px">${r.detail}</td>
+        <td style="font-size:10px">${d.toLocaleDateString('id-ID')}</td>
+        <td><span class="badge ${bc}">${sl}</span></td>
+        <td>${st===0?`
+          <button class="btn btn-green btn-sm" onclick="processReq(${i},1)">✅</button>
+          <button class="btn btn-red btn-sm" onclick="processReq(${i},2)" style="margin-left:4px">❌</button>`:'—'}
+        </td>
+      </tr>`;
+      if (count >= 30) break;
+    }
+    document.getElementById('a-pending').textContent = count;
+    document.getElementById('adminRedeemTable').innerHTML = html||`<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--dim)">Tidak ada data</td></tr>`;
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function processReq(id, status) {
+  const note = status===1 ? prompt('Catatan admin (opsional):') : prompt('Alasan reject:');
+  if (status===2 && !note) { toast('❌ Isi alasan reject!'); return; }
+  try {
+    toast('⏳...'); await contract.methods.processRedeem(id, status, note||'').send({from:account});
+    toast(status===1?'✅ Request diproses!':'✅ Request direject!');
+    await loadRedeemRequests(0);
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function addItem() {
+  const name = document.getElementById('i-name').value.trim();
+  const cat  = document.getElementById('i-cat').value;
+  const cost = parseInt(document.getElementById('i-cost').value);
+  if (!name||!cost) { toast('❌ Lengkapi data!'); return; }
+  try {
+    toast('⏳...'); await contract.methods.addItem(name, cat, cost).send({from:account});
+    toast('✅ Item ditambahkan!');
+    await loadShopItems();
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function toggleItem(id, currentActive) {
+  const item = itemsCache[id];
+  try {
+    toast('⏳...'); await contract.methods.updateItem(id, item.name, item.pointCost, !currentActive).send({from:account});
+    toast('✅ Status item diupdate!'); await loadShopItems();
+  } catch(e) { toast('❌ '+e.message); }
+}
+
+async function checkMember() {
+  const addr = document.getElementById('m-check-addr').value.trim();
+  if (!addr||!contract) return;
+  try {
+    const [reg, info, pending] = await Promise.all([
+      contract.methods.isRegistered(addr).call(),
+      contract.methods.getUserInfo(addr).call(),
+      contract.methods.getPendingPointsToday(addr).call()
+    ]);
+    if (!reg) { document.getElementById('memberInfo').textContent='Belum terdaftar'; return; }
+    document.getElementById('memberInfo').innerHTML=`
+      <span style="color:var(--green2)">Status:</span> ✅ Terdaftar<br>
+      <span style="color:var(--green2)">POINT Count:</span> ${info.pointCount} | <span style="color:var(--green2)">POINT Aktif:</span> ${info.activePoints}<br>
+      <span style="color:var(--green2)">Total Point:</span> ${Number(info.totalPoints).toLocaleString()}<br>
+      <span style="color:var(--green2)">Point Tersedia:</span> ${Number(info.availablePoints).toLocaleString()}<br>
+      <span style="color:var(--green2)">Pending Hari Ini:</span> ${Number(pending).toLocaleString()}<br>
+      <span style="color:var(--green2)">Nilai Point:</span> Rp ${(Number(info.availablePoints)*POINT_TO_RP).toLocaleString('id-ID')}
+    `;
+  } catch(e) { document.getElementById('memberInfo').textContent='Error: '+e.message; }
+}
+
+// ═══ UTILS ═══
+function updateBuyEst() {
+  const amt = parseInt(document.getElementById('buyAmt').value)||1;
+  const ppd = configData.ppd * amt;
+  document.getElementById('est-day').textContent   = ppd.toLocaleString()+' Pt';
+  document.getElementById('est-month').textContent = (ppd*30).toLocaleString()+' Pt';
+  document.getElementById('est-2yr').textContent   = (ppd*730).toLocaleString()+' Pt';
+  document.getElementById('est-cost').textContent  = (configData.price * amt).toFixed(0);
+}
+
+function toggleAdmin() {
+  if (!isAdmin) return;
+  adminVisible = !adminVisible;
+  document.getElementById('adminPanel').style.display  = adminVisible ? 'block' : 'none';
+  document.getElementById('userSection').style.display = adminVisible ? 'none'  : 'block';
+  if (adminVisible) { loadGlobalStats(); loadShopItems(); }
+}
+
+function showTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='shop') loadShopItems();
+  if (name==='riwayat') loadRedeemHistory();
+}
+
+function showAdminTab(name, el) {
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.admin-content').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('atab-'+name).classList.add('active');
+  if (name==='redeem') loadRedeemRequests(0);
+  if (name==='items')  loadShopItems();
+}
+
+function goTo(page) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  if (page!=='earn') toast('🔗 Menuju '+page.toUpperCase()+'...');
+}
+
+let toastTimer;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+document.getElementById('btnConnect').addEventListener('click',()=>{
+  if (!window.Web3) { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js'; s.onload=connectWallet; document.head.appendChild(s); }
+  else connectWallet();
+});
+window.addEventListener('load',()=>{
+  const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js'; document.head.appendChild(s);
+});
+</script>
+</body>
+</html>
