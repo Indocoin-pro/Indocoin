@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indocoin Analitik</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   ANALYTICS PAGE — embed inside #analytics-content
+   atau gunakan sebagai halaman standalone
+   ═══════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-base:    #07090f;
+  --bg-card:    #0d1117;
+  --bg-card2:   #111827;
+  --border:     rgba(148,163,184,0.08);
+  --border-hi:  rgba(56,189,248,0.2);
+  --c-cyan:     #38bdf8;
+  --c-violet:   #a78bfa;
+  --c-green:    #34d399;
+  --c-amber:    #fbbf24;
+  --c-red:      #f87171;
+  --c-orange:   #fb923c;
+  --text-hi:    #f1f5f9;
+  --text-md:    #94a3b8;
+  --text-lo:    #475569;
+  --mono: 'Share Tech Mono', monospace;
+  --sans: 'Rajdhani', sans-serif;
+  --rad: 12px;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg-base);
+  color: var(--text-hi);
+  min-height: 100vh;
+}
+
+/* ── Page wrapper ── */
+.analytics-page {
+  padding: 32px 28px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Page Header ── */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-head-left h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.1;
+}
+
+.page-head-left h1 em {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-violet));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.page-head-left p {
+  font-size: 13px;
+  color: var(--text-md);
+  margin-top: 6px;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.head-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.seg-ctrl {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Share Tech Mono', monospace;
+  cursor: pointer;
+  color: var(--text-md);
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.seg-btn.on {
+  background: rgba(56,189,248,0.12);
+  color: var(--c-cyan);
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.25);
+}
+
+.seg-btn:hover:not(.on) { color: var(--text-hi); }
+
+.btn-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover { border-color: var(--border-hi); background: rgba(56,189,248,0.06); }
+
+/* ── KPI strip ── */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 18px 18px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+  cursor: default;
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hi);
+}
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top left, var(--kpi-glow, rgba(56,189,248,0.05)), transparent 60%);
+  pointer-events: none;
+}
+
+.kpi.v { --kpi-glow: rgba(167,139,250,0.07); }
+.kpi.g { --kpi-glow: rgba(52,211,153,0.07); }
+.kpi.a { --kpi-glow: rgba(251,191,36,0.07); }
+.kpi.r { --kpi-glow: rgba(248,113,113,0.07); }
+
+.kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 10px;
+}
+
+.kpi-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+
+.kpi-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.badge.up   { background: rgba(52,211,153,0.12); color: var(--c-green); }
+.badge.down { background: rgba(248,113,113,0.12); color: var(--c-red); }
+.badge.neu  { background: rgba(148,163,184,0.08); color: var(--text-md); }
+
+.kpi-sub-text { font-size: 11px; color: var(--text-lo); font-family: 'Share Tech Mono', monospace; }
+
+/* ── Main grid ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ── Card base ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  overflow: hidden;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.card-meta { font-size: 11px; color: var(--text-md); font-family: 'Share Tech Mono', monospace; }
+
+/* ── TVL Chart ── */
+.chart-wrap {
+  padding: 16px 20px 8px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  padding: 0 20px 14px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-md);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.legend-sq {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+}
+
+svg.chart { width: 100%; overflow: visible; }
+
+/* Tooltip */
+.chart-tooltip {
+  position: absolute;
+  background: #1e293b;
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 50;
+  white-space: nowrap;
+}
+
+/* ── Volume bars ── */
+.vol-chart-area {
+  position: relative;
+  padding: 12px 20px 16px;
+}
+
+.bars-canvas {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 140px;
+}
+
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+.bar-seg {
+  width: 100%;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  min-height: 2px;
+}
+
+.bar-seg:hover { opacity: 0.75; }
+.bar-seg.top { border-radius: 4px 4px 0 0; }
+.bar-seg.bot { }
+
+.bar-x {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-lo);
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* ── Gas tracker ── */
+.gas-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 10px;
+  padding: 16px 20px;
+}
+
+.gas-card {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.gas-network {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 8px;
+}
+
+.gas-value {
+  font-size: 24px;
+  font-weight: 800;
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 4px;
+}
+
+.gas-unit {
+  font-size: 10px;
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.gas-bar {
+  height: 3px;
+  border-radius: 3px;
+  margin-top: 10px;
+  opacity: 0.6;
+}
+
+/* ── Gainers / Losers ── */
+.gl-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.gl-tab {
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text-md);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+
+.gl-tab.on { color: var(--c-cyan); border-bottom-color: var(--c-cyan); }
+
+.gl-list { }
+
+.gl-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 20px;
+  border-bottom: 1px solid rgba(148,163,184,0.05);
+  transition: background 0.12s;
+  cursor: pointer;
+}
+
+.gl-row:last-child { border-bottom: none; }
+.gl-row:hover { background: rgba(56,189,248,0.03); }
+
+.gl-rank {
+  width: 22px;
+  font-size: 11px;
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+  flex-shrink: 0;
+}
+
+.gl-logo {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.gl-info { flex: 1 }
+.gl-sym { font-size: 13px; font-weight: 700; }
+.gl-name { font-size: 10px; color: var(--text-lo); font-family: 'Share Tech Mono', monospace; }
+.gl-price { font-size: 12px; font-family: 'Share Tech Mono', monospace; margin-right: 12px; color: var(--text-md); }
+.gl-chg { font-size: 13px; font-weight: 700; font-family: 'Share Tech Mono', monospace; width: 64px; text-align: right; }
+
+/* ── Transaction History ── */
+.tx-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tx-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.tx-filter-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'Share Tech Mono', monospace;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  color: var(--text-md);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tx-filter-btn.on {
+  background: rgba(56,189,248,0.1);
+  border-color: rgba(56,189,248,0.3);
+  color: var(--c-cyan);
+}
+
+.tx-filter-btn:hover:not(.on) { color: var(--text-hi); border-color: rgba(148,163,184,0.2); }
+
+.tx-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: 'Share Tech Mono', monospace;
+  color: var(--text-md);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tx-table-wrap { width: 100%; }
+.tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.tx-table col:nth-child(1) { width: 15%; }
+.tx-table col:nth-child(2) { width: 15%; }
+.tx-table col:nth-child(3) { width: 15%; }
+.tx-table col:nth-child(4) { width: 20%; }
+.tx-table col:nth-child(5) { width: 15%; }
+.tx-table col:nth-child(6) { width: 20%; }
+
+.tx-table thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-lo);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-family: 'Share Tech Mono', monospace;
+  background: rgba(255,255,255,0.01);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-table tbody tr {
+  border-bottom: 1px solid rgba(148,163,184,0.05);
+  transition: background 0.12s;
+  cursor: pointer;
+}
+
+.tx-table tbody tr:hover { background: rgba(56,189,248,0.03); }
+.tx-table tbody tr:last-child { border-bottom: none; }
+
+.tx-table td { padding: 10px 12px; font-size: 12px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tx-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.tx-type-badge.swap   { background: rgba(56,189,248,0.1);  color: var(--c-cyan);   }
+.tx-type-badge.add    { background: rgba(52,211,153,0.1);  color: var(--c-green);  }
+.tx-type-badge.remove { background: rgba(248,113,113,0.1); color: var(--c-red);    }
+.tx-type-badge.bridge { background: rgba(167,139,250,0.1); color: var(--c-violet); }
+.tx-type-badge.stake  { background: rgba(251,191,36,0.1);  color: var(--c-amber);  }
+
+.addr-cell {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-md);
+}
+
+.addr-link {
+  color: var(--c-cyan);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.addr-link:hover { opacity: 1; }
+
+.tx-val { font-family: 'Share Tech Mono', monospace; font-weight: 600; }
+
+.tx-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+/* ── Protocol Health ── */
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 0;
+}
+
+.health-item {
+  padding: 18px 20px;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.health-item:last-child { border-right: none; }
+
+.health-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-lo);
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 8px;
+}
+
+.health-val {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 10px;
+}
+
+.health-bar-track {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.health-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 1s ease;
+}
+
+.health-note {
+  font-size: 10px;
+  font-family: 'Share Tech Mono', monospace;
+  color: var(--text-lo);
+  margin-top: 6px;
+}
+
+/* ── Pagination ── */
+.tx-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-md);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.pager { display: flex; gap: 4px; }
+
+.page-btn {
+  width: 28px; height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'Share Tech Mono', monospace;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.page-btn:hover { border-color: var(--border-hi); background: rgba(56,189,248,0.07); color: var(--c-cyan); }
+.page-btn.on { background: rgba(56,189,248,0.12); color: var(--c-cyan); border-color: rgba(56,189,248,0.25); }
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(14px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.kpi { animation: fadeUp 0.4s ease both; }
+.kpi:nth-child(1) { animation-delay:.04s }
+.kpi:nth-child(2) { animation-delay:.08s }
+.kpi:nth-child(3) { animation-delay:.12s }
+.kpi:nth-child(4) { animation-delay:.16s }
+.kpi:nth-child(5) { animation-delay:.20s }
+
+.card { animation: fadeUp 0.5s ease 0.2s both; }
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .kpi-strip { grid-template-columns: repeat(3,1fr); }
+  .main-grid { grid-template-columns: 1fr; }
+  .health-grid { grid-template-columns: repeat(2,1fr); }
+  .health-item:nth-child(2) { border-right: none; }
+  .health-item:nth-child(3),
+  .health-item:nth-child(4) { border-top: 1px solid var(--border); }
+}
+
+@media (max-width: 700px) {
+  .analytics-page { padding: 20px 14px; }
+  .kpi-strip { grid-template-columns: repeat(2,1fr); }
+  .gas-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="analytics-page" id="analytics-content">
+
+  <!-- ── PAGE HEADER ── -->
+  <div class="page-head">
+    <div class="page-head-left" style="display:flex;align-items:center;gap:16px">
+      <!-- Logo Indocoin -->
+      <div style="display:flex;align-items:center;gap:10px;padding-right:16px;border-right:1px solid rgba(148,163,184,0.12)">
+        <img src="data:image/png;base64,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" width="48" height="48" style="border-radius:50%;object-fit:cover;box-shadow:0 0 16px rgba(56,189,248,0.3)" alt="Indocoin Logo"/>
+        <div>
+          <div style="font-family:Orbitron,sans-serif;font-size:24px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Indocoin</div>
+          <div style="font-family:monospace;font-size:9px;color:#475569;letter-spacing:2px;text-transform:uppercase;margin-top:1px">DeFi Platform</div>
+        </div>
+      </div>
+      <div>
+        <div style="
+  display:inline-flex;
+  align-items:center;
+  background:rgba(250,204,21,0.08);
+  border:1px solid rgba(250,204,21,0.35);
+  border-radius:10px;
+  padding:8px 18px;
+">
+  <span id="lastUpdate" style="
+    font-family:'Orbitron',sans-serif;
+    font-size:16px;
+    font-weight:900;
+    color:#facc15;
+    letter-spacing:3px;
+    text-shadow:0 0 8px rgba(250,204,21,0.5);
+  ">00:00:00</span>
+</div>
+      </div>
+    </div>
+    <div class="head-controls">
+      <div class="seg-ctrl" id="rangeCtrl">
+        <div class="seg-btn" data-range="1D">1H</div>
+        <div class="seg-btn" data-range="7D">7H</div>
+        <div class="seg-btn on" data-range="30D">30H</div>
+        <div class="seg-btn" data-range="90D">90H</div>
+        <div class="seg-btn" data-range="1Y">1T</div>
+      </div>
+      <div class="btn-icon" id="refreshBtn" title="Refresh data">↺</div>
+      <div class="btn-icon" title="Export CSV">⬇</div>
+    </div>
+  </div>
+
+  <!-- ── KPI STRIP ── -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-label">Total Value Locked</div>
+      <div class="kpi-value" id="kpi-tvl">$248.6M</div>
+      <div class="kpi-sub">
+        <span class="badge up">▲ 12.4%</span>
+        <span class="kpi-sub-text">vs bulan lalu</span>
+      </div>
+    </div>
+    <div class="kpi v">
+      <div class="kpi-label">Volume 24 Jam</div>
+      <div class="kpi-value" id="kpi-vol">$34.2M</div>
+      <div class="kpi-sub">
+        <span class="badge up">▲ 8.7%</span>
+        <span class="kpi-sub-text">kemarin $31.5M</span>
+      </div>
+    </div>
+    <div class="kpi g">
+      <div class="kpi-label">Total Pendapatan</div>
+      <div class="kpi-value" id="kpi-fee">$1.87M</div>
+      <div class="kpi-sub">
+        <span class="badge down">▼ 3.1%</span>
+        <span class="kpi-sub-text">30 hari terakhir</span>
+      </div>
+    </div>
+    <div class="kpi a">
+      <div class="kpi-label">Transaksi / Hari</div>
+      <div class="kpi-value" id="kpi-tx">24,891</div>
+      <div class="kpi-sub">
+        <span class="badge up">▲ 5.2%</span>
+        <span class="kpi-sub-text">rata-rata 7 hari</span>
+      </div>
+    </div>
+    <div class="kpi r">
+      <div class="kpi-label">Pengguna Unik</div>
+      <div class="kpi-value" id="kpi-usr">18,294</div>
+      <div class="kpi-sub">
+        <span class="badge up">▲ 22.5%</span>
+        <span class="kpi-sub-text">vs bulan lalu</span>
+      </div>
+    </div>
+    <div class="kpi" style="--kpi-glow:rgba(251,191,36,0.07)">
+      <div class="kpi-label">Token Terpopuler</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#627eea,#8ea9f0);display:grid;place-items:center;font-size:9px;font-weight:800;flex-shrink:0">Ξ</div>
+            <span style="font-size:12px;font-weight:700">ETH</span>
+          </div>
+          <span style="font-family:monospace;font-size:11px;color:#34d399">42.1%</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#f7931a,#ffb347);display:grid;place-items:center;font-size:9px;font-weight:800;flex-shrink:0">₿</div>
+            <span style="font-size:12px;font-weight:700">WBTC</span>
+          </div>
+          <span style="font-family:monospace;font-size:11px;color:#34d399">28.4%</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:7px">
+            <div style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#8247e5,#a675f5);display:grid;place-items:center;font-size:9px;font-weight:800;flex-shrink:0">M</div>
+            <span style="font-size:12px;font-weight:700">MATIC</span>
+          </div>
+          <span style="font-family:monospace;font-size:11px;color:#94a3b8">16.2%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 1: TVL + VOLUME ── -->
+  <div class="main-grid" style="margin-bottom:16px">
+
+    <!-- TVL Line Chart -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <div class="title-dot" style="background:var(--c-cyan);box-shadow:0 0 6px var(--c-cyan)"></div>
+          Grafik TVL
+        </div>
+        <span class="card-meta" id="tvlTotal">Total: $248.6M</span>
+      </div>
+      <div class="chart-wrap" style="position:relative">
+        <svg class="chart" id="tvlChart" height="160" viewBox="0 0 600 160"></svg>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-sq" style="background:var(--c-cyan)"></div>TVL</div>
+        <div class="legend-item"><div class="legend-sq" style="background:var(--c-violet)"></div>Likuiditas Tersedia</div>
+      </div>
+    </div>
+
+    <!-- Volume Bar Chart -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <div class="title-dot" style="background:var(--c-violet);box-shadow:0 0 6px var(--c-violet)"></div>
+          Volume Harian
+        </div>
+        <span class="card-meta" id="volTotal">Bulan ini: $821M</span>
+      </div>
+      <div class="vol-chart-area">
+        <div class="bars-canvas" id="volBars"></div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-sq" style="background:var(--c-violet)"></div>Swap</div>
+        <div class="legend-item"><div class="legend-sq" style="background:rgba(167,139,250,0.35)"></div>Liquidity</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 2: Gas + Gainers ── -->
+  <div class="main-grid" style="margin-bottom:16px">
+
+    <!-- Gas Tracker -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <div class="title-dot" style="background:var(--c-amber);box-shadow:0 0 6px var(--c-amber)"></div>
+          Gas Tracker
+        </div>
+        <span class="card-meta" id="gasUpdate">Live · diperbarui 30 dtk</span>
+      </div>
+      <div class="gas-grid">
+        <div class="gas-card">
+          <div class="gas-network">Ethereum</div>
+          <div class="gas-value" style="color:var(--c-amber)" id="gasEth">24</div>
+          <div class="gas-unit">Gwei · Standar</div>
+          <div class="gas-bar" style="background:var(--c-amber);width:60%"></div>
+        </div>
+        <div class="gas-card">
+          <div class="gas-network">Polygon</div>
+          <div class="gas-value" style="color:var(--c-green)" id="gasPoly">142</div>
+          <div class="gas-unit">Gwei · Standar</div>
+          <div class="gas-bar" style="background:var(--c-green);width:35%"></div>
+        </div>
+        <div class="gas-card">
+          <div class="gas-network">Arbitrum</div>
+          <div class="gas-value" style="color:var(--c-cyan)" id="gasArb">0.12</div>
+          <div class="gas-unit">Gwei · Standar</div>
+          <div class="gas-bar" style="background:var(--c-cyan);width:15%"></div>
+        </div>
+        <div class="gas-card">
+          <div class="gas-network">BNB Chain</div>
+          <div class="gas-value" style="color:var(--c-orange)" id="gasBnb">5</div>
+          <div class="gas-unit">Gwei · Standar</div>
+          <div class="gas-bar" style="background:var(--c-orange);width:20%"></div>
+        </div>
+        <div class="gas-card">
+          <div class="gas-network">Optimism</div>
+          <div class="gas-value" style="color:var(--c-red)" id="gasOp">0.08</div>
+          <div class="gas-unit">Gwei · Standar</div>
+          <div class="gas-bar" style="background:var(--c-red);width:10%"></div>
+        </div>
+        <div class="gas-card">
+          <div class="gas-network">Avalanche</div>
+          <div class="gas-value" style="color:var(--c-violet)" id="gasAvax">28</div>
+          <div class="gas-unit">nAVAX · Standar</div>
+          <div class="gas-bar" style="background:var(--c-violet);width:28%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Gainers / Losers -->
+    <div class="card">
+      <div class="card-head" style="padding-bottom:0; border-bottom:none;">
+        <div class="card-title">
+          <div class="title-dot" style="background:var(--c-green);box-shadow:0 0 6px var(--c-green)"></div>
+          Top Movers
+        </div>
+      </div>
+      <div class="gl-tabs">
+        <div class="gl-tab on" id="gainTab">▲ Gainers</div>
+        <div class="gl-tab" id="loseTab">▼ Losers</div>
+      </div>
+      <div class="gl-list" id="glList"></div>
+    </div>
+  </div>
+
+  <!-- ── Protocol Health ── -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="title-dot" style="background:var(--c-green);box-shadow:0 0 6px var(--c-green)"></div>
+        Kesehatan Protokol
+      </div>
+      <span class="card-meta">Indikator real-time</span>
+    </div>
+    <div class="health-grid">
+      <div class="health-item">
+        <div class="health-label">Utilization Rate</div>
+        <div class="health-val" style="color:var(--c-cyan)">78.4%</div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width:78.4%;background:var(--c-cyan)"></div>
+        </div>
+        <div class="health-note">Kapasitas pool digunakan</div>
+      </div>
+      <div class="health-item">
+        <div class="health-label">Collateral Ratio</div>
+        <div class="health-val" style="color:var(--c-green)">182%</div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width:91%;background:var(--c-green)"></div>
+        </div>
+        <div class="health-note">Min. aman: 150%</div>
+      </div>
+      <div class="health-item">
+        <div class="health-label">Slippage Rata-rata</div>
+        <div class="health-val" style="color:var(--c-amber)">0.18%</div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width:18%;background:var(--c-amber)"></div>
+        </div>
+        <div class="health-note">Swap > $10,000</div>
+      </div>
+      <div class="health-item">
+        <div class="health-label">Sukses Transaksi</div>
+        <div class="health-val" style="color:var(--c-green)">99.2%</div>
+        <div class="health-bar-track">
+          <div class="health-bar-fill" style="width:99.2%;background:var(--c-green)"></div>
+        </div>
+        <div class="health-note">7 hari terakhir</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Transaction History ── -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="title-dot" style="background:var(--c-violet);box-shadow:0 0 6px var(--c-violet)"></div>
+        Riwayat Transaksi
+      </div>
+      <span class="card-meta" id="txCount">Menampilkan 10 dari 24,891</span>
+    </div>
+
+    <div class="tx-filters">
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div class="tx-filter-btn on" data-filter="all">Semua</div>
+          <div class="tx-filter-btn" data-filter="swap">Swap</div>
+          <div class="tx-filter-btn" data-filter="add">Tambah Likuiditas</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div class="tx-filter-btn" data-filter="remove">Tarik Likuiditas</div>
+          <div class="tx-filter-btn" data-filter="bridge">Bridge</div>
+          <div class="tx-filter-btn" data-filter="stake">Staking</div>
+        </div>
+      </div>
+      <div class="tx-search" style="align-self:center;margin-left:12px">🔍 Cari hash / wallet...</div>
+    </div>
+
+    <div class="tx-table-wrap"><table class="tx-table" style="table-layout:fixed;width:100%">
+      <colgroup>
+        <col style="width:15%">
+        <col style="width:15%">
+        <col style="width:15%">
+        <col style="width:20%">
+        <col style="width:15%">
+        <col style="width:20%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Tipe</th>
+          <th>Token</th>
+          <th>Nilai (USD)</th>
+          <th>Wallet</th>
+          <th>Status</th>
+          <th>Waktu</th>
+        </tr>
+      </thead>
+      <tbody id="txBody"></tbody>
+    </table></div>
+
+    <div class="tx-footer">
+      <span id="txFooterText">Halaman 1 dari 2,490</span>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+
+</div><!-- end .analytics-page -->
+
+<!-- Tooltip -->
+<div class="chart-tooltip" id="tooltip"></div>
+
+<script>
+/* ════════════════════════════════════
+   DATA & STATE
+   ════════════════════════════════════ */
+
+const state = {
+  range: '30D',
+  txFilter: 'all',
+  glTab: 'gainers',
+  txPage: 1
+};
+
+/* ── Seed data ── */
+function mkTVL(n) {
+  const base = 200; const data = [];
+  for (let i = 0; i < n; i++) {
+    base + (Math.random() - 0.45) * 8;
+    data.push({ tvl: 180 + Math.random() * 80, liq: 100 + Math.random() * 50 });
+  }
+  return data;
+}
+
+function mkVol(n) {
+  return Array.from({length:n}, (_,i) => {
+    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    return { label: months[i % 12], swap: 20 + Math.random() * 80, liq: 10 + Math.random() * 40 };
+  });
+}
+
+const gainers = [
+  { sym:'ARB',  name:'Arbitrum',   price:'$1.82',  chg:'+24.7%', col:'#38bdf8', icon:'A' },
+  { sym:'OP',   name:'Optimism',   price:'$2.41',  chg:'+18.2%', col:'#f87171', icon:'O' },
+  { sym:'SOL',  name:'Solana',     price:'$148.72',chg:'+7.9%',  col:'#34d399', icon:'S' },
+  { sym:'LINK', name:'Chainlink',  price:'$14.33', chg:'+6.1%',  col:'#60a5fa', icon:'L' },
+  { sym:'MATIC',name:'Polygon',    price:'$0.98',  chg:'+4.8%',  col:'#a78bfa', icon:'M' },
+];
+
+const losers = [
+  { sym:'UNI',  name:'Uniswap',    price:'$6.12',  chg:'-9.3%',  col:'#f472b6', icon:'U' },
+  { sym:'AAVE', name:'Aave',       price:'$82.40', chg:'-6.7%',  col:'#818cf8', icon:'A' },
+  { sym:'CRV',  name:'Curve',      price:'$0.44',  chg:'-5.1%',  col:'#fb923c', icon:'C' },
+  { sym:'SNX',  name:'Synthetix',  price:'$2.88',  chg:'-3.9%',  col:'#2dd4bf', icon:'S' },
+  { sym:'COMP', name:'Compound',   price:'$48.20', chg:'-2.4%',  col:'#4ade80', icon:'C' },
+];
+
+const txTypes = ['swap','add','remove','bridge','stake'];
+const txTypeLbl = { swap:'Swap', add:'Tambah Likuiditas', remove:'Tarik Likuiditas', bridge:'Bridge', stake:'Staking' };
+const networks  = ['Ethereum','Polygon','Arbitrum','BNB Chain','Optimism'];
+const pairs = ['ETH/USDC','WBTC/ETH','SOL/USDT','MATIC/USDC','ARB/ETH','LINK/ETH','OP/USDC','AVAX/USDC'];
+
+function rndAddr() {
+  const h = '0123456789abcdef';
+  let s = '0x';
+  for (let i=0;i<4;i++) s += h[Math.floor(Math.random()*16)];
+  s += '...';
+  for (let i=0;i<4;i++) s += h[Math.floor(Math.random()*16)];
+  return s;
+}
+
+function rndHash() {
+  const h = '0123456789abcdef';
+  let s = '0x';
+  for (let i=0;i<6;i++) s += h[Math.floor(Math.random()*16)];
+  return s + '...';
+}
+
+function rndTime(i) {
+  const units = ['dtk','mnt','mnt','jam','jam'];
+  const vals  = [Math.floor(Math.random()*59)+1, Math.floor(Math.random()*59)+1,
+                 Math.floor(Math.random()*30)+30, Math.floor(Math.random()*12)+1, Math.floor(Math.random()*6)+12];
+  return `${vals[i % 5]} ${units[i % 5]} lalu`;
+}
+
+function buildTxData() {
+  return Array.from({length:50}, (_,i) => ({
+    type: txTypes[Math.floor(Math.random()*txTypes.length)],
+    pair: pairs[Math.floor(Math.random()*pairs.length)],
+    value: '$' + (Math.random()*50000+100).toLocaleString('id',{maximumFractionDigits:0}),
+    wallet: rndAddr(),
+    network: networks[Math.floor(Math.random()*networks.length)],
+    time: rndTime(i),
+    status: Math.random() > 0.05 ? 'Sukses' : 'Gagal',
+    hash: rndHash()
+  }));
+}
+
+const allTxData = buildTxData();
+
+/* ════════════════════════════════════
+   RENDER FUNCTIONS
+   ════════════════════════════════════ */
+
+/* TVL Line Chart */
+function renderTVL() {
+  const svg = document.getElementById('tvlChart');
+  const n = state.range === '1D' ? 24 : state.range === '7D' ? 7 : state.range === '30D' ? 30 : state.range === '90D' ? 90 : 52;
+  const data = mkTVL(n);
+  const W = 600, H = 160, pad = { t:8, r:8, b:28, l:44 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+
+  const maxV = Math.max(...data.map(d => d.tvl));
+  const minV = Math.min(...data.map(d => d.tvl)) * 0.9;
+
+  const xPos = (i) => pad.l + (i / (data.length-1)) * iw;
+  const yPos = (v) => pad.t + ih - ((v - minV) / (maxV - minV)) * ih;
+
+  /* Grid lines */
+  let html = '';
+  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.t + ih * (1 - t);
+    const val = (minV + (maxV-minV)*t);
+    html += `<line x1="${pad.l}" x2="${pad.l+iw}" y1="${y}" y2="${y}" stroke="rgba(148,163,184,0.07)" stroke-width="1"/>`;
+    html += `<text x="${pad.l-6}" y="${y+4}" fill="#475569" font-size="10" font-family="IBM Plex Mono" text-anchor="end">$${(val/1e6).toFixed(0)}M</text>`;
+  });
+
+  /* Area paths */
+  const makePath = (key, topOffset=0) => {
+    let d = `M ${xPos(0)} ${yPos(data[0][key])}`;
+    for (let i=1;i<data.length;i++) d += ` L ${xPos(i)} ${yPos(data[i][key])}`;
+    return d;
+  };
+
+  const tvlPath = makePath('tvl');
+  const liqPath = makePath('liq');
+
+  /* Area fill */
+  const areaEnd = `L ${xPos(data.length-1)} ${yPos(minV)} L ${xPos(0)} ${yPos(minV)} Z`;
+
+  html += `<defs>
+    <linearGradient id="gTvl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gLiq" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>`;
+
+  html += `<path d="${tvlPath} ${areaEnd}" fill="url(#gTvl)"/>`;
+  html += `<path d="${liqPath} ${areaEnd}" fill="url(#gLiq)"/>`;
+  html += `<path d="${liqPath}" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-opacity="0.6"/>`;
+  html += `<path d="${tvlPath}" fill="none" stroke="#38bdf8" stroke-width="2"/>`;
+
+  /* Dot at end */
+  const last = data[data.length-1];
+  html += `<circle cx="${xPos(data.length-1)}" cy="${yPos(last.tvl)}" r="4" fill="#38bdf8" stroke="#0d1117" stroke-width="2"/>`;
+
+  svg.innerHTML = html;
+}
+
+/* Volume Bar Chart */
+function renderVolBars() {
+  const container = document.getElementById('volBars');
+  const n = state.range === '1D' ? 24 : state.range === '7D' ? 7 : state.range === '30D' ? 30 : 12;
+  const data = mkVol(n).slice(0, n);
+  const maxV = Math.max(...data.map(d => d.swap + d.liq));
+
+  container.innerHTML = data.map(d => {
+    const total = d.swap + d.liq;
+    const swapH = (d.swap / maxV * 100).toFixed(1);
+    const liqH  = (d.liq  / maxV * 100).toFixed(1);
+    return `
+      <div class="bar-col">
+        <div style="display:flex;flex-direction:column;align-items:center;height:140px;justify-content:flex-end;width:100%">
+          <div class="bar-seg top" style="height:${swapH}%;background:var(--c-violet)" title="${d.label}: $${d.swap.toFixed(1)}M Swap"></div>
+          <div class="bar-seg bot" style="height:${liqH}%;background:rgba(167,139,250,0.35)" title="${d.label}: $${d.liq.toFixed(1)}M Likuiditas"></div>
+        </div>
+        <div class="bar-x">${d.label}</div>
+      </div>`;
+  }).join('');
+}
+
+/* Gainers / Losers */
+function renderGL() {
+  const data = state.glTab === 'gainers' ? gainers : losers;
+  const isGainer = state.glTab === 'gainers';
+  document.getElementById('glList').innerHTML = data.map((d,i) => `
+    <div class="gl-row">
+      <div class="gl-rank">${i+1}</div>
+      <div class="gl-logo" style="background:${d.col}22;color:${d.col}">${d.icon}</div>
+      <div class="gl-info">
+        <div class="gl-sym">${d.sym}</div>
+        <div class="gl-name">${d.name}</div>
+      </div>
+      <div class="gl-price">${d.price}</div>
+      <div class="gl-chg" style="color:${isGainer ? 'var(--c-green)' : 'var(--c-red)'}">${d.chg}</div>
+    </div>`).join('');
+}
+
+/* Transaction Table */
+function renderTX() {
+  const filtered = state.txFilter === 'all'
+    ? allTxData
+    : allTxData.filter(t => t.type === state.txFilter);
+
+  const perPage = 10;
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const pageData = filtered.slice((state.txPage-1)*perPage, state.txPage*perPage);
+
+  const statusColor = s => s === 'Sukses' ? 'var(--c-green)' : 'var(--c-red)';
+
+  document.getElementById('txBody').innerHTML = pageData.map(tx => `
+    <tr>
+      <td><span class="tx-type-badge ${tx.type}">${txTypeLbl[tx.type]}</span></td>
+      <td style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tx.pair}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-weight:600;font-size:12px">${tx.value}</td>
+      <td class="addr-cell"><a class="addr-link" href="#">${tx.wallet}</a></td>
+      <td>
+        <span style="display:inline-flex;align-items:center;gap:5px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${statusColor(tx.status)};flex-shrink:0;display:inline-block"></span>
+          <span style="color:${statusColor(tx.status)};font-family:'Share Tech Mono',monospace;font-size:11px">${tx.status}</span>
+        </span>
+      </td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-md)">${tx.time}</td>
+    </tr>`).join('');
+
+  document.getElementById('txCount').textContent = `Menampilkan ${pageData.length} dari ${filtered.length.toLocaleString('id')} transaksi`;
+  document.getElementById('txFooterText').textContent = `Halaman ${state.txPage} dari ${totalPages}`;
+
+  /* Pager */
+  const pager = document.getElementById('pager');
+  let pages = [];
+  if (totalPages <= 7) {
+    pages = Array.from({length:totalPages},(_,i)=>i+1);
+  } else {
+    pages = [1,2,'…', state.txPage > 3 ? state.txPage : null, '…', totalPages-1, totalPages].filter(Boolean);
+  }
+  pager.innerHTML = [
+    `<div class="page-btn" id="pgPrev">‹</div>`,
+    ...[1,2,3,4,5].map(p => `<div class="page-btn${p===state.txPage?' on':''}" data-page="${p}">${p}</div>`),
+    `<div class="page-btn" style="cursor:default;color:var(--text-lo)">…</div>`,
+    `<div class="page-btn" id="pgNext">›</div>`
+  ].join('');
+
+  pager.querySelectorAll('[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.txPage = +btn.dataset.page;
+      renderTX();
+    });
+  });
+  document.getElementById('pgPrev').addEventListener('click', () => { if(state.txPage > 1){ state.txPage--; renderTX(); }});
+  document.getElementById('pgNext').addEventListener('click', () => { if(state.txPage < totalPages){ state.txPage++; renderTX(); }});
+}
+
+/* Timestamp */
+function updateTime() {
+  const now = new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const ss=String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('lastUpdate').textContent = `${hh}:${mm}:${ss}`;
+}
+
+/* ════════════════════════════════════
+   EVENT BINDINGS
+   ════════════════════════════════════ */
+
+/* Range selector */
+document.getElementById('rangeCtrl').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  state.range = btn.dataset.range;
+  state.txPage = 1;
+  renderTVL();
+  renderVolBars();
+});
+
+/* Refresh */
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  renderTVL(); renderVolBars(); updateTime();
+  const btn = document.getElementById('refreshBtn');
+  btn.style.transform = 'rotate(360deg)';
+  btn.style.transition = 'transform 0.4s';
+  setTimeout(() => { btn.style.transform = ''; btn.style.transition = ''; }, 400);
+});
+
+/* GL Tabs */
+document.getElementById('gainTab').addEventListener('click', () => {
+  state.glTab = 'gainers';
+  document.getElementById('gainTab').classList.add('on');
+  document.getElementById('loseTab').classList.remove('on');
+  renderGL();
+});
+document.getElementById('loseTab').addEventListener('click', () => {
+  state.glTab = 'losers';
+  document.getElementById('loseTab').classList.add('on');
+  document.getElementById('gainTab').classList.remove('on');
+  renderGL();
+});
+
+/* TX Filters */
+document.querySelectorAll('.tx-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tx-filter-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    state.txFilter = btn.dataset.filter;
+    state.txPage = 1;
+    renderTX();
+  });
+});
+
+/* Gas simulation */
+function simGas() {
+  const jitter = (v, pct) => (v * (1 + (Math.random()-0.5)*pct)).toFixed(v < 1 ? 2 : 0);
+  document.getElementById('gasEth').textContent  = jitter(24,0.3);
+  document.getElementById('gasPoly').textContent = jitter(142,0.5);
+  document.getElementById('gasArb').textContent  = jitter(0.12,0.4);
+  document.getElementById('gasBnb').textContent  = jitter(5,0.2);
+  document.getElementById('gasOp').textContent   = jitter(0.08,0.3);
+  document.getElementById('gasAvax').textContent = jitter(28,0.25);
+}
+
+/* ════════════════════════════════════
+   INIT
+   ════════════════════════════════════ */
+renderTVL();
+renderVolBars();
+renderGL();
+renderTX();
+updateTime();
+setInterval(updateTime, 1000);
+setInterval(simGas, 8000);
+</script>
+</body>
+</html>
