@@ -1,0 +1,212 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DApp Jaminan BNB</title>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+body{
+font-family: Arial, sans-serif;
+background:#0f172a;
+color:white;
+text-align:center;
+padding:40px;
+}
+
+.container{
+max-width:700px;
+margin:auto;
+background:#1e293b;
+padding:30px;
+border-radius:12px;
+}
+
+h1{
+color:#38bdf8;
+}
+
+input{
+width:90%;
+padding:10px;
+margin:6px;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:10px 20px;
+margin:10px;
+border:none;
+border-radius:6px;
+background:#38bdf8;
+cursor:pointer;
+font-weight:bold;
+}
+
+button:hover{
+background:#0ea5e9;
+}
+
+.result{
+margin-top:20px;
+background:#020617;
+padding:15px;
+border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>DApp Sistem Jaminan</h1>
+
+<button onclick="connectWallet()">Connect Wallet</button>
+
+<h2>Cek Kelayakan</h2>
+
+<input id="wallet" placeholder="Alamat Wallet">
+<input id="groupId" placeholder="Group ID">
+
+<br>
+<button onclick="cekKelayakan()">Cek Kelayakan</button>
+
+<h2>Kirim Notif Gagal Bayar</h2>
+
+<input id="walletNotif" placeholder="Wallet">
+<input id="groupIdNotif" placeholder="Group ID">
+<input id="putaranNotif" placeholder="Putaran">
+<input id="jumlahIuranNotif" placeholder="Jumlah Iuran">
+
+<br>
+<button onclick="kirimNotif()">Kirim Notif</button>
+
+<h2>Potong Jaminan</h2>
+
+<input id="walletPotong" placeholder="Wallet">
+<input id="notifIndexPotong" placeholder="Notif Index">
+
+<br>
+<button onclick="potongJaminan()">Potong Jaminan</button>
+
+<div class="result" id="result">
+Hasil akan muncul disini
+</div>
+
+</div>
+
+<script>
+
+const contractAddress = "0xB195F88c64B7E0aC7f707063A85a6Bf5Ea1637e9";
+
+const abi = [
+{
+"inputs":[
+{"internalType":"address","name":"wallet","type":"address"},
+{"internalType":"uint256","name":"groupId","type":"uint256"}
+],
+"name":"cekKelayakan",
+"outputs":[
+{"internalType":"bool","name":"layak","type":"bool"},
+{"internalType":"uint256","name":"nilaiKualifikasi","type":"uint256"},
+{"internalType":"uint256","name":"syaratMinimum","type":"uint256"},
+{"internalType":"uint256","name":"kurang","type":"uint256"}
+],
+"stateMutability":"view",
+"type":"function"
+},
+{
+"inputs":[
+{"internalType":"address","name":"wallet","type":"address"},
+{"internalType":"uint256","name":"groupId","type":"uint256"},
+{"internalType":"uint256","name":"putaran","type":"uint256"},
+{"internalType":"uint256","name":"jumlahIuran","type":"uint256"}
+],
+"name":"kirimNotifGagalBayar",
+"outputs":[],
+"stateMutability":"nonpayable",
+"type":"function"
+},
+{
+"inputs":[
+{"internalType":"address","name":"wallet","type":"address"},
+{"internalType":"uint256","name":"notifIndex","type":"uint256"}
+],
+"name":"potongJaminan",
+"outputs":[],
+"stateMutability":"nonpayable",
+"type":"function"
+}
+];
+
+let provider;
+let signer;
+let contract;
+
+async function connectWallet(){
+
+if(!window.ethereum){
+alert("Install MetaMask dulu");
+return;
+}
+
+provider = new ethers.providers.Web3Provider(window.ethereum);
+
+await provider.send("eth_requestAccounts", []);
+
+signer = provider.getSigner();
+
+contract = new ethers.Contract(contractAddress, abi, signer);
+
+document.getElementById("result").innerHTML = "Wallet Connected";
+
+}
+
+async function cekKelayakan(){
+
+const wallet = document.getElementById("wallet").value;
+const groupId = document.getElementById("groupId").value;
+
+const result = await contract.cekKelayakan(wallet, groupId);
+
+document.getElementById("result").innerHTML =
+"Layak: " + result.layak +
+"<br>Nilai Kualifikasi: " + result.nilaiKualifikasi +
+"<br>Syarat Minimum: " + result.syaratMinimum +
+"<br>Kurang: " + result.kurang;
+
+}
+
+async function kirimNotif(){
+
+const wallet = document.getElementById("walletNotif").value;
+const groupId = document.getElementById("groupIdNotif").value;
+const putaran = document.getElementById("putaranNotif").value;
+const jumlahIuran = document.getElementById("jumlahIuranNotif").value;
+
+const tx = await contract.kirimNotifGagalBayar(wallet, groupId, putaran, jumlahIuran);
+
+document.getElementById("result").innerHTML = "Transaksi dikirim: " + tx.hash;
+
+}
+
+async function potongJaminan(){
+
+const wallet = document.getElementById("walletPotong").value;
+const notifIndex = document.getElementById("notifIndexPotong").value;
+
+const tx = await contract.potongJaminan(wallet, notifIndex);
+
+document.getElementById("result").innerHTML = "Potong jaminan tx: " + tx.hash;
+
+}
+
+</script>
+
+</body>
+</html>
