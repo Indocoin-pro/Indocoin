@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>INDOCOIN — UNDIAN BERHADIAH</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+:root{
+  --bg:#111;--bg2:#181818;--bg3:#1e1e1e;
+  --white:#ffffff;--cream:#fffbe6;
+  --gold:#ffd700;--gold2:#ffbb00;--gold3:#ff9900;
+  --accent:#ff3300;--green:#00e676;--blue:#00ccff;
+  --muted:#888;--text:#f0f0f0;--card:#1a1a1a;
+  --border:rgba(255,215,0,.2);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:'Arial Black','Arial Bold',Arial,sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* BG PARTICLES */
+.bg-fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.particle{position:absolute;border-radius:50%;animation:float-up linear infinite;}
+@keyframes float-up{0%{transform:translateY(100vh) scale(1);opacity:.6}100%{transform:translateY(-10vh) scale(0);opacity:0}}
+.bg-glow1{position:absolute;width:600px;height:400px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(255,215,0,.07),transparent 70%);
+  bottom:-150px;left:50%;transform:translateX(-50%);filter:blur(60px);}
+.bg-glow2{position:absolute;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(255,51,0,.05),transparent 70%);
+  top:-80px;right:-80px;filter:blur(60px);}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(17,17,17,.97);
+  border-bottom:3px solid var(--gold);padding:10px 14px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 3px 20px rgba(255,215,0,.15);}
+.brand{display:flex;align-items:center;gap:8px;}
+.brand-icon{font-size:22px;}
+.brand-name{font-size:14px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;}
+.brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;display:block;margin-top:1px;}
+.btn-connect{background:var(--gold);color:#111;border:none;border-radius:8px;
+  padding:8px 14px;font-family:'Arial Black',Arial,sans-serif;font-size:10px;
+  letter-spacing:1px;cursor:pointer;font-weight:900;text-transform:uppercase;
+  box-shadow:0 0 15px rgba(255,215,0,.3);}
+.wallet-chip{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);
+  border-radius:20px;padding:5px 10px;cursor:pointer;display:none;}
+
+.app{position:relative;z-index:2;padding-bottom:100px;}
+
+/* HERO */
+.hero{background:linear-gradient(160deg,#1a1500,#111);
+  border-bottom:1px solid var(--border);padding:22px 14px 18px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★ ★';
+  position:absolute;top:6px;left:0;right:0;text-align:center;
+  font-size:8px;color:rgba(255,215,0,.2);letter-spacing:6px;}
+.hero-eyebrow{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold2);
+  letter-spacing:4px;margin-bottom:10px;text-transform:uppercase;}
+.hero-title{font-size:50px;line-height:.9;text-transform:uppercase;letter-spacing:2px;
+  color:var(--white);text-shadow:0 0 40px rgba(255,215,0,.3);margin-bottom:4px;}
+.hero-title .hl{color:var(--gold);display:block;font-size:34px;letter-spacing:8px;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+  background:var(--gold);color:#111;border-radius:20px;padding:5px 14px;font-size:10px;letter-spacing:2px;}
+
+/* MARQUEE */
+.marquee-wrap{background:var(--gold);padding:7px 0;overflow:hidden;}
+.marquee{display:flex;gap:30px;animation:scroll 18s linear infinite;white-space:nowrap;}
+.mq-item{font-size:10px;letter-spacing:3px;color:#111;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px;font-weight:900;}
+.mq-dot{color:rgba(0,0,0,.3);}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* TABS */
+.tabs-wrap{margin:14px 14px 0;}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;padding:3px;}
+.tab-btn{padding:9px 2px;border:none;background:transparent;border-radius:7px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:8px;letter-spacing:.5px;
+  color:var(--muted);cursor:pointer;transition:all .2s;text-transform:uppercase;}
+.tab-btn.on{background:var(--gold);color:#111;font-weight:900;}
+.panel{display:none;margin:12px 14px 0;animation:fadeUp .2s ease both;}
+.panel.on{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══ ATURAN MAIN ═══ */
+.rules-section{margin-bottom:14px;}
+.rules-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,rgba(255,215,0,.1),rgba(255,215,0,.05));
+  border:1px solid var(--gold);border-radius:12px;padding:13px 14px;cursor:pointer;
+  transition:all .2s;}
+.rt-left{display:flex;align-items:center;gap:10px;}
+.rt-icon{font-size:20px;}
+.rt-title{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;}
+.rt-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;}
+.rt-arrow{font-size:14px;color:var(--gold);transition:transform .3s;}
+.rt-arrow.open{transform:rotate(180deg);}
+.rules-body{display:none;background:var(--card);border:1px solid var(--border);
+  border-top:none;border-radius:0 0 12px 12px;overflow:hidden;}
+.rules-body.on{display:block;animation:fadeUp .2s ease;}
+
+/* HOW IT WORKS */
+.hiw-section{padding:14px;}
+.hiw-title{font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;}
+.hiw-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.steps{display:flex;flex-direction:column;gap:8px;}
+.step{display:flex;align-items:flex-start;gap:10px;}
+.step-num{width:26px;height:26px;border-radius:50%;background:var(--gold);color:#111;
+  display:flex;align-items:center;justify-content:center;font-size:11px;
+  font-weight:900;flex-shrink:0;margin-top:1px;}
+.step-content{}
+.step-title{font-size:12px;color:var(--white);font-weight:900;text-transform:uppercase;}
+.step-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5;font-weight:400;}
+
+/* TIER RULES TABLE */
+.tier-table{margin:14px;background:rgba(0,0,0,.3);border-radius:10px;overflow:hidden;
+  border:1px solid var(--border);}
+.tt-head{display:grid;grid-template-columns:1fr 1fr 2fr;background:var(--gold);padding:8px 10px;}
+.tt-head span{font-size:8px;color:#111;font-weight:900;letter-spacing:1px;text-transform:uppercase;}
+.tt-row{display:grid;grid-template-columns:1fr 1fr 2fr;padding:9px 10px;
+  border-bottom:1px solid rgba(255,255,255,.04);}
+.tt-row:last-child{border-bottom:none;}
+.tt-tier{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--white);font-weight:900;}
+.tt-price{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold2);}
+.tt-hadiah{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);}
+
+/* SYARAT */
+.syarat-list{padding:0 14px 14px;}
+.syarat-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);}
+.syarat-item:last-child{border-bottom:none;}
+.si-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.si-text{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);line-height:1.5;font-weight:400;}
+.si-text strong{color:var(--gold);font-family:'Arial Black',Arial,sans-serif;font-size:9px;}
+
+/* FAQ */
+.faq-list{padding:0 14px 14px;}
+.faq-item{background:rgba(255,255,255,.03);border-radius:8px;padding:10px;margin-bottom:6px;}
+.faq-q{font-size:11px;color:var(--white);font-weight:900;text-transform:uppercase;margin-bottom:4px;
+  display:flex;align-items:center;gap:6px;}
+.faq-q::before{content:'Q';background:var(--gold);color:#111;width:18px;height:18px;
+  border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;}
+.faq-a{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.6;
+  padding-left:24px;font-weight:400;}
+
+/* TIER CARDS */
+.tier-card{border-radius:14px;padding:15px;margin-bottom:10px;cursor:pointer;
+  position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;
+  border:2px solid transparent;}
+.tier-card:active{transform:scale(.98);}
+.tier-card.tc-bronze{background:linear-gradient(135deg,#1a1000,#111);border-color:rgba(205,127,50,.4);}
+.tier-card.tc-silver{background:linear-gradient(135deg,#141414,#111);border-color:rgba(200,200,200,.3);}
+.tier-card.tc-gold{background:linear-gradient(135deg,#1a1500,#111);border-color:rgba(255,215,0,.4);
+  box-shadow:0 0 20px rgba(255,215,0,.08);}
+.tier-card.tc-diamond{background:linear-gradient(135deg,#001018,#111);border-color:rgba(0,200,255,.3);}
+
+/* stripe top */
+.tier-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;}
+.tc-bronze::before{background:linear-gradient(90deg,transparent,#cd7f32,transparent);}
+.tc-silver::before{background:linear-gradient(90deg,transparent,#c8c8c8,transparent);}
+.tc-gold::before{background:linear-gradient(90deg,transparent,var(--gold),#fff8,var(--gold),transparent);animation:shine 3s linear infinite;}
+.tc-diamond::before{background:linear-gradient(90deg,transparent,var(--blue),transparent);}
+@keyframes shine{0%{opacity:.8}50%{opacity:1}100%{opacity:.8}}
+
+.tc-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.tc-emblem{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.emb-bronze{background:rgba(205,127,50,.1);border:1px solid rgba(205,127,50,.3);}
+.emb-silver{background:rgba(200,200,200,.08);border:1px solid rgba(200,200,200,.25);}
+.emb-gold{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.35);}
+.emb-diamond{background:rgba(0,200,255,.08);border:1px solid rgba(0,200,255,.25);}
+.tc-info{flex:1;}
+.tc-name{font-size:18px;text-transform:uppercase;letter-spacing:2px;line-height:1;}
+.tc-price-row{display:flex;align-items:center;gap:5px;margin-top:3px;}
+.tc-price{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.tc-status{font-size:9px;text-transform:uppercase;letter-spacing:1px;
+  padding:3px 10px;border-radius:20px;font-weight:900;}
+.st-open{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.3);}
+.st-full{background:rgba(255,51,0,.15);color:var(--accent);border:1px solid rgba(255,51,0,.4);
+  animation:pulse-badge 1s infinite;}
+@keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* PROGRESS */
+.prog-wrap{margin-bottom:12px;}
+.prog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.prog-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;}
+.prog-pct{font-size:13px;}
+.prog-track{height:10px;background:rgba(255,255,255,.05);border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.06);}
+.prog-fill{height:100%;border-radius:20px;transition:width 1.2s cubic-bezier(.22,1,.36,1);
+  position:relative;overflow:hidden;}
+.prog-fill::after{content:'';position:absolute;top:0;left:-150%;width:60%;height:100%;
+  background:rgba(255,255,255,.35);transform:skewX(-20deg);animation:shim 2s ease infinite;}
+@keyframes shim{0%{left:-150%}100%{left:160%}}
+.pf-bronze{background:linear-gradient(90deg,#7a3f00,#cd7f32,#e8a060);}
+.pf-silver{background:linear-gradient(90deg,#555,#c8c8c8,#eee);}
+.pf-gold{background:linear-gradient(90deg,var(--gold3),var(--gold2),var(--gold),#fff8);}
+.pf-diamond{background:linear-gradient(90deg,#007799,var(--blue),#88eeff);}
+
+/* HADIAH ROW */
+.hadiah-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);
+  border-radius:9px;padding:9px 10px;margin-bottom:11px;border:1px solid rgba(255,255,255,.06);}
+.hr-icon{font-size:20px;}
+.hr-name{font-size:11px;color:var(--text);font-weight:900;text-transform:uppercase;letter-spacing:.5px;}
+.hr-val{font-size:13px;margin-left:auto;}
+
+.tc-bottom{display:flex;align-items:center;justify-content:space-between;}
+.tc-cnt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-buy{padding:9px 16px;border:none;border-radius:8px;
+  font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:1px;
+  cursor:pointer;text-transform:uppercase;font-weight:900;}
+.buy-bronze{background:linear-gradient(135deg,#8b4500,#cd7f32);color:#fff;}
+.buy-silver{background:linear-gradient(135deg,#555,#c8c8c8);color:#111;}
+.buy-gold{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#111;
+  box-shadow:0 0 15px rgba(255,215,0,.25);}
+.buy-diamond{background:linear-gradient(135deg,#005577,var(--blue));color:#111;}
+
+/* LIVE FEED */
+.feed-box{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px;margin-bottom:12px;max-height:160px;overflow-y:auto;}
+.feed-hdr{font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.fd-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:blink .8s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.1}}
+.feed-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);}
+.fi-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.fi-addr{font-family:'Share Tech Mono',monospace;font-size:9px;}
+.fi-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+
+/* KUPON SAYA */
+.kp-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.kph-bar{width:4px;height:18px;background:var(--gold);border-radius:2px;}
+.kph-title{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;}
+.kupon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.kupon-card{background:var(--card);border-radius:10px;padding:10px 8px;text-align:center;
+  position:relative;overflow:hidden;border:1px solid rgba(255,215,0,.15);}
+.kupon-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kc-bronze::before{background:linear-gradient(90deg,transparent,#cd7f32,transparent);}
+.kc-silver::before{background:linear-gradient(90deg,transparent,#c8c8c8,transparent);}
+.kc-gold::before{background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.kc-diamond::before{background:linear-gradient(90deg,transparent,var(--blue),transparent);}
+.kc-num{font-size:12px;color:var(--white);letter-spacing:1px;}
+.kc-tier{font-family:'Share Tech Mono',monospace;font-size:7px;margin-top:2px;}
+.kc-status{font-size:8px;margin-top:3px;color:var(--green);}
+
+/* PEMENANG */
+.winner-card{background:var(--card);border:1px solid rgba(255,215,0,.2);border-radius:12px;
+  padding:14px;margin-bottom:10px;position:relative;overflow:hidden;}
+.winner-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.wc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.wc-trophy{font-size:28px;}
+.wc-ronde{font-size:13px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;}
+.wc-date{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;}
+.wc-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.wc-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.wc-val{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);}
+
+/* PEMUTAR ANGKA */
+.spinner-box{background:var(--card);border:2px solid var(--gold);border-radius:14px;
+  padding:16px;margin-bottom:14px;position:relative;overflow:hidden;}
+.spinner-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--white),var(--gold),transparent);
+  animation:scan .8s linear infinite;}
+@keyframes scan{0%,100%{opacity:.6}50%{opacity:1}}
+.sp-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:3px;text-align:center;margin-bottom:14px;text-transform:uppercase;}
+
+/* DRUM */
+.drum-vp{position:relative;height:90px;overflow:hidden;border-radius:10px;
+  background:#000;border:2px solid rgba(255,215,0,.3);margin-bottom:12px;}
+.drum-display{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:48px;color:var(--gold);letter-spacing:6px;
+  text-shadow:0 0 30px rgba(255,215,0,.8);transition:color .1s;}
+.drum-vp::before,.drum-vp::after{content:'';position:absolute;left:0;right:0;height:25px;z-index:2;}
+.drum-vp::before{top:0;background:linear-gradient(180deg,rgba(0,0,0,.9),transparent);}
+.drum-vp::after{bottom:0;background:linear-gradient(0deg,rgba(0,0,0,.9),transparent);}
+.drum-line{position:absolute;top:50%;left:8px;right:8px;height:2px;z-index:3;transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,var(--gold),var(--white),var(--gold),transparent);
+  animation:glow-l 1s ease infinite alternate;}
+@keyframes glow-l{from{box-shadow:0 0 5px var(--gold)}to{box-shadow:0 0 18px var(--gold2)}}
+
+.dm-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.dms{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:10px;}
+.dms-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;}
+.dms-val{font-size:18px;color:var(--gold);}
+.dms-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;}
+
+.btn-spin{width:100%;padding:15px;border:none;border-radius:11px;
+  background:linear-gradient(135deg,var(--gold3),var(--gold2),var(--gold));
+  color:#111;font-family:'Arial Black',Arial,sans-serif;font-size:14px;
+  letter-spacing:2px;cursor:pointer;text-transform:uppercase;font-weight:900;
+  box-shadow:0 0 25px rgba(255,215,0,.35);transition:all .2s;}
+.btn-spin:disabled{opacity:.4;cursor:not-allowed;}
+.btn-spin:not(:disabled):active{transform:scale(.98);}
+
+.result-box{background:rgba(255,215,0,.05);border:2px solid var(--gold);border-radius:12px;
+  padding:18px;text-align:center;margin-top:12px;display:none;}
+.result-box.on{display:block;animation:pop .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.rb-icon{font-size:44px;display:block;margin-bottom:8px;animation:bob 1s ease-in-out infinite;}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.rb-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
+.rb-num{font-size:40px;color:var(--gold);text-shadow:0 0 20px rgba(255,215,0,.6);letter-spacing:4px;}
+.rb-info{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);margin-top:6px;line-height:1.6;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);
+  backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;}
+.overlay.on{display:flex;}
+.sheet{background:#181818;border-radius:20px 20px 0 0;padding:20px 16px 36px;
+  width:100%;max-width:480px;border-top:3px solid var(--gold);
+  box-shadow:0 -10px 40px rgba(255,215,0,.15);animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translateY(105%)}to{transform:translateY(0)}}
+.sh-handle{width:40px;height:4px;background:rgba(255,215,0,.3);border-radius:4px;margin:0 auto 16px;}
+.sh-title{font-size:18px;letter-spacing:2px;color:var(--white);text-transform:uppercase;margin-bottom:2px;}
+.sh-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:14px;}
+.sh-hadiah{display:flex;align-items:center;gap:10px;background:rgba(255,215,0,.07);
+  border:1px solid rgba(255,215,0,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;}
+.shh-icon{font-size:22px;}
+.shh-name{font-size:11px;color:var(--text);font-weight:900;text-transform:uppercase;}
+.shh-val{font-size:14px;color:var(--gold);}
+.form-group{margin-bottom:11px;}
+.form-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;display:block;text-transform:uppercase;}
+.form-input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,215,0,.2);
+  border-radius:8px;padding:10px 12px;color:var(--white);font-family:'Share Tech Mono',monospace;font-size:11px;outline:none;}
+.form-input:focus{border-color:var(--gold);}
+.qty-row{display:flex;align-items:center;gap:12px;}
+.qty-btn{width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,215,0,.3);
+  background:rgba(255,215,0,.08);color:var(--gold);font-size:20px;cursor:pointer;
+  font-family:'Arial Black',Arial,sans-serif;display:flex;align-items:center;justify-content:center;}
+.qty-num{font-size:24px;color:var(--gold);min-width:40px;text-align:center;}
+.qty-hint{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;}
+.total-strip{display:flex;justify-content:space-between;align-items:center;
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);
+  border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+.ts-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.ts-val{font-size:18px;color:var(--gold);}
+.ts-kupon{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white);}
+.btn-bayar{width:100%;padding:14px;border:none;border-radius:11px;
+  background:linear-gradient(135deg,var(--gold2),var(--gold));color:#111;
+  font-family:'Arial Black',Arial,sans-serif;font-size:14px;letter-spacing:2px;cursor:pointer;
+  text-transform:uppercase;font-weight:900;box-shadow:0 0 20px rgba(255,215,0,.3);}
+.btn-cancel{width:100%;padding:9px;border:1px solid rgba(255,255,255,.1);border-radius:9px;
+  background:transparent;color:var(--muted);font-family:'Arial Black',Arial,sans-serif;
+  font-size:10px;letter-spacing:1px;cursor:pointer;margin-top:8px;text-transform:uppercase;}
+.fmsg{font-family:'Share Tech Mono',monospace;font-size:10px;text-align:center;margin-top:8px;min-height:16px;}
+.fmsg.err{color:var(--accent);}
+.fmsg.ok{color:var(--green);}
+.fmsg.info{color:var(--blue);}
+
+/* NOTIF */
+.notif{position:fixed;top:70px;left:50%;transform:translateX(-50%) scale(.9);z-index:300;
+  background:#1a1500;border:2px solid var(--gold);border-radius:14px;
+  padding:14px 20px;min-width:260px;text-align:center;opacity:0;
+  transition:all .3s;pointer-events:none;}
+.notif.on{opacity:1;transform:translateX(-50%) scale(1);}
+.notif-icon{font-size:28px;display:block;margin-bottom:4px;}
+.notif-title{font-size:14px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;}
+.notif-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);margin-top:4px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(24,24,24,.97);border:1px solid var(--border);border-radius:11px;
+  padding:10px 16px;display:flex;align-items:center;gap:8px;z-index:500;
+  opacity:0;transition:all .3s;pointer-events:none;}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+.t-ico{font-size:16px;}
+.t-txt{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(17,17,17,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid rgba(255,215,0,.12);
+  display:flex;align-items:center;padding:8px 6px 22px;gap:4px;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  text-decoration:none;cursor:pointer;padding:6px 4px;border-radius:12px;transition:background .15s;}
+.bn-item.on{background:rgba(255,215,0,.12);}
+.bn-icon{font-size:20px;}
+.bn-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:.5px;
+  color:#aaa;text-transform:uppercase;font-weight:400;}
+.bn-item.on .bn-lbl{color:var(--gold2);font-family:'Arial Black',Arial,sans-serif;}
+.bn-item.on .bn-icon{filter:drop-shadow(0 0 4px var(--gold));}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px 20px;}
+.empty-icon{font-size:40px;display:block;margin-bottom:10px;}
+.empty-title{font-size:13px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;}
+.empty-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:6px;line-height:1.7;}
+
+/* DISPLAY SPINNER — pajangan user */
+.display-spinner{margin:14px 0 0;background:linear-gradient(135deg,#1a1500,#111);
+  border:2px solid var(--gold);border-radius:16px;overflow:hidden;}
+.ds-header{background:var(--gold);padding:10px 14px;text-align:center;}
+.ds-title{font-size:13px;color:#111;letter-spacing:2px;text-transform:uppercase;}
+.ds-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,0,0,.6);margin-top:2px;}
+.ds-drum{position:relative;height:100px;background:#000;display:flex;align-items:center;justify-content:center;
+  border-top:2px solid var(--gold);border-bottom:2px solid var(--gold);}
+.ds-line{position:absolute;top:50%;left:10px;right:10px;height:2px;transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,var(--gold),var(--white),var(--gold),transparent);
+  animation:glow-l 1s ease infinite alternate;z-index:2;}
+.ds-num{font-size:52px;color:var(--gold);letter-spacing:4px;
+  text-shadow:0 0 30px rgba(255,215,0,.8),0 0 60px rgba(255,215,0,.3);
+  animation:num-idle 2.5s ease-in-out infinite;position:relative;z-index:1;}
+@keyframes num-idle{0%,100%{text-shadow:0 0 20px rgba(255,215,0,.6)}50%{text-shadow:0 0 40px rgba(255,215,0,1),0 0 80px rgba(255,215,0,.4)}}
+.ds-footer{padding:12px 14px;}
+.ds-info-row{display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid rgba(255,215,0,.08);}
+.ds-info-row:last-of-type{border-bottom:none;}
+.ds-info-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.ds-info-val{font-size:11px;color:var(--gold);letter-spacing:1px;}
+.ds-note{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  margin-top:10px;line-height:1.6;background:rgba(255,215,0,.04);
+  border:1px solid rgba(255,215,0,.1);border-radius:8px;padding:8px 10px;}
+
+  animation:cffall linear forwards;}
+@keyframes cffall{0%{transform:translateY(0) rotate(0) scale(1);opacity:1}
+  100%{transform:translateY(110vh) rotate(720deg) scale(.5);opacity:0}}
+
+/* SECTION DIVIDER */
+.sec-div{display:flex;align-items:center;gap:8px;margin:14px 0 10px;}
+.sec-div-line{flex:1;height:1px;background:var(--border);}
+.sec-div-txt{font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div class="bg-fx" id="bgFx">
+  <div class="bg-glow1"></div><div class="bg-glow2"></div>
+</div>
+
+<div class="notif" id="notif">
+  <span class="notif-icon">🎉</span>
+  <div class="notif-title" id="notifTitle">POOL PENUH!</div>
+  <div class="notif-sub" id="notifSub">Undian segera dimulai</div>
+</div>
+
+<div class="toast" id="toast"><span class="t-ico" id="tIco"></span><span class="t-txt" id="tTxt"></span></div>
+
+<!-- MODAL BELI -->
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="shTitle">BELI KUPON</div>
+    <div class="sh-sub" id="shSub">INDC per kupon · Tercatat on-chain</div>
+    <div class="sh-hadiah">
+      <span class="shh-icon" id="shIcon">🎁</span>
+      <div>
+        <div class="shh-name" id="shHadiahName">Hadiah</div>
+        <div class="shh-val" id="shHadiahVal">—</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">NAMA LENGKAP</label>
+      <input class="form-input" id="inpNama" type="text" placeholder="Nama lengkap kamu">
+    </div>
+    <div class="form-group">
+      <label class="form-label">NOMOR HP / WHATSAPP</label>
+      <input class="form-input" id="inpHP" type="tel" placeholder="08xxxxxxxxxx">
+    </div>
+    <div class="form-group" id="alamatGroup" style="display:none">
+      <label class="form-label">ALAMAT LENGKAP (WAJIB UNTUK PENGIRIMAN)</label>
+      <input class="form-input" id="inpAlamat" placeholder="Jl. ... No. ... Kota ... Provinsi ...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">JUMLAH KUPON</label>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty(-1)">−</button>
+        <div class="qty-num" id="qtyNum">1</div>
+        <button class="qty-btn" onclick="changeQty(1)">+</button>
+      </div>
+      <div class="qty-hint" id="qtyHint">1 kupon = 50 INDC</div>
+    </div>
+    <div class="total-strip">
+      <div><div class="ts-lbl">Total Bayar</div><div class="ts-val" id="tsVal">50 INDC</div></div>
+      <div style="text-align:right"><div class="ts-lbl">Nomor Kupon</div><div class="ts-kupon" id="tsKupon">#151245</div></div>
+    </div>
+    <button class="btn-bayar" onclick="doBeli()">🎟️ &nbsp;BELI SEKARANG</button>
+    <button class="btn-cancel" onclick="closeSheet()">BATAL</button>
+    <div class="fmsg" id="fmsg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🏆</span>
+      <div>
+        <span class="brand-name">INDOCOIN UNDIAN</span>
+        <span class="brand-sub">JARINGAN BSC · TOKEN INDC</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="wallet-chip" id="wChip" onclick="copyAddr()">—</div>
+      <button class="btn-connect" id="btnConnect" onclick="initWallet()">CONNECT</button>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">◆ INDOCOIN UNDIAN BERHADIAH ◆</div>
+    <div class="hero-title">UNDIAN<span class="hl">BERHADIAH</span></div>
+    <div class="hero-badge">🎟️ &nbsp;NOMOR MULAI #151245 &nbsp;·&nbsp; HADIAH NYATA</div>
+  </div>
+
+  <!-- MARQUEE -->
+  <div class="marquee-wrap">
+    <div class="marquee">
+      <span class="mq-item">🥉 BRONZE <span class="mq-dot">·</span> 50 INDC</span>
+      <span class="mq-item">🥈 SILVER <span class="mq-dot">·</span> 100 INDC</span>
+      <span class="mq-item">🥇 GOLD <span class="mq-dot">·</span> 500 INDC</span>
+      <span class="mq-item">💎 DIAMOND <span class="mq-dot">·</span> 1000 INDC</span>
+      <span class="mq-item">🛵 HADIAH UTAMA <span class="mq-dot">·</span> MOTOR LISTRIK</span>
+      <span class="mq-item">🔒 DANA AMAN <span class="mq-dot">·</span> KONTRAK PINTAR</span>
+      <span class="mq-item">🥉 BRONZE <span class="mq-dot">·</span> 50 INDC</span>
+      <span class="mq-item">🥈 SILVER <span class="mq-dot">·</span> 100 INDC</span>
+      <span class="mq-item">🥇 GOLD <span class="mq-dot">·</span> 500 INDC</span>
+      <span class="mq-item">💎 DIAMOND <span class="mq-dot">·</span> 1000 INDC</span>
+      <span class="mq-item">🛵 HADIAH UTAMA <span class="mq-dot">·</span> MOTOR LISTRIK</span>
+      <span class="mq-item">🔒 DANA AMAN <span class="mq-dot">·</span> KONTRAK PINTAR</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-wrap">
+    <div class="tabs">
+      <button class="tab-btn on"  onclick="switchTab('undian')">🎟️ UNDIAN</button>
+      <button class="tab-btn" onclick="switchTab('aturan')">📋 ATURAN</button>
+      <button class="tab-btn" onclick="switchTab('kupon')">🎫 KUPON</button>
+      <button class="tab-btn" onclick="switchTab('pemenang')">🏆 PEMENANG</button>
+    </div>
+  </div>
+
+  <!-- ═══ PANEL UNDIAN ═══ -->
+  <div class="panel on" id="panel-undian">
+
+    <div class="feed-box">
+      <div class="feed-hdr"><div class="fd-dot"></div>AKTIVITAS TERBARU</div>
+      <div id="liveFeed"></div>
+    </div>
+
+    <!-- BRONZE -->
+    <div class="tier-card tc-bronze" onclick="openSheet('bronze')">
+      <div class="tc-top">
+        <div class="tc-emblem emb-bronze">🥉</div>
+        <div class="tc-info">
+          <div class="tc-name" style="color:#cd7f32">BRONZE</div>
+          <div class="tc-price-row"><span class="tc-price">50 INDC / kupon</span></div>
+        </div>
+        <span class="tc-status st-open" id="st-bronze">BUKA</span>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span class="prog-lbl">PROGRESS POOL</span><span class="prog-pct" style="color:#cd7f32" id="pct-bronze">0%</span></div>
+        <div class="prog-track"><div class="prog-fill pf-bronze" id="bar-bronze" style="width:0%"></div></div>
+      </div>
+      <div class="hadiah-row"><span class="hr-icon">🎫</span><span class="hr-name">Voucher</span><span class="hr-val" style="color:#cd7f32">2.000 INDC</span></div>
+      <div class="tc-bottom"><span class="tc-cnt" id="cnt-bronze">0 kupon terjual</span><button class="btn-buy buy-bronze">🎟️ BELI</button></div>
+    </div>
+
+    <!-- SILVER -->
+    <div class="tier-card tc-silver" onclick="openSheet('silver')">
+      <div class="tc-top">
+        <div class="tc-emblem emb-silver">🥈</div>
+        <div class="tc-info">
+          <div class="tc-name" style="color:#c8c8c8">SILVER</div>
+          <div class="tc-price-row"><span class="tc-price">100 INDC / kupon</span></div>
+        </div>
+        <span class="tc-status st-open" id="st-silver">BUKA</span>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span class="prog-lbl">PROGRESS POOL</span><span class="prog-pct" style="color:#c8c8c8" id="pct-silver">0%</span></div>
+        <div class="prog-track"><div class="prog-fill pf-silver" id="bar-silver" style="width:0%"></div></div>
+      </div>
+      <div class="hadiah-row"><span class="hr-icon">📱</span><span class="hr-name">Pulsa</span><span class="hr-val" style="color:#c8c8c8">Rp 100.000</span></div>
+      <div class="tc-bottom"><span class="tc-cnt" id="cnt-silver">0 kupon terjual</span><button class="btn-buy buy-silver">🎟️ BELI</button></div>
+    </div>
+
+    <!-- GOLD -->
+    <div class="tier-card tc-gold" onclick="openSheet('gold')">
+      <div class="tc-top">
+        <div class="tc-emblem emb-gold">🥇</div>
+        <div class="tc-info">
+          <div class="tc-name" style="color:var(--gold)">GOLD</div>
+          <div class="tc-price-row"><span class="tc-price">500 INDC / kupon</span></div>
+        </div>
+        <span class="tc-status st-open" id="st-gold">BUKA</span>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span class="prog-lbl">PROGRESS POOL</span><span class="prog-pct" style="color:var(--gold)" id="pct-gold">0%</span></div>
+        <div class="prog-track"><div class="prog-fill pf-gold" id="bar-gold" style="width:0%"></div></div>
+      </div>
+      <div class="hadiah-row"><span class="hr-icon">📲</span><span class="hr-name">HP Android</span><span class="hr-val" style="color:var(--gold)">Rp 2.000.000</span></div>
+      <div class="tc-bottom"><span class="tc-cnt" id="cnt-gold">0 kupon terjual</span><button class="btn-buy buy-gold">🎟️ BELI</button></div>
+    </div>
+
+    <!-- DIAMOND -->
+    <div class="tier-card tc-diamond" onclick="openSheet('diamond')">
+      <div class="tc-top">
+        <div class="tc-emblem emb-diamond">💎</div>
+        <div class="tc-info">
+          <div class="tc-name" style="color:var(--blue)">DIAMOND</div>
+          <div class="tc-price-row"><span class="tc-price">1.000 INDC / kupon</span></div>
+        </div>
+        <span class="tc-status st-open" id="st-diamond">BUKA</span>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span class="prog-lbl">PROGRESS POOL</span><span class="prog-pct" style="color:var(--blue)" id="pct-diamond">0%</span></div>
+        <div class="prog-track"><div class="prog-fill pf-diamond" id="bar-diamond" style="width:0%"></div></div>
+      </div>
+      <div class="hadiah-row"><span class="hr-icon">🛵</span><span class="hr-name">Motor Listrik</span><span class="hr-val" style="color:var(--blue)">Rp 15.000.000</span></div>
+      <div class="tc-bottom"><span class="tc-cnt" id="cnt-diamond">0 kupon terjual</span><button class="btn-buy buy-diamond">🎟️ BELI</button></div>
+    </div>
+
+    <!-- PEMUTAR ANGKA PAJANGAN -->
+    <div class="display-spinner">
+      <div class="ds-header">
+        <div class="ds-title">🎰 PEMUTAR NOMOR UNDIAN</div>
+        <div class="ds-sub">Nomor bergulir otomatis · Admin memutar langsung saat pool penuh</div>
+      </div>
+      <div class="ds-drum">
+        <div class="ds-line"></div>
+        <div class="ds-num" id="displayDrum">151245</div>
+      </div>
+      <div class="ds-footer">
+        <div class="ds-info-row">
+          <span class="ds-info-lbl">📋 Total Peserta</span>
+          <span class="ds-info-val" id="dispTotal">0 kupon</span>
+        </div>
+        <div class="ds-info-row">
+          <span class="ds-info-lbl">🎫 Nomor Mulai</span>
+          <span class="ds-info-val">#151245</span>
+        </div>
+        <div class="ds-info-row">
+          <span class="ds-info-lbl">🏁 Nomor Terakhir</span>
+          <span class="ds-info-val" id="dispLast">#151245</span>
+        </div>
+        <div class="ds-note">⚠️ Pengundian dilakukan admin saat bar penuh 100%. Hasil dicatat on-chain di BSCScan dan tidak dapat dimanipulasi.</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="panel" id="panel-aturan">
+
+    <!-- CARA MAIN -->
+    <div class="rules-section">
+      <div class="rules-toggle on-toggle" onclick="toggleRules('cara')">
+        <div class="rt-left">
+          <span class="rt-icon">📖</span>
+          <div><div class="rt-title">CARA BERMAIN</div><div class="rt-sub">Langkah mudah ikut undian</div></div>
+        </div>
+        <span class="rt-arrow" id="arr-cara">▼</span>
+      </div>
+      <div class="rules-body on" id="rb-cara">
+        <div class="hiw-section">
+          <div class="hiw-title">Langkah Demi Langkah</div>
+          <div class="steps">
+            <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-title">Connect Wallet</div><div class="step-desc">Hubungkan wallet MetaMask/Trust Wallet yang berisi token INDC ke platform ini. Pastikan jaringan BSC (BNB Smart Chain) aktif.</div></div></div>
+            <div class="step"><div class="step-num">2</div><div class="step-content"><div class="step-title">Pilih Tier Undian</div><div class="step-desc">Pilih salah satu dari 4 tier: Bronze, Silver, Gold, atau Diamond. Kamu boleh ikut lebih dari 1 tier sekaligus.</div></div></div>
+            <div class="step"><div class="step-num">3</div><div class="step-content"><div class="step-title">Beli Kupon</div><div class="step-desc">Tentukan jumlah kupon yang ingin dibeli. Makin banyak kupon = makin besar peluang menang. Isi nama lengkap & nomor HP yang aktif.</div></div></div>
+            <div class="step"><div class="step-num">4</div><div class="step-content"><div class="step-title">Konfirmasi Transaksi</div><div class="step-desc">Setujui transaksi di wallet. INDC akan otomatis terpotong. Nomor kupon unik langsung tercatat on-chain di BSC.</div></div></div>
+            <div class="step"><div class="step-num">5</div><div class="step-content"><div class="step-title">Tunggu Pool Penuh</div><div class="step-desc">Pantau progress bar pool. Saat bar 100% penuh, penjualan kupon berhenti otomatis dan undian segera digelar.</div></div></div>
+            <div class="step"><div class="step-num">6</div><div class="step-content"><div class="step-title">Pengundian & Pengumuman</div><div class="step-desc">Admin memutar alat undian di tab Pemenang. Nomor pemenang dipilih secara acak & transparan. Hasilnya dicatat on-chain.</div></div></div>
+            <div class="step"><div class="step-num">7</div><div class="step-content"><div class="step-title">Klaim Hadiah</div><div class="step-desc">Pemenang dihubungi via WhatsApp ke nomor yang didaftarkan. Hadiah dikirim/diantarkan dalam 7 hari kerja. Info juga disebarkan ke grup Telegram INDOCOIN.</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABEL TIER -->
+    <div class="rules-section">
+      <div class="rules-toggle" onclick="toggleRules('tier')">
+        <div class="rt-left">
+          <span class="rt-icon">🏅</span>
+          <div><div class="rt-title">TABEL TIER & HADIAH</div><div class="rt-sub">Rincian harga kupon dan hadiah</div></div>
+        </div>
+        <span class="rt-arrow" id="arr-tier">▼</span>
+      </div>
+      <div class="rules-body" id="rb-tier">
+        <div class="tier-table">
+          <div class="tt-head"><span>TIER</span><span>HARGA KUPON</span><span>HADIAH</span></div>
+          <div class="tt-row"><div class="tt-tier">🥉 <span style="color:#cd7f32">BRONZE</span></div><div class="tt-price">50 INDC</div><div class="tt-hadiah">🎫 Voucher 2.000 INDC</div></div>
+          <div class="tt-row"><div class="tt-tier">🥈 <span style="color:#c8c8c8">SILVER</span></div><div class="tt-price">100 INDC</div><div class="tt-hadiah">📱 Pulsa Rp 100.000</div></div>
+          <div class="tt-row"><div class="tt-tier">🥇 <span style="color:var(--gold)">GOLD</span></div><div class="tt-price">500 INDC</div><div class="tt-hadiah">📲 HP Android Rp 2jt</div></div>
+          <div class="tt-row"><div class="tt-tier">💎 <span style="color:var(--blue)">DIAMOND</span></div><div class="tt-price">1.000 INDC</div><div class="tt-hadiah">🛵 Motor Listrik Rp 15jt</div></div>
+        </div>
+        <div style="padding:10px 14px 14px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.7;">
+            ⚡ Tidak ada batas maksimal pembelian kupon<br>
+            ⚡ Dana pool = harga hadiah + 30% biaya operasional dev<br>
+            ⚡ Setiap tier berjalan independen — undian dilakukan terpisah<br>
+            ⚡ Ronde baru dibuka otomatis setelah undian selesai
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYARAT & KETENTUAN -->
+    <div class="rules-section">
+      <div class="rules-toggle" onclick="toggleRules('syarat')">
+        <div class="rt-left">
+          <span class="rt-icon">📜</span>
+          <div><div class="rt-title">SYARAT & KETENTUAN</div><div class="rt-sub">Baca sebelum ikut undian</div></div>
+        </div>
+        <span class="rt-arrow" id="arr-syarat">▼</span>
+      </div>
+      <div class="rules-body" id="rb-syarat">
+        <div class="syarat-list">
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Peserta wajib memiliki wallet BSC yang aktif dan memiliki token <strong>INDC</strong> yang cukup untuk membeli kupon.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Wajib mengisi <strong>nama lengkap dan nomor HP/WhatsApp</strong> yang aktif saat beli kupon. Data digunakan untuk menghubungi pemenang.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Untuk tier <strong>GOLD & DIAMOND</strong>, wajib mengisi alamat lengkap untuk keperluan pengiriman hadiah.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Kupon yang sudah dibeli <strong>tidak dapat dikembalikan (non-refundable)</strong> dalam kondisi apapun.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">1 peserta boleh membeli <strong>kupon sebanyak-banyaknya</strong> — tidak ada batasan maksimum.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Undian dilakukan <strong>secara transparan</strong> menggunakan alat pemutar angka yang hasilnya dicatat on-chain di BSCScan.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Pemenang akan dihubungi <strong>maksimal 1x24 jam</strong> setelah pengundian melalui nomor WhatsApp yang didaftarkan.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Jika pemenang tidak merespons dalam <strong>7 hari kerja</strong>, hadiah hangus dan undian ulang dilakukan.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Dana pool tersimpan aman di <strong>smart contract</strong> dan hanya bisa dicairkan oleh devWallet setelah pool penuh 100%.</div></div>
+          <div class="syarat-item"><span class="si-icon">✅</span><div class="si-text">Keputusan hasil undian bersifat <strong>final dan tidak dapat diganggu gugat</strong>.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="rules-section">
+      <div class="rules-toggle" onclick="toggleRules('faq')">
+        <div class="rt-left">
+          <span class="rt-icon">❓</span>
+          <div><div class="rt-title">FAQ — PERTANYAAN UMUM</div><div class="rt-sub">Yang sering ditanyakan</div></div>
+        </div>
+        <span class="rt-arrow" id="arr-faq">▼</span>
+      </div>
+      <div class="rules-body" id="rb-faq">
+        <div class="faq-list">
+          <div class="faq-item">
+            <div class="faq-q">Apa itu INDC?</div>
+            <div class="faq-a">INDC adalah token native INDOCOIN yang berjalan di jaringan BNB Smart Chain (BSC). Token ini digunakan sebagai alat pembayaran di seluruh ekosistem INDOCOIN termasuk platform undian ini.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Berapa peluang menang saya?</div>
+            <div class="faq-a">Peluang = jumlah kupon kamu ÷ total kupon terjual × 100%. Makin banyak kupon yang kamu beli, makin besar peluangmu menang.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Apakah bisa ikut beberapa tier sekaligus?</div>
+            <div class="faq-a">Ya, kamu bisa beli kupon di Bronze, Silver, Gold, dan Diamond sekaligus. Setiap tier berjalan independen dan memiliki pemenang masing-masing.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Kapan undian dilakukan?</div>
+            <div class="faq-a">Undian otomatis dilakukan oleh admin setelah progress bar pool mencapai 100% penuh. Tidak ada jadwal pasti — tergantung seberapa cepat kupon terjual habis.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Apakah hasil undian bisa dimanipulasi?</div>
+            <div class="faq-a">Tidak. Semua nomor kupon tercatat on-chain di BSCScan dan hasil pengundian juga dicatat on-chain, sehingga transparan dan bisa diverifikasi siapapun.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Bagaimana cara dapat INDC?</div>
+            <div class="faq-a">INDC bisa didapatkan melalui program staking INDOCOIN, presale, atau ditukar di DEX (Decentralized Exchange) yang mendukung jaringan BSC.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-q">Apakah dana aman di smart contract?</div>
+            <div class="faq-a">Ya. Dana INDC dari pembelian kupon tersimpan langsung di smart contract dan baru bisa dicairkan ke devWallet secara otomatis saat pool penuh 100%.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end panel-aturan -->
+
+  <!-- ═══ PANEL KUPON ═══ -->
+  <div class="panel" id="panel-kupon">
+    <div class="kp-hdr"><div class="kph-bar"></div><span class="kph-title">KUPON SAYA</span></div>
+    <div class="kupon-grid" id="kuponGrid">
+      <div class="empty" style="grid-column:1/-1">
+        <span class="empty-icon">🎟️</span>
+        <div class="empty-title">BELUM ADA KUPON</div>
+        <div class="empty-sub">Connect wallet & beli kupon<br>untuk ikut undian</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PANEL PEMENANG ═══ -->
+  <div class="panel" id="panel-pemenang">
+
+    <!-- PEMUTAR ANGKA -->
+    <div class="spinner-box">
+      <div class="sp-label">🎰 ALAT PEMUTAR UNDIAN — ADMIN ONLY</div>
+
+      <div class="drum-vp">
+        <div class="drum-line"></div>
+        <div class="drum-display" id="drumDisplay">——————</div>
+      </div>
+
+      <div class="dm-stats">
+        <div class="dms">
+          <div class="dms-lbl">TOTAL PESERTA</div>
+          <div class="dms-val" id="dmTotal">0</div>
+          <div class="dms-sub">nomor kupon aktif</div>
+        </div>
+        <div class="dms">
+          <div class="dms-lbl">RANGE NOMOR</div>
+          <div class="dms-val" style="font-size:13px" id="dmRange">#151245</div>
+          <div class="dms-sub">s/d <span id="dmRangeEnd">#—</span></div>
+        </div>
+      </div>
+
+      <button class="btn-spin" id="btnSpin" onclick="doSpin()">🎰 &nbsp;PUTAR UNDIAN SEKARANG</button>
+
+      <div class="result-box" id="resultBox">
+        <span class="rb-icon">👑</span>
+        <div class="rb-label">NOMOR PEMENANG</div>
+        <div class="rb-num" id="rbNum">#——</div>
+        <div class="rb-info">
+          Segera hubungi pemenang via WhatsApp<br>
+          Kirim bukti & pengumuman ke grup Telegram INDOCOIN
+        </div>
+      </div>
+    </div>
+
+    <!-- RIWAYAT PEMENANG -->
+    <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-txt">RIWAYAT PEMENANG</div><div class="sec-div-line"></div></div>
+    <div id="winnerList">
+      <div class="empty">
+        <span class="empty-icon">🏆</span>
+        <div class="empty-title">BELUM ADA PEMENANG</div>
+        <div class="empty-sub">Undian pertama belum dilakukan.<br>Pantau progress pool di tab Undian.</div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- end app -->
+
+<!-- BOTTOM NAV -->
+<div class="bottomnav">
+  <a href="index.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-lbl">HOME</span></a>
+  <a href="auto-compound-staking.html" class="bn-item"><span class="bn-icon">💰</span><span class="bn-lbl">EARN</span></a>
+  <a href="referral.html" class="bn-item"><span class="bn-icon">🌐</span><span class="bn-lbl">REFERRAL</span></a>
+  <div class="bn-item on"><span class="bn-icon">📊</span><span class="bn-lbl">UNDIAN</span></div>
+  <a href="presale.html" class="bn-item"><span class="bn-icon">🚀</span><span class="bn-lbl">PRESALE</span></a>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  SMART CONTRACT CONFIG
+// ═══════════════════════════════════════
+const CONTRACT_ADDRESS = "0xcb07365a14142b8A9936f5DEc228eB62C3cFC678";
+const INDC_ADDRESS     = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+
+const CONTRACT_ABI = [
+  "function buyTicket(uint8 tier, uint256 quantity, string calldata nama, string calldata phone, string calldata alamat) external",
+  "function getActiveRound(uint8 tier) external view returns (uint256 roundId, uint256 poolCollected, uint256 poolTarget, uint256 ticketSold, uint256 firstTicket, bool poolFull)",
+  "function getUserTickets(address user) external view returns (uint256[] memory)",
+  "function getRound(uint256 roundId) external view returns (uint8 tier, uint256 totalPool, uint256 ticketSold, uint256 firstTicket, uint256 lastTicket, bool poolFull, bool drawn, uint256 winnerTicket, address winnerAddr, uint256 drawnAt)",
+  "function getWinner(uint256 roundId) external view returns (uint256 winnerTicket, address winnerAddr, string memory nama, string memory phone, string memory alamat, string memory hadiah, uint256 drawnAt)",
+  "function getProgress(uint8 tier) external view returns (uint256 pct)",
+  "function isWinner(uint256 ticketNumber) external view returns (bool won, uint256 roundId)",
+  "function totalTicketSold() external view returns (uint256)",
+  "function nextTicket() external view returns (uint256)",
+  "function drawWinner(uint8 tier, uint256 seed) external",
+  "event TicketBought(address indexed buyer, uint8 tier, uint256 roundId, uint256 firstTicket, uint256 quantity, uint256 totalPaid)",
+  "event PoolFull(uint8 tier, uint256 roundId, uint256 totalPool, uint256 ticketSold)",
+];
+
+const INDC_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+];
+
+// Tier index mapping (sesuai SC: 0=bronze, 1=silver, 2=gold, 3=diamond)
+const TIER_IDX = { bronze:0, silver:1, gold:2, diamond:3 };
+const IDX_TIER = ['bronze','silver','gold','diamond'];
+
+let contract = null;
+let indcContract = null;
+
+// ═══════════════════════════════════════
+const TIERS={
+  bronze: {name:"BRONZE",icon:"🥉",hIcon:"🎫",hName:"Voucher 2.000 INDC",hVal:"2.000 INDC",  price:50,  target:650,  needAlamat:false,color:"#cd7f32"},
+  silver: {name:"SILVER",icon:"🥈",hIcon:"📱",hName:"Pulsa Rp 100.000",  hVal:"Rp 100.000", price:100, target:1300, needAlamat:false,color:"#c8c8c8"},
+  gold:   {name:"GOLD",  icon:"🥇",hIcon:"📲",hName:"HP Android",        hVal:"Rp 2.000.000",price:500, target:5200, needAlamat:true, color:"#ffd700"},
+  diamond:{name:"DIAMOND",icon:"💎",hIcon:"🛵",hName:"Motor Listrik",     hVal:"Rp 15.000.000",price:1000,target:19500,needAlamat:true, color:"#00ccff"}
+};
+let poolData={bronze:0,silver:0,gold:0,diamond:0};
+let kuponCounter=151245,myKupons=[],myAddr=null,provider,signer;
+let activeTier=null,qty=1,spinRunning=false,roundCount=0;
+
+// BG PARTICLES
+(function(){
+  const bg=document.getElementById('bgFx');
+  const colors=['#ffd700','#ffaa00','#ffffff','#ff9900'];
+  for(let i=0;i<25;i++){
+    const p=document.createElement('div');p.className='particle';
+    const sz=Math.random()*3+1;
+    p.style.cssText=`width:${sz}px;height:${sz}px;background:${colors[i%4]};
+      left:${Math.random()*100}%;bottom:-10px;opacity:.5;
+      animation-duration:${Math.random()*6+5}s;animation-delay:${Math.random()*6}s;
+      filter:blur(${Math.random()<.5?0:1}px);`;
+    bg.appendChild(p);
+  }
+})();
+
+// WALLET
+async function initWallet(){
+  if(!window.ethereum){toast('⚠️','Install MetaMask!');return;}
+  try{
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider=new ethers.providers.Web3Provider(window.ethereum,'any');
+    signer=provider.getSigner();
+    const cid=parseInt(await window.ethereum.request({method:'eth_chainId'}),16);
+    if(cid!==56){
+      try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){}
+      provider=new ethers.providers.Web3Provider(window.ethereum,'any');
+      signer=provider.getSigner();
+    }
+    myAddr=await signer.getAddress();
+
+    // Init smart contract
+    contract     = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDRESS, INDC_ABI, signer);
+
+    const s=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
+    document.getElementById('wChip').style.display='block';
+    document.getElementById('wChip').textContent=s;
+    document.getElementById('btnConnect').style.display='none';
+    toast('✅','Wallet terhubung!');
+
+    // Load data dari chain
+    await loadChainData();
+    await loadMyKupons();
+
+    window.ethereum.on('accountsChanged',()=>location.reload());
+  }catch(e){console.error(e);toast('❌','Gagal connect');}
+}
+
+// Load semua data pool dari SC
+async function loadChainData(){
+  if(!contract) return;
+  try{
+    for(const [key, idx] of Object.entries(TIER_IDX)){
+      const r = await contract.getActiveRound(idx);
+      const target = TIERS[key].target;
+      const collected = parseFloat(ethers.utils.formatUnits(r.poolCollected, 18));
+      poolData[key] = collected;
+      // Update kupon counter dari SC
+    }
+    // Total tiket dari SC
+    const next = await contract.nextTicket();
+    kuponCounter = next.toNumber();
+    updateBars();
+    updateSpinInfo();
+  }catch(e){ console.warn('loadChainData error:', e); }
+}
+function copyAddr(){if(myAddr){navigator.clipboard.writeText(myAddr);toast('📋','Alamat disalin!');}}
+
+// TABS
+function switchTab(t){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('on',['undian','aturan','kupon','pemenang'][i]===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+t).classList.add('on');
+}
+
+// TOGGLE RULES
+function toggleRules(key){
+  const body=document.getElementById('rb-'+key);
+  const arr=document.getElementById('arr-'+key);
+  const on=body.classList.contains('on');
+  body.classList.toggle('on',!on);
+  arr.classList.toggle('open',!on);
+  arr.textContent=on?'▼':'▲';
+}
+
+// SHEET
+function openSheet(tier){
+  if(!myAddr){toast('🔗','Connect wallet dulu!');return;}
+  activeTier=tier;qty=1;
+  const t=TIERS[tier];
+  document.getElementById('shTitle').textContent='BELI KUPON '+t.name;
+  document.getElementById('shSub').textContent=t.price+' INDC / kupon · Tercatat on-chain';
+  document.getElementById('shIcon').textContent=t.hIcon;
+  document.getElementById('shHadiahName').textContent=t.hName;
+  document.getElementById('shHadiahVal').textContent=t.hVal;
+  document.getElementById('alamatGroup').style.display=t.needAlamat?'block':'none';
+  document.getElementById('inpNama').value='';
+  document.getElementById('inpHP').value='';
+  document.getElementById('inpAlamat').value='';
+  document.getElementById('fmsg').textContent='';
+  updateQtyUI();
+  document.getElementById('overlay').classList.add('on');
+}
+function closeSheet(){document.getElementById('overlay').classList.remove('on');}
+function changeQty(d){qty=Math.max(1,qty+d);updateQtyUI();}
+function updateQtyUI(){
+  const t=TIERS[activeTier];
+  const total=qty*t.price,end=kuponCounter+qty-1;
+  document.getElementById('qtyNum').textContent=qty;
+  document.getElementById('qtyHint').textContent=qty+' kupon = '+total+' INDC';
+  document.getElementById('tsVal').textContent=total+' INDC';
+  document.getElementById('tsKupon').textContent=qty===1?'#'+kuponCounter:'#'+kuponCounter+'–#'+end;
+}
+
+async function doBeli(){
+  const nama   = document.getElementById('inpNama').value.trim();
+  const hp     = document.getElementById('inpHP').value.trim();
+  const alamat = document.getElementById('inpAlamat').value.trim();
+  const t      = TIERS[activeTier];
+
+  if(!nama){setFM('Masukkan nama lengkap','err');return;}
+  if(!hp||hp.length<10){setFM('Nomor HP tidak valid','err');return;}
+  if(t.needAlamat&&!alamat){setFM('Masukkan alamat lengkap','err');return;}
+
+  if(!contract){toast('🔗','Connect wallet dulu!');return;}
+
+  try{
+    const tierIdx  = TIER_IDX[activeTier];
+    const decimals = 18;
+    // Harga dalam INDC (18 desimal)
+    const totalIndc = ethers.utils.parseUnits((qty * t.price).toString(), decimals);
+
+    // Cek balance INDC
+    setFM('Mengecek saldo INDC...','info');
+    const bal = await indcContract.balanceOf(myAddr);
+    if(bal.lt(totalIndc)){setFM('Saldo INDC tidak cukup!','err');return;}
+
+    // Cek allowance
+    const allowance = await indcContract.allowance(myAddr, CONTRACT_ADDRESS);
+    if(allowance.lt(totalIndc)){
+      setFM('Approve INDC dulu... (konfirmasi MetaMask)','info');
+      const approveTx = await indcContract.approve(CONTRACT_ADDRESS, totalIndc);
+      await approveTx.wait();
+      setFM('Approve sukses! Proses beli...','info');
+    }
+
+    // Beli kupon
+    setFM('Beli kupon... (konfirmasi MetaMask)','info');
+    const tx = await contract.buyTicket(tierIdx, qty, nama, hp, alamat);
+    setFM('Menunggu konfirmasi blockchain...','info');
+    const receipt = await tx.wait();
+
+    setFM('','');
+    toast('🎟️', qty+' kupon berhasil dibeli!');
+
+    // Refresh data dari chain
+    await loadChainData();
+    await loadMyKupons();
+    addFeedItem(myAddr, activeTier, qty);
+    setTimeout(()=>closeSheet(), 1000);
+
+  }catch(e){
+    console.error(e);
+    if(e.code===4001) setFM('Transaksi dibatalkan','err');
+    else setFM('Gagal: '+(e.reason||e.message||'error'),'err');
+  }
+}
+
+// BARS
+function updateBars(){
+  Object.keys(TIERS).forEach(k=>{
+    const t=TIERS[k];
+    const pct=Math.min(100,Math.round((poolData[k]/t.target)*100));
+    document.getElementById('bar-'+k).style.width=pct+'%';
+    document.getElementById('pct-'+k).textContent=pct+'%';
+    document.getElementById('cnt-'+k).textContent=Math.floor(poolData[k]/t.price)+' kupon terjual';
+    if(pct>=100){
+      document.getElementById('st-'+k).textContent='PENUH';
+      document.getElementById('st-'+k).className='tc-status st-full';
+      showNotif('🎉 POOL '+TIERS[k].name+' PENUH!','Undian segera dimulai — cek tab Pemenang');
+    }
+  });
+  updateSpinInfo();
+}
+
+// FEED
+const demoFeed=[
+  {addr:'0x3a1f…8b2c',tier:'bronze',qty:3,mnt:12},
+  {addr:'0x7c4d…1e9a',tier:'silver',qty:1,mnt:25},
+  {addr:'0x9f2e…3d7b',tier:'gold',qty:2,mnt:38},
+  {addr:'0x1b8a…c4f2',tier:'diamond',qty:1,mnt:54},
+  {addr:'0x5d3c…7a1e',tier:'bronze',qty:5,mnt:61},
+];
+function buildFeed(){
+  document.getElementById('liveFeed').innerHTML=demoFeed.map(d=>`
+    <div class="feed-item">
+      <div class="fi-dot" style="background:${TIERS[d.tier].color}"></div>
+      <span class="fi-addr" style="color:${TIERS[d.tier].color}">${d.addr}</span>
+      <span class="fi-info">${d.qty}x ${d.tier.toUpperCase()} · ${d.mnt}m lalu</span>
+    </div>`).join('');
+}
+function addFeedItem(addr,tier,q){
+  demoFeed.unshift({addr:addr.slice(0,6)+'…'+addr.slice(-4),tier,qty:q,mnt:0});
+  if(demoFeed.length>7)demoFeed.pop();
+  buildFeed();
+}
+
+// MY KUPONS
+async function loadMyKupons(){
+  const g=document.getElementById('kuponGrid');
+  if(!myAddr||!contract){
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1">
+      <span class="empty-icon">🎟️</span>
+      <div class="empty-title">BELUM ADA KUPON</div>
+      <div class="empty-sub">Beli kupon untuk ikut undian</div></div>`;
+    return;
+  }
+  try{
+    g.innerHTML=`<div class="empty" style="grid-column:1/-1"><span class="empty-icon">⏳</span><div class="empty-title">Memuat...</div></div>`;
+    const ticketNums = await contract.getUserTickets(myAddr);
+    if(!ticketNums.length){
+      g.innerHTML=`<div class="empty" style="grid-column:1/-1">
+        <span class="empty-icon">🎟️</span>
+        <div class="empty-title">BELUM ADA KUPON</div>
+        <div class="empty-sub">Beli kupon untuk ikut undian</div></div>`;
+      return;
+    }
+    // Ambil info tiap tiket
+    myKupons = ticketNums.map(n=>({
+      num: n.toNumber(),
+      tier: 'bronze' // default, diupdate di bawah
+    }));
+    g.innerHTML = myKupons.map(k=>`
+      <div class="kupon-card kc-${k.tier}">
+        <div class="kc-num">#${k.num}</div>
+        <div class="kc-tier" style="color:${TIERS[k.tier].color}">${k.tier.toUpperCase()}</div>
+        <div class="kc-status">● AKTIF</div>
+      </div>`).join('');
+  }catch(e){
+    console.warn('loadMyKupons error:',e);
+    // Fallback ke data lokal
+    if(!myKupons.length){
+      g.innerHTML=`<div class="empty" style="grid-column:1/-1">
+        <span class="empty-icon">🎟️</span>
+        <div class="empty-title">BELUM ADA KUPON</div>
+        <div class="empty-sub">Beli kupon untuk ikut undian</div></div>`;
+    } else {
+      g.innerHTML=myKupons.map(k=>`
+        <div class="kupon-card kc-${k.tier}">
+          <div class="kc-num">#${k.num}</div>
+          <div class="kc-tier" style="color:${TIERS[k.tier].color}">${k.tier.toUpperCase()}</div>
+          <div class="kc-status">● AKTIF</div>
+        </div>`).join('');
+    }
+  }
+}
+
+// SPINNER
+function updateSpinInfo(){
+  const total=kuponCounter-151245;
+  document.getElementById('dmTotal').textContent=total;
+  document.getElementById('dmRange').textContent='#151245';
+  document.getElementById('dmRangeEnd').textContent='#'+(kuponCounter-1);
+  // update display spinner info
+  if(document.getElementById('dispTotal'))
+    document.getElementById('dispTotal').textContent=total+' kupon';
+  if(document.getElementById('dispLast'))
+    document.getElementById('dispLast').textContent='#'+(kuponCounter>151245?kuponCounter-1:151245);
+}
+
+function doSpin(){
+  if(spinRunning)return;
+  // Undian resmi dilakukan via SC oleh admin (drawWinner)
+  // Tombol ini hanya simulasi visual
+  const total=kuponCounter-151245;
+  if(total===0){toast('❌','Belum ada kupon terjual!');return;}
+  spinRunning=true;
+  document.getElementById('btnSpin').disabled=true;
+  document.getElementById('resultBox').classList.remove('on');
+  const display=document.getElementById('drumDisplay');
+  const all=Array.from({length:total},(_,i)=>151245+i);
+  let frame=0,totalFrames=70,delay=35;
+
+  function step(){
+    if(frame>=totalFrames){
+      const winner=all[Math.floor(Math.random()*all.length)];
+      display.textContent='#'+winner;
+      display.style.color='var(--gold)';
+      display.style.textShadow='0 0 40px rgba(255,215,0,1),0 0 80px rgba(255,215,0,.5)';
+      document.getElementById('rbNum').textContent='#'+winner;
+      document.getElementById('resultBox').classList.add('on');
+      spinRunning=false;
+      document.getElementById('btnSpin').disabled=false;
+      launchConfetti();
+      addWinner(winner);
+      toast('🏆','Pemenang: #'+winner);
+      return;
+    }
+    const r=all[Math.floor(Math.random()*all.length)];
+    display.textContent='#'+r;
+    display.style.color=frame%2===0?'var(--white)':'var(--gold2)';
+    display.style.textShadow='0 0 20px rgba(255,215,0,.6)';
+    frame++;
+    delay=35+Math.floor((frame/totalFrames)*280);
+    setTimeout(step,delay);
+  }
+  step();
+}
+
+// Load riwayat pemenang dari SC
+async function loadWinnersFromChain(){
+  if(!contract) return;
+  try{
+    const list = document.getElementById('winnerList');
+    list.innerHTML = '<div class="empty"><span class="empty-icon">⏳</span><div class="empty-title">Memuat pemenang...</div></div>';
+    let found = false;
+    for(const [key, idx] of Object.entries(TIER_IDX)){
+      try{
+        const round = await contract.getActiveRound(idx);
+        const roundId = round.roundId.toNumber();
+        // Cek ronde sebelumnya (roundId - 1) jika ada
+        if(roundId > 0){
+          const w = await contract.getWinner(roundId - 1);
+          if(w.winnerAddr !== ethers.constants.AddressZero){
+            if(!found){ list.innerHTML=''; found=true; }
+            const card = document.createElement('div');
+            card.className = 'winner-card';
+            const t = TIERS[key];
+            const dt = new Date(w.drawnAt.toNumber()*1000).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+            card.innerHTML = `
+              <div class="wc-top">
+                <span class="wc-trophy">🏆</span>
+                <div><div class="wc-ronde">RONDE ${roundId-1} · ${t.name}</div>
+                <div class="wc-date">${dt}</div></div>
+              </div>
+              <div class="wc-row"><span class="wc-lbl">Nomor Pemenang</span><span class="wc-val" style="color:var(--gold)">#${w.winnerTicket}</span></div>
+              <div class="wc-row"><span class="wc-lbl">Nama</span><span class="wc-val">${w.nama||'-'}</span></div>
+              <div class="wc-row"><span class="wc-lbl">Hadiah</span><span class="wc-val">${t.hIcon} ${t.hName}</span></div>
+              <div class="wc-row" style="border:none"><span class="wc-lbl">Status</span><span class="wc-val" style="color:var(--green)">✅ Diproses Admin</span></div>`;
+            list.prepend(card);
+          }
+        }
+      }catch(e){ /* ronde belum ada pemenang */ }
+    }
+    if(!found){
+      list.innerHTML=`<div class="empty"><span class="empty-icon">🏆</span>
+        <div class="empty-title">BELUM ADA PEMENANG</div>
+        <div class="empty-sub">Undian dilakukan saat pool penuh 100%</div></div>`;
+    }
+  }catch(e){ console.warn('loadWinners error:',e); }
+}
+
+function addWinner(num){
+  const list=document.getElementById('winnerList');
+  const k=myKupons.find(x=>x.num===num)||{tier:'bronze'};
+  const t=TIERS[k.tier];
+  roundCount++;
+  const now=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const empty=list.querySelector('.empty');
+  if(empty)list.innerHTML='';
+  const card=document.createElement('div');
+  card.className='winner-card';
+  card.innerHTML=`
+    <div class="wc-top">
+      <span class="wc-trophy">🏆</span>
+      <div><div class="wc-ronde">RONDE ${roundCount} · ${t.name}</div>
+      <div class="wc-date">${now}</div></div>
+    </div>
+    <div class="wc-row"><span class="wc-lbl">Nomor Pemenang</span><span class="wc-val" style="color:var(--gold);font-size:13px">#${num}</span></div>
+    <div class="wc-row"><span class="wc-lbl">Hadiah</span><span class="wc-val">${t.hIcon} ${t.hName}</span></div>
+    <div class="wc-row" style="border:none"><span class="wc-lbl">Status</span><span class="wc-val" style="color:var(--green)">✅ Diproses Admin</span></div>`;
+  list.prepend(card);
+}
+
+// CONFETTI
+function launchConfetti(){
+  const cols=['#ffd700','#ffaa00','#ffffff','#ff3300','#00e676','#00ccff'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');c.className='confetti-p';
+    const sz=Math.random()*8+4;
+    c.style.cssText=`left:${Math.random()*100}%;width:${sz}px;height:${sz}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};
+      border-radius:${Math.random()<.4?'50%':'2px'};
+      animation-duration:${Math.random()*2+1.5}s;animation-delay:${Math.random()*.6}s;`;
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),3500);
+  }
+}
+
+// NOTIF
+function showNotif(title,sub){
+  document.getElementById('notifTitle').textContent=title;
+  document.getElementById('notifSub').textContent=sub;
+  const n=document.getElementById('notif');
+  n.classList.add('on');
+  setTimeout(()=>n.classList.remove('on'),5000);
+}
+
+// UTILS
+function setFM(m,t){const e=document.getElementById('fmsg');e.textContent=m;e.className='fmsg '+t;}
+function toast(ico,msg){
+  document.getElementById('tIco').textContent=ico;
+  document.getElementById('tTxt').textContent=msg;
+  const el=document.getElementById('toast');
+  el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'),3000);
+}
+
+// INIT
+window.addEventListener('load',()=>{
+  // Data dummy sementara sebelum connect wallet
+  poolData={bronze:0,silver:0,gold:0,diamond:0};
+  kuponCounter=151245;
+  updateBars();buildFeed();updateSpinInfo();
+  startDisplayDrum();
+  if(window.ethereum) initWallet();
+});
+
+// DISPLAY DRUM — gulir otomatis sebagai pajangan
+function startDisplayDrum(){
+  const el=document.getElementById('displayDrum');
+  const total=kuponCounter-151245;
+  if(total===0){el.textContent='151245';return;}
+  const all=Array.from({length:total},(_,i)=>151245+i);
+  let idx=0;
+  setInterval(()=>{
+    el.textContent=all[idx%all.length];
+    idx=Math.floor(Math.random()*all.length);
+  },600);
+}
+</script>
+</body>
+</html>
