@@ -76,7 +76,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 /* RANKING */
 .ranking-card{background:linear-gradient(135deg,rgba(250,204,21,0.06),rgba(124,58,237,0.06));border:1px solid rgba(250,204,21,0.2);border-radius:12px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:14px;}
 .rank-badge{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--gold3),var(--gold));display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 16px rgba(250,204,21,0.3);}
-.rank-num{font-family:Arial,sans-serif;font-size:13px;font-weight:900;color:#0a0f1e;line-height:1;}
+.rank-num{font-family:Arial,sans-serif;font-size:11px;font-weight:900;color:#0a0f1e;line-height:1;}
 .rank-info{flex:1;}
 .rank-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:3px;}
 .rank-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
@@ -183,13 +183,24 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div id="connectedContent" style="display:none">
 
     <!-- PORTFOLIO HERO -->
-    <div class="portfolio-hero" style="text-align:center">
-      <div class="ph-label" style="text-align:center">Total Portfolio</div>
-      <div class="ph-total-usd" id="totalUSD" style="text-align:center">$0.00</div>
-      <div class="ph-total-idr" id="totalIDR" style="text-align:center">≈ Rp 0</div>
-      <div class="ph-pnl-row" style="justify-content:center">
-        <span class="ph-pnl-badge up" id="pnlBadge">▲ +0.00% (24J)</span>
-        <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="pnlUSD">+$0.00</span>
+    <div class="portfolio-hero">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;">
+        <!-- KIRI: Info nilai -->
+        <div style="text-align:center;border-right:1px solid var(--border);padding-right:12px;">
+          <div class="ph-label">Total Portfolio</div>
+          <div class="ph-total-usd" id="totalUSD">$0.00</div>
+          <div class="ph-total-idr" id="totalIDR">≈ Rp 0</div>
+          <div class="ph-pnl-row" style="justify-content:center;margin-top:8px;">
+            <span class="ph-pnl-badge up" id="pnlBadge">▲ +0.00% (24J)</span>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;" id="pnlUSD">+$0.00</div>
+        </div>
+        <!-- KANAN: Sparkline 7 hari -->
+        <div style="text-align:center;">
+          <div class="ph-label">Grafik 7 Hari</div>
+          <canvas id="sparkline" height="70" style="width:100%;max-width:140px;height:70px;"></canvas>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;" id="sparkTrend">Memuat...</div>
+        </div>
       </div>
       <div class="ph-stats">
         <div style="text-align:left">
@@ -401,6 +412,9 @@ function updateUI(bnbPrice, indcPrice, bnbChg) {
   document.getElementById("statBNB").textContent  = bnbBalance.toFixed(4) + " BNB";
   document.getElementById("statINDC").textContent = indcBalance.toLocaleString("id", {maximumFractionDigits:0}) + " INDC";
 
+  // Draw sparkline
+  setTimeout(() => drawSparkline(total), 100);
+
   // PNL simulation
   const pnlPct = bnbChg.toFixed(2);
   const pnlUSD = (total * bnbChg / 100).toFixed(2);
@@ -437,7 +451,7 @@ function updateUI(bnbPrice, indcPrice, bnbChg) {
 function updateRanking(indc, supply) {
   const pct  = (indc / supply * 100);
   const rank = Math.max(1, Math.floor(Math.random()*500+50));
-  document.getElementById("rankNum").textContent  = "#" + rank;
+  document.getElementById("rankNum").textContent  = rank;
   document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
   document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
 }
@@ -616,6 +630,60 @@ document.getElementById("connectBigBtn").addEventListener("click", connectWallet
 if (window.ethereum) {
   window.ethereum.on("accountsChanged", ()=>location.reload());
   window.ethereum.on("chainChanged",    ()=>location.reload());
+}
+
+/* SPARKLINE */
+function drawSparkline(total) {
+  const canvas = document.getElementById("sparkline");
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 140;
+  canvas.width = W * 2; canvas.height = 140;
+  canvas.style.width = W + "px"; canvas.style.height = "70px";
+  const ctx = canvas.getContext("2d");
+  // Generate 7 hari data simulasi
+  const data = Array.from({length:7}, (_,i) => {
+    const variation = (Math.random() - 0.4) * total * 0.08;
+    return Math.max(0, total * (0.85 + i * 0.02) + variation);
+  });
+  data[6] = total; // hari ini = nilai real
+  const maxV = Math.max(...data), minV = Math.min(...data);
+  const pad = {t:10,r:6,b:20,l:6};
+  const iw = canvas.width - pad.l - pad.r;
+  const ih = canvas.height - pad.t - pad.b;
+  const xS = iw / (data.length - 1);
+  const yP = v => pad.t + ih - ((v - minV) / (maxV - minV || 1)) * ih;
+  const isUp = data[6] >= data[0];
+  const lineColor = isUp ? "#34d399" : "#f87171";
+  // Area gradient
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ih);
+  grad.addColorStop(0, isUp ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.beginPath();
+  ctx.moveTo(pad.l, yP(data[0]));
+  data.forEach((d, i) => ctx.lineTo(pad.l + i * xS, yP(d)));
+  ctx.lineTo(pad.l + (data.length-1) * xS, pad.t + ih);
+  ctx.lineTo(pad.l, pad.t + ih);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(pad.l, yP(data[0]));
+  data.forEach((d, i) => ctx.lineTo(pad.l + i * xS, yP(d)));
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 3; ctx.stroke();
+  // Dots hari
+  const days = ["Sen","Sel","Rab","Kam","Jum","Sab","Min"];
+  data.forEach((d, i) => {
+    ctx.beginPath();
+    ctx.arc(pad.l + i * xS, yP(d), 4, 0, Math.PI*2);
+    ctx.fillStyle = i === 6 ? lineColor : "rgba(255,255,255,0.3)";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font = "16px Share Tech Mono"; ctx.textAlign = "center";
+    ctx.fillText(days[i], pad.l + i * xS, pad.t + ih + 16);
+  });
+  const pct = ((data[6]-data[0])/data[0]*100).toFixed(1);
+  document.getElementById("sparkTrend").textContent = (isUp?"▲ +":"▼ ") + pct + "% minggu ini";
+  document.getElementById("sparkTrend").style.color = lineColor;
 }
 
 /* STARS */
