@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOWAR — Profil & Achievement</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--dark:#06101e;--dark2:#0d1929;--dark3:#162135;
+  --text:#dde8f5;--muted:#4e6278;
+  --green:#2dd4bf;--red:#ff4d6d;--cyan:#38bdf8;
+  --violet:#b58cfa;--orange:#fb923c;--pink:#f472b6;
+  --border:rgba(250,204,21,0.1);--card:rgba(13,25,41,0.98);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* BG */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 30% 20%,rgba(250,204,21,0.07) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 80%,rgba(181,140,250,0.06) 0%,transparent 45%),
+    radial-gradient(ellipse at 10% 90%,rgba(56,189,248,0.05) 0%,transparent 40%);}
+.dots{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(rgba(250,204,21,0.06) 1px,transparent 1px);
+  background-size:28px 28px;}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(4,9,18,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(250,204,21,0.18);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:9px;}
+.nav-logo{width:34px;height:34px;border-radius:50%;border:2px solid var(--gold);
+  box-shadow:0 0 14px rgba(250,204,21,0.35);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-w{font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 12px;
+  border:1px solid rgba(250,204,21,0.35);border-radius:20px;background:rgba(250,204,21,0.06);
+  color:var(--gold);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .2s;}
+.btn-w.on{border-color:rgba(45,212,191,0.4);background:rgba(45,212,191,0.07);color:var(--green);}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.wdot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* PAGE */
+.page{position:relative;z-index:1;padding:10px 10px 80px;}
+
+/* ══ PROFILE HERO CARD ══ */
+.profile-card{border-radius:20px;overflow:hidden;margin-bottom:12px;position:relative;
+  background:linear-gradient(145deg,rgba(250,204,21,0.1),rgba(181,140,250,0.06),rgba(56,189,248,0.05));
+  border:1px solid rgba(250,204,21,0.22);}
+.profile-banner{height:80px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#0d1929,#162135,#1e2d45);}
+.banner-pattern{position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 15px,rgba(250,204,21,0.03) 15px,rgba(250,204,21,0.03) 16px);}
+.banner-glow{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:120px;height:120px;background:radial-gradient(rgba(250,204,21,0.15),transparent 70%);
+  border-radius:50%;}
+.change-banner{position:absolute;bottom:6px;right:8px;
+  font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(255,255,255,0.3);
+  background:rgba(0,0,0,0.4);padding:3px 7px;border-radius:6px;cursor:pointer;}
+.profile-body{padding:0 14px 14px;}
+.avatar-row{display:flex;align-items:flex-end;gap:10px;margin-top:-24px;margin-bottom:8px;}
+.avatar-wrap{position:relative;}
+.avatar{width:56px;height:56px;border-radius:14px;background:rgba(250,204,21,0.1);
+  border:3px solid var(--gold);box-shadow:0 0 20px rgba(250,204,21,0.3);
+  display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.avatar-frame{position:absolute;inset:-3px;border-radius:16px;
+  border:2px solid var(--violet);animation:frameGlow 3s ease-in-out infinite alternate;}
+@keyframes frameGlow{from{box-shadow:0 0 8px var(--violet)}to{box-shadow:0 0 18px var(--violet)}}
+.avatar-level{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  background:var(--gold);color:#000;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:900;
+  padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.profile-name-block{flex:1;padding-bottom:4px;}
+.profile-username{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  color:var(--text);letter-spacing:.5px;}
+.profile-title{font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:var(--gold);margin:2px 0;}
+.profile-guild{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);}
+.profile-badges-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+.pbadge{font-size:16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px;padding:4px 6px;cursor:pointer;transition:transform .2s;}
+.pbadge:hover{transform:scale(1.15);}
+.pbadge.gold{border-color:rgba(250,204,21,0.3);background:rgba(250,204,21,0.08);}
+.pbadge.violet{border-color:rgba(181,140,250,0.3);background:rgba(181,140,250,0.08);}
+.pbadge.cyan{border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);}
+.pbadge.red{border-color:rgba(255,77,109,0.3);background:rgba(255,77,109,0.08);}
+.profile-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.ps{background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:6px;text-align:center;}
+.ps-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);}
+.ps-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+
+/* ══ RANK CARD ══ */
+.rank-card{background:linear-gradient(135deg,rgba(250,204,21,0.08),rgba(251,146,60,0.05));
+  border:1px solid rgba(250,204,21,0.2);border-radius:16px;padding:12px 14px;
+  margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.rank-medal{font-size:44px;filter:drop-shadow(0 0 12px rgba(250,204,21,0.4));
+  animation:medalFloat 3s ease-in-out infinite;}
+@keyframes medalFloat{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-5px) rotate(5deg)}}
+.rank-info{flex:1;}
+.rank-tier{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 20px rgba(250,204,21,0.4);letter-spacing:1px;}
+.rank-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin:2px 0;}
+.rank-bar-wrap{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;
+  margin-top:6px;overflow:hidden;}
+.rank-bar{height:100%;border-radius:4px;transition:width .8s ease;
+  background:linear-gradient(90deg,var(--gold),var(--orange));}
+.rank-bar-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  display:flex;justify-content:space-between;margin-top:3px;}
+.rank-pts{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--gold);text-align:right;}
+.rank-pts-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+
+/* ══ TABS ══ */
+.tabs{display:flex;gap:5px;margin-bottom:12px;}
+.tab{flex:1;padding:8px 4px;border-radius:10px;font-family:'Orbitron',sans-serif;
+  font-size:7px;font-weight:700;letter-spacing:.5px;text-align:center;cursor:pointer;
+  transition:all .2s;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:var(--muted);}
+.tab.on{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.4);color:var(--gold);}
+
+/* SEC */
+.sec{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);
+  letter-spacing:2px;margin:10px 0 8px;display:flex;align-items:center;gap:6px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ══ ACHIEVEMENT ══ */
+.ach-filter{display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none;}
+.af-btn{padding:5px 10px;border-radius:20px;font-family:'Share Tech Mono',monospace;font-size:8px;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+  border:1px solid var(--border);background:rgba(255,255,255,0.02);color:var(--muted);}
+.af-btn.on{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.3);color:var(--gold);}
+
+.ach-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ach-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:10px;position:relative;overflow:hidden;transition:all .25s;animation:fadeUp .3s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ach-card.unlocked{border-color:rgba(250,204,21,0.3);}
+.ach-card.unlocked::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(250,204,21,0.05),transparent);pointer-events:none;}
+.ach-card.locked{opacity:0.45;filter:grayscale(0.6);}
+.ach-card.rare{border-color:rgba(56,189,248,0.3);}
+.ach-card.epic{border-color:rgba(181,140,250,0.3);}
+.ach-card.legendary{border-color:rgba(251,146,60,0.4);}
+.ach-card.legendary::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(251,146,60,0.08),transparent);
+  animation:shimmer 3s ease infinite;}
+@keyframes shimmer{from{left:-60%}to{left:110%}}
+.ach-icon{font-size:28px;display:block;margin-bottom:5px;text-align:center;}
+.ach-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--text);text-align:center;letter-spacing:.3px;margin-bottom:2px;}
+.ach-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  text-align:center;line-height:1.4;margin-bottom:5px;}
+.ach-tier{font-family:'Orbitron',sans-serif;font-size:6px;font-weight:700;
+  padding:2px 7px;border-radius:10px;text-align:center;display:inline-block;
+  margin:0 auto 4px;width:100%;}
+.tier-common{background:rgba(100,116,139,0.2);color:#94a3b8;}
+.tier-rare{background:rgba(56,189,248,0.15);color:var(--cyan);}
+.tier-epic{background:rgba(181,140,250,0.15);color:var(--violet);}
+.tier-legendary{background:rgba(251,146,60,0.15);color:var(--orange);}
+.ach-prog{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:4px;overflow:hidden;}
+.ach-prog-fill{height:100%;border-radius:2px;background:var(--gold);transition:width .6s;}
+.ach-prog-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  text-align:right;margin-top:2px;}
+.ach-unlocked-badge{position:absolute;top:6px;right:6px;font-size:12px;}
+.ach-reward{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--gold);
+  text-align:center;margin-top:3px;}
+
+/* ══ STATS TAB ══ */
+.stat-section{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-bottom:10px;}
+.ss-header{padding:9px 12px;background:rgba(250,204,21,0.05);
+  border-bottom:1px solid var(--border);font-family:'Orbitron',sans-serif;
+  font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.ss-body{padding:10px 12px;}
+.stat-row{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
+.stat-row:last-child{border-bottom:none;}
+.sr-label{font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text);
+  display:flex;align-items:center;gap:6px;}
+.sr-icon{font-size:14px;}
+.sr-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);}
+.sr-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;
+  margin:0 10px;overflow:hidden;}
+.sr-bar{height:100%;border-radius:3px;transition:width .7s ease;}
+
+/* WIN RATE RING */
+.winrate-wrap{display:flex;align-items:center;gap:14px;padding:10px 12px;}
+.wr-ring{position:relative;width:80px;height:80px;flex-shrink:0;}
+.wr-ring svg{transform:rotate(-90deg);}
+.wr-ring-bg{fill:none;stroke:rgba(255,255,255,0.06);stroke-width:8;}
+.wr-ring-fill{fill:none;stroke-width:8;stroke-linecap:round;
+  stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset 1.2s ease;}
+.wr-label{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;}
+.wr-pct{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--gold);}
+.wr-sub{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+.wr-info{flex:1;}
+.wr-row{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.wr-row:last-child{border-bottom:none;}
+.wr-row-lbl{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted);}
+.wr-row-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
+
+/* HERO USAGE */
+.hero-usage-list{display:flex;flex-direction:column;gap:7px;padding:10px 12px;}
+.hu-row{display:flex;align-items:center;gap:8px;}
+.hu-emoji{font-size:20px;}
+.hu-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--text);min-width:52px;}
+.hu-bar-wrap{flex:1;height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;}
+.hu-bar{height:100%;border-radius:4px;transition:width .8s ease;}
+.hu-pct{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);min-width:28px;text-align:right;}
+
+/* ══ HISTORY TAB ══ */
+.hist-filter{display:flex;gap:5px;margin-bottom:8px;}
+.hf-btn{flex:1;padding:7px;border-radius:9px;font-family:'Orbitron',sans-serif;font-size:7px;
+  font-weight:700;text-align:center;cursor:pointer;transition:all .2s;
+  border:1px solid var(--border);background:rgba(255,255,255,0.02);color:var(--muted);}
+.hf-btn.on{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.3);color:var(--gold);}
+
+.hist-item{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;
+  animation:fadeUp .3s ease both;}
+.hi-icon{font-size:24px;}
+.hi-info{flex:1;}
+.hi-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.hi-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.hi-result{text-align:right;}
+.hi-outcome{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+.win{color:var(--green);}
+.lose{color:var(--red);}
+.hi-reward{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);}
+.hi-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+
+/* ══ COLLECTION / SKIN TAB ══ */
+.collection-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.col-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:10px;text-align:center;position:relative;overflow:hidden;}
+.col-card.owned{border-color:rgba(250,204,21,0.25);}
+.col-card.owned::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(250,204,21,0.04),transparent);}
+.col-card.locked{opacity:0.4;filter:grayscale(0.7);}
+.col-emoji{font-size:32px;display:block;margin-bottom:4px;}
+.col-name{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  color:var(--text);letter-spacing:.3px;}
+.col-type{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);margin:2px 0;}
+.col-stars{font-size:8px;color:var(--gold);}
+.col-owned-badge{position:absolute;top:5px;right:5px;width:8px;height:8px;
+  border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);}
+
+/* ══ SETTINGS TAB ══ */
+.settings-card{background:var(--card);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;margin-bottom:10px;}
+.setting-row{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .2s;}
+.setting-row:last-child{border-bottom:none;}
+.setting-row:hover{background:rgba(255,255,255,0.02);}
+.setting-icon{font-size:20px;}
+.setting-info{flex:1;}
+.setting-label{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--text);}
+.setting-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.setting-action{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+/* Toggle */
+.toggle{width:38px;height:20px;border-radius:10px;background:rgba(255,255,255,0.1);
+  position:relative;cursor:pointer;transition:background .2s;border:1px solid rgba(255,255,255,0.08);}
+.toggle.on{background:rgba(45,212,191,0.4);border-color:rgba(45,212,191,0.4);}
+.toggle-dot{position:absolute;top:2px;left:2px;width:14px;height:14px;
+  border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+.toggle.on .toggle-dot{left:20px;}
+
+/* ══ SHARE CARD ══ */
+.share-card{background:linear-gradient(135deg,rgba(181,140,250,0.08),rgba(56,189,248,0.05));
+  border:1px solid rgba(181,140,250,0.2);border-radius:16px;padding:14px;margin-bottom:10px;
+  text-align:center;}
+.sc-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--violet);letter-spacing:1px;margin-bottom:8px;}
+.share-preview{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;padding:14px;margin-bottom:10px;}
+.sp-name{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--gold);}
+.sp-stats{display:flex;justify-content:center;gap:14px;margin:6px 0;}
+.sp-stat{text-align:center;}
+.sp-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--text);}
+.sp-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.sp-badges{display:flex;justify-content:center;gap:4px;margin-top:6px;font-size:18px;}
+.share-btns{display:flex;gap:8px;}
+.share-btn{flex:1;padding:10px;border-radius:11px;font-family:'Orbitron',sans-serif;font-size:8px;
+  font-weight:700;cursor:pointer;border:none;transition:all .2s;letter-spacing:.5px;}
+.share-btn:active{transform:scale(0.96);}
+.sb-copy{background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.25)!important;color:var(--gold);}
+.sb-share{background:rgba(181,140,250,0.1);border:1px solid rgba(181,140,250,0.25)!important;color:var(--violet);}
+
+/* ══ BOTTOMNAV ══ */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(4,9,18,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.18);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#4e6278;transition:all .2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Orbitron',sans-serif;}
+
+/* TOAST */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(13,25,41,0.97);border:1px solid var(--border);border-radius:22px;
+  padding:9px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);
+  z-index:999;white-space:nowrap;animation:fadeUp .3s ease;}
+
+/* ACHIEVEMENT POPUP */
+.ach-popup{position:fixed;bottom:75px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,rgba(251,146,60,0.18),rgba(250,204,21,0.12));
+  border:1px solid rgba(250,204,21,0.4);border-radius:16px;padding:12px 16px;
+  z-index:998;display:flex;align-items:center;gap:10px;max-width:310px;width:90%;
+  animation:slideUp .4s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 30px rgba(250,204,21,0.2);}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.ap-icon{font-size:32px;}
+.ap-text{flex:1;}
+.ap-title{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--orange);letter-spacing:1px;}
+.ap-name{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold);}
+.ap-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="dots"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="indowar-icon.png" class="nav-logo" alt="">
+    <div>
+      <div class="nav-brand">INDOWAR</div>
+      <div class="nav-sub">🏅 PROFIL & ACHIEVEMENT</div>
+    </div>
+  </div>
+  <button class="btn-w" id="walletBtn">
+    <span class="wdot" id="walletDot"></span>
+    <span id="walletBtnText">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- PROFILE CARD -->
+  <div class="profile-card">
+    <div class="profile-banner">
+      <div class="banner-pattern"></div>
+      <div class="banner-glow"></div>
+      <div class="change-banner">✏️ Ganti Banner</div>
+    </div>
+    <div class="profile-body">
+      <div class="avatar-row">
+        <div class="avatar-wrap">
+          <div class="avatar" id="avatarEmoji">⚔️</div>
+          <div class="avatar-frame"></div>
+          <div class="avatar-level" id="avatarLevel">LV 42</div>
+        </div>
+        <div class="profile-name-block">
+          <div class="profile-username" id="profileName">KSATRIA_NUSANTARA</div>
+          <div class="profile-title" id="profileTitle">✨ Gladiator Legendaris</div>
+          <div class="profile-guild" id="profileGuild">🛡️ [NUS] NUSANTARA LEGENDS</div>
+        </div>
+      </div>
+      <div class="profile-badges-row" id="badgesRow"></div>
+      <div class="profile-stats">
+        <div class="ps"><div class="ps-val" id="psTotalBattle">342</div><div class="ps-lbl">BATTLE</div></div>
+        <div class="ps"><div class="ps-val" id="psWins">218</div><div class="ps-lbl">MENANG</div></div>
+        <div class="ps"><div class="ps-val" id="psAch">31</div><div class="ps-lbl">BADGE</div></div>
+        <div class="ps"><div class="ps-val" id="psIndc">4,820</div><div class="ps-lbl">INDC</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RANK CARD -->
+  <div class="rank-card">
+    <div class="rank-medal" id="rankMedal">🏅</div>
+    <div class="rank-info">
+      <div class="rank-tier" id="rankTier">PLATINUM II</div>
+      <div class="rank-sub" id="rankSub">Top 8% pemain aktif</div>
+      <div class="rank-bar-wrap">
+        <div class="rank-bar" id="rankBar" style="width:68%"></div>
+      </div>
+      <div class="rank-bar-lbl">
+        <span id="rankCurPts">6,800 SP</span>
+        <span id="rankNextTier">→ Diamond I (10,000 SP)</span>
+      </div>
+    </div>
+    <div>
+      <div class="rank-pts" id="rankPts">6,800</div>
+      <div class="rank-pts-lbl">SEASON PTS</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab on" data-tab="achievement">🏅 BADGE</div>
+    <div class="tab" data-tab="stats">📊 STATISTIK</div>
+    <div class="tab" data-tab="history">📜 RIWAYAT</div>
+    <div class="tab" data-tab="collection">🎨 KOLEKSI</div>
+    <div class="tab" data-tab="share">📤 BAGIKAN</div>
+    <div class="tab" data-tab="settings">⚙️ ATUR</div>
+  </div>
+
+  <!-- ══ TAB: ACHIEVEMENT ══ -->
+  <div id="tab-achievement">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)">
+        <span style="color:var(--gold);font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900" id="achUnlocked">31</span>/48 Badge Terbuka
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">
+        <span id="achPct">64%</span> lengkap
+      </div>
+    </div>
+    <!-- PROGRESS BAR TOTAL -->
+    <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-bottom:10px;overflow:hidden">
+      <div style="height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--orange));width:64%;transition:width 1s"></div>
+    </div>
+    <div class="ach-filter" id="achFilter"></div>
+    <div class="ach-grid" id="achGrid"></div>
+  </div>
+
+  <!-- ══ TAB: STATS ══ -->
+  <div id="tab-stats" style="display:none">
+    <!-- WIN RATE -->
+    <div class="stat-section">
+      <div class="ss-header">📈 WIN RATE & PERFORMA</div>
+      <div class="winrate-wrap">
+        <div class="wr-ring">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle class="wr-ring-bg" cx="40" cy="40" r="34"/>
+            <circle class="wr-ring-fill" id="wrCircle" cx="40" cy="40" r="34" stroke="url(#wrGrad)"/>
+            <defs>
+              <linearGradient id="wrGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:var(--gold)"/>
+                <stop offset="100%" style="stop-color:var(--orange)"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="wr-label">
+            <div class="wr-pct">63%</div>
+            <div class="wr-sub">WIN RATE</div>
+          </div>
+        </div>
+        <div class="wr-info">
+          <div class="wr-row"><div class="wr-row-lbl">Total Battle</div><div class="wr-row-val" style="color:var(--text)">342</div></div>
+          <div class="wr-row"><div class="wr-row-lbl">Menang</div><div class="wr-row-val win">218 ✅</div></div>
+          <div class="wr-row"><div class="wr-row-lbl">Kalah</div><div class="wr-row-val lose">124 ❌</div></div>
+          <div class="wr-row"><div class="wr-row-lbl">Streak Terbaik</div><div class="wr-row-val" style="color:var(--orange)">🔥 12x</div></div>
+          <div class="wr-row"><div class="wr-row-lbl">INDC Earned</div><div class="wr-row-val" style="color:var(--gold)">4,820</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- BATTLE STATS -->
+    <div class="stat-section">
+      <div class="ss-header">⚔️ STATISTIK BATTLE</div>
+      <div class="ss-body" id="battleStatsList"></div>
+    </div>
+    <!-- HERO USAGE -->
+    <div class="stat-section">
+      <div class="ss-header">🦸 PEMAKAIAN HERO</div>
+      <div class="hero-usage-list" id="heroUsageList"></div>
+    </div>
+    <!-- MONTHLY CHART (simple bar) -->
+    <div class="stat-section">
+      <div class="ss-header">📅 BATTLE PER BULAN</div>
+      <div style="padding:12px;display:flex;align-items:flex-end;gap:5px;height:100px">
+        <div id="monthChart" style="display:flex;align-items:flex-end;gap:4px;width:100%;height:100%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: HISTORY ══ -->
+  <div id="tab-history" style="display:none">
+    <div class="hist-filter">
+      <div class="hf-btn on" data-hf="all">SEMUA</div>
+      <div class="hf-btn" data-hf="win">MENANG</div>
+      <div class="hf-btn" data-hf="lose">KALAH</div>
+      <div class="hf-btn" data-hf="pvp">PvP</div>
+      <div class="hf-btn" data-hf="tourn">TURNAMEN</div>
+    </div>
+    <div id="histList"></div>
+  </div>
+
+  <!-- ══ TAB: COLLECTION ══ -->
+  <div id="tab-collection" style="display:none">
+    <div class="sec">⚔️ HERO COLLECTION</div>
+    <div class="collection-grid" id="heroCollGrid"></div>
+    <div class="sec">👗 SKIN COLLECTION</div>
+    <div class="collection-grid" id="skinCollGrid"></div>
+    <div class="sec">💎 ITEM COLLECTION</div>
+    <div class="collection-grid" id="itemCollGrid"></div>
+  </div>
+
+  <!-- ══ TAB: SHARE ══ -->
+  <div id="tab-share" style="display:none">
+    <div class="share-card">
+      <div class="sc-title">📤 BAGIKAN PROFIL KAMU</div>
+      <div class="share-preview">
+        <div class="sp-name">⚔️ KSATRIA_NUSANTARA</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin:3px 0">✨ Gladiator Legendaris · 🛡️ NUSANTARA LEGENDS</div>
+        <div class="sp-stats">
+          <div class="sp-stat"><div class="sp-val">342</div><div class="sp-lbl">BATTLE</div></div>
+          <div class="sp-stat"><div class="sp-val">63%</div><div class="sp-lbl">WIN RATE</div></div>
+          <div class="sp-stat"><div class="sp-val">31</div><div class="sp-lbl">BADGE</div></div>
+          <div class="sp-stat"><div class="sp-val">4,820</div><div class="sp-lbl">INDC</div></div>
+        </div>
+        <div class="sp-badges">🏆🔥⚔️🐲💎</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:6px">indocoin-pro.github.io/Indocoin</div>
+      </div>
+      <div class="share-btns">
+        <button class="share-btn sb-copy" onclick="copyProfile()">📋 SALIN LINK</button>
+        <button class="share-btn sb-share" onclick="shareProfile()">📤 BAGIKAN</button>
+      </div>
+    </div>
+    <!-- REFERRAL SHARE -->
+    <div class="sec">🤝 AJAK TEMAN MAIN</div>
+    <div style="background:var(--card);border:1px solid rgba(45,212,191,0.2);border-radius:14px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:6px">LINK REFERRAL KAMU</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--cyan);
+        background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.2);border-radius:8px;
+        padding:8px 10px;margin-bottom:8px;word-break:break-all" id="refLink">indocoin-pro.github.io/Indocoin/referral.html?ref=0x...</div>
+      <button onclick="copyRef()" style="width:100%;padding:10px;border-radius:10px;
+        font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;border:none;
+        background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,21,0.25);color:var(--green);transition:all .2s">
+        📋 SALIN LINK REFERRAL
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ TAB: SETTINGS ══ -->
+  <div id="tab-settings" style="display:none">
+    <div class="sec">👤 PENGATURAN PROFIL</div>
+    <div class="settings-card">
+      <div class="setting-row" onclick="changeName()">
+        <div class="setting-icon">✏️</div>
+        <div class="setting-info">
+          <div class="setting-label">Ubah Username</div>
+          <div class="setting-sub">Biaya: 100 INDC · Maks sekali per bulan</div>
+        </div>
+        <div class="setting-action">›</div>
+      </div>
+      <div class="setting-row" onclick="changeAvatar()">
+        <div class="setting-icon">🎭</div>
+        <div class="setting-info">
+          <div class="setting-label">Ganti Avatar</div>
+          <div class="setting-sub">Pilih dari hero yang kamu miliki</div>
+        </div>
+        <div class="setting-action">›</div>
+      </div>
+      <div class="setting-row" onclick="changeTitle()">
+        <div class="setting-icon">👑</div>
+        <div class="setting-info">
+          <div class="setting-label">Ganti Gelar</div>
+          <div class="setting-sub">Unlock dari achievement yang kamu raih</div>
+        </div>
+        <div class="setting-action">›</div>
+      </div>
+    </div>
+    <div class="sec">🔔 NOTIFIKASI</div>
+    <div class="settings-card" id="notifSettings"></div>
+    <div class="sec">🎮 GAMEPLAY</div>
+    <div class="settings-card" id="gameSettings"></div>
+    <div class="sec">🔒 AKUN & KEAMANAN</div>
+    <div class="settings-card">
+      <div class="setting-row" onclick="showToast('🔗 Wallet terhubung ke BSC')">
+        <div class="setting-icon">🦊</div>
+        <div class="setting-info">
+          <div class="setting-label">Wallet Terhubung</div>
+          <div class="setting-sub" id="connectedWallet">Belum terhubung</div>
+        </div>
+        <div class="setting-action" style="color:var(--green);font-size:12px">●</div>
+      </div>
+      <div class="setting-row" onclick="showToast('📊 Data tersimpan di blockchain BSC')">
+        <div class="setting-icon">🔗</div>
+        <div class="setting-info">
+          <div class="setting-label">Data On-Chain</div>
+          <div class="setting-sub">Battle, reward & achievement dicatat di BSC</div>
+        </div>
+        <div class="setting-action">›</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html"    class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="battle-arena.html" class="bnav-item"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
+  <a href="tournament.html"   class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">TURNAMEN</span></a>
+  <a href="guild.html"        class="bnav-item"><span class="bnav-icon">🛡️</span><span class="bnav-label">GUILD</span></a>
+  <a href="profile.html"      class="bnav-item active"><span class="bnav-icon">👤</span><span class="bnav-label">PROFIL</span></a>
+</nav>
+
+<script>
+/* ════ CONFIG ════ */
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const BATTLE_CA = "0x2a8906E76792a5c6F6060D405C0b21356c9BF093";
+const BSC_ID    = "0x38";
+const VAULT_ABI = ["function getGameBalance(address) external view returns (uint256)"];
+const BATTLE_ABI= ["function getPlayerStats(address) external view returns (tuple(uint256 totalWins,uint256 totalLosses,uint256 totalEarned,uint256 totalBattles,uint256 streak,uint256 seasonPoints,uint256 lastBattleTime))"];
+let provider, signer, userAddr, cVault, cBattle;
+
+/* ════ ACHIEVEMENTS DATA ════ */
+const ACHIEVEMENTS = [
+  // COMBAT
+  {id:"a1",  cat:"combat",  icon:"⚔️",  name:"PERTARUNGAN PERTAMA", desc:"Selesaikan 1 battle",           tier:"common",   prog:1,   target:1,   unlocked:true,  reward:"10 GP"},
+  {id:"a2",  cat:"combat",  icon:"🔥",  name:"PETARUNG SEJATI",     desc:"Menangkan 10 battle",           tier:"common",   prog:10,  target:10,  unlocked:true,  reward:"25 GP"},
+  {id:"a3",  cat:"combat",  icon:"💥",  name:"VETERAN ARENA",       desc:"Menangkan 50 battle",           tier:"rare",     prog:50,  target:50,  unlocked:true,  reward:"100 GP"},
+  {id:"a4",  cat:"combat",  icon:"🏆",  name:"SANG JUARA",          desc:"Menangkan 100 battle",          tier:"rare",     prog:100, target:100, unlocked:true,  reward:"250 GP"},
+  {id:"a5",  cat:"combat",  icon:"⚡",  name:"MESIN PERANG",        desc:"Menangkan 200 battle",          tier:"epic",     prog:218, target:200, unlocked:true,  reward:"500 GP"},
+  {id:"a6",  cat:"combat",  icon:"🌟",  name:"DEWA PERTEMPURAN",    desc:"Menangkan 500 battle",          tier:"legendary",prog:218, target:500, unlocked:false, reward:"2000 GP"},
+  // STREAK
+  {id:"b1",  cat:"streak",  icon:"🔥",  name:"ON FIRE",             desc:"Raih streak 3x kemenangan",    tier:"common",   prog:3,   target:3,   unlocked:true,  reward:"15 GP"},
+  {id:"b2",  cat:"streak",  icon:"🌋",  name:"UNSTOPPABLE",         desc:"Raih streak 5x kemenangan",    tier:"rare",     prog:5,   target:5,   unlocked:true,  reward:"50 GP"},
+  {id:"b3",  cat:"streak",  icon:"☄️",  name:"DESTROYER",           desc:"Raih streak 10x kemenangan",   tier:"epic",     prog:12,  target:10,  unlocked:true,  reward:"200 GP"},
+  {id:"b4",  cat:"streak",  icon:"💫",  name:"INVINCIBLE",          desc:"Raih streak 20x kemenangan",   tier:"legendary",prog:12,  target:20,  unlocked:false, reward:"1000 GP"},
+  // TOURNAMENT
+  {id:"c1",  cat:"tourn",   icon:"🎯",  name:"PESERTA PERTAMA",     desc:"Ikuti 1 tournament",           tier:"common",   prog:1,   target:1,   unlocked:true,  reward:"20 GP"},
+  {id:"c2",  cat:"tourn",   icon:"🥉",  name:"PODIUM!",             desc:"Raih Top 3 tournament",        tier:"rare",     prog:1,   target:1,   unlocked:true,  reward:"150 GP"},
+  {id:"c3",  cat:"tourn",   icon:"🥇",  name:"SANG JUARA TURNAMEN", desc:"Menangkan 1 tournament",       tier:"epic",     prog:1,   target:1,   unlocked:true,  reward:"500 GP"},
+  {id:"c4",  cat:"tourn",   icon:"👑",  name:"RAJA TOURNAMENT",     desc:"Menangkan 5 tournament",       tier:"legendary",prog:1,   target:5,   unlocked:false, reward:"2500 GP"},
+  // PvP
+  {id:"d1",  cat:"pvp",     icon:"🥊",  name:"PENANTANG",           desc:"Selesaikan 1 PvP duel",        tier:"common",   prog:1,   target:1,   unlocked:true,  reward:"15 GP"},
+  {id:"d2",  cat:"pvp",     icon:"🗡️", name:"GLADIATOR",           desc:"Menangkan 10 PvP duel",        tier:"rare",     prog:10,  target:10,  unlocked:true,  reward:"100 GP"},
+  {id:"d3",  cat:"pvp",     icon:"⚔️",  name:"MASTER DUEL",        desc:"Menangkan 50 PvP duel",        tier:"epic",     prog:34,  target:50,  unlocked:false, reward:"400 GP"},
+  // HERO
+  {id:"e1",  cat:"hero",    icon:"🧙",  name:"PENYIHIR HANDAL",     desc:"Menang 30x dengan MAGE",       tier:"common",   prog:30,  target:30,  unlocked:true,  reward:"50 GP"},
+  {id:"e2",  cat:"hero",    icon:"⚔️",  name:"KSATRIA SEJATI",      desc:"Menang 30x dengan KNIGHT",     tier:"common",   prog:30,  target:30,  unlocked:true,  reward:"50 GP"},
+  {id:"e3",  cat:"hero",    icon:"🐲",  name:"PENUNGGANG NAGA",     desc:"Menang 20x dengan DRAGON",     tier:"epic",     prog:8,   target:20,  unlocked:false, reward:"300 GP"},
+  {id:"e4",  cat:"hero",    icon:"🎖️", name:"MASTER SEMUA HERO",   desc:"Miliki & gunakan semua hero",  tier:"legendary",prog:2,   target:6,   unlocked:false, reward:"1500 GP"},
+  // GUILD
+  {id:"f1",  cat:"guild",   icon:"🛡️", name:"ANGGOTA SETIA",       desc:"Bergabung dengan guild",       tier:"common",   prog:1,   target:1,   unlocked:true,  reward:"20 GP"},
+  {id:"f2",  cat:"guild",   icon:"🤝", name:"TEAM PLAYER",          desc:"Ikuti 5 Guild War",            tier:"rare",     prog:5,   target:5,   unlocked:true,  reward:"100 GP"},
+  {id:"f3",  cat:"guild",   icon:"🏰", name:"PEMIMPIN GUILD",       desc:"Buat dan pimpin sebuah guild", tier:"epic",     prog:0,   target:1,   unlocked:false, reward:"500 GP"},
+  // SPECIAL
+  {id:"g1",  cat:"special", icon:"🌙",  name:"PEJUANG MALAM",       desc:"Menang 10 battle antara 00-04 WIB", tier:"rare",  prog:7,  target:10,  unlocked:false, reward:"150 GP"},
+  {id:"g2",  cat:"special", icon:"💎",  name:"KAYA RAYA",           desc:"Kumpulkan 10,000 INDC total",  tier:"epic",     prog:4820,target:10000,unlocked:false, reward:"500 GP"},
+  {id:"g3",  cat:"special", icon:"🎰",  name:"PENJUDI BERUNTUNG",   desc:"Gacha 10x & dapat hero rare",  tier:"rare",     prog:1,   target:1,   unlocked:true,  reward:"200 GP"},
+  {id:"g4",  cat:"special", icon:"📅",  name:"LOGIN BERUNTUN",      desc:"Login 30 hari berturut-turut", tier:"epic",     prog:14,  target:30,  unlocked:false, reward:"400 GP"},
+  {id:"g5",  cat:"special", icon:"👶",  name:"PEMULA SEJATI",       desc:"Selesaikan tutorial pertama",  tier:"common",   prog:1,   target:1,   unlocked:true,  reward:"5 GP"},
+  {id:"g6",  cat:"special", icon:"🌟",  name:"BINTANG INDOWAR",     desc:"Raih semua achievement",       tier:"legendary",prog:31,  target:48,  unlocked:false, reward:"9999 GP"},
+];
+
+const ACH_CATS = [
+  {key:"all",   label:"SEMUA"},
+  {key:"combat",label:"⚔️ COMBAT"},
+  {key:"streak",label:"🔥 STREAK"},
+  {key:"tourn", label:"🏆 TURNAMEN"},
+  {key:"pvp",   label:"🥊 PvP"},
+  {key:"hero",  label:"🦸 HERO"},
+  {key:"guild", label:"🛡️ GUILD"},
+  {key:"special",label:"✨ SPESIAL"},
+];
+
+let achCat = "all";
+
+const BATTLE_STATS = [
+  {icon:"💥",label:"Total Damage Diberikan", val:"84,320", bar:0.78, color:"#f87171"},
+  {icon:"🛡️",label:"Total Damage Ditahan",   val:"62,180", bar:0.60, color:"#38bdf8"},
+  {icon:"💊",label:"Total HP Dipulihkan",    val:"24,560", bar:0.35, color:"#2dd4bf"},
+  {icon:"⚡", label:"Skill Digunakan",        val:"1,248",  bar:0.65, color:"#a78bfa"},
+  {icon:"💀",label:"Musuh Dikalahkan",        val:"218",    bar:0.63, color:"#fb923c"},
+  {icon:"🎯",label:"Critical Hit",           val:"342",    bar:0.45, color:"#facc15"},
+];
+
+const HERO_USAGE = [
+  {emoji:"⚔️",name:"KNIGHT", pct:38, color:"#38bdf8"},
+  {emoji:"🧙",name:"MAGE",   pct:28, color:"#a78bfa"},
+  {emoji:"🥷",name:"NINJA",  pct:18, color:"#2dd4bf"},
+  {emoji:"🛡️",name:"PALADIN",pct:10, color:"#facc15"},
+  {emoji:"🐲",name:"DRAGON", pct:6,  color:"#fb923c"},
+];
+
+const MONTH_DATA = [28,35,42,31,55,68,52,75,88,62,94,82];
+const MONTHS     = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+
+const BATTLE_HISTORY = [
+  {icon:"⚔️",title:"vs GOBLIN LV.1",    sub:"AI Battle · MAGE",    result:"WIN", reward:"+20 INDC", time:"5m lalu"},
+  {icon:"🥊",title:"vs SHADOW_X",        sub:"PvP Duel · 50 INDC bet",result:"WIN", reward:"+92 INDC",time:"1j lalu"},
+  {icon:"⚔️",title:"vs DRAGON LV.4",    sub:"AI Battle · KNIGHT",  result:"WIN", reward:"+30 INDC", time:"2j lalu"},
+  {icon:"🏆",title:"DAILY CLASH Semi",   sub:"Tournament · Round 2", result:"WIN", reward:"+100 INDC",time:"3j lalu"},
+  {icon:"⚔️",title:"vs BOSS LV.BOSS",   sub:"AI Battle · PALADIN",  result:"LOSE",reward:"+0",       time:"5j lalu"},
+  {icon:"🥊",title:"vs MAGE_PRO",        sub:"PvP Duel · 100 INDC",  result:"LOSE",reward:"+0",       time:"6j lalu"},
+  {icon:"⚔️",title:"vs ORC LV.2",       sub:"AI Battle · KNIGHT",   result:"WIN", reward:"+15 INDC", time:"1h lalu"},
+  {icon:"🏆",title:"WEEKLY CUP Final",   sub:"Tournament · Grand Final",result:"WIN",reward:"+5000 INDC",time:"1h lalu"},
+];
+
+const HERO_COLL = [
+  {emoji:"🧙",name:"MAGE",    type:"Hero",stars:3,owned:true},
+  {emoji:"⚔️",name:"KNIGHT", type:"Hero",stars:3,owned:true},
+  {emoji:"🏹",name:"ARCHER",  type:"Hero",stars:4,owned:false},
+  {emoji:"🥷",name:"NINJA",   type:"Hero",stars:4,owned:false},
+  {emoji:"🛡️",name:"PALADIN",type:"Hero",stars:5,owned:false},
+  {emoji:"🐲",name:"DRAGON",  type:"Hero",stars:5,owned:false},
+];
+
+const SKIN_COLL = [
+  {emoji:"🔮",name:"ARCANE MAGE",   type:"Skin",stars:3,owned:true},
+  {emoji:"⚔️",name:"DARK KNIGHT",  type:"Skin",stars:4,owned:false},
+  {emoji:"🌊",name:"OCEAN ARCHER",  type:"Skin",stars:3,owned:false},
+  {emoji:"🌙",name:"SHADOW NINJA",  type:"Skin",stars:4,owned:false},
+  {emoji:"☀️",name:"HOLY PALADIN",  type:"Skin",stars:5,owned:false},
+  {emoji:"🌋",name:"VOLCANO DRAGON",type:"Skin",stars:5,owned:false},
+];
+
+const ITEM_COLL = [
+  {emoji:"⚡",name:"SPEED RING",  type:"Item",stars:2,owned:true},
+  {emoji:"💎",name:"POWER GEM",   type:"Item",stars:3,owned:true},
+  {emoji:"🛡️",name:"IRON SHIELD",type:"Item",stars:2,owned:true},
+  {emoji:"🏹",name:"SHARP BOW",   type:"Item",stars:3,owned:false},
+  {emoji:"🗡️",name:"SHADOW BLADE",type:"Item",stars:4,owned:false},
+  {emoji:"🔱",name:"GOD TRIDENT",type:"Item",stars:5,owned:false},
+];
+
+const NOTIF_SETTINGS = [
+  {icon:"⚔️",label:"Notif Battle Selesai",   sub:"Push notif saat battle kamu berakhir",   key:"n1",on:true},
+  {icon:"🏆",label:"Notif Tournament",        sub:"Reminder tournament yang kamu ikuti",    key:"n2",on:true},
+  {icon:"🛡️",label:"Notif Guild War",        sub:"Pengingat Guild War dimulai",             key:"n3",on:true},
+  {icon:"🎁",label:"Notif Daily Quest",       sub:"Ingatkan quest harian setiap pagi",       key:"n4",on:false},
+];
+
+const GAME_SETTINGS = [
+  {icon:"🎵",label:"Musik & Efek Suara",      sub:"Nyalakan musik latar dan SFX battle",    key:"g1",on:false},
+  {icon:"✨",label:"Animasi Efek Battle",      sub:"Animasi damage & skill (hemat baterai)", key:"g2",on:true},
+  {icon:"🤝",label:"Terima Tantangan PvP",    sub:"Izinkan pemain lain menantangmu",        key:"g3",on:true},
+  {icon:"📊",label:"Tampilkan Statistik",     sub:"Statistik terlihat publik di profil",    key:"g4",on:true},
+];
+
+let toggles = {};
+[...NOTIF_SETTINGS,...GAME_SETTINGS].forEach(s=>toggles[s.key]=s.on);
+
+/* ════ WALLET ════ */
+async function connectWallet(){
+  try{
+    if(!window.ethereum){ showToast("❌ Buka via DApps browser!"); return; }
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_ID}]}); }
+    catch(e){ if(e.code===4902) await addBSC(); }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    userAddr = await signer.getAddress();
+    cVault   = new ethers.Contract(VAULT_CA, VAULT_ABI, signer);
+    cBattle  = new ethers.Contract(BATTLE_CA,BATTLE_ABI,signer);
+    try{
+      const gb    = await cVault.getGameBalance(userAddr);
+      const stats = await cBattle.getPlayerStats(userAddr);
+      document.getElementById("psTotalBattle").textContent = Number(stats.totalBattles);
+      document.getElementById("psWins").textContent        = Number(stats.totalWins);
+      document.getElementById("psIndc").textContent        = Math.floor(parseFloat(ethers.formatUnits(gb,18)));
+      document.getElementById("rankPts").textContent       = Number(stats.seasonPoints).toLocaleString();
+    }catch(e){}
+    const short = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletBtnText").textContent = short;
+    document.getElementById("walletBtn").classList.add("on");
+    document.getElementById("walletDot").classList.add("on");
+    document.getElementById("connectedWallet").textContent = userAddr.slice(0,14)+"...";
+    document.getElementById("refLink").textContent =
+      "indocoin-pro.github.io/Indocoin/referral.html?ref="+userAddr.slice(0,10);
+    showToast("✅ Wallet terhubung!");
+  }catch(e){ showToast("❌ "+(e.message||e)); }
+}
+async function addBSC(){
+  await window.ethereum.request({method:"wallet_addEthereumChain",params:[{
+    chainId:BSC_ID,chainName:"BNB Smart Chain",
+    nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+    rpcUrls:["https://bsc-dataseed.binance.org/"],blockExplorerUrls:["https://bscscan.com"]
+  }]});
+}
+document.getElementById("walletBtn").addEventListener("click",connectWallet);
+window.addEventListener("load",async()=>{
+  if(window.ethereum){
+    try{
+      const acc=await window.ethereum.request({method:"eth_accounts"});
+      if(acc.length){
+        provider=new ethers.BrowserProvider(window.ethereum);
+        signer=await provider.getSigner();
+        userAddr=await signer.getAddress();
+        cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+        cBattle=new ethers.Contract(BATTLE_CA,BATTLE_ABI,signer);
+        document.getElementById("walletBtnText").textContent=userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+        document.getElementById("walletBtn").classList.add("on");
+        document.getElementById("walletDot").classList.add("on");
+        document.getElementById("connectedWallet").textContent=userAddr.slice(0,14)+"...";
+        document.getElementById("refLink").textContent="indocoin-pro.github.io/Indocoin/referral.html?ref="+userAddr.slice(0,10);
+      }
+    }catch(e){}
+  }
+  renderAll();
+  animateWinRate();
+  animateRankBar();
+  setTimeout(()=>showAchievementPopup(),2000);
+});
+if(window.ethereum){
+  window.ethereum.on("accountsChanged",()=>location.reload());
+  window.ethereum.on("chainChanged",()=>location.reload());
+}
+
+/* ════ RENDER ALL ════ */
+function renderAll(){
+  renderBadges();
+  renderAchFilter();
+  renderAchGrid();
+  renderBattleStats();
+  renderHeroUsage();
+  renderMonthChart();
+  renderHistory("all");
+  renderCollection();
+  renderSettings();
+}
+
+/* ════ BADGES ════ */
+const BADGES = [
+  {icon:"🏆",cls:"gold",   tip:"Juara Tournament"},
+  {icon:"🔥",cls:"red",    tip:"Streak 10x"},
+  {icon:"⚔️",cls:"",       tip:"Veteran Arena"},
+  {icon:"🐲",cls:"violet", tip:"Penunggang Naga"},
+  {icon:"💎",cls:"cyan",   tip:"Koleksi Lengkap"},
+  {icon:"🛡️",cls:"",       tip:"Anggota Guild"},
+];
+function renderBadges(){
+  document.getElementById("badgesRow").innerHTML = BADGES.map(b=>
+    `<div class="pbadge ${b.cls}" title="${b.tip}" onclick="showToast('${b.tip}')">${b.icon}</div>`
+  ).join("");
+}
+
+/* ════ ACHIEVEMENT ════ */
+function renderAchFilter(){
+  document.getElementById("achFilter").innerHTML = ACH_CATS.map(c=>
+    `<div class="af-btn ${achCat===c.key?'on':''}" onclick="setAchCat('${c.key}')">${c.label}</div>`
+  ).join("");
+}
+function setAchCat(cat){ achCat=cat; renderAchFilter(); renderAchGrid(); }
+
+function renderAchGrid(){
+  const list = achCat==="all" ? ACHIEVEMENTS : ACHIEVEMENTS.filter(a=>a.cat===achCat);
+  document.getElementById("achGrid").innerHTML = list.map((a,i)=>`
+    <div class="ach-card ${a.unlocked?'unlocked '+a.tier:'locked'}" style="animation-delay:${i*0.04}s"
+      onclick="achClick('${a.id}')">
+      ${a.unlocked?'<div class="ach-unlocked-badge">✅</div>':''}
+      <span class="ach-icon">${a.icon}</span>
+      <div class="ach-name">${a.name}</div>
+      <div class="ach-desc">${a.desc}</div>
+      <div class="ach-tier tier-${a.tier}">${a.tier.toUpperCase()}</div>
+      ${!a.unlocked && a.target>1 ? `
+        <div class="ach-prog"><div class="ach-prog-fill" style="width:${Math.min(100,Math.floor(a.prog/a.target*100))}%"></div></div>
+        <div class="ach-prog-lbl">${a.prog}/${a.target}</div>` : ''}
+      <div class="ach-reward">🏅 ${a.reward}</div>
+    </div>`).join("");
+}
+
+function achClick(id){
+  const a = ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a) return;
+  showToast(a.unlocked ? `✅ ${a.name} — ${a.reward}` : `🔒 ${a.prog}/${a.target} — ${a.desc}`);
+}
+
+/* ════ STATS ════ */
+function animateWinRate(){
+  const pct  = 63;
+  const circ = 220;
+  const offset = circ - (pct/100)*circ;
+  setTimeout(()=>{
+    const el = document.getElementById("wrCircle");
+    if(el) el.style.strokeDashoffset = offset;
+  }, 400);
+}
+function animateRankBar(){
+  setTimeout(()=>{
+    const el = document.getElementById("rankBar");
+    if(el){ el.style.width="0%"; setTimeout(()=>el.style.width="68%",100); }
+  }, 300);
+}
+
+function renderBattleStats(){
+  document.getElementById("battleStatsList").innerHTML = BATTLE_STATS.map(s=>`
+    <div class="stat-row">
+      <div class="sr-label"><span class="sr-icon">${s.icon}</span>${s.label}</div>
+      <div class="sr-bar-wrap"><div class="sr-bar" style="width:${s.bar*100}%;background:${s.color}"></div></div>
+      <div class="sr-val">${s.val}</div>
+    </div>`).join("");
+}
+function renderHeroUsage(){
+  document.getElementById("heroUsageList").innerHTML = HERO_USAGE.map(h=>`
+    <div class="hu-row">
+      <div class="hu-emoji">${h.emoji}</div>
+      <div class="hu-name">${h.name}</div>
+      <div class="hu-bar-wrap"><div class="hu-bar" style="width:${h.pct}%;background:${h.color}"></div></div>
+      <div class="hu-pct">${h.pct}%</div>
+    </div>`).join("");
+}
+function renderMonthChart(){
+  const max = Math.max(...MONTH_DATA);
+  document.getElementById("monthChart").innerHTML = MONTH_DATA.map((v,i)=>`
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="flex:1;display:flex;align-items:flex-end;width:100%">
+        <div style="width:100%;background:linear-gradient(180deg,var(--gold),var(--orange));
+          border-radius:3px 3px 0 0;height:${Math.floor(v/max*100)}%;
+          transition:height .8s ease;min-height:4px;opacity:${i===11?1:0.6}"></div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted)">${MONTHS[i]}</div>
+    </div>`).join("");
+}
+
+/* ════ HISTORY ════ */
+let histFilter = "all";
+function renderHistory(filter){
+  histFilter = filter;
+  document.querySelectorAll(".hf-btn").forEach(b=>b.classList.toggle("on",b.dataset.hf===filter));
+  const list = BATTLE_HISTORY.filter(h=>{
+    if(filter==="all")   return true;
+    if(filter==="win")   return h.result==="WIN";
+    if(filter==="lose")  return h.result==="LOSE";
+    if(filter==="pvp")   return h.sub.includes("PvP");
+    if(filter==="tourn") return h.sub.includes("Tournament");
+    return true;
+  });
+  document.getElementById("histList").innerHTML = list.map((h,i)=>`
+    <div class="hist-item" style="animation-delay:${i*0.05}s">
+      <div class="hi-icon">${h.icon}</div>
+      <div class="hi-info">
+        <div class="hi-title">${h.title}</div>
+        <div class="hi-sub">${h.sub}</div>
+        <div class="hi-time">${h.time}</div>
+      </div>
+      <div class="hi-result">
+        <div class="hi-outcome ${h.result==='WIN'?'win':'lose'}">${h.result==='WIN'?'✅ WIN':'❌ LOSE'}</div>
+        <div class="hi-reward">${h.reward}</div>
+      </div>
+    </div>`).join("");
+  if(!list.length) document.getElementById("histList").innerHTML=
+    `<div style="text-align:center;padding:24px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px">Tidak ada data</div>`;
+}
+document.querySelectorAll(".hf-btn").forEach(b=>b.addEventListener("click",()=>renderHistory(b.dataset.hf)));
+
+/* ════ COLLECTION ════ */
+function renderCollection(){
+  const render = (list, id) => {
+    document.getElementById(id).innerHTML = list.map(c=>`
+      <div class="col-card ${c.owned?'owned':'locked'}">
+        ${c.owned?'<div class="col-owned-badge"></div>':''}
+        <span class="col-emoji">${c.emoji}</span>
+        <div class="col-name">${c.name}</div>
+        <div class="col-type">${c.type}</div>
+        <div class="col-stars">${'★'.repeat(c.stars)}${'☆'.repeat(5-c.stars)}</div>
+      </div>`).join("");
+  };
+  render(HERO_COLL, "heroCollGrid");
+  render(SKIN_COLL, "skinCollGrid");
+  render(ITEM_COLL, "itemCollGrid");
+}
+
+/* ════ SETTINGS ════ */
+function renderSettings(){
+  const makeRow = (s) => `
+    <div class="setting-row" onclick="toggleSetting('${s.key}')">
+      <div class="setting-icon">${s.icon}</div>
+      <div class="setting-info">
+        <div class="setting-label">${s.label}</div>
+        <div class="setting-sub">${s.sub}</div>
+      </div>
+      <div class="toggle ${toggles[s.key]?'on':''}" id="toggle_${s.key}">
+        <div class="toggle-dot"></div>
+      </div>
+    </div>`;
+  document.getElementById("notifSettings").innerHTML  = NOTIF_SETTINGS.map(makeRow).join("");
+  document.getElementById("gameSettings").innerHTML   = GAME_SETTINGS.map(makeRow).join("");
+}
+function toggleSetting(key){
+  toggles[key] = !toggles[key];
+  const el = document.getElementById("toggle_"+key);
+  if(el) el.className = "toggle"+(toggles[key]?" on":"");
+  showToast(toggles[key]?"✅ Diaktifkan":"⭕ Dinonaktifkan");
+}
+
+/* ════ PROFILE ACTIONS ════ */
+function changeName(){
+  showToast("✏️ Biaya 100 INDC — Hubungi support untuk ubah nama");
+}
+function changeAvatar(){
+  const heroes = ["⚔️","🧙","🏹","🥷","🛡️","🐲"];
+  let idx = heroes.indexOf(document.getElementById("avatarEmoji").textContent);
+  idx = (idx+1) % heroes.length;
+  document.getElementById("avatarEmoji").textContent = heroes[idx];
+  showToast("✅ Avatar diubah!");
+}
+function changeTitle(){
+  const titles = ["✨ Gladiator Legendaris","🔥 Petarung Streak","🏆 Juara Tournament","⚔️ Veteran Arena","🐲 Penunggang Naga"];
+  const cur = document.getElementById("profileTitle").textContent;
+  const idx = (titles.indexOf(cur)+1) % titles.length;
+  document.getElementById("profileTitle").textContent = titles[idx];
+  showToast("✅ Gelar diubah!");
+}
+
+/* ════ SHARE ════ */
+function copyProfile(){
+  const link = "https://indocoin-pro.github.io/Indocoin/profile.html";
+  if(navigator.clipboard) navigator.clipboard.writeText(link);
+  showToast("📋 Link profil disalin!");
+}
+function copyRef(){
+  const link = document.getElementById("refLink").textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(link);
+  showToast("📋 Link referral disalin!");
+}
+function shareProfile(){
+  if(navigator.share){
+    navigator.share({title:"INDOWAR Profil",text:"Cek profil battle ku di INDOWAR!",
+      url:"https://indocoin-pro.github.io/Indocoin/profile.html"});
+  } else { copyProfile(); }
+}
+
+/* ════ ACHIEVEMENT POPUP ════ */
+function showAchievementPopup(){
+  const popup = document.createElement("div");
+  popup.className = "ach-popup";
+  popup.innerHTML = `
+    <div class="ap-icon">☄️</div>
+    <div class="ap-text">
+      <div class="ap-title">🏅 ACHIEVEMENT TERBUKA!</div>
+      <div class="ap-name">DESTROYER</div>
+      <div class="ap-desc">Raih streak 10x kemenangan · +200 GP</div>
+    </div>`;
+  document.body.appendChild(popup);
+  setTimeout(()=>popup.remove(), 4000);
+}
+
+/* ════ TABS ════ */
+const ALL_TABS = ["achievement","stats","history","collection","share","settings"];
+function switchTab(name){
+  ALL_TABS.forEach(t=>{
+    document.getElementById("tab-"+t).style.display = t===name?"block":"none";
+  });
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.classList.toggle("on", tab.dataset.tab===name);
+  });
+  if(name==="stats"){ animateWinRate(); animateRankBar(); }
+}
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",()=>switchTab(tab.dataset.tab));
+});
+
+/* ════ TOAST ════ */
+function showToast(msg){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const el=document.createElement("div"); el.className="toast";
+  el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2500);
+}
+</script>
+</body>
+</html>
