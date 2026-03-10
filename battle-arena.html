@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOWAR — Battle Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root {
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#34d399;--red:#f87171;--cyan:#38bdf8;--violet:#a78bfa;
+  --orange:#fb923c;--pink:#f472b6;
+  --border:rgba(250,204,21,0.12);--card:rgba(15,23,42,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ── BG ── */
+.arena-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(255,68,68,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(250,204,21,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(167,139,250,0.04) 0%, transparent 50%);
+}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(250,204,21,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(250,204,21,0.025) 1px,transparent 1px);
+  background-size:50px 50px;}
+.star{position:fixed;background:#fff;border-radius:50%;animation:twinkle var(--d) ease-in-out infinite alternate;z-index:0;pointer-events:none;}
+@keyframes twinkle{from{opacity:.03}to{opacity:.4}}
+
+/* ── TOPNAV ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(5,10,25,0.98);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,68,68,0.25);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,68,68,0.5);box-shadow:0 0 10px rgba(255,68,68,0.3);}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 12px;
+  border:1px solid rgba(250,204,21,0.4);border-radius:20px;
+  background:rgba(250,204,21,0.07);color:var(--gold);cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all .2s;}
+.btn-wallet.connected{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.07);color:var(--green);}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.wdot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:twinkle 1.5s infinite;}
+
+/* ── PAGE ── */
+.page{position:relative;z-index:1;padding:10px 10px 80px;}
+
+/* ── STATS BAR ── */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;}
+.stat-icon{font-size:16px;margin-bottom:2px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);}
+.stat-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:.5px;}
+
+/* ── HERO SELECT ── */
+.section-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--muted);
+  letter-spacing:2px;margin:10px 0 6px;display:flex;align-items:center;gap:6px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.hero-select-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.hs-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px;
+  text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.hs-card:active{transform:scale(0.95);}
+.hs-card.selected{border-color:var(--gold);background:rgba(250,204,21,0.08);
+  box-shadow:0 0 15px rgba(250,204,21,0.2);}
+.hs-card.locked{opacity:0.4;cursor:not-allowed;}
+.hs-emoji{font-size:28px;margin-bottom:3px;}
+.hs-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--text);letter-spacing:.5px;}
+.hs-stars{font-size:8px;color:var(--gold);margin:2px 0;}
+.hs-stats{display:flex;justify-content:center;gap:4px;margin-top:3px;}
+.hs-stat{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.hs-owned-badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green);}
+
+/* ── ENEMY SELECT ── */
+.enemy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.enemy-card{background:var(--card);border:1px solid rgba(248,113,113,0.15);border-radius:12px;
+  padding:8px;text-align:center;cursor:pointer;transition:all .2s;}
+.enemy-card.selected{border-color:var(--red);background:rgba(248,113,113,0.08);
+  box-shadow:0 0 12px rgba(248,113,113,0.2);}
+.enemy-card:active{transform:scale(0.95);}
+.enemy-lvl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--red);margin-bottom:2px;}
+
+/* ── ARENA ── */
+.arena-wrap{background:linear-gradient(180deg,rgba(10,15,30,0.9),rgba(5,10,20,0.98));
+  border:1px solid rgba(255,68,68,0.2);border-radius:16px;padding:14px;margin-bottom:10px;
+  position:relative;overflow:hidden;min-height:260px;}
+.arena-wrap::before{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;
+  background:linear-gradient(transparent,rgba(255,68,68,0.04));pointer-events:none;}
+
+/* ARENA FLOOR */
+.arena-floor{display:flex;align-items:flex-end;justify-content:space-between;
+  position:relative;padding:0 10px;margin-bottom:10px;min-height:140px;}
+
+/* PLATFORM */
+.platform{position:absolute;bottom:0;left:10%;right:10%;height:8px;
+  background:linear-gradient(90deg,transparent,rgba(250,204,21,0.15),rgba(250,204,21,0.3),rgba(250,204,21,0.15),transparent);
+  border-radius:50%;filter:blur(4px);}
+
+/* FIGHTER */
+.fighter{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;z-index:2;}
+.fighter-emoji{font-size:56px;transition:transform .15s;display:block;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,0.6));line-height:1;}
+.fighter.player .fighter-emoji{animation:breathe 2s ease-in-out infinite;}
+.fighter.enemy .fighter-emoji{transform:scaleX(-1);animation:breathe 2.2s ease-in-out infinite;}
+@keyframes breathe{0%,100%{transform:translateY(0) scaleX(var(--flip,1))}50%{transform:translateY(-4px) scaleX(var(--flip,1))}}
+.fighter.player{--flip:1}
+.fighter.enemy{--flip:-1}
+.fighter.enemy .fighter-emoji{transform:scaleX(-1);}
+
+/* ATTACK ANIM */
+.fighter.attacking-right .fighter-emoji{animation:attackRight .35s ease;}
+.fighter.attacking-left .fighter-emoji{animation:attackLeft .35s ease;}
+.fighter.hit .fighter-emoji{animation:hitShake .3s ease;}
+.fighter.dead .fighter-emoji{animation:dieFall .5s ease forwards;}
+@keyframes attackRight{0%{transform:translateX(0)}40%{transform:translateX(40px) scale(1.15)}100%{transform:translateX(0)}}
+@keyframes attackLeft{0%{transform:translateX(0) scaleX(-1)}40%{transform:translateX(-40px) scaleX(-1) scale(1.15)}100%{transform:translateX(0) scaleX(-1)}}
+@keyframes hitShake{0%,100%{transform:translateX(0) scaleX(var(--fx,1))}25%{transform:translateX(-8px) scaleX(var(--fx,1))}75%{transform:translateX(8px) scaleX(var(--fx,1))}}
+@keyframes dieFall{0%{opacity:1;transform:rotate(0) scaleX(var(--fx,1))}100%{opacity:0;transform:rotate(90deg) scaleX(var(--fx,1)) translateY(30px)}}
+
+/* HP BARS */
+.hp-section{margin-bottom:8px;}
+.hp-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.hp-label{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--text);min-width:60px;letter-spacing:.5px;}
+.hp-bar-wrap{flex:1;height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;
+  border:1px solid rgba(255,255,255,0.06);}
+.hp-bar{height:100%;border-radius:6px;transition:width .5s ease;position:relative;
+  background:linear-gradient(90deg,var(--green),#22c55e);}
+.hp-bar.low{background:linear-gradient(90deg,#ef4444,var(--orange));}
+.hp-bar.mid{background:linear-gradient(90deg,var(--orange),var(--gold));}
+.hp-bar::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,0.25),transparent);border-radius:6px;}
+.hp-num{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);min-width:55px;text-align:right;}
+
+/* VS LABEL */
+.vs-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;
+  color:var(--red);text-shadow:0 0 20px rgba(248,113,113,0.6);
+  opacity:0.4;pointer-events:none;z-index:1;}
+
+/* DAMAGE FLOAT */
+.dmg-float{position:absolute;font-family:'Orbitron',sans-serif;font-weight:900;
+  pointer-events:none;z-index:10;animation:floatUp .9s ease forwards;}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-55px) scale(1.3)}}
+
+/* ── SKILL BAR ── */
+.skill-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.skill-btn{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:8px 6px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.skill-btn:active{transform:scale(0.95);}
+.skill-btn.on-cooldown{opacity:0.4;cursor:not-allowed;}
+.skill-btn.ready{border-color:rgba(250,204,21,0.4);box-shadow:0 0 8px rgba(250,204,21,0.1);}
+.skill-emoji{font-size:20px;display:block;margin-bottom:3px;}
+.skill-name{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;color:var(--text);letter-spacing:.5px;}
+.skill-dmg{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);margin-top:2px;}
+.skill-cd{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.skill-cd-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;
+  justify-content:center;font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--muted);
+  border-radius:12px;}
+
+/* ── BATTLE LOG ── */
+.battle-log{background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:12px;
+  padding:10px;margin-bottom:10px;max-height:100px;overflow-y:auto;scrollbar-width:thin;}
+.log-entry{font-family:'Share Tech Mono',monospace;font-size:9px;line-height:1.7;padding:1px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);}
+.log-entry:last-child{border-bottom:none;}
+.log-player{color:var(--gold);}
+.log-enemy{color:var(--red);}
+.log-system{color:var(--cyan);}
+.log-reward{color:var(--green);}
+.log-skill{color:var(--violet);}
+
+/* ── STREAK ── */
+.streak-bar{display:flex;align-items:center;gap:8px;background:rgba(250,204,21,0.05);
+  border:1px solid rgba(250,204,21,0.15);border-radius:10px;padding:8px 12px;margin-bottom:10px;}
+.streak-flames{display:flex;gap:2px;}
+.streak-flame{font-size:16px;opacity:0.2;transition:all .3s;}
+.streak-flame.lit{opacity:1;animation:flamePulse 1s ease-in-out infinite alternate;}
+@keyframes flamePulse{from{transform:scale(1)}to{transform:scale(1.2)}}
+.streak-info{flex:1;}
+.streak-label{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);}
+.streak-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.streak-bonus{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--orange);}
+
+/* ── DAILY QUEST ── */
+.quest-card{background:var(--card);border:1px solid rgba(56,189,248,0.2);border-radius:12px;
+  padding:10px 12px;margin-bottom:10px;}
+.quest-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--cyan);
+  letter-spacing:1px;margin-bottom:6px;}
+.quest-item{display:flex;align-items:center;gap:8px;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.quest-item:last-child{border-bottom:none;}
+.quest-icon{font-size:14px;}
+.quest-text{flex:1;font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--text);}
+.quest-prog{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.quest-reward{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--gold);}
+.quest-bar{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:3px;overflow:hidden;}
+.quest-fill{height:100%;background:var(--cyan);border-radius:2px;transition:width .5s;}
+.quest-done{color:var(--green)!important;}
+
+/* ── START BUTTON ── */
+.btn-start{width:100%;padding:14px;border-radius:14px;font-family:'Orbitron',sans-serif;
+  font-size:13px;font-weight:900;letter-spacing:2px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;
+  box-shadow:0 4px 20px rgba(220,38,38,0.4);transition:all .2s;margin-bottom:10px;}
+.btn-start:active{transform:scale(0.97);}
+.btn-start:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-start.victory{background:linear-gradient(135deg,var(--gold),var(--orange))!important;color:#000!important;}
+.btn-start.defeat{background:linear-gradient(135deg,#334155,#1e293b)!important;color:var(--muted)!important;}
+
+/* ── RESULT OVERLAY ── */
+.result-overlay{position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);}
+.result-overlay.show{display:flex;}
+.result-box{background:var(--dark2);border:1px solid var(--border);border-radius:20px;
+  padding:24px 20px;max-width:320px;width:90%;text-align:center;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(0.6);opacity:0}to{transform:scale(1);opacity:1}}
+.result-emoji{font-size:64px;margin-bottom:8px;display:block;}
+.result-title{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;margin-bottom:4px;}
+.result-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:14px;}
+.result-reward{background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);
+  border-radius:12px;padding:10px;margin-bottom:14px;}
+.result-reward-val{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--gold);}
+.result-reward-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.result-btns{display:flex;gap:8px;}
+.btn-result{flex:1;padding:11px;border-radius:12px;font-family:'Orbitron',sans-serif;
+  font-size:9px;font-weight:700;cursor:pointer;border:none;letter-spacing:.5px;transition:all .2s;}
+.btn-result:active{transform:scale(0.97);}
+.btn-again{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;}
+.btn-shop{background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3)!important;
+  color:var(--gold);border:none;}
+
+/* ── BOTTOM NAV ── */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,25,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.2);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#6b7280;transition:all .2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Orbitron',sans-serif;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(15,23,42,0.97);border:1px solid var(--border);border-radius:20px;
+  padding:9px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);
+  z-index:999;white-space:nowrap;animation:toastIn .3s ease;}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="arena-bg"></div>
+<div class="grid-bg"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="indowar-icon.png" class="nav-logo" alt="INDOWAR">
+    <div>
+      <div class="nav-brand">INDOWAR</div>
+      <div class="nav-sub">⚔️ BATTLE ARENA</div>
+    </div>
+  </div>
+  <button class="btn-wallet" id="walletBtn">
+    <span class="wdot" id="walletDot"></span>
+    <span id="walletBtnText">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-icon">💎</div>
+      <div class="stat-val" id="statGameBal">—</div>
+      <div class="stat-lbl">GAME BAL</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-val" id="statWins">0</div>
+      <div class="stat-lbl">MENANG</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-val" id="statStreak">0</div>
+      <div class="stat-lbl">STREAK</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-val" id="statPoints">0</div>
+      <div class="stat-lbl">POIN</div>
+    </div>
+  </div>
+
+  <!-- STREAK BAR -->
+  <div class="streak-bar">
+    <div class="streak-flames">
+      <span class="streak-flame" id="sf1">🔥</span>
+      <span class="streak-flame" id="sf2">🔥</span>
+      <span class="streak-flame" id="sf3">🔥</span>
+    </div>
+    <div class="streak-info">
+      <div class="streak-label">WIN STREAK</div>
+      <div class="streak-desc" id="streakDesc">Menang 3x berturut = reward 2x!</div>
+    </div>
+    <div class="streak-bonus" id="streakBonus">x1</div>
+  </div>
+
+  <!-- HERO SELECT -->
+  <div class="section-title">⚔️ PILIH HERO</div>
+  <div class="hero-select-grid" id="heroSelectGrid"></div>
+
+  <!-- ENEMY SELECT -->
+  <div class="section-title">👹 PILIH MUSUH</div>
+  <div class="enemy-grid" id="enemyGrid"></div>
+
+  <!-- ARENA -->
+  <div class="arena-wrap">
+    <div class="vs-label">VS</div>
+
+    <!-- HP BARS -->
+    <div class="hp-section">
+      <div class="hp-row">
+        <div class="hp-label" id="playerHpLabel">HERO</div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar" id="playerHpBar" style="width:100%"></div>
+        </div>
+        <div class="hp-num" id="playerHpNum">— / —</div>
+      </div>
+      <div class="hp-row">
+        <div class="hp-label" id="enemyHpLabel">MUSUH</div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar" id="enemyHpBar" style="width:100%"></div>
+        </div>
+        <div class="hp-num" id="enemyHpNum">— / —</div>
+      </div>
+    </div>
+
+    <!-- FIGHTERS -->
+    <div class="arena-floor">
+      <div class="platform"></div>
+      <div class="fighter player" id="playerFighter">
+        <span class="fighter-emoji" id="playerEmoji">🧙</span>
+      </div>
+      <div class="fighter enemy" id="enemyFighter">
+        <span class="fighter-emoji" id="enemyEmoji">👹</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SKILL BAR -->
+  <div class="section-title">✨ SKILL HERO</div>
+  <div class="skill-bar" id="skillBar"></div>
+
+  <!-- BATTLE LOG -->
+  <div class="section-title">📜 LOG BATTLE</div>
+  <div class="battle-log" id="battleLog">
+    <div class="log-entry log-system">⚔️ Pilih hero dan musuh, lalu mulai battle!</div>
+  </div>
+
+  <!-- DAILY QUEST -->
+  <div class="section-title">📋 DAILY QUEST</div>
+  <div class="quest-card">
+    <div class="quest-title">🎯 QUEST HARIAN — Reset setiap 00:00 WIB</div>
+    <div class="quest-item">
+      <span class="quest-icon">⚔️</span>
+      <div style="flex:1">
+        <div class="quest-text">Battle 5x hari ini</div>
+        <div class="quest-bar"><div class="quest-fill" id="q1fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="quest-prog" id="q1prog">0/5</div>
+        <div class="quest-reward">+50 INDC</div>
+      </div>
+    </div>
+    <div class="quest-item">
+      <span class="quest-icon">🏆</span>
+      <div style="flex:1">
+        <div class="quest-text">Menang 3x hari ini</div>
+        <div class="quest-bar"><div class="quest-fill" id="q2fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="quest-prog" id="q2prog">0/3</div>
+        <div class="quest-reward">+30 INDC</div>
+      </div>
+    </div>
+    <div class="quest-item">
+      <span class="quest-icon">🔥</span>
+      <div style="flex:1">
+        <div class="quest-text">Capai 3 streak kemenangan</div>
+        <div class="quest-bar"><div class="quest-fill" id="q3fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="quest-prog" id="q3prog">0/3</div>
+        <div class="quest-reward">+100 INDC</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- START BUTTON -->
+  <button class="btn-start" id="btnStart" onclick="startBattle()">⚔️ MULAI BATTLE</button>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html" class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="battle-arena.html" class="bnav-item active"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
+  <a href="analytics.html" class="bnav-item"><span class="bnav-icon">📊</span><span class="bnav-label">ANALYTICS</span></a>
+  <a href="indowar.html" class="bnav-item"><span class="bnav-icon">🛒</span><span class="bnav-label">SHOP</span></a>
+</nav>
+
+<!-- RESULT OVERLAY -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-box">
+    <span class="result-emoji" id="resultEmoji">🏆</span>
+    <div class="result-title" id="resultTitle">MENANG!</div>
+    <div class="result-sub" id="resultSub">Pertarungan selesai</div>
+    <div class="result-reward">
+      <div class="result-reward-val" id="resultReward">+20 INDC</div>
+      <div class="result-reward-lbl">REWARD DIKIRIM KE VAULT</div>
+    </div>
+    <div class="result-btns">
+      <button class="btn-result btn-again" onclick="closeResult()">⚔️ LAGI</button>
+      <button class="btn-result btn-shop" onclick="window.location.href='indowar.html'">🛒 SHOP</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   CONFIG & ABI
+══════════════════════════════════════════ */
+const INDC_CA   = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const BATTLE_CA = "0x2a8906E76792a5c6F6060D405C0b21356c9BF093";
+const BSC_ID    = "0x38";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+
+const VAULT_ABI = [
+  "function getGameBalance(address user) external view returns (uint256)"
+];
+const BATTLE_ABI = [
+  "function recordBattleWin(address player, bool isStreakBonus) external",
+  "function recordBattleLoss(address player) external",
+  "function getPlayerStats(address player) external view returns (tuple(uint256 totalWins,uint256 totalLosses,uint256 totalEarned,uint256 totalBattles,uint256 streak,uint256 seasonPoints,uint256 lastBattleTime))",
+  "function getDailyProgress(address player) external view returns (uint256 battlesToday, uint256 winsToday)",
+  "function battleRewardBase() external view returns (uint256)"
+];
+
+let provider, signer, userAddr, cVault, cBattle;
+let gameBalance = 0;
+
+/* ══════════════════════════════════════════
+   HEROES DATA
+══════════════════════════════════════════ */
+const HEROES = [
+  {
+    id:0, name:"MAGE", emoji:"🧙", stars:3, price:0, owned:true,
+    atk:28, def:12, hp:90, maxHp:90,
+    rarity:"basic",
+    skills:[
+      {name:"FIREBALL",   emoji:"🔥", dmgMult:1.2, type:"dmg",   desc:"Bola api",        cd:0, maxCd:0},
+      {name:"ARCANE",     emoji:"✨", dmgMult:1.8, type:"dmg",   desc:"ATK+80%",          cd:0, maxCd:2},
+      {name:"MANA SHIELD",emoji:"🛡️", dmgMult:0,   type:"heal",  desc:"Pulihkan 20 HP",  cd:0, maxCd:3},
+    ]
+  },
+  {
+    id:1, name:"KNIGHT", emoji:"⚔️", stars:3, price:0, owned:true,
+    atk:22, def:22, hp:130, maxHp:130,
+    rarity:"basic",
+    skills:[
+      {name:"SLASH",      emoji:"⚔️", dmgMult:1.0, type:"dmg",   desc:"Serangan dasar",  cd:0, maxCd:0},
+      {name:"SHIELD BASH",emoji:"🛡️", dmgMult:1.3, type:"stun",  desc:"Stun 1 giliran",  cd:0, maxCd:2},
+      {name:"BATTLE CRY", emoji:"📣", dmgMult:0,   type:"buff",  desc:"ATK +50% 2 gili", cd:0, maxCd:4},
+    ]
+  },
+  {
+    id:2, name:"ARCHER", emoji:"🏹", stars:4, price:500, owned:false,
+    atk:32, def:8, hp:80, maxHp:80,
+    rarity:"rare",
+    skills:[
+      {name:"ARROW",      emoji:"🏹", dmgMult:1.1, type:"dmg",   desc:"Serangan jarak",  cd:0, maxCd:0},
+      {name:"MULTI SHOT", emoji:"💥", dmgMult:2.0, type:"dmg",   desc:"3 panah sekaligus",cd:0,maxCd:3},
+      {name:"FOCUS",      emoji:"🎯", dmgMult:0,   type:"buff",  desc:"Crit +100% next",  cd:0, maxCd:3},
+    ]
+  },
+  {
+    id:3, name:"NINJA", emoji:"🥷", stars:4, price:800, owned:false,
+    atk:35, def:10, hp:85, maxHp:85,
+    rarity:"rare",
+    skills:[
+      {name:"SHURIKEN",   emoji:"⭐", dmgMult:1.0, type:"dmg",   desc:"Lemparan cepat",  cd:0, maxCd:0},
+      {name:"SHADOW STEP",emoji:"👁️", dmgMult:1.5, type:"dodge", desc:"Dodge + serang",  cd:0, maxCd:2},
+      {name:"POISON",     emoji:"☠️", dmgMult:0.8, type:"dot",   desc:"Racun 3 giliran", cd:0, maxCd:3},
+    ]
+  },
+  {
+    id:4, name:"PALADIN", emoji:"🛡️", stars:5, price:1500, owned:false,
+    atk:18, def:30, hp:160, maxHp:160,
+    rarity:"rare",
+    skills:[
+      {name:"HOLY STRIKE",emoji:"✝️", dmgMult:1.0, type:"dmg",   desc:"Pukulan suci",    cd:0, maxCd:0},
+      {name:"DIVINE",     emoji:"💫", dmgMult:0,   type:"heal",  desc:"Pulihkan 40 HP",  cd:0, maxCd:3},
+      {name:"SMITE",      emoji:"⚡", dmgMult:2.5, type:"dmg",   desc:"Ledakan suci",    cd:0, maxCd:4},
+    ]
+  },
+  {
+    id:5, name:"DRAGON", emoji:"🐲", stars:5, price:2000, owned:false,
+    atk:42, def:20, hp:180, maxHp:180,
+    rarity:"legendary",
+    skills:[
+      {name:"CLAW",       emoji:"🐾", dmgMult:1.1, type:"dmg",   desc:"Cakar naga",      cd:0, maxCd:0},
+      {name:"FIRE BREATH",emoji:"🔥", dmgMult:2.2, type:"dmg",   desc:"Napas api",       cd:0, maxCd:3},
+      {name:"DRAGON RAGE",emoji:"💢", dmgMult:3.0, type:"dmg",   desc:"ATK tertinggi!",  cd:0, maxCd:5},
+    ]
+  },
+];
+
+/* ══════════════════════════════════════════
+   ENEMIES DATA
+══════════════════════════════════════════ */
+const ENEMIES = [
+  {id:0, name:"GOBLIN",   emoji:"👺", lvl:"LV.1", atk:15, def:5,  hp:60,  maxHp:60,  reward:10},
+  {id:1, name:"ORC",      emoji:"👹", lvl:"LV.2", atk:22, def:10, hp:90,  maxHp:90,  reward:15},
+  {id:2, name:"SKELETON", emoji:"💀", lvl:"LV.3", atk:28, def:8,  hp:80,  maxHp:80,  reward:20},
+  {id:3, name:"DRAGON",   emoji:"🐉", lvl:"LV.4", atk:38, def:18, hp:140, maxHp:140, reward:30},
+  {id:4, name:"DEMON",    emoji:"😈", lvl:"LV.5", atk:45, def:22, hp:170, maxHp:170, reward:50},
+  {id:5, name:"BOSS",     emoji:"👿", lvl:"BOSS",  atk:60, def:30, hp:250, maxHp:250, reward:100},
+];
+
+/* ══════════════════════════════════════════
+   GAME STATE
+══════════════════════════════════════════ */
+let selectedHeroId = 0;
+let selectedEnemyId = 0;
+let battleActive  = false;
+let playerTurn    = true;
+let streak        = 0;
+let totalWins     = 0;
+let seasonPoints  = 0;
+let buffActive    = false;
+let buffTurns     = 0;
+let stunned       = false;
+let dotActive     = false; dotTurns = 0;
+let critBoost     = false;
+let dailyBattles  = 0;
+let dailyWins     = 0;
+let questClaimed  = [false, false, false];
+
+// Deep copy hero & enemy state for battle
+let pHero = null;
+let pEnemy = null;
+
+/* ══════════════════════════════════════════
+   WALLET
+══════════════════════════════════════════ */
+async function connectWallet(){
+  try{
+    if(!window.ethereum){ showToast("❌ Buka via DApps browser!"); return; }
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_ID}]}); }
+    catch(e){ if(e.code===4902) await addBSC(); }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    userAddr = await signer.getAddress();
+    initContracts();
+    await loadChainData();
+    updateStatsUI();
+    showToast("✅ Wallet terhubung!");
+  } catch(e){ showToast("❌ "+(e.message||e)); }
+}
+async function addBSC(){
+  await window.ethereum.request({method:"wallet_addEthereumChain",params:[{
+    chainId:BSC_ID,chainName:"BNB Smart Chain",
+    nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+    rpcUrls:[BSC_RPC],blockExplorerUrls:["https://bscscan.com"]
+  }]});
+}
+function initContracts(){
+  cVault  = new ethers.Contract(VAULT_CA,  VAULT_ABI,  signer);
+  cBattle = new ethers.Contract(BATTLE_CA, BATTLE_ABI, signer);
+}
+async function loadChainData(){
+  try{
+    const gb = await cVault.getGameBalance(userAddr);
+    gameBalance = parseFloat(ethers.formatUnits(gb,18));
+    const stats = await cBattle.getPlayerStats(userAddr);
+    totalWins   = Number(stats.totalWins);
+    streak      = Number(stats.streak);
+    seasonPoints= Number(stats.seasonPoints);
+    const daily = await cBattle.getDailyProgress(userAddr);
+    dailyBattles= Number(daily[0]);
+    dailyWins   = Number(daily[1]);
+  } catch(e){ console.error(e); }
+}
+function updateStatsUI(){
+  const short = userAddr ? userAddr.slice(0,6)+"..."+userAddr.slice(-4) : "CONNECT";
+  document.getElementById("walletBtnText").textContent = short;
+  document.getElementById("walletBtn").classList.add("connected");
+  document.getElementById("walletDot").classList.add("on");
+  document.getElementById("statGameBal").textContent  = Math.floor(gameBalance);
+  document.getElementById("statWins").textContent     = totalWins;
+  document.getElementById("statStreak").textContent   = streak;
+  document.getElementById("statPoints").textContent   = seasonPoints;
+  updateStreakUI();
+  updateQuestUI();
+}
+document.getElementById("walletBtn").addEventListener("click", connectWallet);
+window.addEventListener("load", async()=>{
+  if(window.ethereum){
+    try{
+      const acc = await window.ethereum.request({method:"eth_accounts"});
+      if(acc.length){
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer   = await provider.getSigner();
+        userAddr = await signer.getAddress();
+        initContracts();
+        await loadChainData();
+        updateStatsUI();
+      }
+    } catch(e){}
+  }
+  renderHeroSelect();
+  renderEnemyGrid();
+  renderSkills();
+  renderQuestUI();
+});
+if(window.ethereum){
+  window.ethereum.on("accountsChanged",()=>location.reload());
+  window.ethereum.on("chainChanged",()=>location.reload());
+}
+
+/* ══════════════════════════════════════════
+   RENDER HERO SELECT
+══════════════════════════════════════════ */
+function renderHeroSelect(){
+  document.getElementById("heroSelectGrid").innerHTML = HEROES.map(h=>`
+    <div class="hs-card ${h.owned?'':'locked'} ${selectedHeroId===h.id?'selected':''}"
+      onclick="${h.owned?'selectHero('+h.id+')':'showToast(\'🔒 Beli di Shop dulu!\')'}">
+      ${h.owned?'<div class="hs-owned-badge"></div>':''}
+      <div class="hs-emoji">${h.emoji}</div>
+      <div class="hs-name">${h.name}</div>
+      <div class="hs-stars">${'★'.repeat(h.stars)}${'☆'.repeat(5-h.stars)}</div>
+      <div class="hs-stats">
+        <span class="hs-stat" style="color:var(--red)">⚔${h.atk}</span>
+        <span class="hs-stat" style="color:var(--cyan)">🛡${h.def}</span>
+        <span class="hs-stat" style="color:var(--green)">❤${h.hp}</span>
+      </div>
+    </div>`).join("");
+}
+
+function selectHero(id){
+  selectedHeroId = id;
+  renderHeroSelect();
+  renderSkills();
+  if(!battleActive) resetArenaDisplay();
+}
+
+/* ══════════════════════════════════════════
+   RENDER ENEMY GRID
+══════════════════════════════════════════ */
+function renderEnemyGrid(){
+  document.getElementById("enemyGrid").innerHTML = ENEMIES.map(e=>`
+    <div class="enemy-card ${selectedEnemyId===e.id?'selected':''}" onclick="selectEnemy(${e.id})">
+      <div class="enemy-lvl">${e.lvl}</div>
+      <div class="hs-emoji">${e.emoji}</div>
+      <div class="hs-name">${e.name}</div>
+      <div class="hs-stats">
+        <span class="hs-stat" style="color:var(--red)">⚔${e.atk}</span>
+        <span class="hs-stat" style="color:var(--green)">❤${e.hp}</span>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold);margin-top:3px;">+${e.reward} INDC</div>
+    </div>`).join("");
+}
+
+function selectEnemy(id){
+  selectedEnemyId = id;
+  renderEnemyGrid();
+  if(!battleActive) resetArenaDisplay();
+}
+
+/* ══════════════════════════════════════════
+   RENDER SKILLS
+══════════════════════════════════════════ */
+function renderSkills(){
+  const h = HEROES[selectedHeroId];
+  document.getElementById("skillBar").innerHTML = h.skills.map((s,i)=>`
+    <div class="skill-btn ${s.cd>0?'on-cooldown':'ready'}" id="skill_${i}"
+      onclick="useSkill(${i})">
+      <span class="skill-emoji">${s.emoji}</span>
+      <div class="skill-name">${s.name}</div>
+      <div class="skill-dmg">${s.type==='heal'?'💊 HEAL':s.type==='buff'?'💪 BUFF':'⚡ '+Math.floor(h.atk*s.dmgMult)+' DMG'}</div>
+      <div class="skill-cd">${s.maxCd>0?'CD: '+s.maxCd+' giliran':'Bebas CD'}</div>
+      ${s.cd>0?`<div class="skill-cd-overlay">${s.cd}</div>`:''}
+    </div>`).join("");
+}
+
+/* ══════════════════════════════════════════
+   RESET ARENA DISPLAY
+══════════════════════════════════════════ */
+function resetArenaDisplay(){
+  const h = HEROES[selectedHeroId];
+  const e = ENEMIES[selectedEnemyId];
+  document.getElementById("playerEmoji").textContent = h.emoji;
+  document.getElementById("enemyEmoji").textContent  = e.emoji;
+  document.getElementById("playerHpLabel").textContent = h.name;
+  document.getElementById("enemyHpLabel").textContent  = e.name;
+  setHpBar("player", h.hp, h.maxHp);
+  setHpBar("enemy",  e.hp, e.maxHp);
+}
+
+/* ══════════════════════════════════════════
+   HP BAR
+══════════════════════════════════════════ */
+function setHpBar(who, cur, max){
+  const pct = Math.max(0, Math.floor((cur/max)*100));
+  const bar = document.getElementById(who+"HpBar");
+  bar.style.width = pct+"%";
+  bar.className   = "hp-bar" + (pct<30?" low":pct<60?" mid":"");
+  document.getElementById(who+"HpNum").textContent = Math.max(0,cur)+" / "+max;
+}
+
+/* ══════════════════════════════════════════
+   START BATTLE
+══════════════════════════════════════════ */
+function startBattle(){
+  if(battleActive) return;
+  const h = HEROES[selectedHeroId];
+  if(!h.owned){ showToast("🔒 Hero ini belum dibeli!"); return; }
+
+  // Deep copy state
+  pHero  = {...HEROES[selectedHeroId], skills: HEROES[selectedHeroId].skills.map(s=>({...s}))};
+  pEnemy = {...ENEMIES[selectedEnemyId]};
+  pHero.hp  = pHero.maxHp;
+  pEnemy.hp = pEnemy.maxHp;
+
+  buffActive  = false; buffTurns = 0;
+  stunned     = false;
+  dotActive   = false; dotTurns  = 0;
+  critBoost   = false;
+  playerTurn  = true;
+  battleActive= true;
+
+  // Reset skill CDs
+  pHero.skills.forEach(s=>s.cd=0);
+
+  document.getElementById("btnStart").disabled = true;
+  document.getElementById("btnStart").textContent = "⚔️ BATTLE BERLANGSUNG...";
+
+  resetArenaDisplay();
+  clearLog();
+  addLog(`⚔️ Battle dimulai! ${pHero.name} vs ${pEnemy.name}!`, "system");
+  addLog(`💡 Pilih skill untuk menyerang!`, "system");
+  renderSkills();
+}
+
+/* ══════════════════════════════════════════
+   USE SKILL
+══════════════════════════════════════════ */
+function useSkill(skillIdx){
+  if(!battleActive || !playerTurn) return;
+  const skill = pHero.skills[skillIdx];
+  if(skill.cd > 0){ showToast("⏳ Skill masih cooldown!"); return; }
+
+  playerTurn = false;
+  // Disable all skills during animation
+  document.querySelectorAll(".skill-btn").forEach(b=>b.style.pointerEvents="none");
+
+  executePlayerTurn(skillIdx);
+}
+
+function executePlayerTurn(skillIdx){
+  const skill = pHero.skills[skillIdx];
+  const h     = pHero;
+  const e     = pEnemy;
+
+  let dmg = 0, healAmt = 0, msg = "";
+
+  // Apply buff multiplier
+  const atkBoost = buffActive ? 1.5 : 1.0;
+  const critMult = critBoost ? 2.0 : 1.0;
+  critBoost = false;
+
+  if(skill.type === "heal"){
+    healAmt = Math.floor(20 + h.def * 0.5);
+    h.hp = Math.min(h.maxHp, h.hp + healAmt);
+    setHpBar("player", h.hp, h.maxHp);
+    showDmgFloat("player", "+"+healAmt, "#34d399");
+    msg = `💊 ${h.name} menggunakan ${skill.name} — pulihkan ${healAmt} HP!`;
+    addLog(msg, "skill");
+  } else if(skill.type === "buff"){
+    buffActive = true; buffTurns = 2;
+    msg = `💪 ${h.name} menggunakan ${skill.name} — ATK +50% selama 2 giliran!`;
+    addLog(msg, "skill");
+    showDmgFloat("player", "BUFF!", "#a78bfa");
+  } else if(skill.type === "stun"){
+    dmg = Math.max(1, Math.floor(h.atk * skill.dmgMult * atkBoost * critMult) - Math.floor(e.def * 0.3));
+    stunned = true;
+    e.hp -= dmg;
+    setHpBar("enemy", e.hp, e.maxHp);
+    showDmgFloat("enemy", "-"+dmg, "#f87171");
+    msg = `🛡️ ${h.name} menggunakan ${skill.name} — ${dmg} DMG + musuh terstun!`;
+    addLog(msg, "player");
+  } else if(skill.type === "dot"){
+    dmg = Math.max(1, Math.floor(h.atk * skill.dmgMult * atkBoost * critMult) - Math.floor(e.def * 0.3));
+    dotActive = true; dotTurns = 3;
+    e.hp -= dmg;
+    setHpBar("enemy", e.hp, e.maxHp);
+    showDmgFloat("enemy", "-"+dmg, "#f87171");
+    msg = `☠️ ${h.name} menggunakan ${skill.name} — ${dmg} DMG + racun 3 giliran!`;
+    addLog(msg, "player");
+  } else if(skill.type === "dodge"){
+    dmg = Math.max(1, Math.floor(h.atk * skill.dmgMult * atkBoost * critMult) - Math.floor(e.def * 0.3));
+    e.hp -= dmg;
+    setHpBar("enemy", e.hp, e.maxHp);
+    showDmgFloat("enemy", "-"+dmg, "#f87171");
+    msg = `👁️ ${h.name} menggunakan ${skill.name} — ${dmg} DMG + dodge aktif!`;
+    addLog(msg, "player");
+  } else {
+    // Normal damage
+    dmg = Math.max(1, Math.floor(h.atk * skill.dmgMult * atkBoost * critMult) - Math.floor(e.def * 0.3));
+    e.hp -= dmg;
+    setHpBar("enemy", e.hp, e.maxHp);
+    showDmgFloat("enemy", "-"+dmg, "#f87171");
+    const isCrit = critMult > 1;
+    msg = `${skill.emoji} ${h.name} pakai ${skill.name} — ${isCrit?'💥 CRITICAL! ':''}${dmg} DMG!`;
+    addLog(msg, "player");
+  }
+
+  // Animate player attack
+  const pFighter = document.getElementById("playerFighter");
+  pFighter.classList.add("attacking-right");
+  setTimeout(()=>pFighter.classList.remove("attacking-right"), 400);
+
+  // Animate enemy hit
+  if(dmg > 0){
+    setTimeout(()=>{
+      const eFighter = document.getElementById("enemyFighter");
+      eFighter.classList.add("hit");
+      setTimeout(()=>eFighter.classList.remove("hit"), 350);
+    }, 200);
+  }
+
+  // Set skill cooldown
+  if(skill.maxCd > 0) skill.cd = skill.maxCd;
+
+  // Buff cooldown tick
+  if(buffActive){ buffTurns--; if(buffTurns<=0) buffActive=false; }
+
+  renderSkills();
+
+  // Check enemy death
+  if(e.hp <= 0){
+    setTimeout(()=>{
+      document.getElementById("enemyFighter").classList.add("dead");
+      setTimeout(()=>handleVictory(), 600);
+    }, 400);
+    return;
+  }
+
+  // Enemy turn
+  setTimeout(()=>executeEnemyTurn(), 700);
+}
+
+function executeEnemyTurn(){
+  const e = pEnemy;
+  const h = pHero;
+
+  // DOT damage
+  if(dotActive){
+    const dotDmg = Math.floor(e.atk * 0.2);
+    e.hp -= dotDmg;
+    setHpBar("enemy", e.hp, e.maxHp);
+    showDmgFloat("enemy", "☠️-"+dotDmg, "#a78bfa");
+    addLog(`☠️ Racun melukai ${e.name} sebesar ${dotDmg} HP!`, "skill");
+    dotTurns--;
+    if(dotTurns <= 0) dotActive = false;
+    if(e.hp <= 0){
+      document.getElementById("enemyFighter").classList.add("dead");
+      setTimeout(()=>handleVictory(), 500);
+      return;
+    }
+  }
+
+  // Stunned check
+  if(stunned){
+    stunned = false;
+    addLog(`😵 ${e.name} terstun — melewatkan giliran!`, "system");
+    finishEnemyTurn();
+    return;
+  }
+
+  // Enemy random skill (special attack 30% chance)
+  const specialChance = Math.random();
+  let dmg = 0;
+
+  if(specialChance < 0.25 && e.id >= 3){
+    // Special attack for harder enemies
+    dmg = Math.max(1, Math.floor(e.atk * 1.8) - Math.floor(h.def * 0.5));
+    addLog(`💥 ${e.name} menggunakan SERANGAN KHUSUS — ${dmg} DMG!`, "enemy");
+    showDmgFloat("player", "-"+dmg, "#fb923c");
+  } else {
+    dmg = Math.max(1, Math.floor(e.atk * (0.8 + Math.random()*0.4)) - Math.floor(h.def * 0.4));
+    addLog(`👹 ${e.name} menyerang — ${dmg} DMG!`, "enemy");
+    showDmgFloat("player", "-"+dmg, "#f87171");
+  }
+
+  // Animate enemy attack
+  const eFighter = document.getElementById("enemyFighter");
+  eFighter.classList.add("attacking-left");
+  setTimeout(()=>eFighter.classList.remove("attacking-left"), 400);
+
+  h.hp -= dmg;
+  setHpBar("player", h.hp, h.maxHp);
+
+  setTimeout(()=>{
+    const pFighter = document.getElementById("playerFighter");
+    pFighter.classList.add("hit");
+    setTimeout(()=>pFighter.classList.remove("hit"), 350);
+  }, 200);
+
+  // Check player death
+  if(h.hp <= 0){
+    setTimeout(()=>{
+      document.getElementById("playerFighter").classList.add("dead");
+      setTimeout(()=>handleDefeat(), 600);
+    }, 500);
+    return;
+  }
+
+  finishEnemyTurn();
+}
+
+function finishEnemyTurn(){
+  // Tick all skill cooldowns
+  pHero.skills.forEach(s=>{ if(s.cd>0) s.cd--; });
+  renderSkills();
+  playerTurn = true;
+  document.querySelectorAll(".skill-btn").forEach(b=>b.style.pointerEvents="auto");
+  addLog(`💡 Giliran kamu!`, "system");
+}
+
+/* ══════════════════════════════════════════
+   VICTORY / DEFEAT
+══════════════════════════════════════════ */
+async function handleVictory(){
+  battleActive = false;
+  streak++;
+  totalWins++;
+  dailyBattles++;
+  dailyWins++;
+  seasonPoints += 10;
+
+  const isStreakBonus = streak >= 3;
+  const baseReward = 20;
+  const reward = isStreakBonus ? baseReward * 2 : baseReward;
+
+  addLog(`🏆 MENANG! +${reward} INDC dikirim ke Vault!`, "reward");
+  if(isStreakBonus) addLog(`🔥 STREAK BONUS! Reward x2 aktif!`, "reward");
+
+  updateStreakUI();
+  updateQuestUI();
+  updateStatsUI();
+
+  // Send to blockchain if connected
+  if(userAddr && cBattle){
+    try{
+      showToast("⏳ Mencatat ke blockchain...");
+      const tx = await cBattle.recordBattleWin(userAddr, isStreakBonus);
+      await tx.wait();
+      await loadChainData();
+      updateStatsUI();
+      showToast("✅ Reward "+reward+" INDC terkirim ke Vault!");
+    } catch(e){
+      showToast("⚠️ Off-chain: +"+reward+" INDC (connect wallet untuk on-chain)");
+    }
+  }
+
+  showResult(true, reward, isStreakBonus);
+  resetBattleBtn();
+}
+
+async function handleDefeat(){
+  battleActive = false;
+  streak = 0;
+  dailyBattles++;
+
+  addLog(`💀 KALAH! Streak reset. Coba lagi!`, "enemy");
+  updateStreakUI();
+  updateQuestUI();
+
+  if(userAddr && cBattle){
+    try{
+      const tx = await cBattle.recordBattleLoss(userAddr);
+      await tx.wait();
+    } catch(e){}
+  }
+
+  showResult(false, 0, false);
+  resetBattleBtn();
+}
+
+function resetBattleBtn(){
+  const btn = document.getElementById("btnStart");
+  btn.disabled  = false;
+  btn.textContent = "⚔️ BATTLE LAGI";
+  document.querySelectorAll(".skill-btn").forEach(b=>b.style.pointerEvents="auto");
+}
+
+/* ══════════════════════════════════════════
+   RESULT OVERLAY
+══════════════════════════════════════════ */
+function showResult(win, reward, streakBonus){
+  const overlay = document.getElementById("resultOverlay");
+  if(win){
+    document.getElementById("resultEmoji").textContent = streakBonus ? "🔥" : "🏆";
+    document.getElementById("resultTitle").textContent = streakBonus ? "STREAK BONUS!" : "MENANG!";
+    document.getElementById("resultTitle").style.color = "var(--gold)";
+    document.getElementById("resultSub").textContent   = streakBonus ? "Streak 3x! Reward x2 aktif!" : "Pertarungan selesai";
+    document.getElementById("resultReward").textContent = "+"+reward+" INDC";
+  } else {
+    document.getElementById("resultEmoji").textContent = "💀";
+    document.getElementById("resultTitle").textContent = "KALAH!";
+    document.getElementById("resultTitle").style.color = "var(--red)";
+    document.getElementById("resultSub").textContent   = "Streak reset. Latih heromu!";
+    document.getElementById("resultReward").textContent = "+0 INDC";
+  }
+  overlay.classList.add("show");
+}
+
+function closeResult(){
+  document.getElementById("resultOverlay").classList.remove("show");
+  // Remove dead animation
+  document.getElementById("playerFighter").classList.remove("dead");
+  document.getElementById("enemyFighter").classList.remove("dead");
+  resetArenaDisplay();
+}
+
+/* ══════════════════════════════════════════
+   STREAK UI
+══════════════════════════════════════════ */
+function updateStreakUI(){
+  for(let i=1;i<=3;i++){
+    const el = document.getElementById("sf"+i);
+    el.classList.toggle("lit", streak >= i);
+  }
+  const bonus = streak >= 3 ? "x2 🔥" : "x1";
+  document.getElementById("streakBonus").textContent = bonus;
+  document.getElementById("streakDesc").textContent  = streak >= 3
+    ? "STREAK AKTIF! Reward 2x setiap menang!"
+    : `Menang ${3-streak} lagi untuk streak bonus!`;
+  document.getElementById("statStreak").textContent  = streak;
+}
+
+/* ══════════════════════════════════════════
+   DAILY QUEST UI
+══════════════════════════════════════════ */
+function updateQuestUI(){
+  // Q1: Battle 5x
+  const q1 = Math.min(dailyBattles, 5);
+  document.getElementById("q1prog").textContent = q1+"/5";
+  document.getElementById("q1fill").style.width = (q1/5*100)+"%";
+  if(q1>=5) document.getElementById("q1prog").className="quest-prog quest-done";
+
+  // Q2: Win 3x
+  const q2 = Math.min(dailyWins, 3);
+  document.getElementById("q2prog").textContent = q2+"/3";
+  document.getElementById("q2fill").style.width = (q2/3*100)+"%";
+  if(q2>=3) document.getElementById("q2prog").className="quest-prog quest-done";
+
+  // Q3: Streak 3
+  const q3 = Math.min(streak, 3);
+  document.getElementById("q3prog").textContent = q3+"/3";
+  document.getElementById("q3fill").style.width = (q3/3*100)+"%";
+  if(q3>=3) document.getElementById("q3prog").className="quest-prog quest-done";
+}
+function renderQuestUI(){ updateQuestUI(); }
+
+/* ══════════════════════════════════════════
+   DAMAGE FLOAT
+══════════════════════════════════════════ */
+function showDmgFloat(who, text, color){
+  const arena  = document.querySelector(".arena-floor");
+  const rect   = arena.getBoundingClientRect();
+  const isLeft = who === "player";
+  const el     = document.createElement("div");
+  el.className = "dmg-float";
+  el.textContent = text;
+  el.style.cssText = `
+    color:${color};font-size:${text.length>4?'14px':'18px'};
+    left:${isLeft?'20%':'60%'};top:30%;
+    text-shadow:0 0 10px ${color};`;
+  document.querySelector(".arena-wrap").appendChild(el);
+  setTimeout(()=>el.remove(), 950);
+}
+
+/* ══════════════════════════════════════════
+   BATTLE LOG
+══════════════════════════════════════════ */
+function addLog(msg, type){
+  const log = document.getElementById("battleLog");
+  const div = document.createElement("div");
+  div.className = "log-entry log-"+type;
+  div.textContent = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+function clearLog(){
+  document.getElementById("battleLog").innerHTML = "";
+}
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+function showToast(msg){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const el = document.createElement("div"); el.className = "toast";
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2500);
+}
+
+/* ══════════════════════════════════════════
+   STARS BG
+══════════════════════════════════════════ */
+for(let i=0;i<20;i++){
+  const s = document.createElement("div"); s.className = "star";
+  const sz = Math.random()*1.5+.4;
+  s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*4}s;`;
+  document.body.appendChild(s);
+}
+
+// Init display
+resetArenaDisplay();
+</script>
+</body>
+</html>
