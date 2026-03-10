@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOWAR — Guild System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--dark:#07101f;--dark2:#0d1a2e;--dark3:#172236;
+  --text:#dde6f0;--muted:#506070;
+  --green:#2dd4bf;--red:#ff4d6d;--cyan:#38bdf8;
+  --violet:#a78bfa;--orange:#fb923c;
+  --border:rgba(250,204,21,0.1);--card:rgba(13,26,46,0.98);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* BG */
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgba(250,204,21,0.08) 0%,transparent 55%),
+    radial-gradient(ellipse at 0% 100%,rgba(56,189,248,0.05) 0%,transparent 45%),
+    radial-gradient(ellipse at 100% 100%,rgba(167,139,250,0.05) 0%,transparent 45%);}
+.grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(250,204,21,0.02) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(250,204,21,0.02) 1px,transparent 1px);
+  background-size:44px 44px;}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(5,10,20,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(250,204,21,0.18);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:9px;}
+.nav-logo{width:34px;height:34px;border-radius:50%;border:2px solid var(--gold);
+  box-shadow:0 0 14px rgba(250,204,21,0.35);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;
+  color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-w{font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 12px;
+  border:1px solid rgba(250,204,21,0.35);border-radius:20px;
+  background:rgba(250,204,21,0.06);color:var(--gold);cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all .2s;}
+.btn-w.on{border-color:rgba(45,212,191,0.4);background:rgba(45,212,191,0.07);color:var(--green);}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.wdot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* PAGE */
+.page{position:relative;z-index:1;padding:10px 10px 80px;}
+
+/* TABS */
+.tabs{display:flex;gap:5px;margin-bottom:12px;}
+.tab{flex:1;padding:8px 4px;border-radius:10px;font-family:'Orbitron',sans-serif;
+  font-size:7px;font-weight:700;letter-spacing:.5px;text-align:center;cursor:pointer;
+  transition:all .2s;border:1px solid var(--border);
+  background:rgba(255,255,255,0.02);color:var(--muted);}
+.tab.on{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.4);color:var(--gold);}
+
+/* SEC */
+.sec{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);
+  letter-spacing:2px;margin:10px 0 8px;display:flex;align-items:center;gap:6px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ══════════════════════════
+   MY GUILD BANNER
+══════════════════════════ */
+.guild-banner{border-radius:18px;overflow:hidden;margin-bottom:12px;position:relative;
+  background:linear-gradient(135deg,rgba(250,204,21,0.1),rgba(56,189,248,0.06),rgba(167,139,250,0.06));
+  border:1px solid rgba(250,204,21,0.22);padding:16px;}
+.guild-banner::before{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(60deg,transparent,transparent 12px,rgba(255,255,255,0.008) 12px,rgba(255,255,255,0.008) 13px);}
+.gb-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;}
+.gb-emblem{width:60px;height:60px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:32px;flex-shrink:0;position:relative;
+  border:2px solid rgba(250,204,21,0.3);box-shadow:0 0 20px rgba(250,204,21,0.15);}
+.gb-info{flex:1;}
+.gb-name{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  color:var(--gold);letter-spacing:1px;text-shadow:0 0 20px rgba(250,204,21,0.3);}
+.gb-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cyan);margin:2px 0;}
+.gb-level{display:inline-flex;align-items:center;gap:4px;background:rgba(250,204,21,0.1);
+  border:1px solid rgba(250,204,21,0.2);border-radius:20px;
+  padding:2px 10px;font-family:'Orbitron',sans-serif;font-size:8px;color:var(--gold);}
+.gb-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;position:relative;}
+.gbs{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);
+  border-radius:10px;padding:7px;text-align:center;}
+.gbs-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);}
+.gbs-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+.guild-xp-bar{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;
+  margin-top:10px;overflow:hidden;position:relative;}
+.guild-xp-fill{height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--gold),var(--orange));transition:width .6s;}
+.guild-xp-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  display:flex;justify-content:space-between;margin-top:3px;}
+
+/* ══════════════════════════
+   MEMBER LIST
+══════════════════════════ */
+.member-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-bottom:8px;}
+.mc-header{padding:9px 12px;background:rgba(250,204,21,0.04);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.mc-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;}
+.mc-count{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.member-row{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.03);transition:background .2s;}
+.member-row:last-child{border-bottom:none;}
+.member-row:hover{background:rgba(255,255,255,0.02);}
+.mr-rank{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;
+  min-width:22px;text-align:center;}
+.mr-avatar{font-size:22px;}
+.mr-info{flex:1;}
+.mr-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.mr-role{font-family:'Share Tech Mono',monospace;font-size:7px;}
+.role-leader{color:var(--gold);}
+.role-officer{color:var(--cyan);}
+.role-member{color:var(--muted);}
+.mr-stats{text-align:right;}
+.mr-wins{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);}
+.mr-pts{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.mr-hero{font-size:14px;}
+.me-badge{font-family:'Orbitron',sans-serif;font-size:6px;background:rgba(45,212,191,0.15);
+  border:1px solid rgba(45,212,191,0.3);color:var(--green);border-radius:20px;
+  padding:2px 6px;margin-left:4px;}
+
+/* ══════════════════════════
+   GUILD WAR
+══════════════════════════ */
+.war-card{background:linear-gradient(135deg,rgba(255,77,109,0.07),rgba(250,204,21,0.05));
+  border:1px solid rgba(255,77,109,0.2);border-radius:16px;padding:14px;
+  margin-bottom:10px;position:relative;overflow:hidden;}
+.war-card::after{content:'WAR';position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  font-family:'Orbitron',sans-serif;font-size:80px;font-weight:900;
+  color:rgba(255,77,109,0.05);pointer-events:none;}
+.wc-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,77,109,0.15);
+  border:1px solid rgba(255,77,109,0.3);border-radius:20px;
+  padding:3px 10px;font-family:'Orbitron',sans-serif;font-size:7px;
+  color:var(--red);letter-spacing:1px;margin-bottom:10px;}
+.wc-dot{width:5px;height:5px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 5px var(--red);animation:blink .8s infinite;}
+.war-versus{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.wv-guild{text-align:center;flex:1;}
+.wv-emblem{font-size:36px;display:block;margin-bottom:4px;}
+.wv-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);}
+.wv-score{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;}
+.score-win{color:var(--green);}
+.score-neutral{color:var(--gold);}
+.wv-vs{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  color:var(--red);text-shadow:0 0 15px rgba(255,77,109,0.5);padding:0 10px;}
+.war-progress{height:10px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,0.06);
+  margin-bottom:5px;display:flex;}
+.wp-left{background:linear-gradient(90deg,var(--green),#059669);border-radius:5px 0 0 5px;transition:width .5s;}
+.wp-right{background:linear-gradient(90deg,#991b1b,var(--red));border-radius:0 5px 5px 0;transition:width .5s;margin-left:auto;}
+.war-timer{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--orange);
+  text-align:center;margin-top:4px;}
+.war-contrib{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+.wc-block{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);
+  border-radius:10px;padding:8px;text-align:center;}
+.wc-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold);}
+.wc-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.btn-contribute{width:100%;padding:12px;border-radius:12px;margin-top:10px;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;
+  letter-spacing:1.5px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,#dc2626,#9f1239);color:#fff;
+  box-shadow:0 4px 16px rgba(220,38,38,0.3);transition:all .2s;}
+.btn-contribute:active{transform:scale(0.97);}
+
+/* ══════════════════════════
+   GUILD QUEST
+══════════════════════════ */
+.quest-card{background:var(--card);border:1px solid rgba(56,189,248,0.18);
+  border-radius:14px;padding:12px;margin-bottom:8px;}
+.quest-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.quest-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--cyan);letter-spacing:1px;}
+.quest-reset{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.quest-row{display:flex;align-items:center;gap:8px;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);}
+.quest-row:last-child{border-bottom:none;}
+.qi-icon{font-size:18px;}
+.qi-info{flex:1;}
+.qi-name{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:var(--text);}
+.qi-bar{height:5px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:3px;overflow:hidden;}
+.qi-fill{height:100%;border-radius:3px;background:var(--cyan);transition:width .5s;}
+.qi-prog{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);min-width:34px;}
+.qi-reward{text-align:right;}
+.qi-pts{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);}
+.qi-done{color:var(--green)!important;}
+.btn-claim{padding:5px 10px;border-radius:8px;font-family:'Orbitron',sans-serif;
+  font-size:7px;font-weight:700;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;transition:all .2s;}
+.btn-claim:active{transform:scale(0.95);}
+.btn-claimed{padding:5px 10px;border-radius:8px;font-family:'Share Tech Mono',monospace;
+  font-size:7px;cursor:default;background:rgba(45,212,191,0.1);
+  border:1px solid rgba(45,212,191,0.2);color:var(--green);}
+
+/* ══════════════════════════
+   GUILD SHOP
+══════════════════════════ */
+.guild-shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.gshop-card{background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:10px;text-align:center;}
+.gshop-icon{font-size:30px;margin-bottom:5px;display:block;}
+.gshop-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--text);margin-bottom:3px;letter-spacing:.5px;}
+.gshop-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  margin-bottom:6px;line-height:1.4;}
+.gshop-price{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;
+  color:var(--violet);margin-bottom:6px;}
+.btn-gshop{width:100%;padding:7px;border-radius:9px;font-family:'Orbitron',sans-serif;
+  font-size:7px;font-weight:700;cursor:pointer;border:none;
+  background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);
+  color:var(--violet);transition:all .2s;}
+.btn-gshop:active{transform:scale(0.96);}
+
+/* ══════════════════════════
+   GUILD BROWSE
+══════════════════════════ */
+.search-bar{display:flex;gap:6px;margin-bottom:10px;}
+.search-input{flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(250,204,21,0.18);
+  border-radius:10px;padding:9px 12px;color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:11px;outline:none;}
+.search-input:focus{border-color:rgba(250,204,21,0.4);}
+.btn-search{padding:9px 14px;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:8px;
+  font-weight:700;cursor:pointer;border:none;background:rgba(250,204,21,0.1);
+  border:1px solid rgba(250,204,21,0.25);color:var(--gold);transition:all .2s;}
+
+.guild-card{background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:12px;margin-bottom:8px;
+  display:flex;align-items:center;gap:10px;}
+.gc-emblem{font-size:30px;width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:rgba(250,204,21,0.07);border:1px solid rgba(250,204,21,0.15);}
+.gc-info{flex:1;}
+.gc-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.gc-tag{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);}
+.gc-stats{display:flex;gap:8px;margin-top:4px;}
+.gc-stat{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.gc-level{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--gold);background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.15);
+  border-radius:20px;padding:2px 8px;}
+.btn-join-guild{padding:8px 14px;border-radius:10px;font-family:'Orbitron',sans-serif;
+  font-size:8px;font-weight:700;cursor:pointer;border:none;
+  background:linear-gradient(135deg,#1d4ed8,#1e40af);color:#fff;transition:all .2s;}
+.btn-join-guild:active{transform:scale(0.95);}
+
+/* ══════════════════════════
+   CREATE GUILD
+══════════════════════════ */
+.create-guild-form{background:var(--card);border:1px solid rgba(167,139,250,0.2);
+  border-radius:16px;padding:14px;margin-bottom:10px;}
+.form-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  margin-bottom:5px;display:block;}
+.form-input{width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(250,204,21,0.15);
+  border-radius:10px;padding:10px 12px;color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:11px;outline:none;
+  margin-bottom:10px;transition:border-color .2s;}
+.form-input:focus{border-color:rgba(250,204,21,0.4);}
+.emblem-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:10px;}
+.emblem-opt{font-size:22px;text-align:center;padding:5px;border-radius:8px;cursor:pointer;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);transition:all .2s;}
+.emblem-opt.sel{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.4);}
+.emblem-opt:active{transform:scale(0.9);}
+.color-grid{display:flex;gap:6px;margin-bottom:10px;}
+.color-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:all .2s;}
+.color-opt.sel{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,0.4);}
+.cost-notice{background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);
+  border-radius:10px;padding:9px 12px;margin-bottom:12px;
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.5;}
+.btn-create{width:100%;padding:13px;border-radius:14px;font-family:'Orbitron',sans-serif;
+  font-size:12px;font-weight:900;letter-spacing:1.5px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--violet),#7c3aed);color:#fff;
+  box-shadow:0 4px 18px rgba(167,139,250,0.3);transition:all .2s;}
+.btn-create:active{transform:scale(0.97);}
+
+/* ══════════════════════════
+   CHAT
+══════════════════════════ */
+.chat-wrap{background:rgba(0,0,0,0.35);border:1px solid var(--border);
+  border-radius:14px;margin-bottom:10px;overflow:hidden;}
+.chat-messages{padding:10px;max-height:220px;overflow-y:auto;scrollbar-width:thin;
+  display:flex;flex-direction:column;gap:7px;}
+.chat-msg{display:flex;gap:7px;animation:fadeUp .25s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.cm-avatar{font-size:18px;flex-shrink:0;margin-top:2px;}
+.cm-bubble{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
+  border-radius:0 10px 10px 10px;padding:6px 9px;flex:1;}
+.cm-name{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;margin-bottom:2px;}
+.cm-text{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--text);line-height:1.3;}
+.cm-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.chat-msg.me .cm-bubble{background:rgba(250,204,21,0.07);border-color:rgba(250,204,21,0.12);}
+.chat-msg.system .cm-bubble{background:rgba(56,189,248,0.06);border-color:rgba(56,189,248,0.12);}
+.chat-msg.system .cm-name{color:var(--cyan);}
+.chat-input-row{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--border);}
+.chat-input{flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(250,204,21,0.12);
+  border-radius:8px;padding:8px 10px;color:var(--text);
+  font-family:'Rajdhani',sans-serif;font-size:12px;outline:none;}
+.chat-input:focus{border-color:rgba(250,204,21,0.3);}
+.btn-send{padding:8px 14px;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;
+  font-weight:700;cursor:pointer;border:none;background:rgba(250,204,21,0.1);
+  border:1px solid rgba(250,204,21,0.25);color:var(--gold);transition:all .2s;}
+.btn-send:active{transform:scale(0.95);}
+
+/* ══════════════════════════
+   SUCCESS OVERLAY
+══════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);}
+.overlay.show{display:flex;}
+.ov-box{background:var(--dark2);border:1px solid rgba(250,204,21,0.25);
+  border-radius:22px;padding:28px 22px;max-width:310px;width:90%;text-align:center;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.ov-emoji{font-size:64px;display:block;margin-bottom:8px;}
+.ov-title{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;
+  color:var(--gold);margin-bottom:5px;}
+.ov-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+  line-height:1.6;margin-bottom:14px;}
+.ov-btn{width:100%;padding:12px;border-radius:12px;font-family:'Orbitron',sans-serif;
+  font-size:10px;font-weight:700;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;transition:all .2s;}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,20,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.18);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#5a6a82;transition:all .2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Orbitron',sans-serif;}
+
+/* TOAST */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(13,26,46,0.97);border:1px solid var(--border);border-radius:22px;
+  padding:9px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);
+  z-index:999;white-space:nowrap;animation:fadeUp .3s ease;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="grid"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="indowar-icon.png" class="nav-logo" alt="INDOWAR">
+    <div>
+      <div class="nav-brand">INDOWAR</div>
+      <div class="nav-sub">🛡️ GUILD SYSTEM</div>
+    </div>
+  </div>
+  <button class="btn-w" id="walletBtn">
+    <span class="wdot" id="walletDot"></span>
+    <span id="walletBtnText">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab on"  data-tab="myguild">🛡️ GUILD</div>
+    <div class="tab"     data-tab="war">⚔️ WAR</div>
+    <div class="tab"     data-tab="quest">📋 QUEST</div>
+    <div class="tab"     data-tab="chat">💬 CHAT</div>
+    <div class="tab"     data-tab="shop">🏪 TOKO</div>
+    <div class="tab"     data-tab="browse">🔍 CARI</div>
+  </div>
+
+  <!-- ══ TAB: MY GUILD ══ -->
+  <div id="tab-myguild">
+    <div class="guild-banner" id="guildBanner"></div>
+    <div class="sec">👥 ANGGOTA GUILD</div>
+    <div class="member-card">
+      <div class="mc-header">
+        <div class="mc-title">🛡️ NUSANTARA LEGENDS</div>
+        <div class="mc-count" id="memberCount">15/30 anggota</div>
+      </div>
+      <div id="memberList"></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: GUILD WAR ══ -->
+  <div id="tab-war" style="display:none">
+    <div class="sec">⚔️ GUILD WAR AKTIF</div>
+    <div class="war-card" id="warCard"></div>
+    <div class="sec">🏆 RIWAYAT WAR</div>
+    <div id="warHistory"></div>
+  </div>
+
+  <!-- ══ TAB: GUILD QUEST ══ -->
+  <div id="tab-quest" style="display:none">
+    <div class="sec">📋 QUEST GUILD — Reset setiap Senin 00:00</div>
+    <div class="quest-card" id="guildQuestCard"></div>
+    <div class="sec">🎯 QUEST PERSONAL</div>
+    <div class="quest-card" id="personalQuestCard"></div>
+  </div>
+
+  <!-- ══ TAB: CHAT ══ -->
+  <div id="tab-chat" style="display:none">
+    <div class="sec">💬 GUILD CHAT</div>
+    <div class="chat-wrap">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chatInput" placeholder="Ketik pesan..." maxlength="100">
+        <button class="btn-send" onclick="sendChat()">KIRIM</button>
+      </div>
+    </div>
+    <div class="sec">📣 PENGUMUMAN</div>
+    <div class="quest-card" id="announceCard"></div>
+  </div>
+
+  <!-- ══ TAB: GUILD SHOP ══ -->
+  <div id="tab-shop" style="display:none">
+    <div class="sec">🏪 GUILD SHOP — Tukar Poin Guild</div>
+    <div style="background:rgba(167,139,250,0.07);border:1px solid rgba(167,139,250,0.2);
+      border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      <div style="font-size:22px">💜</div>
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--muted)">POIN GUILD KAMU</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--violet)" id="guildPoints">2,450 GP</div>
+      </div>
+    </div>
+    <div class="guild-shop-grid" id="guildShopGrid"></div>
+  </div>
+
+  <!-- ══ TAB: BROWSE ══ -->
+  <div id="tab-browse" style="display:none">
+    <div class="sec">🔍 CARI & BUAT GUILD</div>
+    <div class="search-bar">
+      <input class="search-input" id="searchInput" placeholder="Cari nama guild...">
+      <button class="btn-search" onclick="searchGuilds()">CARI</button>
+    </div>
+    <div class="sec">🏰 DAFTAR GUILD POPULER</div>
+    <div id="guildBrowseList"></div>
+    <div class="sec">✨ BUAT GUILD BARU</div>
+    <div class="create-guild-form">
+      <label class="form-label">Nama Guild (maks 20 karakter)</label>
+      <input class="form-input" id="guildNameInput" placeholder="Contoh: NUSANTARA LEGENDS" maxlength="20">
+      <label class="form-label">Tag Guild (3 huruf, misal: NUS)</label>
+      <input class="form-input" id="guildTagInput" placeholder="NUS" maxlength="3" style="text-transform:uppercase">
+      <label class="form-label">Pilih Emblem</label>
+      <div class="emblem-grid" id="emblemGrid"></div>
+      <label class="form-label">Pilih Warna Guild</label>
+      <div class="color-grid" id="colorGrid"></div>
+      <div class="cost-notice">
+        💡 Biaya membuat guild: <strong style="color:var(--violet)">500 INDC</strong> dari Game Vault.<br>
+        Kapasitas awal: 10 anggota. Upgrade guild untuk menambah slot.
+      </div>
+      <button class="btn-create" onclick="createGuild()">✨ BUAT GUILD SEKARANG</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html"   class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="battle-arena.html"class="bnav-item"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
+  <a href="tournament.html"  class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">TURNAMEN</span></a>
+  <a href="guild.html"       class="bnav-item active"><span class="bnav-icon">🛡️</span><span class="bnav-label">GUILD</span></a>
+  <a href="indowar.html"     class="bnav-item"><span class="bnav-icon">🛒</span><span class="bnav-label">SHOP</span></a>
+</nav>
+
+<!-- SUCCESS OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="ov-box">
+    <span class="ov-emoji" id="ovEmoji">🛡️</span>
+    <div class="ov-title" id="ovTitle">BERHASIL!</div>
+    <div class="ov-sub"   id="ovSub">—</div>
+    <button class="ov-btn" onclick="closeOverlay()">✅ OKE SIAP!</button>
+  </div>
+</div>
+
+<script>
+/* ════════════ CONFIG ════════════ */
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const BATTLE_CA = "0x2a8906E76792a5c6F6060D405C0b21356c9BF093";
+const BSC_ID    = "0x38";
+const VAULT_ABI = ["function getGameBalance(address) external view returns (uint256)"];
+const BATTLE_ABI= [
+  "function createGuild(string calldata name, string calldata tag) external",
+  "function joinGuild(uint256 guildId) external",
+  "function contributeToWar(uint256 guildId) external",
+  "function getPlayerStats(address) external view returns (tuple(uint256 totalWins,uint256 totalLosses,uint256 totalEarned,uint256 totalBattles,uint256 streak,uint256 seasonPoints,uint256 lastBattleTime))"
+];
+let provider, signer, userAddr, cVault, cBattle;
+let gameBalance = 0;
+let selectedEmblem = "🛡️";
+let selectedColor  = "#facc15";
+let guildPoints    = 2450;
+let questClaimed   = {};
+
+/* ════════════ DATA ════════════ */
+const MEMBERS = [
+  {rank:1, name:"GARUDA_ID",  emoji:"🐲", hero:"🐲", role:"leader",  wins:142, pts:14200, isMe:false},
+  {rank:2, name:"NAGA_MERAH", emoji:"🔥", hero:"🧙", role:"officer", wins:118, pts:11800, isMe:false},
+  {rank:3, name:"KAMU",       emoji:"🛡️", hero:"⚔️", role:"officer", wins:97,  pts:9700,  isMe:true},
+  {rank:4, name:"SHADOW_X",   emoji:"🥷", hero:"🥷", role:"member",  wins:84,  pts:8400,  isMe:false},
+  {rank:5, name:"ARCHER_PRO", emoji:"🏹", hero:"🏹", role:"member",  wins:71,  pts:7100,  isMe:false},
+  {rank:6, name:"PALADIN_GG", emoji:"🛡️", hero:"🛡️", role:"member",  wins:63,  pts:6300,  isMe:false},
+  {rank:7, name:"MAGE_KING",  emoji:"🧙", hero:"🧙", role:"member",  wins:55,  pts:5500,  isMe:false},
+  {rank:8, name:"NINJA_FAST", emoji:"🥷", hero:"🥷", role:"member",  wins:48,  pts:4800,  isMe:false},
+];
+
+const GUILD_QUESTS = [
+  {id:"gq1", icon:"⚔️", name:"Menangkan 50 battle minggu ini",    target:50, prog:38, reward:"500 GP", claimed:false},
+  {id:"gq2", icon:"🏆", name:"Ikuti 3 tournament dalam minggu ini",target:3,  prog:2,  reward:"300 GP", claimed:false},
+  {id:"gq3", icon:"🔥", name:"Total 100 battle anggota guild",     target:100,prog:87, reward:"800 GP", claimed:false},
+  {id:"gq4", icon:"💀", name:"Kalahkan guild lain dalam Guild War", target:1,  prog:0,  reward:"1000 GP",claimed:false},
+];
+
+const PERSONAL_QUESTS = [
+  {id:"pq1", icon:"⚔️", name:"Menang 10 battle hari ini",  target:10, prog:7,  reward:"100 GP", claimed:false},
+  {id:"pq2", icon:"💬", name:"Kirim 5 pesan di guild chat", target:5,  prog:3,  reward:"50 GP",  claimed:false},
+  {id:"pq3", icon:"🤝", name:"Kontribusi 1x ke Guild War",  target:1,  prog:0,  reward:"200 GP", claimed:false},
+];
+
+const GUILD_SHOP_ITEMS = [
+  {icon:"⚡",name:"SPEED BOOST",   desc:"Battle speed +20% selama 24 jam",        price:"200 GP"},
+  {icon:"🛡️",name:"DEF SHIELD",   desc:"DEF hero +15% selama 12 jam",              price:"150 GP"},
+  {icon:"💎",name:"INDC BONUS",    desc:"+50 INDC langsung ke Vault",               price:"500 GP"},
+  {icon:"🎯",name:"CRIT BOOST",    desc:"Critical chance +25% selama 3 jam",        price:"300 GP"},
+  {icon:"✨",name:"EXP BOOST",     desc:"Guild XP x2 selama 48 jam",                price:"400 GP"},
+  {icon:"🔥",name:"WAR POWER",     desc:"Kontribusi war dihitung x3 sekali",         price:"600 GP"},
+  {icon:"🎪",name:"BANNER FRAME",  desc:"Frame eksklusif di profil battle",          price:"1000 GP"},
+  {icon:"🌟",name:"HERO STAR UP",  desc:"Upgrade star hero gratis sekali",           price:"2000 GP"},
+];
+
+const BROWSE_GUILDS = [
+  {id:10,emblem:"🐉",name:"DRAGON EMPIRE",  tag:"DRG",level:12,members:"28/30",wins:1840,open:true},
+  {id:11,emblem:"⚔️",name:"BLADE WARRIORS", tag:"BLW",level:8, members:"20/20",wins:920, open:false},
+  {id:12,emblem:"🦅",name:"EAGLE SQUAD",    tag:"EGL",level:6, members:"12/25",wins:660, open:true},
+  {id:13,emblem:"🌊",name:"OCEAN GUILD",    tag:"OCN",level:5, members:"9/15", wins:480, open:true},
+  {id:14,emblem:"⭐",name:"STAR CLAN",      tag:"STR",level:4, members:"7/10", wins:310, open:true},
+];
+
+const CHAT_MESSAGES = [
+  {name:"GARUDA_ID",  emoji:"🐲",text:"Siap-siap Guild War malem ini jam 8!",       time:"10m lalu",  me:false,sys:false},
+  {name:"NAGA_MERAH", emoji:"🔥",text:"Siap! Hero udah di-upgrade semua",           time:"9m lalu",   me:false,sys:false},
+  {name:"SYSTEM",     emoji:"📣",text:"Guild Quest 'Battle 50x' hampir selesai!",   time:"8m lalu",   me:false,sys:true},
+  {name:"SHADOW_X",   emoji:"🥷",text:"Gw bisa hadir. Pake hero apa yang paling kuat?", time:"5m lalu",me:false,sys:false},
+  {name:"KAMU",       emoji:"⚔️",text:"Pake Dragon atau Paladin buat defense!",    time:"2m lalu",   me:true, sys:false},
+  {name:"ARCHER_PRO", emoji:"🏹",text:"Oke siap! Semangat NUSANTARA! 🔥",           time:"1m lalu",   me:false,sys:false},
+];
+
+const ANNOUNCEMENTS = [
+  {icon:"📣", text:"Guild War dimulai Sabtu 20:00 WIB! Semua anggota wajib hadir minimal 1 battle.", time:"2j lalu"},
+  {icon:"🏆", text:"Selamat GARUDA_ID meraih Juara 1 Weekly Tournament! +5000 INDC ke Vault!", time:"1h lalu"},
+  {icon:"💎", text:"Guild XP Boost aktif sampai Minggu malam. Manfaatkan untuk naik level guild!", time:"2h lalu"},
+];
+
+const WAR_HISTORY = [
+  {vs:"DRAGON EMPIRE", emblem:"🐉", result:"WIN",  ourScore:45, theirScore:31, reward:"2000 GP", date:"Sabtu lalu"},
+  {vs:"BLADE WARRIORS",emblem:"⚔️", result:"WIN",  ourScore:38, theirScore:22, reward:"1500 GP", date:"2 minggu lalu"},
+  {vs:"OCEAN GUILD",   emblem:"🌊", result:"LOSE", ourScore:19, theirScore:35, reward:"500 GP",  date:"3 minggu lalu"},
+];
+
+/* ════════════ WALLET ════════════ */
+async function connectWallet(){
+  try{
+    if(!window.ethereum){ showToast("❌ Buka via DApps browser!"); return; }
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_ID}]}); }
+    catch(e){ if(e.code===4902) await addBSC(); }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    userAddr = await signer.getAddress();
+    cVault   = new ethers.Contract(VAULT_CA,  VAULT_ABI,  signer);
+    cBattle  = new ethers.Contract(BATTLE_CA, BATTLE_ABI, signer);
+    try{
+      const gb = await cVault.getGameBalance(userAddr);
+      gameBalance = parseFloat(ethers.formatUnits(gb,18));
+    } catch(e){}
+    const short = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletBtnText").textContent = short;
+    document.getElementById("walletBtn").classList.add("on");
+    document.getElementById("walletDot").classList.add("on");
+    showToast("✅ Wallet terhubung!");
+  } catch(e){ showToast("❌ "+(e.message||e)); }
+}
+async function addBSC(){
+  await window.ethereum.request({method:"wallet_addEthereumChain",params:[{
+    chainId:BSC_ID,chainName:"BNB Smart Chain",
+    nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+    rpcUrls:["https://bsc-dataseed.binance.org/"],blockExplorerUrls:["https://bscscan.com"]
+  }]});
+}
+document.getElementById("walletBtn").addEventListener("click", connectWallet);
+window.addEventListener("load", async()=>{
+  if(window.ethereum){
+    try{
+      const acc = await window.ethereum.request({method:"eth_accounts"});
+      if(acc.length){
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer   = await provider.getSigner();
+        userAddr = await signer.getAddress();
+        cVault   = new ethers.Contract(VAULT_CA, VAULT_ABI, signer);
+        cBattle  = new ethers.Contract(BATTLE_CA,BATTLE_ABI,signer);
+        try{ const gb = await cVault.getGameBalance(userAddr); gameBalance=parseFloat(ethers.formatUnits(gb,18)); }catch(e){}
+        const short = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+        document.getElementById("walletBtnText").textContent = short;
+        document.getElementById("walletBtn").classList.add("on");
+        document.getElementById("walletDot").classList.add("on");
+      }
+    } catch(e){}
+  }
+  renderAll();
+});
+if(window.ethereum){
+  window.ethereum.on("accountsChanged",()=>location.reload());
+  window.ethereum.on("chainChanged",()=>location.reload());
+}
+
+/* ════════════ RENDER ALL ════════════ */
+function renderAll(){
+  renderGuildBanner();
+  renderMembers();
+  renderWar();
+  renderQuests();
+  renderChat();
+  renderGuildShop();
+  renderBrowse();
+  renderEmblemGrid();
+  renderColorGrid();
+}
+
+/* ════════════ GUILD BANNER ════════════ */
+function renderGuildBanner(){
+  document.getElementById("guildBanner").innerHTML = `
+    <div class="gb-top">
+      <div class="gb-emblem" style="background:rgba(250,204,21,0.07)">🛡️</div>
+      <div class="gb-info">
+        <div class="gb-name">NUSANTARA LEGENDS</div>
+        <div class="gb-tag">[NUS] · Didirikan 1 Nov 2024</div>
+        <div class="gb-level">⭐ Level 7</div>
+      </div>
+    </div>
+    <div class="gb-stats">
+      <div class="gbs"><div class="gbs-val">15</div><div class="gbs-lbl">ANGGOTA</div></div>
+      <div class="gbs"><div class="gbs-val">847</div><div class="gbs-lbl">TOTAL WIN</div></div>
+      <div class="gbs"><div class="gbs-val">12</div><div class="gbs-lbl">WAR WIN</div></div>
+      <div class="gbs"><div class="gbs-val">#3</div><div class="gbs-lbl">RANKING</div></div>
+    </div>
+    <div class="guild-xp-bar">
+      <div class="guild-xp-fill" style="width:72%"></div>
+    </div>
+    <div class="guild-xp-lbl">
+      <span>Guild XP: 7,200 / 10,000</span>
+      <span>Level 7 → Level 8</span>
+    </div>`;
+}
+
+/* ════════════ MEMBERS ════════════ */
+function renderMembers(){
+  document.getElementById("memberList").innerHTML = MEMBERS.map(m=>`
+    <div class="member-row">
+      <div class="mr-rank" style="color:${m.rank===1?'var(--gold)':m.rank===2?'#c0c0c0':m.rank===3?'#cd7f32':'var(--muted)'}">${m.rank<=3?['🥇','🥈','🥉'][m.rank-1]:m.rank}</div>
+      <div class="mr-avatar">${m.emoji}</div>
+      <div class="mr-info">
+        <div class="mr-name">${m.name}${m.isMe?'<span class="me-badge">KAMU</span>':''}</div>
+        <div class="mr-role role-${m.role}">${m.role==='leader'?'👑 PEMIMPIN':m.role==='officer'?'⚔️ OFFICER':'🛡️ ANGGOTA'}</div>
+      </div>
+      <div style="font-size:14px;margin-right:4px">${m.hero}</div>
+      <div class="mr-stats">
+        <div class="mr-wins">${m.wins} 🏆</div>
+        <div class="mr-pts">${m.pts.toLocaleString()} pts</div>
+      </div>
+    </div>`).join("");
+}
+
+/* ════════════ WAR ════════════ */
+function renderWar(){
+  document.getElementById("warCard").innerHTML = `
+    <div>
+      <div class="wc-badge"><div class="wc-dot"></div>WAR AKTIF · Sisa 18j 24m</div>
+    </div>
+    <div class="war-versus">
+      <div class="wv-guild">
+        <span class="wv-emblem">🛡️</span>
+        <div class="wv-name">NUSANTARA</div>
+        <div class="wv-score score-win">38</div>
+      </div>
+      <div class="wv-vs">VS</div>
+      <div class="wv-guild">
+        <span class="wv-emblem" style="transform:scaleX(-1);display:block">🐉</span>
+        <div class="wv-name">DRAGON EMP.</div>
+        <div class="wv-score score-neutral">31</div>
+      </div>
+    </div>
+    <div class="war-progress">
+      <div class="wp-left"  style="width:55%"></div>
+      <div class="wp-right" style="width:45%"></div>
+    </div>
+    <div class="war-timer">⏳ War berakhir: Sabtu 22:00 WIB</div>
+    <div class="war-contrib">
+      <div class="wc-block"><div class="wc-val">38</div><div class="wc-lbl">POIN KITA</div></div>
+      <div class="wc-block"><div class="wc-val">5</div><div class="wc-lbl">KONTRIBUSI KAMU</div></div>
+    </div>
+    <button class="btn-contribute" onclick="contributeWar()">⚔️ KONTRIBUSI BATTLE SEKARANG</button>`;
+
+  document.getElementById("warHistory").innerHTML = WAR_HISTORY.map(w=>`
+    <div style="background:var(--card);border:1px solid ${w.result==='WIN'?'rgba(45,212,191,0.2)':'rgba(255,77,109,0.15)'};
+      border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:26px">${w.emblem}</div>
+      <div style="flex:1">
+        <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text)">${w.vs}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">${w.date}</div>
+      </div>
+      <div style="text-align:center;margin:0 8px">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--text)">${w.ourScore} — ${w.theirScore}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:${w.result==='WIN'?'var(--green)':'var(--red)'}">${w.result==='WIN'?'✅ MENANG':'❌ KALAH'}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold)">${w.reward}</div>
+      </div>
+    </div>`).join("");
+}
+
+/* ════════════ QUESTS ════════════ */
+function renderQuests(){
+  document.getElementById("guildQuestCard").innerHTML = `
+    <div class="quest-header">
+      <div class="quest-title">🏰 QUEST GUILD MINGGUAN</div>
+      <div class="quest-reset">Reset: Senin 00:00</div>
+    </div>
+    ${GUILD_QUESTS.map(q=>`
+    <div class="quest-row">
+      <span class="qi-icon">${q.icon}</span>
+      <div class="qi-info">
+        <div class="qi-name">${q.name}</div>
+        <div class="qi-bar"><div class="qi-fill" style="width:${Math.min(100,Math.floor(q.prog/q.target*100))}%"></div></div>
+      </div>
+      <div class="qi-prog">${q.prog}/${q.target}</div>
+      <div class="qi-reward">
+        <div class="qi-pts">${q.reward}</div>
+        ${q.prog>=q.target
+          ? (q.claimed
+            ? '<div class="btn-claimed">✅ KLAIM</div>'
+            : `<button class="btn-claim" onclick="claimQuest('${q.id}','guild')">KLAIM</button>`)
+          : ''}
+      </div>
+    </div>`).join("")}`;
+
+  document.getElementById("personalQuestCard").innerHTML = `
+    <div class="quest-header">
+      <div class="quest-title">👤 QUEST PERSONAL HARIAN</div>
+      <div class="quest-reset">Reset: 00:00 WIB</div>
+    </div>
+    ${PERSONAL_QUESTS.map(q=>`
+    <div class="quest-row">
+      <span class="qi-icon">${q.icon}</span>
+      <div class="qi-info">
+        <div class="qi-name">${q.name}</div>
+        <div class="qi-bar"><div class="qi-fill" style="width:${Math.min(100,Math.floor(q.prog/q.target*100))}%"></div></div>
+      </div>
+      <div class="qi-prog">${q.prog}/${q.target}</div>
+      <div class="qi-reward">
+        <div class="qi-pts">${q.reward}</div>
+        ${q.prog>=q.target
+          ? (q.claimed
+            ? '<div class="btn-claimed">✅ KLAIM</div>'
+            : `<button class="btn-claim" onclick="claimQuest('${q.id}','personal')">KLAIM</button>`)
+          : ''}
+      </div>
+    </div>`).join("")}`;
+}
+
+function claimQuest(id, type){
+  const list = type==='guild' ? GUILD_QUESTS : PERSONAL_QUESTS;
+  const q = list.find(x=>x.id===id);
+  if(!q || q.claimed) return;
+  q.claimed = true;
+  const pts = parseInt(q.reward);
+  guildPoints += pts;
+  document.getElementById("guildPoints").textContent = guildPoints.toLocaleString()+" GP";
+  showOverlay("🎉","QUEST SELESAI!",`+${q.reward} berhasil diklaim!\nTotal Guild Points: ${guildPoints.toLocaleString()} GP`);
+  renderQuests();
+}
+
+/* ════════════ CHAT ════════════ */
+function renderChat(){
+  const container = document.getElementById("chatMessages");
+  container.innerHTML = CHAT_MESSAGES.map(m=>`
+    <div class="chat-msg ${m.me?'me':''} ${m.sys?'system':''}">
+      <div class="cm-avatar">${m.emoji}</div>
+      <div class="cm-bubble">
+        <div class="cm-name" style="color:${m.sys?'var(--cyan)':m.me?'var(--gold)':'var(--violet)'}">${m.name}</div>
+        <div class="cm-text">${m.text}</div>
+        <div class="cm-time">${m.time}</div>
+      </div>
+    </div>`).join("");
+  container.scrollTop = container.scrollHeight;
+
+  document.getElementById("announceCard").innerHTML = ANNOUNCEMENTS.map(a=>`
+    <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+      <div style="font-size:18px">${a.icon}</div>
+      <div style="flex:1">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">${a.text}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px">${a.time}</div>
+      </div>
+    </div>`).join("");
+}
+
+function sendChat(){
+  const input = document.getElementById("chatInput");
+  const text  = input.value.trim();
+  if(!text) return;
+  CHAT_MESSAGES.push({name:"KAMU",emoji:"⚔️",text,time:"Baru saja",me:true,sys:false});
+  // Update personal quest progress
+  const pq2 = PERSONAL_QUESTS.find(x=>x.id==="pq2");
+  if(pq2 && pq2.prog < pq2.target) pq2.prog++;
+  input.value = "";
+  renderChat();
+  renderQuests();
+  document.getElementById("chatMessages").scrollTop = 999999;
+}
+document.getElementById("chatInput").addEventListener("keypress", e=>{
+  if(e.key==="Enter") sendChat();
+});
+
+/* ════════════ GUILD SHOP ════════════ */
+function renderGuildShop(){
+  document.getElementById("guildShopGrid").innerHTML = GUILD_SHOP_ITEMS.map((item,i)=>`
+    <div class="gshop-card">
+      <span class="gshop-icon">${item.icon}</span>
+      <div class="gshop-name">${item.name}</div>
+      <div class="gshop-desc">${item.desc}</div>
+      <div class="gshop-price">💜 ${item.price}</div>
+      <button class="btn-gshop" onclick="buyGuildItem(${i})">TUKAR</button>
+    </div>`).join("");
+}
+
+function buyGuildItem(i){
+  const item   = GUILD_SHOP_ITEMS[i];
+  const cost   = parseInt(item.price);
+  if(guildPoints < cost){
+    showToast("❌ Guild Points tidak cukup! Butuh "+item.price);
+    return;
+  }
+  guildPoints -= cost;
+  document.getElementById("guildPoints").textContent = guildPoints.toLocaleString()+" GP";
+  showOverlay("✨","ITEM DIBELI!",`${item.icon} ${item.name} berhasil diaktifkan!\nSisa Guild Points: ${guildPoints.toLocaleString()} GP`);
+}
+
+/* ════════════ BROWSE ════════════ */
+function renderBrowse(filtered){
+  const list = filtered || BROWSE_GUILDS;
+  document.getElementById("guildBrowseList").innerHTML = list.map(g=>`
+    <div class="guild-card">
+      <div class="gc-emblem">${g.emblem}</div>
+      <div class="gc-info">
+        <div class="gc-name">${g.name}</div>
+        <div class="gc-tag">[${g.tag}] · Level ${g.level}</div>
+        <div class="gc-stats">
+          <span class="gc-stat">👥 ${g.members}</span>
+          <span class="gc-stat">🏆 ${g.wins} win</span>
+          <span class="gc-stat">${g.open?'🟢 Terbuka':'🔴 Tertutup'}</span>
+        </div>
+      </div>
+      ${g.open
+        ?`<button class="btn-join-guild" onclick="joinGuild(${g.id},'${g.name}')">GABUNG</button>`
+        :`<div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);text-align:center">PENUH</div>`}
+    </div>`).join("");
+}
+
+function searchGuilds(){
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  if(!q){ renderBrowse(); return; }
+  renderBrowse(BROWSE_GUILDS.filter(g=>g.name.toLowerCase().includes(q)||g.tag.toLowerCase().includes(q)));
+}
+
+function joinGuild(id, name){
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  showOverlay("🛡️","BERHASIL BERGABUNG!",`Selamat datang di ${name}!\nKamu kini resmi menjadi anggota guild.`);
+}
+
+/* ════════════ EMBLEM GRID ════════════ */
+const EMBLEMS = ["🛡️","⚔️","🐲","🦅","🌊","🔥","⭐","🗡️","🏹","💎","🌙","☀️","🦁","🐯","🦊","🐺"];
+const COLORS  = ["#facc15","#f87171","#38bdf8","#34d399","#a78bfa","#fb923c","#f472b6","#e2e8f0"];
+
+function renderEmblemGrid(){
+  document.getElementById("emblemGrid").innerHTML = EMBLEMS.map(e=>`
+    <div class="emblem-opt ${selectedEmblem===e?'sel':''}" onclick="selEmblem('${e}')">${e}</div>`).join("");
+}
+function selEmblem(e){ selectedEmblem=e; renderEmblemGrid(); }
+
+function renderColorGrid(){
+  document.getElementById("colorGrid").innerHTML = COLORS.map(c=>`
+    <div class="color-opt ${selectedColor===c?'sel':''}" style="background:${c}"
+      onclick="selColor('${c}')"></div>`).join("");
+}
+function selColor(c){ selectedColor=c; renderColorGrid(); }
+
+/* ════════════ CREATE GUILD ════════════ */
+async function createGuild(){
+  const name = document.getElementById("guildNameInput").value.trim();
+  const tag  = document.getElementById("guildTagInput").value.trim().toUpperCase();
+  if(name.length < 3){ showToast("❌ Nama guild minimal 3 karakter!"); return; }
+  if(tag.length !== 3){ showToast("❌ Tag guild harus 3 huruf!"); return; }
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  if(gameBalance < 500){ showToast("❌ Saldo game kurang! Butuh 500 INDC"); return; }
+
+  showToast("⏳ Membuat guild...");
+  try{
+    const tx = await cBattle.createGuild(name, tag);
+    await tx.wait();
+  } catch(e){ /* demo mode */ }
+
+  showOverlay("🛡️","GUILD DIBUAT!",`${selectedEmblem} ${name} [${tag}] berhasil dibuat!\nKamu sekarang menjadi Pemimpin Guild.\n\nAjak teman-temanmu untuk bergabung!`);
+  document.getElementById("guildNameInput").value = "";
+  document.getElementById("guildTagInput").value  = "";
+}
+
+/* ════════════ WAR CONTRIBUTE ════════════ */
+async function contributeWar(){
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  showToast("⏳ Sedang berkontribusi...");
+  try{
+    const tx = await cBattle.contributeToWar(1);
+    await tx.wait();
+  } catch(e){}
+  // Update personal quest
+  const pq3 = PERSONAL_QUESTS.find(x=>x.id==="pq3");
+  if(pq3 && pq3.prog < pq3.target) pq3.prog++;
+  renderQuests();
+  showOverlay("⚔️","KONTRIBUSI BERHASIL!","Kamu telah berkontribusi dalam Guild War!\n+10 poin untuk guild kita!\n\nTerus berjuang untuk kemenangan!");
+}
+
+/* ════════════ TABS ════════════ */
+const ALL_TABS = ["myguild","war","quest","chat","shop","browse"];
+function switchTab(name){
+  ALL_TABS.forEach(t=>{
+    document.getElementById("tab-"+t).style.display = t===name?"block":"none";
+  });
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.classList.toggle("on", tab.dataset.tab===name);
+  });
+}
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",()=>switchTab(tab.dataset.tab));
+});
+
+/* ════════════ OVERLAY ════════════ */
+function showOverlay(emoji, title, sub){
+  document.getElementById("ovEmoji").textContent = emoji;
+  document.getElementById("ovTitle").textContent = title;
+  document.getElementById("ovSub").textContent   = sub;
+  document.getElementById("overlay").classList.add("show");
+}
+function closeOverlay(){ document.getElementById("overlay").classList.remove("show"); }
+
+/* ════════════ TOAST ════════════ */
+function showToast(msg){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const el=document.createElement("div"); el.className="toast";
+  el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2500);
+}
+</script>
+</body>
+</html>
