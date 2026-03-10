@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOWAR — Deposit & Withdraw</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--dark:#05101c;--dark2:#0b1a2c;--dark3:#132338;
+  --text:#dde8f5;--muted:#4d6070;
+  --green:#2dd4bf;--red:#ff4d6d;--cyan:#38bdf8;
+  --violet:#b58cfa;--orange:#fb923c;
+  --border:rgba(250,204,21,0.1);--card:rgba(11,26,44,0.98);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 30% 10%,rgba(250,204,21,0.09) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 80%,rgba(45,212,191,0.06) 0%,transparent 45%),
+    radial-gradient(ellipse at 10% 80%,rgba(56,189,248,0.05) 0%,transparent 40%);}
+.dots{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(rgba(250,204,21,0.05) 1px,transparent 1px);
+  background-size:32px 32px;}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(3,8,18,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(250,204,21,0.18);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:9px;}
+.nav-logo{width:34px;height:34px;border-radius:50%;border:2px solid var(--gold);
+  box-shadow:0 0 14px rgba(250,204,21,0.35);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-w{font-family:'Share Tech Mono',monospace;font-size:10px;padding:7px 12px;
+  border:1px solid rgba(250,204,21,0.35);border-radius:20px;background:rgba(250,204,21,0.06);
+  color:var(--gold);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .2s;}
+.btn-w.on{border-color:rgba(45,212,191,0.4);background:rgba(45,212,191,0.07);color:var(--green);}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.wdot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.page{position:relative;z-index:1;padding:10px 10px 80px;}
+
+/* ══ BALANCE CARD ══ */
+.balance-card{border-radius:20px;overflow:hidden;margin-bottom:12px;position:relative;
+  background:linear-gradient(135deg,rgba(250,204,21,0.12),rgba(251,146,60,0.07),rgba(45,212,191,0.05));
+  border:1px solid rgba(250,204,21,0.28);}
+.bc-shine{position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.05),transparent);
+  animation:shine 4s ease infinite;}
+@keyframes shine{0%{left:-60%}100%{left:110%}}
+.bc-body{padding:18px 16px;position:relative;}
+.bc-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+  letter-spacing:1px;margin-bottom:4px;}
+.bc-amount{font-family:'Orbitron',sans-serif;font-size:36px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 30px rgba(250,204,21,0.3);line-height:1;margin-bottom:2px;}
+.bc-unit{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--orange);}
+.bc-row{display:flex;gap:10px;margin-top:14px;}
+.bc-stat{flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;padding:8px 10px;}
+.bc-stat-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--text);}
+.bc-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+.bc-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  margin-top:10px;background:rgba(0,0,0,0.3);border-radius:8px;padding:6px 10px;
+  border:1px solid rgba(255,255,255,0.06);word-break:break-all;}
+.bc-refresh{position:absolute;top:16px;right:16px;font-size:18px;cursor:pointer;
+  transition:transform .3s;}
+.bc-refresh:hover{transform:rotate(180deg);}
+
+/* ══ BURN INFO ══ */
+.burn-info{background:rgba(255,77,109,0.07);border:1px solid rgba(255,77,109,0.2);
+  border-radius:12px;padding:9px 12px;margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;}
+.bi-icon{font-size:18px;}
+.bi-text{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.5;}
+.bi-text strong{color:var(--red);}
+
+/* ══ TABS ══ */
+.tabs{display:flex;gap:6px;margin-bottom:14px;}
+.tab{flex:1;padding:11px 4px;border-radius:12px;font-family:'Orbitron',sans-serif;
+  font-size:9px;font-weight:700;letter-spacing:.5px;text-align:center;cursor:pointer;
+  transition:all .2s;border:1px solid var(--border);background:rgba(255,255,255,0.02);color:var(--muted);}
+.tab.on.dep{background:rgba(45,212,191,0.1);border-color:rgba(45,212,191,0.4);color:var(--green);}
+.tab.on.wit{background:rgba(255,77,109,0.1);border-color:rgba(255,77,109,0.35);color:var(--red);}
+.tab.on.hist{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.4);color:var(--gold);}
+
+/* SEC */
+.sec{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);
+  letter-spacing:2px;margin:12px 0 8px;display:flex;align-items:center;gap:6px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ══ FORM CARD ══ */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  padding:16px;margin-bottom:10px;}
+.form-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:.5px;margin-bottom:6px;display:block;}
+
+/* AMOUNT INPUT */
+.amount-wrap{position:relative;margin-bottom:10px;}
+.amount-input{width:100%;background:rgba(0,0,0,0.45);border:1px solid rgba(250,204,21,0.2);
+  border-radius:12px;padding:14px 70px 14px 16px;color:var(--text);
+  font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;
+  outline:none;transition:border-color .2s;}
+.amount-input:focus{border-color:rgba(250,204,21,0.5);box-shadow:0 0 15px rgba(250,204,21,0.08);}
+.amount-unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--orange);
+  pointer-events:none;}
+.amount-usd{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  margin-top:-6px;margin-bottom:8px;padding-left:4px;}
+
+/* PRESET BUTTONS */
+.presets{display:flex;gap:6px;margin-bottom:12px;}
+.preset{flex:1;padding:8px 4px;border-radius:10px;font-family:'Orbitron',sans-serif;
+  font-size:9px;font-weight:700;text-align:center;cursor:pointer;transition:all .2s;
+  border:1px solid rgba(250,204,21,0.15);background:rgba(250,204,21,0.04);
+  color:var(--muted);}
+.preset:hover,.preset.sel{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.35);color:var(--gold);}
+.preset:active{transform:scale(0.95);}
+
+/* INFO BOX */
+.info-box{background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.15);
+  border-radius:12px;padding:10px 12px;margin-bottom:12px;}
+.ib-row{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.ib-row:last-child{border-bottom:none;}
+.ib-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.ib-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.ib-val.green{color:var(--green);}
+.ib-val.red{color:var(--red);}
+.ib-val.gold{color:var(--gold);}
+
+/* MAIN BUTTON */
+.btn-main{width:100%;padding:15px;border-radius:14px;font-family:'Orbitron',sans-serif;
+  font-size:13px;font-weight:900;letter-spacing:2px;cursor:pointer;border:none;
+  transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-main:active{transform:scale(0.97);}
+.btn-main.dep{background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;
+  box-shadow:0 4px 20px rgba(13,148,136,0.35);}
+.btn-main.wit{background:linear-gradient(135deg,#dc2626,#9f1239);color:#fff;
+  box-shadow:0 4px 20px rgba(220,38,38,0.3);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+
+/* APPROVE STEP */
+.step-wrap{margin-bottom:12px;}
+.step-row{display:flex;align-items:center;gap:10px;padding:8px 0;position:relative;}
+.step-row:not(:last-child)::after{content:'';position:absolute;left:15px;top:34px;
+  width:2px;height:16px;background:rgba(255,255,255,0.08);}
+.step-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;
+  font-family:'Orbitron',sans-serif;border:2px solid rgba(255,255,255,0.1);}
+.step-dot.done{background:rgba(45,212,191,0.2);border-color:rgba(45,212,191,0.4);color:var(--green);}
+.step-dot.active{background:rgba(250,204,21,0.15);border-color:rgba(250,204,21,0.5);
+  color:var(--gold);animation:stepPulse 1.5s ease infinite;}
+@keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,0.3)}50%{box-shadow:0 0 0 6px rgba(250,204,21,0)}}
+.step-dot.wait{background:rgba(255,255,255,0.04);color:var(--muted);}
+.step-info{flex:1;}
+.step-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.step-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:1px;}
+
+/* MAX BUTTON */
+.max-btn{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);
+  background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.2);
+  border-radius:6px;padding:3px 8px;cursor:pointer;margin-left:6px;transition:all .2s;}
+.max-btn:hover{background:rgba(56,189,248,0.2);}
+
+/* HISTORY */
+.hist-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.hist-row{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.03);transition:background .2s;}
+.hist-row:last-child{border-bottom:none;}
+.hist-row:hover{background:rgba(255,255,255,0.02);}
+.hr-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0;}
+.hr-icon.dep{background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2);}
+.hr-icon.wit{background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.2);}
+.hr-info{flex:1;}
+.hr-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.hr-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.hr-hash{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--cyan);
+  margin-top:1px;cursor:pointer;}
+.hr-amount{text-align:right;}
+.hr-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
+.hr-val.dep{color:var(--green);}
+.hr-val.wit{color:var(--red);}
+.hr-status{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+
+/* PROCESSING OVERLAY */
+.proc-overlay{position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,0.88);backdrop-filter:blur(12px);
+  display:none;align-items:center;justify-content:center;}
+.proc-overlay.show{display:flex;}
+.proc-box{background:var(--dark2);border:1px solid rgba(250,204,21,0.2);
+  border-radius:22px;padding:28px 22px;max-width:310px;width:90%;text-align:center;}
+.proc-spinner{width:56px;height:56px;border-radius:50%;
+  border:4px solid rgba(255,255,255,0.08);border-top-color:var(--gold);
+  animation:spin 0.8s linear infinite;margin:0 auto 14px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+  color:var(--gold);margin-bottom:5px;}
+.proc-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.6;}
+
+/* SUCCESS OVERLAY */
+.succ-overlay{position:fixed;inset:0;z-index:201;
+  background:rgba(0,0,0,0.9);backdrop-filter:blur(12px);
+  display:none;align-items:center;justify-content:center;}
+.succ-overlay.show{display:flex;}
+.succ-box{background:var(--dark2);border:1px solid rgba(45,212,191,0.3);
+  border-radius:22px;padding:28px 22px;max-width:310px;width:90%;text-align:center;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.succ-emoji{font-size:56px;display:block;margin-bottom:8px;}
+.succ-title{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;
+  color:var(--green);margin-bottom:5px;}
+.succ-amount{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;
+  color:var(--gold);margin:8px 0;}
+.succ-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  line-height:1.6;margin-bottom:14px;}
+.succ-hash{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);
+  background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.15);
+  border-radius:8px;padding:6px 10px;margin-bottom:14px;cursor:pointer;word-break:break-all;}
+.succ-btn{width:100%;padding:13px;border-radius:14px;font-family:'Orbitron',sans-serif;
+  font-size:11px;font-weight:900;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--orange));color:#000;transition:all .2s;}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(3,8,18,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.18);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#4d6070;transition:all .2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Orbitron',sans-serif;}
+
+/* TOAST */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(11,26,44,0.97);border:1px solid var(--border);border-radius:22px;
+  padding:9px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);
+  z-index:999;white-space:nowrap;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="dots"></div>
+
+<!-- PROCESSING OVERLAY -->
+<div class="proc-overlay" id="procOverlay">
+  <div class="proc-box">
+    <div class="proc-spinner"></div>
+    <div class="proc-title" id="procTitle">MEMPROSES...</div>
+    <div class="proc-sub" id="procSub">Mohon tunggu dan jangan tutup halaman ini</div>
+  </div>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div class="succ-overlay" id="succOverlay">
+  <div class="succ-box">
+    <span class="succ-emoji" id="succEmoji">✅</span>
+    <div class="succ-title" id="succTitle">BERHASIL!</div>
+    <div class="succ-amount" id="succAmount">+0 INDC</div>
+    <div class="succ-sub" id="succSub">—</div>
+    <div class="succ-hash" id="succHash" onclick="openBsc()">🔗 Lihat di BSCScan</div>
+    <button class="succ-btn" onclick="closeSucc()">✅ OKE SIAP!</button>
+  </div>
+</div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="indowar-icon.png" class="nav-logo" alt="INDOWAR">
+    <div>
+      <div class="nav-brand">INDOWAR</div>
+      <div class="nav-sub">💰 DEPOSIT & WITHDRAW</div>
+    </div>
+  </div>
+  <button class="btn-w" id="walletBtn">
+    <span class="wdot" id="walletDot"></span>
+    <span id="walletBtnText">CONNECT WALLET</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- BALANCE CARD -->
+  <div class="balance-card">
+    <div class="bc-shine"></div>
+    <div class="bc-body">
+      <div class="bc-refresh" onclick="refreshBalances()" title="Refresh">🔄</div>
+      <div class="bc-label">SALDO GAME VAULT</div>
+      <div class="bc-amount" id="gameBalanceDisplay">0</div>
+      <div class="bc-unit">INDC</div>
+      <div class="bc-row">
+        <div class="bc-stat">
+          <div class="bc-stat-val" id="walletBalDisplay">0</div>
+          <div class="bc-stat-lbl">💼 INDC DI WALLET</div>
+        </div>
+        <div class="bc-stat">
+          <div class="bc-stat-val" id="bnbBalDisplay">0</div>
+          <div class="bc-stat-lbl">⛽ BNB (GAS)</div>
+        </div>
+        <div class="bc-stat">
+          <div class="bc-stat-val" id="totalEarnedDisplay">0</div>
+          <div class="bc-stat-lbl">🏆 TOTAL EARNED</div>
+        </div>
+      </div>
+      <div class="bc-addr" id="walletAddrDisplay">Hubungkan wallet untuk melihat saldo</div>
+    </div>
+  </div>
+
+  <!-- BURN INFO -->
+  <div class="burn-info">
+    <div class="bi-icon">🔥</div>
+    <div class="bi-text">
+      Setiap deposit dikenakan <strong>burn 2% otomatis</strong> — INDC dibakar permanen untuk menjaga nilai token.
+      Contoh: deposit 1,000 INDC → 20 INDC dibakar → 980 INDC masuk Vault.
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab on dep" data-tab="deposit">⬇️ DEPOSIT</div>
+    <div class="tab wit"    data-tab="withdraw">⬆️ WITHDRAW</div>
+    <div class="tab hist"   data-tab="history">📜 RIWAYAT</div>
+  </div>
+
+  <!-- ══ TAB: DEPOSIT ══ -->
+  <div id="tab-deposit">
+    <div class="form-card">
+      <div class="sec" style="margin-top:0">⬇️ DEPOSIT INDC KE GAME VAULT</div>
+
+      <!-- STEP INDICATOR -->
+      <div class="step-wrap">
+        <div class="step-row">
+          <div class="step-dot" id="step1dot">1</div>
+          <div class="step-info">
+            <div class="step-title">APPROVE INDC</div>
+            <div class="step-sub">Izinkan kontrak menggunakan INDC kamu</div>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-dot wait" id="step2dot">2</div>
+          <div class="step-info">
+            <div class="step-title">DEPOSIT KE VAULT</div>
+            <div class="step-sub">INDC masuk ke Game Vault, siap main</div>
+          </div>
+        </div>
+      </div>
+
+      <label class="form-label">
+        JUMLAH DEPOSIT
+        <span class="max-btn" onclick="setMaxDeposit()">MAX</span>
+      </label>
+      <div class="amount-wrap">
+        <input class="amount-input" id="depositAmount" type="number"
+          placeholder="0" min="1" step="1" oninput="updateDepositInfo()">
+        <div class="amount-unit">INDC</div>
+      </div>
+      <div class="amount-usd" id="depositUsd">≈ $0.00 USD</div>
+
+      <!-- PRESETS -->
+      <div class="presets">
+        <div class="preset" onclick="setDeposit(100)">100</div>
+        <div class="preset" onclick="setDeposit(500)">500</div>
+        <div class="preset" onclick="setDeposit(1000)">1K</div>
+        <div class="preset" onclick="setDeposit(5000)">5K</div>
+        <div class="preset" onclick="setDeposit(10000)">10K</div>
+      </div>
+
+      <!-- INFO -->
+      <div class="info-box" id="depositInfoBox">
+        <div class="ib-row">
+          <div class="ib-label">Jumlah Deposit</div>
+          <div class="ib-val" id="depInput">0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">🔥 Burn 2%</div>
+          <div class="ib-val red" id="depBurn">− 0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">✅ Masuk ke Vault</div>
+          <div class="ib-val green" id="depReceive">0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">Saldo Wallet Setelah</div>
+          <div class="ib-val gold" id="depAfterWallet">0 INDC</div>
+        </div>
+      </div>
+
+      <button class="btn-main dep" id="btnDeposit" onclick="doDeposit()">
+        ⬇️ DEPOSIT SEKARANG
+      </button>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="sec">ℹ️ CARA KERJA DEPOSIT</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="font-size:16px;flex-shrink:0">1️⃣</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">
+            <strong style="color:var(--gold)">Approve</strong> — Kamu izinkan kontrak Game Vault mengambil INDC dari wallet (sekali approve, bebas deposit berulang)
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="font-size:16px;flex-shrink:0">2️⃣</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">
+            <strong style="color:var(--gold)">Deposit</strong> — INDC berpindah dari wallet ke Game Vault. 2% otomatis dibakar, sisanya jadi saldo game.
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="font-size:16px;flex-shrink:0">3️⃣</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">
+            <strong style="color:var(--gold)">Main & Earn</strong> — Pakai saldo game untuk battle, PvP, tournament. Reward INDC otomatis masuk ke Vault.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: WITHDRAW ══ -->
+  <div id="tab-withdraw" style="display:none">
+    <div class="form-card">
+      <div class="sec" style="margin-top:0">⬆️ WITHDRAW INDC KE WALLET</div>
+
+      <label class="form-label">
+        JUMLAH WITHDRAW
+        <span class="max-btn" onclick="setMaxWithdraw()">MAX</span>
+      </label>
+      <div class="amount-wrap">
+        <input class="amount-input" id="withdrawAmount" type="number"
+          placeholder="0" min="1" step="1" oninput="updateWithdrawInfo()">
+        <div class="amount-unit">INDC</div>
+      </div>
+      <div class="amount-usd" id="withdrawUsd">≈ $0.00 USD</div>
+
+      <!-- PRESETS -->
+      <div class="presets">
+        <div class="preset" onclick="setWithdraw(100)">100</div>
+        <div class="preset" onclick="setWithdraw(500)">500</div>
+        <div class="preset" onclick="setWithdraw(1000)">1K</div>
+        <div class="preset" onclick="setWithdraw(5000)">5K</div>
+        <div class="preset" onclick="setWithdraw(10000)">10K</div>
+      </div>
+
+      <!-- INFO -->
+      <div class="info-box">
+        <div class="ib-row">
+          <div class="ib-label">Saldo Game Vault</div>
+          <div class="ib-val gold" id="witVault">0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">Jumlah Withdraw</div>
+          <div class="ib-val" id="witInput">0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">⛽ Gas Fee (estimasi)</div>
+          <div class="ib-val" id="witGas">~0.0003 BNB</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">✅ Diterima di Wallet</div>
+          <div class="ib-val green" id="witReceive">0 INDC</div>
+        </div>
+        <div class="ib-row">
+          <div class="ib-label">Saldo Vault Setelah</div>
+          <div class="ib-val" id="witAfterVault">0 INDC</div>
+        </div>
+      </div>
+
+      <!-- WARNING -->
+      <div style="background:rgba(251,146,60,0.07);border:1px solid rgba(251,146,60,0.2);
+        border-radius:10px;padding:9px 12px;margin-bottom:12px;
+        font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.5">
+        ⚠️ Pastikan kamu punya <strong style="color:var(--orange)">BNB cukup</strong> untuk gas fee.
+        Withdraw tidak dikenakan fee tambahan — kamu terima penuh.
+      </div>
+
+      <button class="btn-main wit" id="btnWithdraw" onclick="doWithdraw()">
+        ⬆️ WITHDRAW SEKARANG
+      </button>
+    </div>
+
+    <!-- KEAMANAN -->
+    <div class="sec">🔒 KEAMANAN</div>
+    <div style="background:var(--card);border:1px solid rgba(45,212,191,0.15);border-radius:14px;padding:12px 14px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:16px">✅</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">Smart contract <strong style="color:var(--green)">open source</strong> — bisa dicek di BSCScan</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:16px">✅</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">INDC kamu di Vault <strong style="color:var(--green)">hanya kamu</strong> yang bisa withdraw</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:16px">✅</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">Tidak ada <strong style="color:var(--green)">lockup</strong> — withdraw kapan saja</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:16px">✅</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--text)">Semua transaksi tercatat di <strong style="color:var(--green)">blockchain BSC</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: HISTORY ══ -->
+  <div id="tab-history" style="display:none">
+    <div class="sec">📜 RIWAYAT TRANSAKSI</div>
+    <div class="hist-card" id="histList"></div>
+    <div style="text-align:center;margin-top:10px">
+      <a id="bscLink" href="https://bscscan.com" target="_blank"
+        style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--cyan);
+        text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+        🔗 Lihat semua transaksi di BSCScan ↗
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html"    class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="battle-arena.html" class="bnav-item"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
+  <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">RANKING</span></a>
+  <a href="wallet.html"       class="bnav-item active"><span class="bnav-icon">💰</span><span class="bnav-label">WALLET</span></a>
+  <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span><span class="bnav-label">PROFIL</span></a>
+</nav>
+
+<script>
+/* ═══ CONTRACTS ═══ */
+const INDC_CA   = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const BATTLE_CA = "0x2a8906E76792a5c6F6060D405C0b21356c9BF093";
+const BSC_ID    = "0x38";
+const BSC_RPC   = "https://bsc-dataseed1.binance.org/";
+
+const INDC_ABI = [
+  "function balanceOf(address) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)"
+];
+const VAULT_ABI = [
+  "function deposit(uint256 amount) external",
+  "function withdraw(uint256 amount) external",
+  "function getGameBalance(address) external view returns (uint256)"
+];
+const BATTLE_ABI = [
+  "function getPlayerStats(address) external view returns (tuple(uint256 totalWins,uint256 totalLosses,uint256 totalEarned,uint256 totalBattles,uint256 streak,uint256 seasonPoints,uint256 lastBattleTime))"
+];
+
+let provider, signer, userAddr;
+let cINDC, cVault, cBattle;
+let walletBal   = 0n;
+let gameBal     = 0n;
+let bnbBal      = 0n;
+let totalEarned = 0n;
+let lastTxHash  = "";
+const INDC_PRICE_USD = 0.003; // approximate
+
+/* ═══ WALLET CONNECT ═══ */
+async function connectWallet(){
+  try{
+    if(!window.ethereum){ showToast("❌ Buka via DApps browser!"); return; }
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_ID}]}); }
+    catch(e){ if(e.code===4902) await addBSC(); }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    userAddr = await signer.getAddress();
+    cINDC    = new ethers.Contract(INDC_CA,   INDC_ABI,   signer);
+    cVault   = new ethers.Contract(VAULT_CA,  VAULT_ABI,  signer);
+    cBattle  = new ethers.Contract(BATTLE_CA, BATTLE_ABI, signer);
+    const short = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletBtnText").textContent = short;
+    document.getElementById("walletBtn").classList.add("on");
+    document.getElementById("walletDot").classList.add("on");
+    document.getElementById("walletAddrDisplay").textContent = userAddr;
+    document.getElementById("bscLink").href = "https://bscscan.com/address/"+userAddr;
+    await refreshBalances();
+    showToast("✅ Wallet terhubung!");
+  } catch(e){ showToast("❌ "+(e.message||"Gagal connect")); }
+}
+
+async function addBSC(){
+  await window.ethereum.request({method:"wallet_addEthereumChain",params:[{
+    chainId:BSC_ID,chainName:"BNB Smart Chain",
+    nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+    rpcUrls:[BSC_RPC],blockExplorerUrls:["https://bscscan.com"]
+  }]});
+}
+
+async function refreshBalances(){
+  if(!userAddr) return;
+  const spin = document.getElementById("bc-refresh");
+  try{
+    const [wb, gb, bnb] = await Promise.all([
+      cINDC.balanceOf(userAddr),
+      cVault.getGameBalance(userAddr),
+      provider.getBalance(userAddr)
+    ]);
+    walletBal = wb;
+    gameBal   = gb;
+    bnbBal    = bnb;
+
+    try{
+      const stats = await cBattle.getPlayerStats(userAddr);
+      totalEarned = stats.totalEarned;
+      document.getElementById("totalEarnedDisplay").textContent =
+        Math.floor(parseFloat(ethers.formatUnits(totalEarned,18))).toLocaleString();
+    } catch(e){}
+
+    const wbf = parseFloat(ethers.formatUnits(wb,18));
+    const gbf = parseFloat(ethers.formatUnits(gb,18));
+    const bnbf= parseFloat(ethers.formatUnits(bnb,18));
+
+    document.getElementById("gameBalanceDisplay").textContent = Math.floor(gbf).toLocaleString();
+    document.getElementById("walletBalDisplay").textContent   = Math.floor(wbf).toLocaleString();
+    document.getElementById("bnbBalDisplay").textContent      = bnbf.toFixed(4);
+    document.getElementById("witVault").textContent           = Math.floor(gbf).toLocaleString()+" INDC";
+
+    updateDepositInfo();
+    updateWithdrawInfo();
+    renderHistory();
+  } catch(e){ console.error(e); }
+}
+
+document.getElementById("walletBtn").addEventListener("click", connectWallet);
+window.addEventListener("load", async()=>{
+  if(window.ethereum){
+    try{
+      const acc = await window.ethereum.request({method:"eth_accounts"});
+      if(acc.length){
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer   = await provider.getSigner();
+        userAddr = await signer.getAddress();
+        cINDC    = new ethers.Contract(INDC_CA,   INDC_ABI,   signer);
+        cVault   = new ethers.Contract(VAULT_CA,  VAULT_ABI,  signer);
+        cBattle  = new ethers.Contract(BATTLE_CA, BATTLE_ABI, signer);
+        const short = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+        document.getElementById("walletBtnText").textContent = short;
+        document.getElementById("walletBtn").classList.add("on");
+        document.getElementById("walletDot").classList.add("on");
+        document.getElementById("walletAddrDisplay").textContent = userAddr;
+        document.getElementById("bscLink").href = "https://bscscan.com/address/"+userAddr;
+        await refreshBalances();
+      }
+    } catch(e){}
+  }
+  renderHistory();
+});
+if(window.ethereum){
+  window.ethereum.on("accountsChanged",()=>location.reload());
+  window.ethereum.on("chainChanged",()=>location.reload());
+}
+
+/* ═══ DEPOSIT LOGIC ═══ */
+function setDeposit(val){
+  document.getElementById("depositAmount").value = val;
+  document.querySelectorAll(".preset").forEach(p=>p.classList.remove("sel"));
+  event.target.classList.add("sel");
+  updateDepositInfo();
+}
+function setMaxDeposit(){
+  const max = Math.floor(parseFloat(ethers.formatUnits(walletBal,18)));
+  document.getElementById("depositAmount").value = max;
+  updateDepositInfo();
+}
+function updateDepositInfo(){
+  const v = parseFloat(document.getElementById("depositAmount").value)||0;
+  const burn    = v * 0.02;
+  const receive = v - burn;
+  const wbf     = parseFloat(ethers.formatUnits(walletBal,18));
+  document.getElementById("depInput").textContent        = v.toLocaleString()+" INDC";
+  document.getElementById("depBurn").textContent         = "− "+burn.toFixed(2)+" INDC";
+  document.getElementById("depReceive").textContent      = receive.toFixed(2)+" INDC";
+  document.getElementById("depAfterWallet").textContent  = Math.max(0,wbf-v).toFixed(2)+" INDC";
+  document.getElementById("depositUsd").textContent      = "≈ $"+(v*INDC_PRICE_USD).toFixed(2)+" USD";
+}
+
+async function doDeposit(){
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  const val = parseFloat(document.getElementById("depositAmount").value);
+  if(!val || val <= 0){ showToast("❌ Masukkan jumlah deposit!"); return; }
+  const wbf = parseFloat(ethers.formatUnits(walletBal,18));
+  if(val > wbf){ showToast("❌ Saldo INDC tidak cukup!"); return; }
+
+  const amount = ethers.parseUnits(val.toString(), 18);
+
+  try{
+    // STEP 1: Check & Approve
+    showProc("CEK ALLOWANCE...", "Mengecek izin transfer INDC...");
+    const allowance = await cINDC.allowance(userAddr, VAULT_CA);
+
+    if(allowance < amount){
+      updateStep(1, "active");
+      showProc("APPROVE INDC...", "Konfirmasi di wallet kamu untuk approve INDC");
+      const txApprove = await cINDC.approve(VAULT_CA, ethers.MaxUint256);
+      showProc("MENUNGGU KONFIRMASI...", "Approve sedang diproses di blockchain...");
+      await txApprove.wait();
+      updateStep(1, "done");
+    } else {
+      updateStep(1, "done");
+    }
+
+    // STEP 2: Deposit
+    updateStep(2, "active");
+    showProc("DEPOSIT KE VAULT...", "Konfirmasi transaksi deposit di wallet kamu");
+    const txDeposit = await cVault.deposit(amount);
+    showProc("MEMPROSES DEPOSIT...", "Transaksi dikirim ke blockchain BSC...\n"+txDeposit.hash.slice(0,20)+"...");
+    await txDeposit.wait();
+    updateStep(2, "done");
+
+    lastTxHash = txDeposit.hash;
+    hideProc();
+
+    // Update balances
+    await refreshBalances();
+
+    // Show success
+    const receive = val * 0.98;
+    showSucc("✅", "DEPOSIT BERHASIL!", "+"+receive.toFixed(0)+" INDC",
+      `${val.toLocaleString()} INDC berhasil masuk ke Game Vault!\n${(val*0.02).toFixed(2)} INDC dibakar 🔥\n\nSaldo game kamu sudah diperbarui.`,
+      txDeposit.hash);
+
+    // Add to history
+    addHistory("dep", val, txDeposit.hash);
+    document.getElementById("depositAmount").value = "";
+    updateStep(1,"active"); updateStep(2,"wait");
+
+  } catch(e){
+    hideProc();
+    if(e.code===4001||e.code==="ACTION_REJECTED"){ showToast("❌ Transaksi dibatalkan"); }
+    else { showToast("❌ Error: "+(e.reason||e.message||"Gagal")); }
+    updateStep(1,"active"); updateStep(2,"wait");
+  }
+}
+
+/* ═══ WITHDRAW LOGIC ═══ */
+function setWithdraw(val){
+  document.getElementById("withdrawAmount").value = val;
+  updateWithdrawInfo();
+}
+function setMaxWithdraw(){
+  const max = Math.floor(parseFloat(ethers.formatUnits(gameBal,18)));
+  document.getElementById("withdrawAmount").value = max;
+  updateWithdrawInfo();
+}
+function updateWithdrawInfo(){
+  const v   = parseFloat(document.getElementById("withdrawAmount").value)||0;
+  const gbf = parseFloat(ethers.formatUnits(gameBal,18));
+  document.getElementById("witInput").textContent     = v.toLocaleString()+" INDC";
+  document.getElementById("witReceive").textContent   = v.toLocaleString()+" INDC";
+  document.getElementById("witAfterVault").textContent= Math.max(0,gbf-v).toFixed(2)+" INDC";
+  document.getElementById("withdrawUsd").textContent  = "≈ $"+(v*INDC_PRICE_USD).toFixed(2)+" USD";
+}
+
+async function doWithdraw(){
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  const val = parseFloat(document.getElementById("withdrawAmount").value);
+  if(!val || val <= 0){ showToast("❌ Masukkan jumlah withdraw!"); return; }
+  const gbf = parseFloat(ethers.formatUnits(gameBal,18));
+  if(val > gbf){ showToast("❌ Saldo Game Vault tidak cukup!"); return; }
+
+  const amount = ethers.parseUnits(val.toString(), 18);
+
+  try{
+    showProc("WITHDRAW INDC...", "Konfirmasi transaksi di wallet kamu");
+    const tx = await cVault.withdraw(amount);
+    showProc("MEMPROSES WITHDRAW...", "Transaksi dikirim ke blockchain BSC...\n"+tx.hash.slice(0,20)+"...");
+    await tx.wait();
+
+    lastTxHash = tx.hash;
+    hideProc();
+    await refreshBalances();
+
+    showSucc("💸", "WITHDRAW BERHASIL!", val.toLocaleString()+" INDC",
+      `${val.toLocaleString()} INDC berhasil dikirim ke wallet!\nTidak ada potongan fee.\n\nCek saldo wallet kamu.`,
+      tx.hash);
+
+    addHistory("wit", val, tx.hash);
+    document.getElementById("withdrawAmount").value = "";
+
+  } catch(e){
+    hideProc();
+    if(e.code===4001||e.code==="ACTION_REJECTED"){ showToast("❌ Transaksi dibatalkan"); }
+    else { showToast("❌ Error: "+(e.reason||e.message||"Gagal")); }
+  }
+}
+
+/* ═══ HISTORY ═══ */
+let txHistory = [
+  {type:"dep", amount:500,  hash:"0xabc123...",time:"2j lalu"},
+  {type:"dep", amount:1000, hash:"0xdef456...",time:"1h lalu"},
+  {type:"wit", amount:200,  hash:"0x789xyz...",time:"3h lalu"},
+];
+function addHistory(type, amount, hash){
+  txHistory.unshift({type, amount, hash:"0x"+hash.slice(2,10)+"...", time:"Baru saja"});
+  renderHistory();
+}
+function renderHistory(){
+  if(!txHistory.length){
+    document.getElementById("histList").innerHTML =
+      `<div style="padding:24px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Belum ada transaksi</div>`;
+    return;
+  }
+  document.getElementById("histList").innerHTML = txHistory.map(t=>`
+    <div class="hist-row">
+      <div class="hr-icon ${t.type}">${t.type==="dep"?"⬇️":"⬆️"}</div>
+      <div class="hr-info">
+        <div class="hr-title">${t.type==="dep"?"DEPOSIT KE VAULT":"WITHDRAW KE WALLET"}</div>
+        <div class="hr-time">${t.time}</div>
+        <div class="hr-hash" onclick="window.open('https://bscscan.com/tx/${t.hash}','_blank')">${t.hash}</div>
+      </div>
+      <div class="hr-amount">
+        <div class="hr-val ${t.type}">${t.type==="dep"?"+":"-"}${t.amount.toLocaleString()} INDC</div>
+        <div class="hr-status">✅ Sukses</div>
+      </div>
+    </div>`).join("");
+}
+
+/* ═══ STEP UI ═══ */
+function updateStep(num, state){
+  const el = document.getElementById("step"+num+"dot");
+  if(!el) return;
+  el.className = "step-dot "+state;
+  el.textContent = state==="done"?"✅":num;
+}
+
+/* ═══ OVERLAYS ═══ */
+function showProc(title, sub){
+  document.getElementById("procTitle").textContent = title;
+  document.getElementById("procSub").textContent   = sub;
+  document.getElementById("procOverlay").classList.add("show");
+}
+function hideProc(){ document.getElementById("procOverlay").classList.remove("show"); }
+
+function showSucc(emoji, title, amount, sub, hash){
+  document.getElementById("succEmoji").textContent  = emoji;
+  document.getElementById("succTitle").textContent  = title;
+  document.getElementById("succAmount").textContent = amount;
+  document.getElementById("succSub").textContent    = sub;
+  document.getElementById("succHash").textContent   = "🔗 "+hash.slice(0,20)+"... (BSCScan)";
+  document.getElementById("succHash").dataset.hash  = hash;
+  document.getElementById("succOverlay").classList.add("show");
+}
+function closeSucc(){ document.getElementById("succOverlay").classList.remove("show"); }
+function openBsc(){
+  const hash = document.getElementById("succHash").dataset.hash;
+  if(hash) window.open("https://bscscan.com/tx/"+hash,"_blank");
+}
+
+/* ═══ TABS ═══ */
+const ALL_TABS = ["deposit","withdraw","history"];
+function switchTab(name){
+  ALL_TABS.forEach(t=>{
+    document.getElementById("tab-"+t).style.display = t===name?"block":"none";
+  });
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.classList.remove("on");
+    if(tab.dataset.tab===name){
+      tab.classList.add("on");
+      tab.classList.add(name==="deposit"?"dep":name==="withdraw"?"wit":"hist");
+    }
+  });
+}
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",()=>switchTab(tab.dataset.tab));
+});
+
+/* ═══ TOAST ═══ */
+function showToast(msg){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const el=document.createElement("div"); el.className="toast";
+  el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2800);
+}
+</script>
+</body>
+</html>
