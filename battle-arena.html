@@ -735,6 +735,23 @@ function setHpBar(who, cur, max){
 ══════════════════════════════════════════ */
 function startBattle(){
   if(battleActive) return;
+
+  // ═══ CEK WALLET ═══
+  if(!userAddr){
+    showGate("❌ WALLET BELUM TERHUBUNG",
+      "Hubungkan wallet MetaMask / Trust Wallet dulu untuk bermain.",
+      "CONNECT WALLET", connectWallet);
+    return;
+  }
+
+  // ═══ CEK SALDO VAULT ═══
+  if(gameBalance < 10){
+    showGate("❌ SALDO GAME VAULT KOSONG",
+      "Kamu harus deposit INDC ke Game Vault dulu sebelum bisa main.\n\nMinimal 10 INDC di vault untuk mulai battle.",
+      "DEPOSIT INDC SEKARANG", ()=>{ window.location.href="wallet.html"; });
+    return;
+  }
+
   const h = HEROES[selectedHeroId];
   if(!h.owned){ showToast("🔒 Hero ini belum dibeli!"); return; }
 
@@ -1122,6 +1139,41 @@ function clearLog(){
 /* ══════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════ */
+/* ══ GATE — block akses tanpa wallet/saldo ══ */
+function showGate(title, msg, btnLabel, btnAction){
+  let el = document.getElementById("gateModal");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "gateModal";
+    el.style.cssText = `position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.92);
+      backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;`;
+    el.innerHTML = `
+      <div style="background:#0b1a2c;border:1px solid rgba(250,204,21,0.3);border-radius:18px;
+        padding:26px 20px;max-width:300px;width:90%;text-align:center">
+        <div style="font-size:40px;margin-bottom:10px" id="gateIcon">🔒</div>
+        <div id="gateTitle" style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;
+          color:#ff4d6d;margin-bottom:8px;line-height:1.4"></div>
+        <div id="gateMsg" style="font-family:'Share Tech Mono',monospace;font-size:9px;
+          color:#4d6070;line-height:1.7;margin-bottom:16px;white-space:pre-line"></div>
+        <button id="gateBtn" style="width:100%;padding:13px;border-radius:12px;
+          font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;cursor:pointer;
+          border:none;background:linear-gradient(135deg,#facc15,#fb923c);
+          color:#000;margin-bottom:8px;letter-spacing:1px;"></button>
+        <button onclick="document.getElementById('gateModal').style.display='none'"
+          style="width:100%;padding:10px;border-radius:12px;background:transparent;
+          border:1px solid rgba(250,204,21,0.2);color:#4d6070;font-family:'Orbitron',sans-serif;
+          font-size:9px;cursor:pointer;">NANTI SAJA</button>
+      </div>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById("gateTitle").textContent = title;
+  document.getElementById("gateMsg").textContent   = msg;
+  const btn = document.getElementById("gateBtn");
+  btn.textContent = btnLabel;
+  btn.onclick = ()=>{ el.style.display="none"; btnAction(); };
+  el.style.display = "flex";
+}
+
 function showToast(msg){
   document.querySelectorAll(".toast").forEach(t=>t.remove());
   const el = document.createElement("div"); el.className = "toast";
