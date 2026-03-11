@@ -962,10 +962,100 @@ function initChat() {
   });
 }
 
+// ===== FILTER KATA KASAR & KALIMAT NEGATIF =====
+const KATA_KASAR = [
+  // Bahasa Indonesia
+  "anjing","anjir","anying","bangsat","brengsek","bajingan","keparat",
+  "babi","celeng","goblok","goblog","tolol","idiot","bodoh banget",
+  "tai","tahi","kontol","memek","pepek","jembut","ngentot","entot",
+  "kampret","asu","jancok","jancuk","cok","bacot","pecun","lonte",
+  "pelacur","sundal","bangke","sialan","bejad","bejat","setan",
+  "iblis","bedebah","kunyuk","monyet","dungu","sempak","geblek",
+  // Bahasa Inggris
+  "fuck","shit","asshole","bitch","bastard","damn","crap","dick",
+  "pussy","cock","nigger","stupid","idiot","moron","retard"
+];
+
+const FRASA_NEGATIF = [
+  // Pesimis terhadap platform
+  "tidak suka platform","gak suka platform","ga suka platform",
+  "platform ini jelek","platform jelek","platform buruk",
+  "platform ini sampah","platform sampah","platform gagal",
+  "tidak percaya platform","gak percaya platform",
+  "platform tidak bagus","platform tidak berguna",
+  "menyesal bergabung","menyesal ikut","menyesal daftar",
+  "buang waktu","buang uang","sia-sia ikut","percuma ikut",
+  "tidak ada gunanya","gak ada gunanya","ga ada gunanya",
+  // Tuduhan penipuan
+  "ini penipuan","ini tipu","ini scam","ini bohong",
+  "indocoin scam","indocoin tipu","indocoin bohong",
+  "indocoin penipuan","indocoin palsu","indocoin gagal",
+  "indocoin tidak amanah","indocoin tidak jujur",
+  "jangan percaya indocoin","jangan ikut indocoin",
+  "hindari indocoin","indocoin rugi","indocoin bangkrut",
+  "project scam","project gagal","project bohong",
+  "rug pull","rugpull","exit scam",
+  // Hasutan & provokasi
+  "jangan ikut","jangan bergabung","jangan daftar",
+  "keluar saja","cabut saja","mundur saja",
+  "lebih baik keluar","lebih baik mundur",
+  "ajak keluar","provokasi","hasut",
+  "jebakan","jebak","tipu daya",
+  "korban penipuan","tertipu","ditipu",
+  // Merendahkan komunitas
+  "komunitas jelek","komunitas buruk","komunitas sampah",
+  "member bodoh","member tolol","member goblok",
+  "admin bohong","admin tipu","admin scam",
+  "tidak transparan","tidak amanah","tidak bertanggung jawab",
+  // Pesimis harga/investasi
+  "harga tidak akan naik","harga tidak naik",
+  "token tidak ada nilai","token tidak berguna",
+  "investasi rugi","investasi gagal","investasi bodoh",
+  "uang hilang","uang hangus","uang melayang",
+  "jual semua","dijual semua",
+];
+
+function mengandungKataKasar(teks) {
+  const teksBersih = teks.toLowerCase().replace(/\s+/g, '');
+  return KATA_KASAR.some(kata => {
+    const kataBersih = kata.replace(/\s+/g, '');
+    return teksBersih.includes(kataBersih);
+  });
+}
+
+function mengandungFrasaNegatif(teks) {
+  const teksLower = teks.toLowerCase();
+  return FRASA_NEGATIF.some(frasa => teksLower.includes(frasa.toLowerCase()));
+}
+
+function tampilkanPeringatan(pesan) {
+  const input = document.getElementById('chatInput');
+  input.style.border = '1.5px solid #ef4444';
+  input.placeholder = pesan;
+  input.value = '';
+  setTimeout(() => {
+    input.style.border = '';
+    input.placeholder = 'Tulis pesan...';
+  }, 3000);
+}
+
 window.sendMessage = function() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || !currentUser) return;
+
+  // Cek kata kasar
+  if (mengandungKataKasar(text)) {
+    tampilkanPeringatan('⚠️ Pesan ditolak! Jaga sopan santun ya...');
+    return;
+  }
+
+  // Cek frasa negatif/pesimis
+  if (mengandungFrasaNegatif(text)) {
+    tampilkanPeringatan('🚫 Pesan ditolak! Mari jaga semangat komunitas 💪');
+    return;
+  }
+
   push(ref(db, 'community_chat'), {
     uid: currentUser.uid,
     name: currentName,
