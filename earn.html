@@ -334,41 +334,83 @@ function updateUI(){
 
 window.goTo = (url) => { if(hasAccess()){window.location.href=url;}else{window._next=url;openModal();} };
 
+// ── Helper: ambil address wallet dengan aman (support DApps browser) ──
+async function getWalletAddress(){
+  if(!window.ethereum) return null;
+  try{
+    // Coba selectedAddress dulu
+    if(window.ethereum.selectedAddress) return window.ethereum.selectedAddress;
+    // Fallback: request eth_accounts
+    const accounts = await window.ethereum.request({method:'eth_accounts'});
+    if(accounts && accounts.length>0) return accounts[0];
+    // Jika belum connect, minta connect
+    const req = await window.ethereum.request({method:'eth_requestAccounts'});
+    return req && req.length>0 ? req[0] : null;
+  }catch(e){ return null; }
+}
+
 window.openModal = async () => {
   document.getElementById('indcModal').classList.add('open');
-  if(window.ethereum&&window.ethereum.selectedAddress){
-    try{
-      const p=new ethers.providers.Web3Provider(window.ethereum);
-      const c=new ethers.Contract(INDC_CA,["function balanceOf(address) view returns(uint256)"],p);
-      const b=await c.balanceOf(window.ethereum.selectedAddress);
-      document.getElementById('modalBal').textContent=parseFloat(ethers.utils.formatUnits(b,18)).toFixed(4)+' INDC';
-    }catch(e){document.getElementById('modalBal').textContent='—';}
-  }else{document.getElementById('modalBal').textContent='Wallet belum terhubung';}
+  document.getElementById('modalBal').textContent='Mengecek saldo...';
+  try{
+    const addr = await getWalletAddress();
+    if(!addr){ document.getElementById('modalBal').textContent='Wallet belum terhubung'; return; }
+    const p=new ethers.providers.Web3Provider(window.ethereum);
+    const c=new ethers.Contract(INDC_CA,["function balanceOf(address) view returns(uint256)"],p);
+    const b=await c.balanceOf(addr);
+    document.getElementById('modalBal').textContent=parseFloat(ethers.utils.formatUnits(b,18)).toFixed(4)+' INDC';
+  }catch(e){ document.getElementById('modalBal').textContent='Gagal cek saldo'; }
 };
 
 window.closeModal=()=>document.getElementById('indcModal').classList.remove('open');
 
 window.payAccess = async () => {
-  if(!window.ethereum||!window.ethereum.selectedAddress){alert('Hubungkan wallet dulu!');return;}
   const btn=document.getElementById('btnPay');
-  btn.disabled=true;btn.textContent='⏳ Memproses...';
+  btn.disabled=true; btn.textContent='⏳ Memproses...';
   try{
+    // Ambil address dengan aman
+    const addr = await getWalletAddress();
+    if(!addr){ alert('Hubungkan wallet dulu!'); btn.disabled=false; btn.textContent='💳 BAYAR 1 INDC SEKARANG'; return; }
+
     const p=new ethers.providers.Web3Provider(window.ethereum);
     const s=p.getSigner();
-    const c=new ethers.Contract(INDC_CA,["function balanceOf(address) view returns(uint256)","function transfer(address,uint256) returns(bool)"],s);
-    const bal=await c.balanceOf(window.ethereum.selectedAddress);
+    const c=new ethers.Contract(INDC_CA,[
+      "function balanceOf(address) view returns(uint256)",
+      "function transfer(address,uint256) returns(bool)"
+    ],s);
+
+    // Cek saldo pakai address yang sudah diambil dengan aman
+    const bal=await c.balanceOf(addr);
     const one=ethers.utils.parseUnits("1",18);
-    if(bal.lt(one)){alert('Saldo INDC tidak cukup!');btn.disabled=false;btn.textContent='💳 BAYAR 1 INDC SEKARANG';return;}
+
+    if(bal.lt(one)){
+      // Tampilkan saldo aktual agar user tahu
+      const balFormatted=parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(4);
+      alert(`Saldo INDC tidak cukup!\nSaldo kamu: ${balFormatted} INDC\nDibutuhkan: 1 INDC`);
+      btn.disabled=false; btn.textContent='💳 BAYAR 1 INDC SEKARANG';
+      return;
+    }
+
+    // Proses transfer
     const tx=await c.transfer(DEV_WALLET,one);
     btn.textContent='⏳ Menunggu konfirmasi...';
     await tx.wait();
+
+    // Sukses — simpan akses & buka halaman
     localStorage.setItem('indcAccessDate',new Date().toDateString());
-    btn.textContent='✅ Berhasil!';
+    btn.textContent='✅ Akses Terbuka!';
     updateUI();
-    setTimeout(()=>{closeModal();btn.disabled=false;btn.textContent='💳 BAYAR 1 INDC SEKARANG';if(window._next){window.location.href=window._next;window._next=null;}},1000);
+    setTimeout(()=>{
+      closeModal();
+      btn.disabled=false;
+      btn.textContent='💳 BAYAR 1 INDC SEKARANG';
+      if(window._next){ window.location.href=window._next; window._next=null; }
+    },800);
+
   }catch(e){
-    btn.disabled=false;btn.textContent='💳 BAYAR 1 INDC SEKARANG';
-    if(e.code===4001)alert('Dibatalkan!');else alert('Gagal: '+(e.message||'Coba lagi'));
+    btn.disabled=false; btn.textContent='💳 BAYAR 1 INDC SEKARANG';
+    if(e.code===4001) alert('Transaksi dibatalkan.');
+    else alert('Gagal: '+(e.reason||e.message||'Coba lagi'));
   }
 };
 
