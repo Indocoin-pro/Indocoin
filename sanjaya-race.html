@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="indowar-icon.png">
+<link rel="apple-touch-icon" href="indowar-icon.png">
+<meta property="og:image" content="indowar-icon.png">
+<meta name="theme-color" content="#0a0705">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SINGGASANA SANJAYA — Race</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#d4a843;--gold2:#f5d07a;--gold3:#8b6914;
+  --red:#ff4d6d;--green:#2dd4bf;--cyan:#38bdf8;--violet:#b58cfa;--orange:#fb923c;
+  --dark:#060402;--dark2:#100c06;--text:#f0e0c0;--muted:#7a6040;
+  --border:rgba(212,168,67,0.18);--card:rgba(16,12,6,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',serif;
+  height:100%;overflow:hidden;touch-action:none;}
+
+/* ══ FULL HEIGHT LAYOUT ══ */
+.game-wrap{display:flex;flex-direction:column;height:100dvh;position:relative;overflow:hidden;}
+
+/* ══ TOP HUD ══ */
+.hud{flex-shrink:0;background:rgba(4,3,1,0.99);border-bottom:1px solid rgba(212,168,67,0.25);
+  padding:7px 10px 5px;}
+.hud-r1{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.hud-brand{font-family:'Cinzel Decorative',serif;font-size:12px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 12px rgba(212,168,67,0.3);}
+.hud-pot{text-align:right;}
+.hud-pot-val{font-family:'Cinzel',serif;font-size:13px;font-weight:900;color:var(--gold);}
+.hud-pot-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+.timer{display:flex;align-items:center;gap:4px;background:rgba(255,77,109,0.1);
+  border:1px solid rgba(255,77,109,0.3);border-radius:8px;padding:4px 10px;}
+.timer-val{font-family:'Cinzel',serif;font-size:15px;font-weight:900;color:var(--red);
+  min-width:44px;text-align:center;}
+.timer-val.warn{animation:twarn .5s ease-in-out infinite;}
+@keyframes twarn{0%,100%{color:var(--red)}50%{color:#fff;text-shadow:0 0 8px #fff}}
+
+/* STAGE BAR */
+.stage-bar{display:flex;align-items:center;gap:2px;}
+.sn{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;}
+.sn-ico{font-size:11px;line-height:1;}
+.sn-txt{font-family:'Share Tech Mono',monospace;font-size:5px;color:var(--muted);letter-spacing:.5px;}
+.sn-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);transition:all .3s;}
+.sn-dot.done{background:var(--green);border-color:var(--green);}
+.sn-dot.active{background:var(--gold);border-color:var(--gold);
+  box-shadow:0 0 8px var(--gold);animation:sdot 1s ease-in-out infinite;}
+@keyframes sdot{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+.sn-line{flex:1;height:1px;background:rgba(212,168,67,0.1);transition:background .3s;}
+.sn-line.done{background:var(--green);}
+
+/* ══ MAP ══ */
+.map-area{flex:1;position:relative;overflow:hidden;min-height:0;}
+canvas#raceMap{display:block;width:100%;height:100%;}
+.fx-layer{position:absolute;inset:0;pointer-events:none;z-index:10;overflow:hidden;}
+.fxp{position:absolute;pointer-events:none;font-size:15px;
+  animation:fxpop .9s ease-out forwards;}
+@keyframes fxpop{0%{opacity:1;transform:translate(0,0) scale(1.2)}
+  100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0.5)}}
+.fxdmg{position:absolute;pointer-events:none;font-family:'Cinzel',serif;
+  font-size:15px;font-weight:900;text-shadow:0 2px 4px #000;
+  animation:fxdmg .7s ease-out forwards;}
+@keyframes fxdmg{0%{opacity:1;transform:translateY(0) scale(1.1)}
+  100%{opacity:0;transform:translateY(-45px) scale(.7)}}
+
+/* ══ PLAYER CARDS ══ */
+.players-row{flex-shrink:0;display:flex;gap:4px;padding:5px 8px;
+  background:rgba(4,3,1,0.99);border-top:1px solid rgba(212,168,67,0.12);}
+.pc{flex:1;background:rgba(255,255,255,0.02);border:1px solid rgba(212,168,67,0.1);
+  border-radius:8px;padding:5px 5px 4px;position:relative;overflow:hidden;}
+.pc.me{border-color:rgba(212,168,67,0.4);background:rgba(212,168,67,0.04);}
+.pc.dead{opacity:.3;filter:grayscale(1);}
+.pc-rank{position:absolute;top:3px;right:4px;font-size:9px;}
+.pc-top{display:flex;align-items:center;gap:3px;margin-bottom:3px;}
+.pc-emo{font-size:13px;line-height:1;}
+.pc-name{font-family:'Cinzel',serif;font-size:6.5px;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.pc-bar{height:3px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;margin-bottom:2px;}
+.pc-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+.pc-info{font-family:'Share Tech Mono',monospace;font-size:5.5px;color:var(--muted);}
+
+/* ══ ACTION BAR ══ */
+.action-bar{flex-shrink:0;padding:6px 8px 5px;background:rgba(4,3,1,0.99);
+  border-top:1px solid rgba(212,168,67,0.12);}
+.ab-hint{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);
+  text-align:center;letter-spacing:1px;margin-bottom:5px;}
+.ab-btns{display:flex;gap:4px;}
+.ab-btn{flex:1;padding:8px 2px 6px;border-radius:7px;font-family:'Cinzel',serif;
+  font-size:8px;font-weight:700;cursor:pointer;border:1px solid;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  transition:all .15s;position:relative;overflow:hidden;}
+.ab-btn:active:not(:disabled){transform:scale(0.9);}
+.ab-btn:disabled{opacity:.28;cursor:not-allowed;}
+.btn-move {background:rgba(45,212,191,0.07);border-color:rgba(45,212,191,0.3);color:var(--green);}
+.btn-atk  {background:rgba(255,77,109,0.07);border-color:rgba(255,77,109,0.3);color:var(--red);}
+.btn-skill{background:rgba(212,168,67,0.07);border-color:rgba(212,168,67,0.25);color:var(--gold);}
+.btn-trap {background:rgba(181,140,250,0.07);border-color:rgba(181,140,250,0.25);color:var(--violet);}
+.btn-hide {background:rgba(56,189,248,0.07);border-color:rgba(56,189,248,0.25);color:var(--cyan);}
+.ab-ico{font-size:17px;}
+.ab-lbl{font-size:7px;}
+.ab-cd {font-size:6px;opacity:.7;}
+
+/* ══ CHAT ══ */
+.chat-wrap{flex-shrink:0;background:rgba(4,3,1,0.99);border-top:1px solid rgba(212,168,67,0.1);
+  display:flex;flex-direction:column;max-height:108px;}
+.chat-log{flex:1;overflow-y:auto;padding:4px 9px 2px;scrollbar-width:none;}
+.cm{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 0;
+  border-bottom:1px solid rgba(255,255,255,0.025);line-height:1.5;}
+.cm.sys{color:var(--gold);}
+.cm.me{color:#4ade80;}
+.cm.ai{color:var(--text);}
+.cm.evt{color:var(--orange);}
+.cm.warn{color:var(--red);}
+.chat-row{display:flex;gap:5px;padding:4px 8px 5px;
+  border-top:1px solid rgba(255,255,255,0.03);}
+.chat-inp{flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(212,168,67,0.15);
+  border-radius:7px;padding:6px 9px;color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;}
+.chat-inp:focus{border-color:rgba(212,168,67,0.35);}
+.chat-go{padding:6px 11px;border-radius:7px;
+  background:rgba(212,168,67,0.1);border:1px solid rgba(212,168,67,0.25);
+  color:var(--gold);font-family:'Cinzel',serif;font-size:8px;font-weight:700;cursor:pointer;}
+
+/* ══ WIN/LOSE OVERLAY ══ */
+.end-overlay{position:fixed;inset:0;z-index:300;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.93);backdrop-filter:blur(18px);}
+.end-overlay.show{display:flex;}
+.end-box{background:linear-gradient(135deg,#100c06,#1a1308);
+  border:2px solid var(--gold);border-radius:6px;
+  padding:26px 20px;max-width:310px;width:92%;text-align:center;
+  box-shadow:0 0 60px rgba(212,168,67,0.2);
+  animation:endpop .5s cubic-bezier(.34,1.56,.64,1);}
+@keyframes endpop{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.end-ico{font-size:54px;display:block;margin-bottom:8px;
+  animation:endo 1.2s ease-in-out infinite;}
+@keyframes endo{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.end-title{font-family:'Cinzel Decorative',serif;font-size:17px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 30px rgba(212,168,67,0.4);margin-bottom:4px;}
+.end-sub{font-family:'Cinzel',serif;font-size:12px;color:var(--text);margin-bottom:8px;}
+.end-msg{font-family:'Crimson Text',serif;font-size:13px;font-style:italic;
+  color:var(--muted);line-height:1.7;margin-bottom:14px;}
+.end-div{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:10px 0;}
+.btn-go{width:100%;padding:14px;font-family:'Cinzel Decorative',serif;font-size:13px;
+  font-weight:900;letter-spacing:2px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--gold3),var(--gold),var(--gold2));
+  color:var(--dark);border-radius:3px;margin-bottom:7px;
+  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
+  box-shadow:0 4px 20px rgba(212,168,67,0.35);transition:all .2s;}
+.btn-back{width:100%;padding:10px;font-family:'Cinzel',serif;font-size:10px;font-weight:700;
+  cursor:pointer;border:1px solid rgba(212,168,67,0.2);background:transparent;
+  color:var(--muted);border-radius:4px;}
+
+/* ══ SCREEN SHAKE ══ */
+.shake{animation:shake .25s ease;}
+@keyframes shake{0%,100%{transform:none}25%{transform:translate(-3px,2px)}75%{transform:translate(3px,-2px)}}
+
+/* TOAST */
+.toast{position:fixed;bottom:215px;left:50%;transform:translateX(-50%);
+  background:rgba(16,12,6,0.97);border:1px solid rgba(212,168,67,0.3);border-radius:4px;
+  padding:7px 16px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);
+  z-index:999;white-space:nowrap;pointer-events:none;
+  animation:toastUp .25s ease;}
+@keyframes toastUp{from{opacity:0;transform:translateX(-50%) translateY(6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+</style>
+</head>
+<body>
+<div class="game-wrap" id="gameWrap">
+
+  <!-- HUD TOP -->
+  <div class="hud">
+    <div class="hud-r1">
+      <div class="hud-brand" style="display:flex;align-items:center;gap:5px"><img src="indowar-icon.png" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--gold);object-fit:cover;">⚜️ SINGGASANA<br>SANJAYA</div>
+      <div class="timer" id="timerBox">
+        <span style="font-size:11px">⏱️</span>
+        <span class="timer-val" id="timerVal">10:00</span>
+      </div>
+      <div class="hud-pot">
+        <div class="hud-pot-val" id="potVal">—</div>
+        <div class="hud-pot-lbl">💰 TOTAL POT</div>
+      </div>
+    </div>
+    <div class="stage-bar" id="stageBar"></div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-area" id="mapArea">
+    <canvas id="raceMap"></canvas>
+    <div class="fx-layer" id="fxLayer"></div>
+  </div>
+
+  <!-- PLAYER CARDS -->
+  <div class="players-row" id="playersRow"></div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <div class="ab-hint" id="abHint">✦ GILIRANMU — PILIH AKSI ✦</div>
+    <div class="ab-btns">
+      <button class="ab-btn btn-move"  id="bMove"  onclick="act('move')">
+        <span class="ab-ico">🏃</span><span class="ab-lbl">MAJU</span>
+        <span class="ab-cd">dadu 1–6</span>
+      </button>
+      <button class="ab-btn btn-atk"   id="bAtk"   onclick="act('attack')">
+        <span class="ab-ico">⚔️</span><span class="ab-lbl">SERANG</span>
+        <span class="ab-cd" id="cdAtk">Siap</span>
+      </button>
+      <button class="ab-btn btn-skill" id="bSkill" onclick="act('skill')">
+        <span class="ab-ico">🌪️</span><span class="ab-lbl">BADAI</span>
+        <span class="ab-cd" id="cdSk">Siap</span>
+      </button>
+      <button class="ab-btn btn-trap"  id="bTrap"  onclick="act('trap')">
+        <span class="ab-ico">🕸️</span><span class="ab-lbl">JEBAK</span>
+        <span class="ab-cd" id="cdTr">Siap</span>
+      </button>
+      <button class="ab-btn btn-hide"  id="bHide"  onclick="act('hide')">
+        <span class="ab-ico">🌿</span><span class="ab-lbl">SEMBUNYI</span>
+        <span class="ab-cd" id="cdHi">Siap</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-wrap">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-row">
+      <input class="chat-inp" id="chatInp" placeholder="Kirim pesan ke semua pemain..."
+        maxlength="45" onkeypress="if(event.key==='Enter')sendChat()">
+      <button class="chat-go" onclick="sendChat()">✈️</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- END OVERLAY -->
+<div class="end-overlay" id="endOverlay">
+  <div class="end-box">
+    <span class="end-ico" id="endIco">👑</span>
+    <div class="end-title" id="endTitle">—</div>
+    <div class="end-sub"  id="endSub">—</div>
+    <div class="end-div"></div>
+    <div class="end-msg"  id="endMsg">—</div>
+    <button class="btn-go"   id="btnGo"   onclick="goResult()">👑 TEMUI RAJA SANJAYA 👑</button>
+    <button class="btn-back" id="btnBack" onclick="goBack()">⬅ KEMBALI KE LOBBY</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════
+   CONSTANTS & PARAMS
+═══════════════════════════ */
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const VAULT_ABI = [
+  "function getGameBalance(address) external view returns (uint256)",
+  "function deductBalance(address user, uint256 amount) external",
+  "function sendReward(address user, uint256 amount) external"
+];
+const GAME_CA   = "0x8F6AA26FADB0e00d1d30fB88aF4f61b6e6A939dc";
+const GAME_ABI  = [{"inputs":[{"internalType":"address","name":"_indc","type":"address"},{"internalType":"address","name":"_vault","type":"address"},{"internalType":"address","name":"_devWallet","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint8","name":"playerCount","type":"uint8"}],"name":"PlayerJoined","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint8","name":"stage","type":"uint8"},{"indexed":false,"internalType":"uint8","name":"position","type":"uint8"}],"name":"PositionUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"winner","type":"address"},{"indexed":false,"internalType":"uint256","name":"prize","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"devFee","type":"uint256"}],"name":"RaceFinished","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"pot","type":"uint256"}],"name":"RaceStarted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"winner","type":"address"}],"name":"RaceTimeout","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"player","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Refunded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"RoomCancelled","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"roomId","type":"uint256"},{"indexed":true,"internalType":"address","name":"creator","type":"address"},{"indexed":false,"internalType":"uint256","name":"entryFee","type":"uint256"}],"name":"RoomCreated","type":"event"},{"inputs":[],"name":"DEV_FEE_BPS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"INDC","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_PLAYERS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MAX_ROOMS","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"RACE_TIMEOUT","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"cancelRoom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"entryFee","type":"uint256"}],"name":"createRoom","outputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"devWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"emergencyCancel","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getOpenRooms","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"player","type":"address"}],"name":"getPlayerStats","outputs":[{"internalType":"uint256","name":"currentRoom","type":"uint256"},{"internalType":"uint256","name":"totalRaces","type":"uint256"},{"internalType":"uint256","name":"totalWins","type":"uint256"},{"internalType":"uint256","name":"totalWon","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"getRoom","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"entryFee","type":"uint256"},{"internalType":"uint256","name":"pot","type":"uint256"},{"internalType":"uint8","name":"playerCount","type":"uint8"},{"internalType":"enum SANJAYAGame.RoomStatus","name":"status","type":"uint8"},{"internalType":"address","name":"winner","type":"address"},{"internalType":"uint256","name":"createdAt","type":"uint256"},{"internalType":"uint256","name":"startedAt","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"getRoomPlayers","outputs":[{"internalType":"address[4]","name":"addrs","type":"address[4]"},{"internalType":"uint8[4]","name":"stages","type":"uint8[4]"},{"internalType":"uint8[4]","name":"positions","type":"uint8[4]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"isRoomTimedOut","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"joinRoom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"openRooms","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"playerCurrentRoom","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"playerTotalRaces","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"playerTotalWins","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"playerTotalWon","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"}],"name":"resolveTimeout","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"rooms","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"entryFee","type":"uint256"},{"internalType":"uint256","name":"pot","type":"uint256"},{"internalType":"uint256","name":"createdAt","type":"uint256"},{"internalType":"uint256","name":"startedAt","type":"uint256"},{"internalType":"uint256","name":"finishedAt","type":"uint256"},{"internalType":"enum SANJAYAGame.RoomStatus","name":"status","type":"uint8"},{"internalType":"address","name":"winner","type":"address"},{"internalType":"uint8","name":"playerCount","type":"uint8"},{"internalType":"bool","name":"exists","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_devWallet","type":"address"}],"name":"setDevWallet","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"},{"internalType":"address","name":"winner","type":"address"}],"name":"submitResult","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"totalPotDistributed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalRoomsCreated","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"roomId","type":"uint256"},{"internalType":"uint8","name":"stage","type":"uint8"},{"internalType":"uint8","name":"position","type":"uint8"}],"name":"updatePosition","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"vault","outputs":[{"internalType":"contract IINDCGameVault","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"withdrawDevFees","outputs":[],"stateMutability":"nonpayable","type":"function"}];
+const BSC_ID    = "0x38";
+
+const QS      = new URLSearchParams(location.search);
+const FEE     = parseInt(QS.get("fee")) || 200;
+const POT     = FEE * 4;
+const WIN_POT = Math.floor(POT * 0.95);
+const MY_HERO = parseInt(QS.get("hero")) || 0;
+const ROOM_ID = QS.get("roomId") || sessionStorage.getItem("sanjaya_roomId") || "0";
+
+// Read hero data from sessionStorage if available
+const _raceData = JSON.parse(sessionStorage.getItem("sanjaya_race")||"{}");
+const MY_EMOJI  = _raceData.heroEmoji || "⚔️";
+const MY_NAME   = "KAMU";
+
+let provider, signer, userAddr, cVault, cGame, gameBalance = 0;
+
+/* ═══════════════════════════
+   GAME CONSTANTS
+═══════════════════════════ */
+const STAGES = [
+  {id:0,name:"DESA",   ico:"🏘️",bg:"#0e1a06",trackCol:"rgba(80,140,30,0.55)", obstCol:"rgba(80,140,30,0.2)", deco:["🌾","🏠","🐓"]},
+  {id:1,name:"HUTAN",  ico:"🌿",bg:"#060f06",trackCol:"rgba(20,100,20,0.65)", obstCol:"rgba(20,80,20,0.25)", deco:["🌲","🦎","🌿"]},
+  {id:2,name:"LAUT",   ico:"🌊",bg:"#060a18",trackCol:"rgba(20,60,180,0.55)", obstCol:"rgba(10,40,140,0.3)", deco:["🚢","🐟","🌊"]},
+  {id:3,name:"ISTANA", ico:"🏰",bg:"#100c02",trackCol:"rgba(180,130,10,0.65)",obstCol:"rgba(160,110,10,0.25)",deco:["🏰","👑","⚜️"]},
+];
+
+const P_COLORS = ["#d4a843","#ff4d6d","#2dd4bf","#b58cfa"];
+const P_EMOJIS = [MY_EMOJI,"🗡️","🏹","🪄"];
+const P_NAMES  = ["KAMU","GARUDA_ID","NAGA_MERAH","DRAGON_FIRE"];
+const AI_CHAT_LINES = [
+  "Raja Sanjaya milikku! 👑","Hati-hati jebakankuu 🕸️",
+  "Hampir sampai... ⚡","Coba saja kalahkan aku! 😈",
+  "Badai puyuh datang! 🌪️","Menyerahlah! ⚔️",
+  "Istana sudah dekat! 🏰","Tidak ada yang bisa menghentikanku!",
+];
+
+const NODES_PER_STAGE = 20;
+const TOTAL_STEPS     = STAGES.length * NODES_PER_STAGE; // 80
+
+/* ═══════════════════════════
+   PLAYER STATE
+═══════════════════════════ */
+function makePlayer(id){
+  return {
+    id, name:P_NAMES[id], emoji:P_EMOJIS[id], color:P_COLORS[id],
+    isMe:id===0,
+    pos:0, stage:0,        // logical position
+    hp:100,
+    hidden:false,
+    trapped:0,             // rounds trapped
+    atkCd:0, sklCd:0, trapCd:0, hidCd:0,
+    dead:false,
+    cx:0, cy:0,            // current canvas coords (animated)
+    tx:0, ty:0,            // target canvas coords
+  };
+}
+let players = [0,1,2,3].map(makePlayer);
+let gameOver  = false;
+let myTurn    = true;
+let roundNum  = 0;
+let timerSecs = 600;
+let timerInt  = null;
+let rafId     = null;
+let chatLog   = [];
+
+/* ═══════════════════════════
+   CANVAS
+═══════════════════════════ */
+const canvas = document.getElementById("raceMap");
+const ctx    = canvas.getContext("2d");
+let CW=0, CH=0;
+
+// Pre-computed node positions per stage
+// Layout: top-down S-curve map split into 4 horizontal bands
+let nodeGrid = []; // [stage][nodeIdx] = {x,y}
+
+function buildNodeGrid(){
+  nodeGrid = [];
+  const COLS = 5;
+  const ROWS = NODES_PER_STAGE / COLS; // 4 rows per stage
+  const padX = 28, padY = 12;
+  const stageH = (CH - padY*2) / STAGES.length;
+
+  STAGES.forEach((_, si)=>{
+    const band = [];
+    const sy = padY + si * stageH;
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS; c++){
+        // Snake: even rows left→right, odd rows right→left
+        const col = (r%2===0) ? c : (COLS-1-c);
+        const x = padX + col * ((CW-padX*2)/(COLS-1));
+        const y = sy + (r/(ROWS-1)) * (stageH - 18) + 9;
+        band.push({x, y});
+      }
+    }
+    nodeGrid.push(band);
+  });
+}
+
+function getNode(stage, pos){
+  const s = Math.min(Math.max(stage,0), STAGES.length-1);
+  const p = Math.min(Math.max(pos,0), NODES_PER_STAGE-1);
+  return nodeGrid[s]?.[p] || {x:CW/2, y:CH/2};
+}
+
+function syncPlayerTarget(p){
+  const n = getNode(p.stage, p.pos);
+  p.tx = n.x; p.ty = n.y;
+}
+
+function resizeCanvas(){
+  const area = document.getElementById("mapArea");
+  CW = canvas.width  = area.clientWidth;
+  CH = canvas.height = area.clientHeight;
+  buildNodeGrid();
+  players.forEach(p=>{ syncPlayerTarget(p); p.cx=p.tx; p.cy=p.ty; });
+}
+
+/* ═══════════════════════════
+   DRAW LOOP
+═══════════════════════════ */
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+
+  const COLS=5, ROWS=NODES_PER_STAGE/COLS;
+  const padX=28, padY=12;
+  const stageH=(CH-padY*2)/STAGES.length;
+  const me=players[0];
+
+  STAGES.forEach((st,si)=>{
+    const sy=padY+si*stageH;
+
+    // Stage band background
+    const grad=ctx.createLinearGradient(0,sy,0,sy+stageH);
+    grad.addColorStop(0,st.bg);
+    grad.addColorStop(1,shiftColor(st.bg,0.3));
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,sy,CW,stageH);
+
+    // Subtle grid texture
+    ctx.strokeStyle="rgba(212,168,67,0.04)";
+    ctx.lineWidth=1;
+    ctx.setLineDash([2,12]);
+    for(let x=0;x<CW;x+=30){
+      ctx.beginPath();ctx.moveTo(x,sy);ctx.lineTo(x,sy+stageH);ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Stage label
+    ctx.font="bold 8px 'Share Tech Mono'";
+    ctx.textAlign="left";
+    ctx.fillStyle="rgba(212,168,67,0.4)";
+    ctx.fillText(`${st.ico} ${st.name}`, 4, sy+10);
+
+    // Decorative emojis
+    st.deco.forEach((d,di)=>{
+      ctx.font="11px serif";
+      ctx.textAlign="center";
+      ctx.globalAlpha=0.18;
+      ctx.fillText(d, 15+di*(CW/4), sy+stageH-8);
+      ctx.globalAlpha=1;
+    });
+
+    // Draw track lines between nodes
+    const nodes=nodeGrid[si];
+    if(!nodes) return;
+
+    for(let i=0;i<NODES_PER_STAGE-1;i++){
+      const n1=nodes[i], n2=nodes[i+1];
+      // Track segment
+      ctx.strokeStyle=st.trackCol;
+      ctx.lineWidth=7;
+      ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(n1.x,n1.y);ctx.lineTo(n2.x,n2.y);ctx.stroke();
+
+      // Completed portion (player progress highlight)
+      const globalIdx=si*NODES_PER_STAGE+i;
+      const meIdx=me.stage*NODES_PER_STAGE+me.pos;
+      if(globalIdx<meIdx){
+        ctx.strokeStyle="rgba(212,168,67,0.45)";
+        ctx.lineWidth=3;
+        ctx.beginPath();ctx.moveTo(n1.x,n1.y);ctx.lineTo(n2.x,n2.y);ctx.stroke();
+      }
+    }
+
+    // Node dots
+    nodes.forEach((n,ni)=>{
+      const globalIdx=si*NODES_PER_STAGE+ni;
+      const meIdx=me.stage*NODES_PER_STAGE+me.pos;
+      if(ni%5===0 || ni===NODES_PER_STAGE-1){
+        ctx.fillStyle = globalIdx<=meIdx?"rgba(212,168,67,0.6)":"rgba(255,255,255,0.12)";
+        ctx.beginPath();ctx.arc(n.x,n.y,3.5,0,Math.PI*2);ctx.fill();
+      }
+    });
+
+    // Stage separator
+    ctx.strokeStyle="rgba(212,168,67,0.12)";
+    ctx.lineWidth=1;
+    ctx.setLineDash([6,10]);
+    ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(CW,sy);ctx.stroke();
+    ctx.setLineDash([]);
+
+    // FINISH STAR at last stage
+    if(si===3){
+      const fn=nodes[NODES_PER_STAGE-1];
+      ctx.font="18px serif";
+      ctx.textAlign="center";
+      ctx.fillText("👑",fn.x,fn.y-12);
+      // Glow ring
+      ctx.strokeStyle="rgba(212,168,67,0.5)";
+      ctx.lineWidth=2;
+      ctx.shadowColor=var_gold;
+      ctx.shadowBlur=14;
+      ctx.beginPath();ctx.arc(fn.x,fn.y,9,0,Math.PI*2);ctx.stroke();
+      ctx.shadowBlur=0;
+    }
+  });
+
+  const var_gold="#d4a843";
+
+  // Smooth move players
+  players.forEach(p=>{
+    p.cx += (p.tx-p.cx)*0.16;
+    p.cy += (p.ty-p.cy)*0.16;
+  });
+
+  // Draw players sorted back to front
+  [...players].filter(p=>!p.dead).sort((a,b)=>a.cy-b.cy).forEach(p=>{
+    const x=p.cx, y=p.cy;
+
+    // Shadow
+    ctx.fillStyle="rgba(0,0,0,0.25)";
+    ctx.beginPath();ctx.ellipse(x,y+10,9,4,0,0,Math.PI*2);ctx.fill();
+
+    // Hidden tint
+    if(p.hidden) ctx.globalAlpha=0.35;
+
+    // Glow for ME
+    if(p.isMe){ ctx.shadowColor=p.color;ctx.shadowBlur=16; }
+
+    // Circle
+    const r = p.isMe?13:11;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=p.isMe?"rgba(255,255,255,0.8)":"rgba(255,255,255,0.3)";
+    ctx.lineWidth=p.isMe?2:1;
+    ctx.stroke();
+    ctx.shadowBlur=0;
+
+    // Emoji
+    ctx.font=`${p.isMe?14:12}px serif`;
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(p.emoji,x,y);
+    ctx.textBaseline="alphabetic";
+
+    // Name tag
+    ctx.font=`bold ${p.isMe?7.5:7}px 'Share Tech Mono'`;
+    ctx.textAlign="center";
+    ctx.fillStyle=p.isMe?"#d4a843":"rgba(240,224,192,0.65)";
+    ctx.fillText(p.isMe?"KAMU":p.name.slice(0,7),x,y-r-6);
+
+    // HP bar
+    const bw=22;
+    ctx.fillStyle="rgba(0,0,0,0.4)";
+    ctx.fillRect(x-bw/2,y-r-5,bw,3);
+    const hpCol=p.hp>60?"#22c55e":p.hp>30?"#facc15":"#f87171";
+    ctx.fillStyle=hpCol;
+    ctx.fillRect(x-bw/2,y-r-5,bw*(p.hp/100),3);
+
+    // Trap indicator
+    if(p.trapped>0){
+      ctx.font="9px serif";ctx.textAlign="center";
+      ctx.fillText("🕸️",x+r-2,y-r);
+    }
+
+    ctx.globalAlpha=1;
+  });
+
+  rafId=requestAnimationFrame(draw);
+}
+
+function shiftColor(hex, amt){
+  // Slightly lighten a hex color for gradient
+  try{
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    const nr=Math.min(255,r+Math.round(amt*40)), ng=Math.min(255,g+Math.round(amt*40)), nb=Math.min(255,b+Math.round(amt*40));
+    return `#${nr.toString(16).padStart(2,"0")}${ng.toString(16).padStart(2,"0")}${nb.toString(16).padStart(2,"0")}`;
+  }catch{return hex;}
+}
+
+/* ═══════════════════════════
+   RENDER UI
+═══════════════════════════ */
+function renderStageBar(){
+  const me=players[0];
+  document.getElementById("stageBar").innerHTML=STAGES.map((st,i)=>`
+    <div class="sn">
+      <span class="sn-ico">${st.ico}</span>
+      <span class="sn-txt">${st.name}</span>
+      <div class="sn-dot ${i<me.stage?"done":i===me.stage?"active":""}"></div>
+    </div>
+    ${i<3?`<div class="sn-line ${i<me.stage?"done":""}"></div>`:""}
+  `).join("");
+}
+
+function renderPlayers(){
+  const ranked=[...players].sort((a,b)=>(b.stage*100+b.pos)-(a.stage*100+a.pos));
+  const medals=["🥇","🥈","🥉","4️⃣"];
+  document.getElementById("playersRow").innerHTML=ranked.map((p,ri)=>{
+    const pct=Math.floor(((p.stage*NODES_PER_STAGE+p.pos)/TOTAL_STEPS)*100);
+    const hpCol=p.hp>60?"#22c55e":p.hp>30?"#facc15":"#f87171";
+    return `<div class="pc ${p.isMe?"me":""} ${p.dead?"dead":""}">
+      <span class="pc-rank">${medals[ri]}</span>
+      <div class="pc-top">
+        <span class="pc-emo">${p.emoji}</span>
+        <span class="pc-name">${p.isMe?"KAMU":p.name.slice(0,6)}</span>
+      </div>
+      <div class="pc-bar"><div class="pc-fill" style="width:${p.hp}%;background:${hpCol}"></div></div>
+      <div class="pc-info">${pct}% · Md.${p.stage+1}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderCDs(){
+  const me=players[0];
+  document.getElementById("cdAtk").textContent =me.atkCd >0?`CD ${me.atkCd}`:"Siap";
+  document.getElementById("cdSk").textContent  =me.sklCd >0?`CD ${me.sklCd}`:"Siap";
+  document.getElementById("cdTr").textContent  =me.trapCd>0?`CD ${me.trapCd}`:"Siap";
+  document.getElementById("cdHi").textContent  =me.hidCd >0?`CD ${me.hidCd}`:"Siap";
+  document.getElementById("bAtk").disabled  =me.atkCd >0;
+  document.getElementById("bSkill").disabled=me.sklCd >0;
+  document.getElementById("bTrap").disabled =me.trapCd>0;
+  document.getElementById("bHide").disabled =me.hidCd >0;
+}
+
+function renderAll(){
+  renderStageBar();
+  renderPlayers();
+  renderCDs();
+}
+
+/* ═══════════════════════════
+   MOVEMENT & PROGRESS
+═══════════════════════════ */
+function movePlayer(p, steps){
+  if(p.dead) return false;
+  p.pos += steps;
+  while(p.pos >= NODES_PER_STAGE){
+    p.pos -= NODES_PER_STAGE;
+    p.stage++;
+    if(p.stage >= STAGES.length){
+      p.stage = STAGES.length-1;
+      p.pos   = NODES_PER_STAGE-1;
+      syncPlayerTarget(p);
+      triggerEnd(p);
+      return true; // won
+    }
+    chat("evt",`${p.isMe?"KAMU":p.name} memasuki Medan ${p.stage+1}: ${STAGES[p.stage].name}!`);
+  }
+  syncPlayerTarget(p);
+  // Update posisi on-chain untuk player sendiri (non-blocking)
+  if(p.isMe && cGame && userAddr && ROOM_ID && ROOM_ID!=="0"){
+    cGame.updatePosition(BigInt(ROOM_ID), p.stage, p.pos)
+      .then(tx=>tx.wait())
+      .catch(e=>console.warn("updatePosition:",e.message));
+  }
+  return false;
+}
+
+/* ═══════════════════════════
+   PLAYER ACTIONS
+═══════════════════════════ */
+function act(type){
+  if(gameOver||!myTurn) return;
+  const me=players[0];
+
+  // Trapped check
+  if(me.trapped>0){
+    me.trapped--;
+    chat("warn",`🕸️ Kamu terjebak! ${me.trapped} ronde lagi. Aksi dilewati.`);
+    endTurn();
+    return;
+  }
+
+  if(type==="move"){
+    const roll=Math.floor(Math.random()*6)+1;
+    const won=movePlayer(me,roll);
+    if(!won){
+      fx(me.cx,me.cy,"🏃","#4ade80");
+      chat("me",`🏃 KAMU maju ${roll} langkah (dadu: ${roll})`);
+      randomEvent(me);
+    }
+
+  }else if(type==="attack"){
+    if(me.atkCd>0){toast("⏳ Cooldown!");return;}
+    const targets=players.filter(p=>!p.isMe&&!p.dead&&p.hp>0);
+    if(!targets.length){toast("❌ Tidak ada target!");return;}
+    const t=targets[~~(Math.random()*targets.length)];
+    const dmg=~~(Math.random()*15)+10;
+    t.hp=Math.max(0,t.hp-dmg);
+    me.atkCd=3;
+    fx(t.cx,t.cy,"💥","#ff4d6d");
+    dmgText(t.cx,t.cy,dmg,false);
+    shake();
+    chat("me",`⚔️ KAMU menyerang ${t.name}! −${dmg} HP`);
+    if(t.hp<=0){ t.dead=true; chat("evt",`💀 ${t.name} gugur dalam pertempuran!`); }
+
+  }else if(type==="skill"){
+    if(me.sklCd>0){toast("⏳ Cooldown!");return;}
+    const enemies=players.filter(p=>!p.isMe&&!p.dead);
+    if(!enemies.length){toast("❌ Tidak ada target!");return;}
+    enemies.forEach(e=>{
+      e.pos=Math.max(0,e.pos-3);
+      syncPlayerTarget(e);
+    });
+    me.sklCd=4;
+    fxArea("🌪️");
+    chat("me","🌪️ BADAI PUYUH! Semua lawan mundur 3 langkah!");
+
+  }else if(type==="trap"){
+    if(me.trapCd>0){toast("⏳ Cooldown!");return;}
+    const enemies=players.filter(p=>!p.isMe&&!p.dead);
+    if(!enemies.length){toast("❌ Tidak ada target!");return;}
+    const t=enemies[~~(Math.random()*enemies.length)];
+    t.trapped+=2;
+    me.trapCd=3;
+    fx(t.cx,t.cy,"🕸️","#b58cfa");
+    chat("me",`🕸️ Jebakan dipasang! ${t.name} terjebak 2 ronde!`);
+
+  }else if(type==="hide"){
+    if(me.hidCd>0){toast("⏳ Cooldown!");return;}
+    me.hidden=true;
+    me.hidCd=4;
+    fx(me.cx,me.cy,"🌿","#38bdf8");
+    chat("me","🌿 KAMU bersembunyi! Tidak terlihat lawan 6 detik.");
+    setTimeout(()=>{me.hidden=false;},6000);
+  }
+
+  endTurn();
+}
+
+function endTurn(){
+  myTurn=false;
+  const me=players[0];
+  if(me.atkCd >0)me.atkCd--;
+  if(me.sklCd >0)me.sklCd--;
+  if(me.trapCd>0)me.trapCd--;
+  if(me.hidCd >0)me.hidCd--;
+  renderAll();
+
+  setTimeout(()=>{
+    if(!gameOver){
+      runAI();
+      roundNum++;
+      myTurn=true;
+      renderAll();
+    }
+  }, 900);
+}
+
+/* ═══════════════════════════
+   AI
+═══════════════════════════ */
+function runAI(){
+  players.slice(1).forEach(p=>{
+    if(p.dead) return;
+    if(p.atkCd >0)p.atkCd--;
+    if(p.sklCd >0)p.sklCd--;
+    if(p.trapCd>0)p.trapCd--;
+    if(p.trapped>0){ p.trapped--; return; }
+
+    const r=Math.random();
+    if(r<0.55){
+      // Move
+      const steps=~~(Math.random()*5)+1;
+      movePlayer(p,steps);
+    }else if(r<0.70&&p.atkCd===0){
+      // Attack player
+      const dmg=~~(Math.random()*10)+5;
+      players[0].hp=Math.max(0,players[0].hp-dmg);
+      p.atkCd=3;
+      fx(players[0].cx,players[0].cy,"💥","#ff4d6d");
+      dmgText(players[0].cx,players[0].cy,dmg,true);
+      shake();
+      chat("ai",`⚔️ ${p.name} menyerang KAMU! −${dmg} HP`);
+      if(players[0].hp<=0){ players[0].dead=true; triggerEnd(null); }
+    }else if(r<0.82&&p.trapCd===0){
+      // Trap player
+      players[0].trapped+=1;
+      p.trapCd=3;
+      chat("ai",`🕸️ ${p.name} memasang jebakan! Kamu tertangkap!`);
+    }else if(r<0.88&&p.sklCd===0){
+      // Badai
+      players[0].pos=Math.max(0,players[0].pos-2);
+      syncPlayerTarget(players[0]);
+      p.sklCd=5;
+      chat("ai",`🌪️ ${p.name} gunakan Badai Puyuh! Kamu mundur 2 langkah!`);
+    }else{
+      // Chat
+      if(Math.random()<0.35){
+        chat("ai",`${p.name}: ${AI_CHAT_LINES[~~(Math.random()*AI_CHAT_LINES.length)]}`);
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════
+   RANDOM EVENTS
+═══════════════════════════ */
+function randomEvent(p){
+  if(Math.random()>0.25) return;
+  const evts=[
+    {m:"🌧️ Hujan deras! −1 langkah",  fn:()=>{p.pos=Math.max(0,p.pos-1);syncPlayerTarget(p);}},
+    {m:"💨 Angin baik! +2 langkah",    fn:()=>{movePlayer(p,2);}},
+    {m:"🪨 Batu besar! −6 HP",         fn:()=>{p.hp=Math.max(1,p.hp-6);}},
+    {m:"🌺 Ramuan! +15 HP",            fn:()=>{p.hp=Math.min(100,p.hp+15);}},
+    {m:"🗺️ Jalur rahasia! +3 langkah", fn:()=>{movePlayer(p,3);}},
+    {m:"⚡ Petir! −10 HP",             fn:()=>{p.hp=Math.max(1,p.hp-10);}},
+    {m:"🎁 Harta tersembunyi! +5 langkah",fn:()=>{movePlayer(p,5);}},
+  ];
+  const ev=evts[~~(Math.random()*evts.length)];
+  ev.fn();
+  chat("evt","⭐ EVENT RANDOM: "+ev.m);
+  fx(p.cx,p.cy,"⭐","#facc15");
+}
+
+/* ═══════════════════════════
+   END GAME
+═══════════════════════════ */
+async function triggerEnd(winner){
+  if(gameOver) return;
+  gameOver=true;
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  clearInterval(timerInt);
+
+  if(winner&&winner.isMe){
+    document.getElementById("endIco").textContent   ="👑";
+    document.getElementById("endTitle").textContent ="TIBA DI ISTANA SANJAYA!";
+    document.getElementById("endSub").textContent   ="🏆 KAMU ADALAH PEMENANGNYA!";
+    document.getElementById("endMsg").textContent   =`Raja Sanjaya menunggumu di singgasana.\nHadiah ${WIN_POT.toLocaleString()} INDC siap diserahkan!\n\n"Selamat datang, Ksatria Pemberani!"`;
+    document.getElementById("btnGo").style.display  ="block";
+    chat("evt","👑 KAMU MENANG! Tiba di Istana Raja Sanjaya!");
+
+    // ═══ Submit result on-chain ═══
+    if(cGame && userAddr && ROOM_ID && ROOM_ID!=="0"){
+      try{
+        chat("sys","⛓️ Mengirim hasil ke blockchain...");
+        const roomIdBig=BigInt(ROOM_ID);
+        const tx=await cGame.submitResult(roomIdBig, userAddr);
+        await tx.wait();
+        chat("sys","✅ Hasil race tersimpan di blockchain!");
+      }catch(e){
+        console.warn("submitResult error:",e.message);
+        chat("sys","⚠️ Gagal submit on-chain: "+(e.reason||e.message||"Error"));
+      }
+    }
+  }else{
+    const wname = winner?winner.name:"Lawan";
+    document.getElementById("endIco").textContent   ="😔";
+    document.getElementById("endTitle").textContent ="EKSPEDISI BERAKHIR";
+    document.getElementById("endSub").textContent   =wname+" menang kali ini...";
+    document.getElementById("endMsg").textContent   ="Jangan menyerah, Ksatria!\nLatih hero lebih keras dan coba lagi.\nRaja Sanjaya masih menunggu! 🏰";
+    document.getElementById("btnGo").style.display  ="none";
+    chat("evt",`👑 ${wname} menang! Tiba di Istana Sanjaya.`);
+  }
+  document.getElementById("endOverlay").classList.add("show");
+}
+
+function goResult(){
+  sessionStorage.setItem("sanjaya_result", JSON.stringify({fee:FEE,pot:POT,reward:WIN_POT,winner:"KAMU"}));
+  location.href=`sanjaya-result.html?fee=${FEE}&winner=KAMU`;
+}
+function goBack(){ location.href="sanjaya.html"; }
+
+/* ═══════════════════════════
+   TIMER
+═══════════════════════════ */
+function startTimer(){
+  timerInt=setInterval(()=>{
+    timerSecs--;
+    const m=~~(timerSecs/60), s=timerSecs%60;
+    const el=document.getElementById("timerVal");
+    el.textContent=`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    if(timerSecs<=60) el.classList.add("warn");
+    if(timerSecs<=0){
+      clearInterval(timerInt);
+      if(!gameOver){
+        const top=[...players].filter(p=>!p.dead)
+          .sort((a,b)=>(b.stage*NODES_PER_STAGE+b.pos)-(a.stage*NODES_PER_STAGE+a.pos));
+        chat("evt","⏱️ Waktu habis! Pemain terdekat ke istana menang!");
+        setTimeout(()=>triggerEnd(top[0]),500);
+      }
+    }
+  },1000);
+}
+
+/* ═══════════════════════════
+   VISUAL EFFECTS
+═══════════════════════════ */
+function fx(x,y,emoji,color){
+  const lay=document.getElementById("fxLayer");
+  for(let i=0;i<5;i++){
+    const el=document.createElement("div");
+    el.className="fxp";
+    el.textContent=emoji;
+    const tx=(Math.random()-.5)*70, ty=(Math.random()-.5)*70-20;
+    el.style.cssText=`left:${x}px;top:${y}px;--tx:${tx}px;--ty:${ty}px;animation-delay:${i*.07}s;color:${color};`;
+    lay.appendChild(el);
+    setTimeout(()=>el.remove(),1100);
+  }
+}
+
+function fxArea(emoji){
+  const lay=document.getElementById("fxLayer");
+  for(let i=0;i<10;i++){
+    const el=document.createElement("div");
+    el.className="fxp";
+    el.textContent=emoji;
+    const x=Math.random()*CW, y=Math.random()*CH;
+    const tx=(Math.random()-.5)*90, ty=(Math.random()-.5)*90-30;
+    el.style.cssText=`left:${x}px;top:${y}px;--tx:${tx}px;--ty:${ty}px;font-size:22px;animation-delay:${i*.08}s;`;
+    lay.appendChild(el);
+    setTimeout(()=>el.remove(),1400);
+  }
+}
+
+function dmgText(x,y,dmg,isMe){
+  const lay=document.getElementById("fxLayer");
+  const el=document.createElement("div");
+  el.className="fxdmg";
+  el.textContent=`-${dmg}`;
+  el.style.cssText=`left:${x-12}px;top:${y-22}px;color:${isMe?"#ff4d6d":"#f87171"};`;
+  lay.appendChild(el);
+  setTimeout(()=>el.remove(),900);
+}
+
+function shake(){
+  const wrap=document.getElementById("gameWrap");
+  wrap.classList.add("shake");
+  setTimeout(()=>wrap.classList.remove("shake"),280);
+}
+
+/* ═══════════════════════════
+   CHAT
+═══════════════════════════ */
+function chat(type,msg){
+  const prefix={sys:"⚜️",me:"👤",ai:"🤺",evt:"✨",warn:"⚠️"}[type]||"•";
+  chatLog.push({type,msg:prefix+" "+msg});
+  const log=document.getElementById("chatLog");
+  log.innerHTML=chatLog.slice(-35).map(m=>`<div class="cm ${m.type}">${m.msg}</div>`).join("");
+  log.scrollTop=log.scrollHeight;
+}
+
+function sendChat(){
+  const inp=document.getElementById("chatInp");
+  const msg=inp.value.trim();
+  if(!msg) return;
+  chat("me","KAMU: "+msg);
+  inp.value="";
+  // AI reply
+  if(Math.random()<0.45){
+    const aiAlive=players.filter(p=>!p.isMe&&!p.dead);
+    if(aiAlive.length){
+      const ai=aiAlive[~~(Math.random()*aiAlive.length)];
+      setTimeout(()=>{
+        chat("ai",ai.name+": "+AI_CHAT_LINES[~~(Math.random()*AI_CHAT_LINES.length)]);
+      },700+Math.random()*1200);
+    }
+  }
+}
+
+/* ═══════════════════════════
+   TOAST
+═══════════════════════════ */
+function toast(msg){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const el=document.createElement("div");
+  el.className="toast";el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2200);
+}
+
+/* ═══════════════════════════
+   INIT
+═══════════════════════════ */
+window.addEventListener("load",async()=>{
+
+  // Wallet check
+  if(window.ethereum){
+    try{
+      const acc=await window.ethereum.request({method:"eth_accounts"});
+      if(!acc.length){ toast("❌ Connect wallet dulu!"); setTimeout(()=>location.href="sanjaya.html",1800); return; }
+      provider=new ethers.BrowserProvider(window.ethereum);
+      signer=await provider.getSigner();
+      userAddr=await signer.getAddress();
+      cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+      cGame=new ethers.Contract(GAME_CA,GAME_ABI,signer);
+      const gb=await cVault.getGameBalance(userAddr);
+      gameBalance=parseFloat(ethers.formatUnits(gb,18));
+      if(gameBalance<200){ toast("❌ Min 200 INDC di Game Vault!"); setTimeout(()=>location.href="wallet.html",2000); return; }
+      chat("sys",`🔗 Room #${ROOM_ID} terhubung ke blockchain`);
+    }catch(e){ console.warn("Wallet:",e.message); }
+  }
+
+  // Canvas
+  resizeCanvas();
+  window.addEventListener("resize",()=>{ resizeCanvas(); });
+
+  // Sync all player canvas positions
+  players.forEach(p=>{ syncPlayerTarget(p); p.cx=p.tx; p.cy=p.ty; });
+
+  // Pot
+  document.getElementById("potVal").textContent=POT.toLocaleString()+" INDC";
+
+  // Start drawing
+  draw();
+
+  // UI
+  renderAll();
+
+  // Timer
+  startTimer();
+
+  // Opening chat sequence
+  chat("sys","⚜️ Singgasana Sanjaya — Race Dimulai!");
+  chat("sys",`🏰 Tujuan: Singgasana Raja Sanjaya!`);
+  chat("sys",`💰 Pot hadiah: ${POT.toLocaleString()} INDC`);
+  chat("evt","🏘️ Semua ksatria berangkat dari Desa Nusantara!");
+  setTimeout(()=>chat("ai","GARUDA_ID: Siapkan dirimu! Istana milikku! 👑"),2200);
+  setTimeout(()=>chat("ai","NAGA_MERAH: Hahaha... jangan bermimpi! ⚔️"),4000);
+  setTimeout(()=>chat("ai","DRAGON_FIRE: Raja Sanjaya sudah menungguku 🏰"),5800);
+
+  // AI periodic chat
+  setInterval(()=>{
+    if(!gameOver&&Math.random()<0.25){
+      const alive=players.filter(p=>!p.isMe&&!p.dead);
+      if(alive.length){
+        const p=alive[~~(Math.random()*alive.length)];
+        chat("ai",p.name+": "+AI_CHAT_LINES[~~(Math.random()*AI_CHAT_LINES.length)]);
+      }
+    }
+  },12000);
+});
+</script>
+<script src="sanjaya-sound.js"></script>
+<script src="sanjaya-tutorial.js"></script>
+<script src="sanjaya-ui.js"></script>
+<script>
+// Init Sound & Tutorial untuk halaman Race
+window.addEventListener("load",()=>{
+  if(window.SanjayaUI) SanjayaUI.init("race");
+  if(window.SanjayaTutorial) SanjayaTutorial.autoStart("race");
+});
+
+// ═══ RACE SOUND HOOKS ═══
+// Patch fungsi act() untuk tambah sound
+const _origAct = typeof act === "function" ? act : null;
+if(_origAct){
+  window.act = function(type){
+    if(window.SanjayaSound){
+      const sfx = window.SanjayaSound.sfx;
+      if(type==="move")   sfx.move();
+      if(type==="attack") sfx.attack();
+      if(type==="skill")  sfx.skill();
+      if(type==="trap")   sfx.trap();
+      if(type==="hide")   sfx.hide();
+    }
+    return _origAct(type);
+  };
+}
+
+// Patch chat() untuk sound pada event penting
+const _origChat = typeof chat === "function" ? chat : null;
+if(_origChat){
+  window.chat = function(type, msg){
+    if(window.SanjayaSound){
+      const sfx = window.SanjayaSound.sfx;
+      if(type==="evt") sfx.kenong();
+      if(type==="warn") sfx.damage();
+    }
+    return _origChat(type, msg);
+  };
+}
+
+// Patch stageUp sound
+const _origMove = typeof movePlayer === "function" ? movePlayer : null;
+if(_origMove){
+  window._prevStages = {};
+  window.movePlayer = function(p, steps){
+    const prevStage = p.stage;
+    const result = _origMove(p, steps);
+    if(p.stage > prevStage && window.SanjayaSound){
+      window.SanjayaSound.sfx.stageUp();
+    }
+    return result;
+  };
+}
+</script>
+</body>
+</html>

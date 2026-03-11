@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/png" href="indowar-icon.png">
+<link rel="apple-touch-icon" href="indowar-icon.png">
+<meta property="og:image" content="indowar-icon.png">
+<meta name="theme-color" content="#0a0705">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SINGGASANA SANJAYA — Istana Raja</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#d4a843;--gold2:#f5d07a;--gold3:#8b6914;
+  --crimson:#8b1a1a;--dark:#050302;--dark2:#0f0b06;
+  --text:#f0e0c0;--muted:#7a6040;
+  --border:rgba(212,168,67,0.2);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',serif;
+  min-height:100vh;overflow-x:hidden;}
+
+/* ══ SCENE LAYERS ══ */
+.scene{position:relative;min-height:100vh;overflow:hidden;}
+
+/* SKY */
+.sky{position:fixed;inset:0;z-index:0;
+  background:linear-gradient(180deg,
+    #0a0510 0%,#120818 20%,#1a0f08 50%,#0f0a05 80%,#050302 100%);}
+
+/* STARS */
+.stars{position:fixed;inset:0;z-index:1;pointer-events:none;}
+.star{position:absolute;background:#fff;border-radius:50%;
+  animation:twinkle var(--d) ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+
+/* FIREFLIES */
+.fireflies{position:fixed;inset:0;z-index:2;pointer-events:none;}
+.ff{position:absolute;width:3px;height:3px;border-radius:50%;
+  background:var(--gold2);box-shadow:0 0 6px var(--gold2);
+  animation:ffFloat var(--d) ease-in-out infinite;opacity:0;}
+@keyframes ffFloat{
+  0%{opacity:0;transform:translate(0,0)}
+  20%{opacity:.8}
+  50%{transform:translate(var(--tx),var(--ty));opacity:.6}
+  80%{opacity:.4}
+  100%{opacity:0;transform:translate(calc(var(--tx)*2),calc(var(--ty)*2))}
+}
+
+/* GOLDEN MIST */
+.mist{position:fixed;bottom:0;left:0;right:0;height:200px;z-index:2;pointer-events:none;
+  background:linear-gradient(0deg,rgba(212,168,67,0.06) 0%,transparent 100%);
+  animation:mistMove 8s ease-in-out infinite;}
+@keyframes mistMove{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* PETALS */
+.petals{position:fixed;inset:0;z-index:3;pointer-events:none;}
+.petal{position:absolute;font-size:10px;opacity:0;
+  animation:petalFall var(--d) ease-in infinite var(--delay);}
+@keyframes petalFall{
+  0%{opacity:0;transform:translateY(-20px) rotate(0deg)}
+  10%{opacity:.8}
+  90%{opacity:.4}
+  100%{opacity:0;transform:translateY(100vh) rotate(720deg)}
+}
+
+/* ══ GATE OPENING ══ */
+.gate-scene{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:#050302;animation:gateOpen 3s ease forwards;}
+@keyframes gateOpen{
+  0%{opacity:1}
+  70%{opacity:1}
+  100%{opacity:0;pointer-events:none;visibility:hidden}
+}
+.gate-door{width:120px;height:180px;border:3px solid var(--gold);
+  background:linear-gradient(135deg,#1a0f05,#2a1a08);
+  position:relative;animation:doorSwing 2.5s ease 0.5s forwards;
+  transform-origin:left center;border-radius:60px 60px 0 0;}
+.gate-door.right{transform-origin:right center;animation:doorSwingR 2.5s ease 0.5s forwards;
+  border-radius:60px 60px 0 0;}
+@keyframes doorSwing{to{transform:perspective(400px) rotateY(-90deg)}}
+@keyframes doorSwingR{to{transform:perspective(400px) rotateY(90deg)}}
+.gate-glow{position:absolute;inset:0;z-index:51;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 100%,rgba(212,168,67,0.3) 0%,transparent 60%);
+  animation:gateGlow 3s ease forwards;}
+@keyframes gateGlow{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+
+/* ══ CONTENT ══ */
+.content{position:relative;z-index:10;padding:0 0 100px;}
+
+/* THRONE ROOM */
+.throne-room{position:relative;padding:20px 16px;text-align:center;min-height:280px;
+  background:linear-gradient(180deg,rgba(139,26,26,0.1) 0%,transparent 40%);}
+.tr-ceiling{height:3px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold2),var(--gold),transparent);
+  margin-bottom:16px;}
+.tr-pillars{display:flex;justify-content:space-between;align-items:flex-end;
+  position:absolute;bottom:0;left:0;right:0;height:60px;pointer-events:none;}
+.pillar{width:18px;background:linear-gradient(180deg,rgba(212,168,67,0.3),rgba(212,168,67,0.1));
+  border:1px solid rgba(212,168,67,0.2);}
+.tr-title{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:3px;margin-bottom:6px;animation:fadeIn 1s ease 3s both;}
+.tr-subtitle{font-family:'Cinzel Decorative',serif;font-size:22px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 40px rgba(212,168,67,0.4),0 2px 0 var(--gold3);
+  line-height:1.2;margin-bottom:4px;animation:fadeIn 1s ease 3.2s both;}
+.tr-divider{display:flex;align-items:center;gap:8px;justify-content:center;
+  margin:8px 0;animation:fadeIn 1s ease 3.4s both;}
+.tr-div-line{flex:1;max-width:80px;height:1px;background:linear-gradient(90deg,transparent,var(--gold));}
+.tr-div-line.r{background:linear-gradient(90deg,var(--gold),transparent);}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ RAJA SANJAYA ══ */
+.raja-wrap{display:flex;justify-content:center;margin:16px 0;
+  animation:rajaEnter 1.2s cubic-bezier(.34,1.56,.64,1) 3.5s both;}
+@keyframes rajaEnter{from{opacity:0;transform:scale(0.3) translateY(40px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.raja-throne{position:relative;display:inline-flex;flex-direction:column;align-items:center;}
+.throne-back{width:80px;height:100px;border:2px solid var(--gold);border-radius:40px 40px 0 0;
+  background:linear-gradient(180deg,rgba(139,26,26,0.5),rgba(50,20,5,0.8));
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);z-index:0;
+  box-shadow:0 0 30px rgba(212,168,67,0.2);}
+.raja-figure{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;}
+.raja-crown{font-size:28px;filter:drop-shadow(0 0 12px rgba(212,168,67,0.8));
+  animation:crownGlow 2s ease-in-out infinite;}
+@keyframes crownGlow{0%,100%{filter:drop-shadow(0 0 8px rgba(212,168,67,0.6))}
+  50%{filter:drop-shadow(0 0 20px rgba(212,168,67,1))}}
+.raja-body{font-size:56px;display:block;line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));}
+.raja-base{width:70px;height:10px;background:linear-gradient(90deg,transparent,rgba(212,168,67,0.3),transparent);
+  border-radius:50%;margin-top:4px;}
+.raja-name{font-family:'Cinzel Decorative',serif;font-size:14px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 20px rgba(212,168,67,0.4);margin-top:8px;}
+.raja-title{font-family:'Crimson Text',serif;font-size:11px;font-style:italic;
+  color:var(--muted);}
+
+/* ══ DIALOG ══ */
+.dialog-box{background:rgba(15,11,6,0.95);border:1px solid rgba(212,168,67,0.3);
+  border-radius:4px;margin:0 16px 16px;padding:14px 16px;position:relative;
+  animation:fadeIn 1s ease 4.5s both;}
+.dialog-box::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.db-speaker{font-family:'Cinzel',serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;}
+.db-speaker::before{content:'👑';}
+.db-text{font-family:'Crimson Text',serif;font-size:15px;font-style:italic;
+  color:var(--text);line-height:1.7;}
+.cursor-blink{display:inline-block;width:2px;height:14px;background:var(--gold);
+  margin-left:2px;animation:blink .8s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ══ 7 PUTRI ══ */
+.putri-section{padding:0 12px;margin-bottom:16px;animation:fadeIn 1s ease 5s both;}
+.ps-title{font-family:'Cinzel',serif;font-size:10px;font-weight:700;
+  color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;}
+.ps-title::before,.ps-title::after{content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,168,67,0.3),transparent);}
+.putri-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+.putri-card{display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:calc(14% - 6px);min-width:44px;
+  animation:putriEnter 0.8s cubic-bezier(.34,1.56,.64,1) var(--delay) both;}
+@keyframes putriEnter{
+  from{opacity:0;transform:translateY(30px) scale(0.5)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.putri-figure{position:relative;display:flex;flex-direction:column;align-items:center;}
+.putri-emoji{font-size:32px;display:block;
+  animation:putriSway var(--sway) ease-in-out infinite var(--sd);}
+@keyframes putriSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.putri-glow{position:absolute;bottom:-4px;width:30px;height:6px;
+  background:radial-gradient(ellipse,var(--pc) 0%,transparent 70%);
+  border-radius:50%;animation:glowPulse 2s ease-in-out infinite var(--sd);}
+@keyframes glowPulse{0%,100%{opacity:.4;transform:scaleX(1)}50%{opacity:.8;transform:scaleX(1.3)}}
+.putri-name{font-family:'Cinzel',serif;font-size:5.5px;font-weight:700;
+  color:var(--gold);text-align:center;line-height:1.3;}
+.putri-heart{font-size:10px;animation:heartBeat 1.5s ease-in-out infinite var(--sd);}
+@keyframes heartBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+
+/* ══ JAMUAN ══ */
+.feast-section{padding:0 16px;margin-bottom:16px;animation:fadeIn 1s ease 5.5s both;}
+.feast-title{font-family:'Cinzel',serif;font-size:10px;font-weight:700;
+  color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;}
+.feast-title::before,.feast-title::after{content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,168,67,0.3),transparent);}
+.feast-table{background:linear-gradient(135deg,rgba(50,30,5,0.6),rgba(30,20,5,0.8));
+  border:1px solid rgba(212,168,67,0.25);border-radius:4px;padding:12px;
+  display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}
+.feast-item{display:flex;flex-direction:column;align-items:center;gap:3px;
+  animation:feaseFloat var(--fd) ease-in-out infinite var(--fdelay);}
+@keyframes feaseFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.fi-emoji{font-size:24px;}
+.fi-name{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+
+/* ══ REWARD ══ */
+.reward-section{padding:0 16px;margin-bottom:16px;animation:fadeIn 1s ease 6s both;}
+.reward-card{background:linear-gradient(135deg,rgba(139,26,26,0.2),rgba(50,30,5,0.8));
+  border:2px solid var(--gold);border-radius:4px;padding:20px;text-align:center;
+  position:relative;overflow:hidden;
+  box-shadow:0 0 40px rgba(212,168,67,0.15),inset 0 0 40px rgba(212,168,67,0.03);}
+.rc-shine{position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);
+  animation:rcShine 3s ease infinite;}
+@keyframes rcShine{0%{left:-60%}100%{left:110%}}
+.rc-label{font-family:'Cinzel',serif;font-size:10px;font-weight:700;
+  color:var(--muted);letter-spacing:2px;margin-bottom:6px;}
+.rc-chest{font-size:48px;display:block;margin:8px auto;
+  animation:chestBounce 1.5s ease-in-out infinite;}
+@keyframes chestBounce{0%,100%{transform:translateY(0) rotate(-2deg)}
+  50%{transform:translateY(-8px) rotate(2deg)}}
+.rc-amount{font-family:'Cinzel Decorative',serif;font-size:36px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 30px rgba(212,168,67,0.5);margin:4px 0;}
+.rc-unit{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold3);}
+.rc-breakdown{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  margin:8px 0;line-height:1.8;}
+.btn-claim{width:100%;padding:16px;font-family:'Cinzel Decorative',serif;font-size:14px;
+  font-weight:900;letter-spacing:3px;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--gold3),var(--gold),var(--gold2),var(--gold));
+  background-size:200%;animation:gradShift 2s ease infinite;
+  color:var(--dark);box-shadow:0 6px 30px rgba(212,168,67,0.4);
+  clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+  transition:all .3s;margin-top:12px;}
+.btn-claim:hover{box-shadow:0 8px 40px rgba(212,168,67,0.6);transform:translateY(-2px);}
+.btn-claim:active{transform:scale(0.97);}
+@keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+/* ══ CLAIM SUCCESS ══ */
+.claim-overlay{position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,0.95);backdrop-filter:blur(20px);
+  display:none;align-items:center;justify-content:center;flex-direction:column;}
+.claim-overlay.show{display:flex;}
+.confetti-wrap{position:fixed;inset:0;z-index:299;pointer-events:none;}
+.conf{position:absolute;top:-10px;font-size:14px;
+  animation:confFall var(--d) ease-in infinite var(--delay);}
+@keyframes confFall{0%{opacity:1;transform:translateY(-10px) rotate(0deg)}
+  100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+.cs-box{background:linear-gradient(135deg,#0f0b06,#1a1308);
+  border:2px solid var(--gold);border-radius:6px;
+  padding:30px 24px;max-width:320px;width:90%;text-align:center;
+  position:relative;z-index:301;
+  animation:csEnter .6s cubic-bezier(.34,1.56,.64,1);}
+@keyframes csEnter{from{transform:scale(0.3);opacity:0}to{transform:scale(1);opacity:1}}
+.cs-emoji{font-size:64px;display:block;margin-bottom:10px;
+  animation:csFloat 2s ease-in-out infinite;}
+@keyframes csFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.cs-title{font-family:'Cinzel Decorative',serif;font-size:20px;font-weight:900;
+  color:var(--gold);text-shadow:0 0 30px rgba(212,168,67,0.5);margin-bottom:6px;}
+.cs-amount{font-family:'Cinzel Decorative',serif;font-size:32px;font-weight:900;
+  color:var(--gold2);margin:8px 0;}
+.cs-msg{font-family:'Crimson Text',serif;font-size:14px;font-style:italic;
+  color:var(--muted);line-height:1.7;margin-bottom:16px;}
+.cs-btn{width:100%;padding:14px;font-family:'Cinzel',serif;font-size:12px;font-weight:700;
+  letter-spacing:2px;cursor:pointer;border:1px solid rgba(212,168,67,0.4);
+  background:rgba(212,168,67,0.1);color:var(--gold);border-radius:2px;
+  margin-bottom:8px;transition:all .2s;}
+.cs-btn:hover{background:rgba(212,168,67,0.2);}
+.cs-btn.primary{background:linear-gradient(135deg,var(--gold3),var(--gold));color:var(--dark);border:none;
+  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);}
+
+/* ══ BOTTOM NAV ══ */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,3,1,0.98);border-top:1px solid rgba(212,168,67,0.2);
+  display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:var(--muted);transition:all .2s;}
+.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Cinzel',serif;}
+</style>
+</head>
+<body>
+<div class="sky"></div>
+<div class="stars" id="stars"></div>
+<div class="fireflies" id="fireflies"></div>
+<div class="mist"></div>
+<div class="petals" id="petals"></div>
+
+<!-- GATE OPENING -->
+<div class="gate-scene" id="gateScene">
+  <div class="gate-door"></div>
+  <div class="gate-door right"></div>
+  <div class="gate-glow"></div>
+</div>
+
+<!-- CLAIM SUCCESS OVERLAY -->
+<div class="claim-overlay" id="claimOverlay">
+  <div class="confetti-wrap" id="confettiWrap"></div>
+  <div class="cs-box">
+    <span class="cs-emoji">👑</span>
+    <div class="cs-title">HADIAH DITERIMA!</div>
+    <div class="cs-amount" id="csAmount">0 INDC</div>
+    <div class="cs-msg">
+      Raja Sanjaya telah menyerahkan hadiahmu.<br>
+      "Kau layak menjadi Ksatria Nusantara, Pahlawan!"<br><br>
+      INDC telah masuk ke Game Vault kamu.
+    </div>
+    <button class="cs-btn primary" onclick="goHome()">🏰 KEMBALI KE LOBBY</button>
+    <button class="cs-btn" onclick="goLeaderboard()">🏆 LIHAT RANKING</button>
+  </div>
+</div>
+
+<div class="content" id="mainContent" style="opacity:0">
+
+  <!-- THRONE ROOM -->
+  <div class="throne-room">
+    <div class="tr-ceiling"></div>
+    <div class="tr-pillars">
+      <div class="pillar" style="height:40px"></div>
+      <div class="pillar" style="height:55px"></div>
+      <div class="pillar" style="height:60px"></div>
+      <div class="pillar" style="height:55px"></div>
+      <div class="pillar" style="height:40px"></div>
+    </div>
+    <div class="tr-title">✦ ISTANA KERAJAAN NUSANTARA ✦</div>
+    <div class="tr-subtitle">SELAMAT DATANG<br>KSATRIA PEMBERANI</div>
+    <div class="tr-divider">
+      <div class="tr-div-line"></div>
+      <div>⚜️</div>
+      <div class="tr-div-line r"></div>
+    </div>
+
+    <!-- RAJA SANJAYA -->
+    <div class="raja-wrap">
+      <div class="raja-throne">
+        <div class="throne-back"></div>
+        <div class="raja-figure">
+          <div class="raja-crown">👑</div>
+          <span class="raja-body">🤴</span>
+          <div class="raja-base"></div>
+        </div>
+        <div class="raja-name">RAJA SANJAYA</div>
+        <div class="raja-title">Penguasa Nusantara</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RAJA DIALOG -->
+  <div class="dialog-box">
+    <div class="db-speaker">RAJA SANJAYA BERSABDA</div>
+    <div class="db-text" id="rajaDialog">
+      "Akhirnya engkau tiba, Ksatria Pemberani! Perjalananmu yang panjang melintasi Nusantara telah membuktikan bahwa engkau adalah yang terkuat di antara semua petarung. Terimalah penghargaan dari kerajaanku!"<span class="cursor-blink"></span>
+    </div>
+  </div>
+
+  <!-- 7 PUTRI -->
+  <div class="putri-section">
+    <div class="ps-title">✦ 7 PUTRI KERAJAAN ✦</div>
+    <div class="putri-row" id="putriRow"></div>
+  </div>
+
+  <!-- DIALOG PUTRI -->
+  <div class="dialog-box" style="animation-delay:5.5s">
+    <div class="db-speaker" style="color:#f9a8d4">
+      <span style="margin-right:4px">💃</span> DYAH AYU RATNANINGRUM
+    </div>
+    <div class="db-text" style="color:#fce7f3">
+      "Selamat, Ksatria! Kami para putri kerajaan mengucapkan selamat atas kemenanganmu. Mari bergabung dalam jamuan kerajaan malam ini sebagai tanda kehormatan!"
+    </div>
+  </div>
+
+  <!-- JAMUAN -->
+  <div class="feast-section">
+    <div class="feast-title">🍽️ JAMUAN KERAJAAN 🍽️</div>
+    <div class="feast-table">
+      <div class="feast-item" style="--fd:3s;--fdelay:0s"><div class="fi-emoji">🍖</div><div class="fi-name">Sate Raja</div></div>
+      <div class="feast-item" style="--fd:3.5s;--fdelay:.3s"><div class="fi-emoji">🍚</div><div class="fi-name">Nasi Kuning</div></div>
+      <div class="feast-item" style="--fd:2.8s;--fdelay:.6s"><div class="fi-emoji">🍜</div><div class="fi-name">Soto Istana</div></div>
+      <div class="feast-item" style="--fd:3.2s;--fdelay:.9s"><div class="fi-emoji">🥘</div><div class="fi-name">Rendang</div></div>
+      <div class="feast-item" style="--fd:2.5s;--fdelay:1.2s"><div class="fi-emoji">🍹</div><div class="fi-name">Jamu Raja</div></div>
+      <div class="feast-item" style="--fd:3.8s;--fdelay:1.5s"><div class="fi-emoji">🍰</div><div class="fi-name">Kue Kerajaan</div></div>
+      <div class="feast-item" style="--fd:3s;--fdelay:1.8s"><div class="fi-emoji">🍇</div><div class="fi-name">Buah Surga</div></div>
+    </div>
+  </div>
+
+  <!-- PENYERAHAN HADIAH -->
+  <div class="reward-section">
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px">⚜️ RAJA SANJAYA MENYERAHKAN HADIAH ⚜️</div>
+    </div>
+    <div class="reward-card">
+      <div class="rc-shine"></div>
+      <div class="rc-label">HADIAH UNTUK PEMENANG</div>
+      <span class="rc-chest">🏆</span>
+      <div class="rc-amount" id="rewardAmount">760</div>
+      <div class="rc-unit">INDC</div>
+      <div class="rc-breakdown" id="rewardBreakdown">
+        Total Pot: 800 INDC<br>
+        Fee Platform (5%): −40 INDC<br>
+        ─────────────────<br>
+        Hadiahmu: 760 INDC
+      </div>
+      <button class="btn-claim" id="btnClaim" onclick="claimReward()">
+        👑 KLAIM HADIAH DARI RAJA SANJAYA 👑
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html"   class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="sanjaya.html"     class="bnav-item"><span class="bnav-icon">👑</span><span class="bnav-label" style="font-size:6px;line-height:1.1">SINGGASANA<br>SANJAYA</span></a>
+  <a href="leaderboard.html" class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">RANKING</span></a>
+  <a href="wallet.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">WALLET</span></a>
+  <a href="profile.html"     class="bnav-item"><span class="bnav-icon">👤</span><span class="bnav-label">PROFIL</span></a>
+</nav>
+
+<script>
+/* ═══ CONTRACTS ═══ */
+const VAULT_CA="0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const VAULT_ABI=["function sendReward(address,uint256) external","function getGameBalance(address) external view returns (uint256)"];
+let provider,signer,userAddr,cVault;
+const BSC_ID="0x38";
+
+const params=new URLSearchParams(location.search);
+// Prioritas: URL params, fallback ke sessionStorage
+const _saved = JSON.parse(sessionStorage.getItem("sanjaya_result")||"{}");
+const fee=parseInt(params.get("fee"))||_saved.fee||200;
+const pot=fee*4;
+const reward=parseInt(params.get("reward"))||_saved.reward||Math.floor(pot*0.95);
+const winner=params.get("winner")||_saved.winner||"KAMU";
+
+/* ═══ 7 PUTRI ═══ */
+const PUTRI=[
+  {name:"Ratnaningrum", emoji:"👸", color:"#f9a8d4", sway:"3s", sd:"0s"},
+  {name:"Chandrakanti",  emoji:"💃", color:"#c4b5fd", sway:"3.5s",sd:".3s"},
+  {name:"Kusumawati",    emoji:"👸", color:"#86efac", sway:"2.8s",sd:".6s"},
+  {name:"Sriwedari",     emoji:"💃", color:"#fcd34d", sway:"3.2s",sd:".9s"},
+  {name:"Manjali",       emoji:"👸", color:"#f9a8d4", sway:"2.5s",sd:"1.2s"},
+  {name:"Prabasari",     emoji:"💃", color:"#fb923c", sway:"3.8s",sd:"1.5s"},
+  {name:"Nilawati",      emoji:"👸", color:"#67e8f9", sway:"3s",  sd:"1.8s"},
+];
+
+function renderPutri(){
+  document.getElementById("putriRow").innerHTML=PUTRI.map((p,i)=>`
+    <div class="putri-card" style="--delay:${5+i*0.2}s">
+      <div class="putri-figure">
+        <span class="putri-emoji" style="--sway:${p.sway};--sd:${p.sd}">${p.emoji}</span>
+        <div class="putri-glow" style="--pc:${p.color};--sd:${p.sd}"></div>
+      </div>
+      <div class="putri-name" style="color:${p.color}">Dyah Ayu<br>${p.name}</div>
+      <div class="putri-heart" style="--sd:${p.sd}">💕</div>
+    </div>`).join("");
+}
+
+/* ═══ REWARD DISPLAY ═══ */
+function setupReward(){
+  document.getElementById("rewardAmount").textContent=reward.toLocaleString();
+  document.getElementById("rewardBreakdown").innerHTML=
+    `Total Pot: ${pot.toLocaleString()} INDC<br>Fee Platform (5%): −${pot-reward} INDC<br>─────────────────<br>Hadiahmu: ${reward.toLocaleString()} INDC`;
+}
+
+/* ═══ WALLET ═══ */
+async function initWallet(){
+  if(!window.ethereum)return;
+  try{
+    const acc=await window.ethereum.request({method:"eth_accounts"});
+    if(acc.length){
+      provider=new ethers.BrowserProvider(window.ethereum);
+      signer=await provider.getSigner();
+      userAddr=await signer.getAddress();
+      cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+    }
+  }catch(e){}
+}
+
+/* ═══ CLAIM ═══ */
+async function claimReward(){
+  const btn=document.getElementById("btnClaim");
+
+  // ═══ Pastikan wallet terhubung ═══
+  if(!userAddr){
+    if(!window.ethereum){
+      alert("❌ Buka via DApps browser (MetaMask / Trust Wallet)");
+      return;
+    }
+    try{
+      await window.ethereum.request({method:"eth_requestAccounts"});
+      try{await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:BSC_ID}]});}catch(e){}
+      provider=new ethers.BrowserProvider(window.ethereum);
+      signer=await provider.getSigner();
+      userAddr=await signer.getAddress();
+      cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+    }catch(e){
+      alert("❌ Gagal connect wallet. Coba lagi.");
+      return;
+    }
+  }
+
+  btn.disabled=true;
+  btn.textContent="⏳ KONFIRMASI DI WALLET...";
+
+  try{
+    // ═══ Kirim reward dari Vault ke pemenang (on-chain) ═══
+    const amt=ethers.parseUnits(reward.toString(),18);
+    const tx=await cVault.sendReward(userAddr,amt);
+    btn.textContent="⏳ MENUNGGU BLOCKCHAIN...";
+    await tx.wait();
+
+    // Bersihkan session
+    sessionStorage.removeItem("sanjaya_race");
+    sessionStorage.removeItem("sanjaya_result");
+    sessionStorage.removeItem("sanjaya_fee");
+
+    showClaimSuccess();
+
+  }catch(e){
+    btn.disabled=false;
+    btn.textContent="👑 KLAIM HADIAH DARI RAJA SANJAYA 👑";
+    if(e.code===4001||e.code==="ACTION_REJECTED")
+      alert("❌ Transaksi dibatalkan");
+    else
+      alert("❌ Gagal klaim: "+(e.reason||e.message||"Error")+"\n\nHubungi admin INDOCOIN.");
+  }
+}
+
+function showClaimSuccess(){
+  document.getElementById("csAmount").textContent=reward.toLocaleString()+" INDC";
+  document.getElementById("claimOverlay").classList.add("show");
+  spawnConfetti();
+}
+
+function spawnConfetti(){
+  const wrap=document.getElementById("confettiWrap");
+  const items=["👑","⚜️","💰","✨","🌟","💎","🏆","🎊","🎉"];
+  for(let i=0;i<30;i++){
+    const el=document.createElement("div");
+    el.className="conf";
+    el.textContent=items[Math.floor(Math.random()*items.length)];
+    el.style.cssText=`left:${Math.random()*100}%;--d:${Math.random()*3+2}s;--delay:${Math.random()*2}s;font-size:${Math.random()*10+10}px`;
+    wrap.appendChild(el);
+  }
+}
+
+function goHome(){window.location.href="sanjaya.html";}
+function goLeaderboard(){window.location.href="leaderboard.html";}
+
+/* ═══ AMBIENT PARTICLES ═══ */
+function initStars(){
+  const wrap=document.getElementById("stars");
+  for(let i=0;i<80;i++){
+    const s=document.createElement("div");s.className="star";
+    const sz=Math.random()*2+0.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;
+      top:${Math.random()*60}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s;`;
+    wrap.appendChild(s);
+  }
+}
+function initFireflies(){
+  const wrap=document.getElementById("fireflies");
+  for(let i=0;i<15;i++){
+    const f=document.createElement("div");f.className="ff";
+    f.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*80+10}%;
+      --d:${Math.random()*4+3}s;--tx:${(Math.random()-0.5)*80}px;--ty:${(Math.random()-0.5)*60}px;
+      animation-delay:${Math.random()*4}s;`;
+    wrap.appendChild(f);
+  }
+}
+function initPetals(){
+  const wrap=document.getElementById("petals");
+  const petals=["🌸","🌺","✿","❀","🌼"];
+  for(let i=0;i<12;i++){
+    const p=document.createElement("div");p.className="petal";
+    p.textContent=petals[Math.floor(Math.random()*petals.length)];
+    p.style.cssText=`left:${Math.random()*100}%;--d:${Math.random()*6+6}s;--delay:${Math.random()*6}s;`;
+    wrap.appendChild(p);
+  }
+}
+
+/* ═══ INIT ═══ */
+window.addEventListener("load",async()=>{
+  initStars();
+  initFireflies();
+  initPetals();
+  renderPutri();
+  setupReward();
+  await initWallet();
+
+  // Show content after gate opens (3s)
+  setTimeout(()=>{
+    document.getElementById("mainContent").style.opacity="1";
+    document.getElementById("mainContent").style.transition="opacity 1s ease";
+    document.getElementById("gateScene").style.display="none";
+  },3200);
+});
+</script>
+<script src="sanjaya-sound.js"></script>
+<script src="sanjaya-ui.js"></script>
+<script>
+window.addEventListener("load",()=>{
+  if(window.SanjayaUI) SanjayaUI.init("result");
+  // Auto play sound menang
+  setTimeout(()=>{
+    if(window.SanjayaSound) window.SanjayaSound.sfx.win();
+  },3500);
+});
+</script>
+</body>
+</html>
