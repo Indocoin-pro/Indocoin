@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "1.9";
+const VERSION = "2.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -19,27 +19,49 @@ const CACHE_FILES = [
   "/analytics.html",
   "/assets.html",
   "/arisan.html",
+  "/community.html",
   "/guild.html",
   "/guruku.html",
   "/indowar.html",
   "/battle-arena.html",
   "/staking-1.html",
+  "/staking-3-v3.html",
   "/growth-lock-staking.html",
   "/garudaforcemissionstaking.html",
   "/flexiyieldstaking.html",
   "/dynamiclevelstaking.html",
   "/boostlevelstaking.html",
   "/autocompoundstaking.html",
+  "/lockeddiamondstaking.html",
+  "/pointvaultstaking.html",
+  "/referralpowerstaking.html",
   "/sanjaya.html",
   "/sanjaya-race.html",
   "/sanjaya-result.html",
   "/leaderboard.html",
+  "/landing.html",
+  "/kolaborasi.html",
+  "/kontribusi.html",
+  "/solidaritas.html",
+  "/order.html",
+  "/prediksi.html",
+  "/presale.html",
+  "/profile.html",
+  "/pvp-duel.html",
+  "/trade.html",
+  "/undian.html",
+  "/vip.html",
+  "/wallet.html",
+  "/tabungan.html",
+  "/tournament.html",
+  "/syaratdanketentuan.html",
   "/sanjaya-icon.png",
   "/indowar-icon.png",
   "/sanjaya-sound.js",
   "/sanjaya-tutorial.js",
   "/sanjaya-ui.js",
   "/sanjaya-notif.js",
+  "/sanjaya-notif-inject.js",
 ];
 
 // ── INSTALL: cache semua file ──
