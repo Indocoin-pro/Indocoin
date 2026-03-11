@@ -500,10 +500,19 @@ let currentRoomId=null;
 let roomPollInterval=null;
 
 async function doReady(){
+  // ── 1. CEK LOGIN FIREBASE (harus member Indocoin) ──
+  const firebaseUser = window.SanjayaNotif ? window.SanjayaNotif.getUser() : null;
+  if(!firebaseUser){
+    showGate("❌ BELUM LOGIN","Kamu harus login ke platform Indocoin dulu untuk ikut ekspedisi!","LOGIN SEKARANG",()=>{ window.location.href="landing.html"; });
+    return;
+  }
+
+  // ── 2. CEK WALLET ──
   if(!userAddr){
     showGate("❌ WALLET BELUM TERHUBUNG","Hubungkan wallet dulu sebelum ikut ekspedisi.","CONNECT WALLET",connectWallet);
     return;
   }
+
   const fee=Math.max(200,parseFloat(document.getElementById("feeInput").value)||200);
   const vbf=parseFloat(ethers.formatUnits(vaultBal,18));
   if(vbf<fee){
@@ -531,16 +540,23 @@ async function doReady(){
     const feeWei=ethers.parseUnits(fee.toString(),18);
 
     let joined=false;
+    let joinedFirestoreId=null;
     for(const roomId of openRooms){
       const room=await cGame.getRoom(roomId);
-      if(room.entryFee===feeWei && room.playerCount<4){
-        // Join room yang sudah ada
+      if(room.entryFee===feeWei && Number(room.playerCount)<4){
         showProc("BERGABUNG KE ROOM...","Konfirmasi transaksi di wallet kamu");
         const tx=await cGame.joinRoom(roomId);
         showProc("MEMPROSES...","Menunggu konfirmasi blockchain...");
         await tx.wait();
         currentRoomId=roomId;
         joined=true;
+        // Update Firestore room count untuk notifikasi
+        joinedFirestoreId=sessionStorage.getItem("sanjaya_fsroom_"+roomId.toString());
+        if(joinedFirestoreId && window.SanjayaNotif){
+          const newCount=Number(room.playerCount)+1;
+          window.SanjayaNotif.updateRoomPlayers(joinedFirestoreId, newCount,
+            newCount>=4?'full':'waiting');
+        }
         break;
       }
     }
@@ -551,7 +567,6 @@ async function doReady(){
       const tx=await cGame.createRoom(feeWei);
       showProc("MEMPROSES...","Menunggu konfirmasi blockchain...");
       const receipt=await tx.wait();
-      // Ambil roomId dari event RoomCreated
       const iface=new ethers.Interface(GAME_ABI);
       for(const log of receipt.logs){
         try{
@@ -563,9 +578,15 @@ async function doReady(){
         }catch(e){}
       }
       if(!currentRoomId){
-        // Fallback: ambil dari getPlayerStats
         const s2=await cGame.getPlayerStats(userAddr);
         currentRoomId=s2.currentRoom;
+      }
+      // ── Tulis ke Firestore → semua user dapat notif ──
+      if(window.SanjayaNotif){
+        const displayName=firebaseUser.displayName||firebaseUser.email.split("@")[0]||"Ksatria";
+        window.SanjayaNotif.roomCreated(currentRoomId.toString(), feeWei.toString(), displayName);
+        // Simpan firestore room id untuk update nanti
+        sessionStorage.setItem("sanjaya_fsroom_"+currentRoomId.toString(), currentRoomId.toString());
       }
     }
 
@@ -579,11 +600,10 @@ async function doReady(){
 
     hideProc();
     LOBBY_PLAYERS[0].ready=true; renderLobby();
-    document.getElementById("btnReady").textContent="⏳ MENUNGGU PLAYER LAIN...";
+    document.getElementById("btnReady").textContent="⏳ MENUNGGU PEMAIN LAIN...";
     document.getElementById("btnReady").disabled=true;
-    showToast(`✅ Room #${currentRoomId} siap! Menunggu pemain lain bergabung...`);
+    showToast(`✅ Room #${currentRoomId} siap! Menunggu pemain bergabung...`);
 
-    // Poll room sampai penuh (4 player)
     startRoomPolling(fee);
 
   }catch(e){
@@ -597,12 +617,17 @@ async function doReady(){
 
 async function startRoomPolling(fee){
   if(roomPollInterval) clearInterval(roomPollInterval);
+  let countdownTimer=null;
+  let countdownStarted=false;
+  let secondsLeft=30;
+
   roomPollInterval=setInterval(async()=>{
     try{
       if(!currentRoomId) return;
       const room=await cGame.getRoom(currentRoomId);
       const cnt=Number(room.playerCount);
-      // Update lobby UI
+
+      // Update lobby UI dengan pemain real
       for(let i=1;i<4;i++){
         if(i<cnt){
           if(LOBBY_PLAYERS[i].waiting){
@@ -614,16 +639,58 @@ async function startRoomPolling(fee){
         }
       }
       renderLobby();
-      // Status 1 = OPEN (masih nunggu), 2 = STARTED (race dimulai)
+
+      const btn=document.getElementById("btnReady");
+
+      // ── MINIMAL 2 PEMAIN SUDAH BISA MULAI ──
+      if(cnt>=2 && !countdownStarted){
+        countdownStarted=true;
+        showToast(`🎉 ${cnt} pemain siap! Race mulai dalam 30 detik...`);
+        if(window.SanjayaSound) window.SanjayaSound.sfx.kenong();
+
+        // Countdown 30 detik sambil tunggu pemain lain
+        countdownTimer=setInterval(()=>{
+          secondsLeft--;
+          if(btn){
+            if(cnt>=4){
+              // Sudah 4 — langsung bisa mulai
+              btn.textContent="🚀 MULAI EKSPEDISI!";
+            } else {
+              btn.textContent=`🚀 MULAI (${secondsLeft}s) · ${cnt}/${4} pemain`;
+            }
+            btn.disabled=false;
+            btn.className="btn-royal start";
+            btn.onclick=()=>startRace(fee);
+          }
+          if(secondsLeft<=0){
+            clearInterval(countdownTimer);
+            // Auto mulai setelah countdown habis
+            startRace(fee);
+          }
+          if(window.SanjayaSound && secondsLeft<=5) window.SanjayaSound.sfx.tick();
+        },1000);
+      }
+
+      // ── 4 PEMAIN PENUH — langsung mulai ──
       if(Number(room.status)===2 || cnt>=4){
         clearInterval(roomPollInterval);
-        const btn=document.getElementById("btnReady");
-        btn.textContent="🚀 MULAI EKSPEDISI!";
-        btn.disabled=false;
-        btn.className="btn-royal start";
-        btn.onclick=()=>startRace(fee);
-        showToast("🎉 Semua pemain siap! Ekspedisi bisa dimulai!");
+        if(countdownTimer) clearInterval(countdownTimer);
+        if(btn){
+          btn.textContent="🚀 MULAI EKSPEDISI!";
+          btn.disabled=false;
+          btn.className="btn-royal start";
+          btn.onclick=()=>startRace(fee);
+        }
+        showToast("🎉 Semua pemain siap! Ekspedisi dimulai!");
+        if(window.SanjayaSound) window.SanjayaSound.sfx.gong();
+        // Hapus room dari Firestore (tidak perlu notif lagi)
+        if(window.SanjayaNotif){
+          const fsRoomId=sessionStorage.getItem("sanjaya_fsroom_"+currentRoomId.toString());
+          if(fsRoomId) window.SanjayaNotif.deleteRoom(fsRoomId);
+        }
+        setTimeout(()=>startRace(fee), 2000);
       }
+
     }catch(e){ console.warn("Poll error:",e.message); }
   },3000);
 }
@@ -701,6 +768,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 <script src="sanjaya-sound.js"></script>
 <script src="sanjaya-tutorial.js"></script>
 <script src="sanjaya-ui.js"></script>
+<script src="sanjaya-notif.js"></script>
 <script>
 // Init Sound & Tutorial untuk halaman Lobby
 window.addEventListener("load",()=>{
