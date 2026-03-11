@@ -2,9 +2,6 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INDOCOIN — Indonesian Community Supporting Global Crypto</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -1146,7 +1143,11 @@ footer {
       <span class="eye-btn" onclick="togglePass('signInPass',this)">👁️</span>
     </div>
 
-    <div style="text-align:right;margin:-6px 0 12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:-6px 0 12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(250,204,21,0.7);letter-spacing:1px;">
+        <input type="checkbox" id="rememberMe" style="accent-color:#facc15;width:14px;height:14px;cursor:pointer;">
+        Ingat Saya
+      </label>
       <a onclick="doForgotPass()" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(250,204,21,0.6);cursor:pointer;letter-spacing:1px;">🔑 Lupa Password?</a>
     </div>
 
@@ -1273,6 +1274,7 @@ window.doSignIn = async () => {
   const email = document.getElementById('signInEmail').value.trim();
   const pass  = document.getElementById('signInPass').value;
   const st    = document.getElementById('signInStatus');
+  const remember = document.getElementById('rememberMe').checked;
   if(!email||!pass){ st.textContent='Lengkapi email & password!'; st.className='modal-status error'; return; }
   st.textContent = '⏳ Masuk...'; st.className = 'modal-status';
   try{
@@ -1284,6 +1286,14 @@ window.doSignIn = async () => {
       window._unverifiedUser = cred.user;
       await signOut(auth);
       return;
+    }
+    // Simpan email jika Remember Me dicentang
+    if(remember){
+      localStorage.setItem('indc_remember_email', email);
+      localStorage.setItem('indc_remember', '1');
+    } else {
+      localStorage.removeItem('indc_remember_email');
+      localStorage.removeItem('indc_remember');
     }
     st.textContent = '✅ Berhasil! Mengalihkan...';
     st.className = 'modal-status';
@@ -1379,7 +1389,18 @@ function generateStars(){
 
 // ===== MODALS =====
 function showSignUp(){ document.getElementById('signUpModal').classList.add('active'); }
-function showSignIn(){ document.getElementById('signInModal').classList.add('active'); }
+function showSignIn(){
+  document.getElementById('signInModal').classList.add('active');
+  // Auto-isi email jika Remember Me aktif
+  const savedEmail = localStorage.getItem('indc_remember_email');
+  const isRemember = localStorage.getItem('indc_remember');
+  if(savedEmail && isRemember){
+    document.getElementById('signInEmail').value = savedEmail;
+    document.getElementById('rememberMe').checked = true;
+    // Fokus ke password langsung
+    setTimeout(()=>{ document.getElementById('signInPass').focus(); }, 200);
+  }
+}
 function closeModals(){
   document.getElementById('signUpModal').classList.remove('active');
   document.getElementById('signInModal').classList.remove('active');
@@ -1590,22 +1611,5 @@ async function loadStats(){
   </div>
 </div>
 
-<script>
-if("serviceWorker" in navigator){
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").then(reg => {
-      reg.addEventListener("updatefound", () => {
-        const newSW = reg.installing;
-        newSW.addEventListener("statechange", () => {
-          if(newSW.state === "installed" && navigator.serviceWorker.controller){
-            newSW.postMessage("skipWaiting");
-            window.location.reload();
-          }
-        });
-      });
-    }).catch(e => console.warn("SW:", e));
-  });
-}
-</script>
 </body>
 </html>
