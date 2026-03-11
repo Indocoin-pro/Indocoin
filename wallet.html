@@ -560,6 +560,17 @@ const BATTLE_ABI = [
 let provider, signer, userAddr;
 let cINDC, cVault, cBattle;
 let walletBal   = 0n;
+let INDC_DECIMALS = null;
+async function getIndcDecimals(){
+  if(INDC_DECIMALS !== null) return INDC_DECIMALS;
+  try{
+    const c = new ethers.Contract(INDC_CA,["function decimals() view returns(uint8)"], provider);
+    INDC_DECIMALS = await c.decimals();
+  }catch(e){ INDC_DECIMALS = 18; }
+  return INDC_DECIMALS;
+}
+function fmt(val){ return parseFloat(ethers.formatUnits(val, INDC_DECIMALS||18)); }
+function toWeiIndc(val){ return ethers.parseUnits(val.toString(), INDC_DECIMALS||18); }
 let gameBal     = 0n;
 let bnbBal      = 0n;
 let totalEarned = 0n;
@@ -601,6 +612,8 @@ async function addBSC(){
 async function refreshBalances(){
   if(!userAddr) return;
   const spin = document.getElementById("bc-refresh");
+  // Auto-detect decimals INDC sekali saja
+  await getIndcDecimals();
   try{
     const [wb, gb, bnb] = await Promise.all([
       cINDC.balanceOf(userAddr),
@@ -615,11 +628,11 @@ async function refreshBalances(){
       const stats = await cBattle.getPlayerStats(userAddr);
       totalEarned = stats.totalEarned;
       document.getElementById("totalEarnedDisplay").textContent =
-        Math.floor(parseFloat(ethers.formatUnits(totalEarned,18))).toLocaleString();
+        Math.floor(parseFloat(fmt(totalEarned))).toLocaleString();
     } catch(e){}
 
-    const wbf = parseFloat(ethers.formatUnits(wb,18));
-    const gbf = parseFloat(ethers.formatUnits(gb,18));
+    const wbf = parseFloat(fmt(wb));
+    const gbf = parseFloat(fmt(gb));
     const bnbf= parseFloat(ethers.formatUnits(bnb,18));
 
     document.getElementById("gameBalanceDisplay").textContent = Math.floor(gbf).toLocaleString();
@@ -670,7 +683,7 @@ function setDeposit(val){
   updateDepositInfo();
 }
 function setMaxDeposit(){
-  const max = Math.floor(parseFloat(ethers.formatUnits(walletBal,18)));
+  const max = Math.floor(parseFloat(fmt(walletBal)));
   document.getElementById("depositAmount").value = max;
   updateDepositInfo();
 }
@@ -678,7 +691,7 @@ function updateDepositInfo(){
   const v = parseFloat(document.getElementById("depositAmount").value)||0;
   const burn    = v * 0.02;
   const receive = v - burn;
-  const wbf     = parseFloat(ethers.formatUnits(walletBal,18));
+  const wbf     = parseFloat(fmt(walletBal));
   document.getElementById("depInput").textContent        = v.toLocaleString()+" INDC";
   document.getElementById("depBurn").textContent         = "− "+burn.toFixed(2)+" INDC";
   document.getElementById("depReceive").textContent      = receive.toFixed(2)+" INDC";
@@ -690,10 +703,10 @@ async function doDeposit(){
   if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
   const val = parseFloat(document.getElementById("depositAmount").value);
   if(!val || val <= 0){ showToast("❌ Masukkan jumlah deposit!"); return; }
-  const wbf = parseFloat(ethers.formatUnits(walletBal,18));
+  const wbf = parseFloat(fmt(walletBal));
   if(val > wbf){ showToast("❌ Saldo INDC tidak cukup!"); return; }
 
-  const amount = ethers.parseUnits(val.toString(), 18);
+  const amount = toWeiIndc(val);
 
   try{
     // STEP 1: Check & Approve
@@ -750,13 +763,13 @@ function setWithdraw(val){
   updateWithdrawInfo();
 }
 function setMaxWithdraw(){
-  const max = Math.floor(parseFloat(ethers.formatUnits(gameBal,18)));
+  const max = Math.floor(parseFloat(fmt(gameBal)));
   document.getElementById("withdrawAmount").value = max;
   updateWithdrawInfo();
 }
 function updateWithdrawInfo(){
   const v   = parseFloat(document.getElementById("withdrawAmount").value)||0;
-  const gbf = parseFloat(ethers.formatUnits(gameBal,18));
+  const gbf = parseFloat(fmt(gameBal));
   document.getElementById("witInput").textContent     = v.toLocaleString()+" INDC";
   document.getElementById("witReceive").textContent   = v.toLocaleString()+" INDC";
   document.getElementById("witAfterVault").textContent= Math.max(0,gbf-v).toFixed(2)+" INDC";
@@ -767,10 +780,10 @@ async function doWithdraw(){
   if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
   const val = parseFloat(document.getElementById("withdrawAmount").value);
   if(!val || val <= 0){ showToast("❌ Masukkan jumlah withdraw!"); return; }
-  const gbf = parseFloat(ethers.formatUnits(gameBal,18));
+  const gbf = parseFloat(fmt(gameBal));
   if(val > gbf){ showToast("❌ Saldo Game Vault tidak cukup!"); return; }
 
-  const amount = ethers.parseUnits(val.toString(), 18);
+  const amount = toWeiIndc(val);
 
   try{
     showProc("WITHDRAW INDC...", "Konfirmasi transaksi di wallet kamu");
