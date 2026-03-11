@@ -338,15 +338,25 @@ window.goTo = (url) => { if(hasAccess()){window.location.href=url;}else{window._
 async function getWalletAddress(){
   if(!window.ethereum) return null;
   try{
-    // Coba selectedAddress dulu
     if(window.ethereum.selectedAddress) return window.ethereum.selectedAddress;
-    // Fallback: request eth_accounts
     const accounts = await window.ethereum.request({method:'eth_accounts'});
     if(accounts && accounts.length>0) return accounts[0];
-    // Jika belum connect, minta connect
     const req = await window.ethereum.request({method:'eth_requestAccounts'});
     return req && req.length>0 ? req[0] : null;
   }catch(e){ return null; }
+}
+
+// ── Helper: auto-detect decimals token INDC dari contract ──
+let INDC_DECIMALS = null;
+async function getIndcDecimals(provider){
+  if(INDC_DECIMALS !== null) return INDC_DECIMALS;
+  try{
+    const c = new ethers.Contract(INDC_CA,["function decimals() view returns(uint8)"],provider);
+    INDC_DECIMALS = await c.decimals();
+  }catch(e){
+    INDC_DECIMALS = 18; // fallback
+  }
+  return INDC_DECIMALS;
 }
 
 window.openModal = async () => {
@@ -356,9 +366,10 @@ window.openModal = async () => {
     const addr = await getWalletAddress();
     if(!addr){ document.getElementById('modalBal').textContent='Wallet belum terhubung'; return; }
     const p=new ethers.providers.Web3Provider(window.ethereum);
+    const dec=await getIndcDecimals(p);
     const c=new ethers.Contract(INDC_CA,["function balanceOf(address) view returns(uint256)"],p);
     const b=await c.balanceOf(addr);
-    document.getElementById('modalBal').textContent=parseFloat(ethers.utils.formatUnits(b,18)).toFixed(4)+' INDC';
+    document.getElementById('modalBal').textContent=parseFloat(ethers.utils.formatUnits(b,dec)).toLocaleString('id-ID')+' INDC';
   }catch(e){ document.getElementById('modalBal').textContent='Gagal cek saldo'; }
 };
 
@@ -373,6 +384,7 @@ window.payAccess = async () => {
     if(!addr){ alert('Hubungkan wallet dulu!'); btn.disabled=false; btn.textContent='💳 BAYAR 1 INDC SEKARANG'; return; }
 
     const p=new ethers.providers.Web3Provider(window.ethereum);
+    const dec=await getIndcDecimals(p);
     const s=p.getSigner();
     const c=new ethers.Contract(INDC_CA,[
       "function balanceOf(address) view returns(uint256)",
@@ -381,11 +393,11 @@ window.payAccess = async () => {
 
     // Cek saldo pakai address yang sudah diambil dengan aman
     const bal=await c.balanceOf(addr);
-    const one=ethers.utils.parseUnits("1",18);
+    const one=ethers.utils.parseUnits("1",dec);
 
     if(bal.lt(one)){
       // Tampilkan saldo aktual agar user tahu
-      const balFormatted=parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(4);
+      const balFormatted=parseFloat(ethers.utils.formatUnits(bal,dec)).toLocaleString('id-ID');
       alert(`Saldo INDC tidak cukup!\nSaldo kamu: ${balFormatted} INDC\nDibutuhkan: 1 INDC`);
       btn.disabled=false; btn.textContent='💳 BAYAR 1 INDC SEKARANG';
       return;
