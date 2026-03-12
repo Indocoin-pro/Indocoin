@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>BrainClash — Battle History</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#030d03;--bg2:#071407;--bg3:#0a1e0a;
+  --green:#00ff41;--green2:#00cc33;--green3:#003311;
+  --greendim:#00ff4120;--greenborder:#00ff4130;
+  --text:#c8ffc8;--muted:#4a7a4a;--bright:#e0ffe0;
+  --red:#ff4141;--reddim:#ff414115;--yellow:#ffff41;
+  --font-mono:'Share Tech Mono',monospace;
+  --font-head:'Orbitron',sans-serif;
+  --font-body:'Rajdhani',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.03) 3px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1;}
+.wrap{position:relative;z-index:2;max-width:480px;margin:0 auto;padding:0 0 90px;}
+
+/* HEADER */
+.header{padding:20px 16px 0;display:flex;align-items:center;gap:12px;}
+.back-btn{background:var(--greendim);border:1px solid var(--greenborder);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--font-mono);font-size:10px;cursor:pointer;transition:all 0.2s;letter-spacing:1px;text-decoration:none;}
+.back-btn:hover{background:var(--card2);color:var(--green);}
+.header-title{font-family:var(--font-head);font-size:13px;color:var(--green);letter-spacing:3px;}
+
+/* RANK CARD */
+.rank-card{margin:16px 16px 0;background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--greenborder);border-radius:16px;padding:20px;position:relative;overflow:hidden;}
+.rank-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);}
+.rank-card-top{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.rank-big-icon{font-size:44px;}
+.rank-card-info{flex:1;}
+.rank-card-name{font-family:var(--font-head);font-size:14px;color:var(--green);letter-spacing:2px;}
+.rank-card-addr{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:3px;}
+.rank-card-wins{font-family:var(--font-head);font-size:11px;color:var(--bright);}
+.rank-prog-label{font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px;}
+.rank-prog-track{height:5px;background:var(--greendim);border-radius:3px;overflow:hidden;}
+.rank-prog-fill{height:100%;background:linear-gradient(90deg,var(--green3),var(--green));border-radius:3px;transition:width 1.5s cubic-bezier(0.34,1.56,0.64,1);}
+.rank-prog-next{font-family:var(--font-mono);font-size:8px;color:var(--muted);margin-top:4px;}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 16px 0;}
+.stat-card{background:var(--greendim);border:1px solid var(--greenborder);border-radius:12px;padding:14px 10px;text-align:center;}
+.stat-card-n{font-family:var(--font-head);font-size:20px;color:var(--green);font-weight:900;}
+.stat-card-l{font-family:var(--font-mono);font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:4px;}
+
+/* WIDER STATS */
+.stats-wide{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 16px 0;}
+.stat-wide{background:var(--greendim);border:1px solid var(--greenborder);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;}
+.stat-wide-icon{font-size:20px;}
+.stat-wide-n{font-family:var(--font-head);font-size:16px;color:var(--green);}
+.stat-wide-l{font-family:var(--font-mono);font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+
+/* CATEGORY BREAKDOWN */
+.cat-breakdown{margin:14px 16px 0;background:var(--greendim);border:1px solid var(--greenborder);border-radius:12px;padding:16px;}
+.cat-title{font-family:var(--font-head);font-size:10px;color:var(--green);letter-spacing:2px;margin-bottom:12px;}
+.cat-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.cat-row-name{font-family:var(--font-mono);font-size:10px;color:var(--text);width:100px;flex-shrink:0;}
+.cat-row-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.cat-row-fill{height:100%;background:var(--green);border-radius:2px;}
+.cat-row-val{font-family:var(--font-mono);font-size:9px;color:var(--muted);width:40px;text-align:right;flex-shrink:0;}
+
+/* SECTION */
+.sec-head{padding:20px 16px 10px;display:flex;align-items:center;gap:10px;}
+.sec-title{font-family:var(--font-head);font-size:10px;color:var(--green);letter-spacing:3px;}
+.sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--greenborder),transparent);}
+
+/* HISTORY LIST */
+.history-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;}
+.history-card{background:var(--greendim);border:1px solid var(--greenborder);border-radius:12px;padding:14px;border-left:3px solid var(--green);}
+.history-card.loss{border-left-color:var(--red);background:var(--reddim);}
+.history-card.draw{border-left-color:var(--yellow);}
+.history-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.history-result{font-family:var(--font-head);font-size:11px;letter-spacing:2px;}
+.history-result.win{color:var(--green);}
+.history-result.loss{color:var(--red);}
+.history-result.draw{color:var(--yellow);}
+.history-date{font-family:var(--font-mono);font-size:8px;color:var(--muted);}
+.history-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.history-cat{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--bright);}
+.history-tag{background:var(--bg3);border:1px solid var(--greenborder);border-radius:4px;padding:2px 7px;font-family:var(--font-mono);font-size:8px;color:var(--muted);}
+.history-score-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;}
+.history-score-info{font-family:var(--font-mono);font-size:10px;color:var(--muted);}
+.history-prize{font-family:var(--font-head);font-size:13px;}
+.history-prize.positive{color:var(--green);}
+.history-prize.negative{color:var(--red);}
+.history-prize.neutral{color:var(--muted);}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:50px 16px;}
+.empty-icon{font-size:50px;opacity:0.2;margin-bottom:16px;}
+.empty-text{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;line-height:1.8;}
+
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(3,13,3,0.95);backdrop-filter:blur(10px);border-top:1px solid var(--greenborder);display:flex;z-index:100;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;text-decoration:none;color:var(--muted);transition:color 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--green);}
+.bnav-icon{font-size:18px;margin-bottom:2px;}
+.bnav-label{font-family:var(--font-mono);font-size:7px;letter-spacing:1px;}
+
+/* LOADER */
+.loader{display:flex;align-items:center;justify-content:center;padding:40px;gap:8px;}
+.loader-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:lb 1.2s infinite;}
+.loader-dot:nth-child(2){animation-delay:0.2s;}
+.loader-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes lb{0%,80%,100%{transform:scale(0.8);opacity:0.4}40%{transform:scale(1.2);opacity:1}}
+
+/* FILTER */
+.filter-tabs{display:flex;gap:6px;padding:0 16px;overflow-x:auto;scrollbar-width:none;}
+.filter-tabs::-webkit-scrollbar{display:none;}
+.filter-tab{background:var(--greendim);border:1px solid var(--greenborder);border-radius:20px;padding:5px 12px;font-family:var(--font-mono);font-size:9px;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all 0.2s;letter-spacing:1px;}
+.filter-tab.active{background:var(--green);color:#000;border-color:var(--green);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <a href="brainclash.html" class="back-btn">← BACK</a>
+    <div class="header-title">// BATTLE HISTORY</div>
+  </div>
+
+  <!-- RANK CARD -->
+  <div class="rank-card" id="rankCard">
+    <div class="rank-card-top">
+      <div class="rank-big-icon" id="rankIcon">🥉</div>
+      <div class="rank-card-info">
+        <div class="rank-card-name" id="rankName">SCIENCE ROOKIE</div>
+        <div class="rank-card-addr" id="rankAddr">Connect wallet untuk melihat statistik</div>
+        <div class="rank-card-wins" id="rankWins">0 wins total</div>
+      </div>
+    </div>
+    <div class="rank-prog-label">PROGRESS KE RANK BERIKUTNYA</div>
+    <div class="rank-prog-track"><div class="rank-prog-fill" id="rankFill" style="width:0%"></div></div>
+    <div class="rank-prog-next" id="rankNext">0 / 5 wins</div>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card-n" id="stGames">0</div>
+      <div class="stat-card-l">TOTAL<br>GAME</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-n" id="stWins">0</div>
+      <div class="stat-card-l">TOTAL<br>MENANG</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-n" id="stWinRate">0%</div>
+      <div class="stat-card-l">WIN<br>RATE</div>
+    </div>
+  </div>
+
+  <div class="stats-wide">
+    <div class="stat-wide">
+      <div class="stat-wide-icon">💰</div>
+      <div><div class="stat-wide-n" id="stTotalWon">0 INDC</div><div class="stat-wide-l">TOTAL PRIZE</div></div>
+    </div>
+    <div class="stat-wide">
+      <div class="stat-wide-icon">📚</div>
+      <div><div class="stat-wide-n" id="stTotalQ">0</div><div class="stat-wide-l">SOAL DIJAWAB</div></div>
+    </div>
+  </div>
+
+  <!-- CATEGORY BREAKDOWN -->
+  <div class="cat-breakdown" id="catBreakdown" style="display:none">
+    <div class="cat-title">// WIN RATE PER KATEGORI</div>
+    <div id="catRows"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="sec-head">
+    <div class="sec-title">RIWAYAT BATTLE</div>
+    <div class="sec-line"></div>
+  </div>
+
+  <div class="filter-tabs">
+    <div class="filter-tab active" onclick="setFilter('all',this)">SEMUA</div>
+    <div class="filter-tab" onclick="setFilter('win',this)">✅ MENANG</div>
+    <div class="filter-tab" onclick="setFilter('loss',this)">❌ KALAH</div>
+    <div class="filter-tab" onclick="setFilter('draw',this)">🤝 DRAW</div>
+  </div>
+
+  <div style="height:12px"></div>
+  <div class="history-list" id="historyList">
+    <div class="loader"><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <a href="permainan.html" class="bnav-item"><span class="bnav-icon">🎮</span><span class="bnav-label">GAME</span></a>
+  <a href="brainclash.html" class="bnav-item"><span class="bnav-icon">🔬</span><span class="bnav-label">BATTLE</span></a>
+  <a href="brainclash-history.html" class="bnav-item active"><span class="bnav-icon">📊</span><span class="bnav-label">HISTORY</span></a>
+  <a href="wallet.html" class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">WALLET</span></a>
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script>
+const FIREBASE_CONFIG={apiKey:"AIzaSyExample",authDomain:"indocoin.firebaseapp.com",databaseURL:"https://indocoin-default-rtdb.firebaseio.com",projectId:"indocoin"};
+const CATS=["🔬 Sains","➗ Matematika","💻 Teknologi","🌍 Umum","📜 Sejarah","💰 Ekonomi"];
+const RANKS=[
+  {name:"SCIENCE ROOKIE",icon:"🥉",min:0,max:5},
+  {name:"SCIENCE SCHOLAR",icon:"🥈",min:5,max:20},
+  {name:"SCIENCE EXPERT",icon:"🥇",min:20,max:50},
+  {name:"SCIENCE MASTER",icon:"💎",min:50,max:100},
+  {name:"SCIENCE LEGEND",icon:"👑",min:100,max:Infinity}
+];
+const INDC_PRICE=0.003;
+
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const db=firebase.database();
+
+let userAddr='',allHistory=[],currentFilter='all';
+
+window.addEventListener('load',async()=>{
+  if(window.ethereum){
+    try{
+      const acc=await window.ethereum.request({method:'eth_accounts'});
+      if(acc.length){
+        const provider=new ethers.BrowserProvider(window.ethereum);
+        const signer=await provider.getSigner();
+        userAddr=await signer.getAddress();
+        loadData();
+      }else{showEmpty();}
+    }catch(e){showEmpty();}
+  }else{showEmpty();}
+});
+
+async function loadData(){
+  if(!userAddr)return;
+  document.getElementById('rankAddr').textContent=userAddr.slice(0,8)+'...'+userAddr.slice(-4);
+
+  // Load player stats
+  const statsSnap=await db.ref('brainclash/players/'+userAddr).get();
+  const stats=statsSnap.val()||{games:0,wins:0,totalWon:0,totalQ:0,catStats:{}};
+  updateStats(stats);
+
+  // Load history dari rooms yang player ikut
+  const roomsSnap=await db.ref('brainclash/rooms')
+    .orderByChild('finishedAt').limitToLast(50).get();
+
+  allHistory=[];
+  roomsSnap.forEach(snap=>{
+    const r=snap.val();
+    if(!r||r.status!=='finished')return;
+    if(!r.players||!r.players[userAddr])return;
+    const myData=r.players[userAddr];
+    const isWin=r.winner===userAddr;
+    const isDraw=r.drawWinner2&&(r.winner===userAddr||r.drawWinner2===userAddr)&&r.winner!==userAddr;
+    const pot=Math.floor((r.pot||0)/1e9);
+    const prize=isWin?Math.floor(pot*0.95):isDraw?Math.floor(pot*0.475):0;
+    allHistory.push({
+      id:snap.key,
+      cat:r.categoryId||0,
+      questionCount:r.questionCount||20,
+      score:myData.score||0,
+      result:isWin?'win':isDraw?'draw':'loss',
+      prize,entryFee:Math.floor((r.entryFee||0)/1e9),
+      finishedAt:r.finishedAt||0,
+      players:r.players,
+      winner:r.winner
+    });
+  });
+  allHistory.sort((a,b)=>b.finishedAt-a.finishedAt);
+  renderHistory();
+}
+
+function updateStats(stats){
+  const games=stats.games||0;
+  const wins=stats.wins||0;
+  const won=Math.floor((stats.totalWon||0)/1e9);
+  const winRate=games?Math.round(wins/games*100):0;
+
+  document.getElementById('stGames').textContent=games;
+  document.getElementById('stWins').textContent=wins;
+  document.getElementById('stWinRate').textContent=winRate+'%';
+  document.getElementById('stTotalWon').textContent=won.toLocaleString()+' INDC';
+  document.getElementById('stTotalQ').textContent=(stats.totalQ||0).toLocaleString();
+
+  // Rank
+  const rank=RANKS.find(r=>wins>=r.min&&wins<r.max)||RANKS[0];
+  const next=RANKS[RANKS.indexOf(rank)+1];
+  document.getElementById('rankIcon').textContent=rank.icon;
+  document.getElementById('rankName').textContent=rank.name;
+  document.getElementById('rankWins').textContent=wins+' wins total';
+  if(next){
+    const pct=((wins-rank.min)/(rank.max-rank.min)*100).toFixed(0);
+    document.getElementById('rankFill').style.width=pct+'%';
+    document.getElementById('rankNext').textContent=`${wins-rank.min} / ${rank.max-rank.min} wins ke ${next.name}`;
+  }else{
+    document.getElementById('rankFill').style.width='100%';
+    document.getElementById('rankNext').textContent='👑 MAX RANK ACHIEVED';
+  }
+
+  // Cat breakdown
+  if(stats.catStats&&Object.keys(stats.catStats).length){
+    const maxWin=Math.max(...Object.values(stats.catStats).map(c=>c.wins||0),1);
+    document.getElementById('catRows').innerHTML=CATS.map((cat,i)=>{
+      const c=stats.catStats[i]||{games:0,wins:0};
+      const wr=c.games?Math.round((c.wins/c.games)*100):0;
+      const bar=c.wins?Math.round((c.wins/maxWin)*100):0;
+      return `<div class="cat-row">
+        <div class="cat-row-name">${cat}</div>
+        <div class="cat-row-bar"><div class="cat-row-fill" style="width:${bar}%"></div></div>
+        <div class="cat-row-val">${wr}%</div>
+      </div>`;
+    }).join('');
+    document.getElementById('catBreakdown').style.display='block';
+  }
+}
+
+function setFilter(f,el){
+  currentFilter=f;
+  document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderHistory();
+}
+
+function renderHistory(){
+  const list=document.getElementById('historyList');
+  let filtered=allHistory;
+  if(currentFilter!=='all') filtered=allHistory.filter(h=>h.result===currentFilter);
+
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">// TIDAK ADA RIWAYAT<br>MULAI BATTLE SEKARANG</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML=filtered.map(h=>{
+    const cat=CATS[h.cat]||CATS[0];
+    const resultLabel=h.result==='win'?'✅ MENANG':h.result==='draw'?'🤝 DRAW':'❌ KALAH';
+    const prizeStr=h.result==='win'?`+${h.prize.toLocaleString()} INDC`:
+                   h.result==='draw'?`±${h.prize.toLocaleString()} INDC`:
+                   `-${h.entryFee.toLocaleString()} INDC`;
+    const prizeClass=h.result==='win'?'positive':h.result==='draw'?'neutral':'negative';
+    const date=h.finishedAt?new Date(h.finishedAt*1000).toLocaleDateString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'---';
+    const opponents=Object.values(h.players||{}).filter((_,i)=>Object.keys(h.players)[i]!==userAddr).map(p=>p.name||'?').slice(0,3).join(', ')||'---';
+
+    return `<div class="history-card ${h.result}">
+      <div class="history-top">
+        <div class="history-result ${h.result}">${resultLabel}</div>
+        <div class="history-date">${date}</div>
+      </div>
+      <div class="history-meta">
+        <div class="history-cat">${cat}</div>
+        <span class="history-tag">${h.questionCount} SOAL</span>
+        <span class="history-tag">SKOR ${h.score}</span>
+      </div>
+      <div class="history-score-row">
+        <div class="history-score-info">vs ${opponents}</div>
+        <div class="history-prize ${prizeClass}">${prizeStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showEmpty(){
+  document.getElementById('historyList').innerHTML=`<div class="empty-state">
+    <div class="empty-icon">🔌</div>
+    <div class="empty-text">// CONNECT WALLET<br>UNTUK MELIHAT RIWAYAT BATTLE</div>
+  </div>`;
+}
+</script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js')
+    .then(r=>console.log('[SW] BrainClash registered'))
+    .catch(e=>console.warn('[SW] Failed:',e));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>BrainClash — Battle Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#030d03;--bg2:#071407;--bg3:#0a1e0a;
+  --green:#00ff41;--green2:#00cc33;--green3:#003311;
+  --greendim:#00ff4120;--greenborder:#00ff4130;
+  --text:#c8ffc8;--muted:#4a7a4a;--bright:#e0ffe0;
+  --red:#ff4141;--reddim:#ff414120;--yellow:#ffff41;--cyan:#41ffff;
+  --font-mono:'Share Tech Mono',monospace;
+  --font-head:'Orbitron',sans-serif;
+  --font-body:'Rajdhani',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow:hidden;}
+
+/* Scan lines */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);pointer-events:none;z-index:100;}
+
+/* ─── SCREENS ─── */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity 0.4s,transform 0.4s;}
+.screen.hidden{opacity:0;pointer-events:none;transform:scale(0.97);}
+
+/* ─── WAITING ROOM ─── */
+#waitScreen{background:var(--bg);}
+.wait-header{text-align:center;margin-bottom:30px;}
+.wait-logo{font-family:var(--font-head);font-size:11px;color:var(--green);letter-spacing:4px;margin-bottom:8px;}
+.wait-title{font-family:var(--font-head);font-size:22px;color:var(--bright);font-weight:900;}
+.wait-cat{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:2px;}
+
+.wait-timer-ring{position:relative;width:120px;height:120px;margin:0 auto 24px;}
+.wait-timer-ring svg{transform:rotate(-90deg);}
+.wait-timer-ring circle{fill:none;stroke:var(--greenborder);stroke-width:3;}
+.wait-timer-ring .progress{stroke:var(--green);stroke-dasharray:339;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear;stroke-linecap:round;}
+.wait-timer-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.wait-timer-num{font-family:var(--font-head);font-size:26px;color:var(--green);font-weight:900;}
+.wait-timer-label{font-family:var(--font-mono);font-size:7px;color:var(--muted);letter-spacing:2px;}
+
+.wait-players{width:100%;max-width:360px;margin-bottom:24px;}
+.wait-player-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--greendim);border:1px solid var(--greenborder);border-radius:10px;margin-bottom:8px;transition:all 0.3s;}
+.wait-player-row.empty{opacity:0.3;border-style:dashed;}
+.wait-player-avatar{width:32px;height:32px;border-radius:8px;background:var(--green3);border:1px solid var(--greenborder);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.wait-player-name{flex:1;font-family:var(--font-mono);font-size:11px;color:var(--text);}
+.wait-player-badge{font-family:var(--font-mono);font-size:8px;color:var(--green);border:1px solid var(--greenborder);padding:2px 6px;border-radius:4px;letter-spacing:1px;}
+.wait-player-badge.host{background:var(--greendim);}
+
+.wait-pot{text-align:center;margin-bottom:20px;}
+.wait-pot-label{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;}
+.wait-pot-val{font-family:var(--font-head);font-size:28px;color:var(--green);font-weight:900;}
+.wait-pot-sub{font-family:var(--font-mono);font-size:9px;color:var(--muted);}
+
+.wait-status{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;letter-spacing:1px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
+
+.cancel-btn{margin-top:16px;background:transparent;border:1px solid var(--reddim);color:var(--red);border-radius:8px;padding:10px 24px;font-family:var(--font-mono);font-size:10px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;}
+.cancel-btn:hover{background:var(--reddim);}
+
+/* ─── COUNTDOWN ─── */
+#countdownScreen{background:var(--bg);}
+.countdown-num{font-family:var(--font-head);font-size:120px;color:var(--green);font-weight:900;text-shadow:0 0 40px var(--green),0 0 80px rgba(0,255,65,0.3);animation:cd-pop 1s ease-out;}
+@keyframes cd-pop{0%{transform:scale(2);opacity:0}60%{transform:scale(0.9)}100%{transform:scale(1);opacity:1}}
+.countdown-sub{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:3px;margin-top:10px;}
+
+/* ─── GAME SCREEN ─── */
+#gameScreen{background:var(--bg);justify-content:flex-start;padding:0;}
+
+.game-header{width:100%;padding:16px 16px 12px;display:flex;align-items:center;gap:10px;background:var(--bg2);border-bottom:1px solid var(--greenborder);}
+.game-q-num{font-family:var(--font-head);font-size:11px;color:var(--muted);letter-spacing:2px;}
+.game-progress-bar{flex:1;height:3px;background:var(--greenborder);border-radius:2px;overflow:hidden;}
+.game-progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.3s;}
+.game-score{font-family:var(--font-head);font-size:13px;color:var(--green);font-weight:900;}
+
+/* Timer bar */
+.timer-bar-wrap{width:100%;height:4px;background:var(--greenborder);}
+.timer-bar{height:100%;background:var(--green);width:100%;transition:width linear,background 0.3s;}
+.timer-bar.urgent{background:var(--red);}
+
+/* Live scores */
+.live-scores{width:100%;display:flex;padding:8px 16px;gap:6px;background:var(--bg3);border-bottom:1px solid var(--greenborder);overflow-x:auto;}
+.live-score-pill{display:flex;align-items:center;gap:5px;background:var(--greendim);border:1px solid var(--greenborder);border-radius:20px;padding:4px 10px;white-space:nowrap;}
+.live-score-pill.me{border-color:var(--green);}
+.live-score-name{font-family:var(--font-mono);font-size:9px;color:var(--text);}
+.live-score-num{font-family:var(--font-head);font-size:11px;color:var(--green);}
+
+/* Question area */
+.question-wrap{flex:1;width:100%;padding:20px 16px;display:flex;flex-direction:column;overflow-y:auto;}
+.q-difficulty{font-family:var(--font-mono);font-size:8px;letter-spacing:2px;padding:3px 10px;border-radius:4px;margin-bottom:14px;display:inline-block;}
+.q-difficulty.easy{background:rgba(0,255,65,0.1);color:var(--green);border:1px solid var(--greenborder);}
+.q-difficulty.medium{background:rgba(255,255,65,0.1);color:var(--yellow);border:1px solid rgba(255,255,65,0.3);}
+.q-difficulty.hard{background:rgba(255,65,65,0.1);color:var(--red);border:1px solid rgba(255,65,65,0.3);}
+
+.question-text{font-family:var(--font-body);font-size:18px;font-weight:700;color:var(--bright);line-height:1.5;margin-bottom:24px;}
+
+.options-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.option-btn{background:var(--greendim);border:1px solid var(--greenborder);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.2s;text-align:left;width:100%;}
+.option-btn:hover{background:var(--card2);border-color:var(--green);}
+.option-btn.selected{background:rgba(0,255,65,0.15);border-color:var(--green);}
+.option-btn.correct{background:rgba(0,255,65,0.25);border-color:var(--green);animation:flash-green 0.5s;}
+.option-btn.wrong{background:rgba(255,65,65,0.15);border-color:var(--red);}
+.option-btn:disabled{cursor:not-allowed;}
+.option-key{width:28px;height:28px;border-radius:6px;background:var(--green3);border:1px solid var(--greenborder);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:10px;color:var(--green);flex-shrink:0;}
+.option-text{font-family:var(--font-body);font-size:15px;font-weight:600;color:var(--bright);}
+.option-btn.selected .option-key,.option-btn.correct .option-key{background:var(--green);color:#000;}
+.option-btn.wrong .option-key{background:var(--red);color:#fff;}
+@keyframes flash-green{0%{transform:scale(0.98)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+
+/* Timer display */
+.timer-display{text-align:center;margin-bottom:6px;}
+.timer-num{font-family:var(--font-head);font-size:36px;color:var(--green);font-weight:900;transition:color 0.3s;}
+.timer-num.urgent{color:var(--red);animation:shake 0.2s infinite;}
+@keyframes shake{0%{transform:translateX(-2px)}50%{transform:translateX(2px)}100%{transform:translateX(-2px)}}
+.timer-label{font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:2px;}
+
+/* Feedback overlay */
+.feedback{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-head);font-size:60px;z-index:200;animation:feedback-pop 0.8s ease-out forwards;pointer-events:none;}
+@keyframes feedback-pop{0%{transform:translate(-50%,-50%) scale(0.5);opacity:1}80%{transform:translate(-50%,-50%) scale(1.3);opacity:1}100%{transform:translate(-50%,-50%) scale(1.5);opacity:0}}
+
+/* ─── RESULT SCREEN ─── */
+#resultScreen{background:var(--bg);}
+.result-top{text-align:center;margin-bottom:30px;}
+.result-winner-label{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:3px;margin-bottom:8px;}
+.result-winner-name{font-family:var(--font-head);font-size:22px;color:var(--green);font-weight:900;}
+.result-trophy{font-size:60px;margin:16px 0;animation:float 2s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.result-prize{font-family:var(--font-head);font-size:32px;color:var(--green);font-weight:900;}
+.result-prize-label{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:4px;}
+
+.result-scores{width:100%;max-width:360px;margin-bottom:24px;}
+.result-score-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--greendim);border:1px solid var(--greenborder);border-radius:10px;margin-bottom:8px;}
+.result-rank-num{font-family:var(--font-head);font-size:16px;color:var(--muted);width:24px;}
+.result-rank-num.first{color:var(--yellow);}
+.result-player-name{flex:1;font-family:var(--font-mono);font-size:11px;color:var(--text);}
+.result-player-score{font-family:var(--font-head);font-size:14px;color:var(--green);}
+.result-correct{font-family:var(--font-mono);font-size:9px;color:var(--muted);}
+
+.result-btns{display:flex;gap:10px;width:100%;max-width:360px;}
+.result-btn-claim{flex:1;background:var(--green);color:#000;border:none;border-radius:10px;padding:15px;font-family:var(--font-head);font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;}
+.result-btn-claim:hover{background:var(--green2);}
+.result-btn-claim:disabled{background:var(--muted);cursor:not-allowed;}
+.result-btn-home{background:transparent;border:1px solid var(--greenborder);color:var(--text);border-radius:10px;padding:15px 20px;font-family:var(--font-head);font-size:11px;cursor:pointer;transition:all 0.2s;letter-spacing:1px;}
+.result-btn-home:hover{background:var(--greendim);}
+
+/* ─── SUDDEN DEATH ─── */
+#suddenScreen{background:radial-gradient(circle at center,#1a0000,#030d03);}
+.sudden-title{font-family:var(--font-head);font-size:28px;color:var(--red);font-weight:900;letter-spacing:3px;text-align:center;margin-bottom:6px;text-shadow:0 0 20px var(--red);}
+.sudden-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:30px;}
+</style>
+</head>
+<body>
+
+<!-- ─── WAITING SCREEN ─── -->
+<div id="waitScreen" class="screen">
+  <div class="wait-header">
+    <div class="wait-logo">🔬 INDC BRAINCLASH</div>
+    <div class="wait-title" id="waitRoomName">MENUNGGU PLAYER...</div>
+    <div class="wait-cat" id="waitCat">// LOADING</div>
+  </div>
+
+  <div class="wait-timer-ring">
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="54"/>
+      <circle class="progress" id="waitTimerCircle" cx="60" cy="60" r="54"/>
+    </svg>
+    <div class="wait-timer-center">
+      <div class="wait-timer-num" id="waitTimerNum">5:00</div>
+      <div class="wait-timer-label">TERSISA</div>
+    </div>
+  </div>
+
+  <div class="wait-players" id="waitPlayers"></div>
+
+  <div class="wait-pot">
+    <div class="wait-pot-label">TOTAL POT</div>
+    <div class="wait-pot-val" id="waitPot">0 INDC</div>
+    <div class="wait-pot-sub" id="waitPotSub">Entry fee terkumpul</div>
+  </div>
+
+  <div class="wait-status" id="waitStatus">// MENUNGGU PLAYER BERGABUNG...</div>
+  <button class="cancel-btn" onclick="cancelRoom()" id="cancelBtn" style="display:none">BATALKAN ROOM</button>
+</div>
+
+<!-- ─── COUNTDOWN SCREEN ─── -->
+<div id="countdownScreen" class="screen hidden">
+  <div class="countdown-num" id="countdownNum">3</div>
+  <div class="countdown-sub">// BATTLE DIMULAI</div>
+</div>
+
+<!-- ─── GAME SCREEN ─── -->
+<div id="gameScreen" class="screen hidden" style="justify-content:flex-start">
+  <div class="game-header">
+    <div class="game-q-num" id="gameQNum">SOAL 1/20</div>
+    <div class="game-progress-bar"><div class="game-progress-fill" id="gameProgress" style="width:0%"></div></div>
+    <div class="game-score">✅ <span id="myScore">0</span></div>
+  </div>
+
+  <div class="timer-bar-wrap"><div class="timer-bar" id="timerBar"></div></div>
+
+  <div class="live-scores" id="liveScores"></div>
+
+  <div class="question-wrap">
+    <span class="q-difficulty easy" id="qDiff">MUDAH</span>
+    <div class="timer-display">
+      <div class="timer-num" id="timerNum">10</div>
+      <div class="timer-label">DETIK</div>
+    </div>
+    <div class="question-text" id="questionText">Memuat soal...</div>
+    <div class="options-grid" id="optionsGrid"></div>
+  </div>
+</div>
+
+<!-- ─── SUDDEN DEATH SCREEN ─── -->
+<div id="suddenScreen" class="screen hidden">
+  <div class="sudden-title">⚡ SUDDEN DEATH</div>
+  <div class="sudden-sub">// SKOR IMBANG — SATU SOAL PENENTU</div>
+  <div class="question-text" id="sdQuestion" style="font-size:16px;margin-bottom:20px;text-align:center;max-width:360px;"></div>
+  <div class="options-grid" id="sdOptions" style="width:100%;max-width:360px;"></div>
+</div>
+
+<!-- ─── RESULT SCREEN ─── -->
+<div id="resultScreen" class="screen hidden">
+  <div class="result-top">
+    <div class="result-winner-label">🏆 PEMENANG</div>
+    <div class="result-winner-name" id="resultWinnerName">---</div>
+    <div class="result-trophy" id="resultTrophy">🏆</div>
+    <div class="result-prize" id="resultPrize">0 INDC</div>
+    <div class="result-prize-label">PRIZE (95% POT)</div>
+  </div>
+
+  <div class="result-scores" id="resultScores"></div>
+
+  <div class="result-btns">
+    <button class="result-btn-claim" id="claimBtn" onclick="claimPrize()">💰 CLAIM PRIZE</button>
+    <button class="result-btn-home" onclick="window.location.href='brainclash.html'">🏠 LOBBY</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────
+const FIREBASE_CONFIG={apiKey:"AIzaSyExample",authDomain:"indocoin.firebaseapp.com",databaseURL:"https://indocoin-default-rtdb.firebaseio.com",projectId:"indocoin"};
+const VAULT_CA="0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const GAME_CA="0xEb1322c4C46C73EEe2B67b93c00E73679A5DDf1D";
+const INDC_PRICE=0.003;
+const CATS=["🔬 Sains","➗ Matematika","💻 Teknologi","🌍 Umum","📜 Sejarah","💰 Ekonomi"];
+const CAT_NAMES=["sains","matematika","teknologi","pengetahuan umum","sejarah","ekonomi"];
+const LANGS=["Bahasa Indonesia","English"];
+
+const VAULT_ABI=["function getGameBalance(address) external view returns (uint256)","function addGameBalance(address,uint256) external"];
+
+// ─── BACKUP QUESTIONS (fallback jika AI gagal) ────────────────
+const BACKUP_QUESTIONS = {
+  0: [ // Sains
+    {q:"Apa rumus kimia air?",opts:["H2O","CO2","NaCl","O2"],ans:0,hard:0},
+    {q:"Planet terbesar di tata surya kita?",opts:["Saturnus","Jupiter","Neptunus","Uranus"],ans:1,hard:0},
+    {q:"Apa yang dihasilkan oleh fotosintesis?",opts:["CO2","O2 dan Glukosa","Air","Nitrogen"],ans:1,hard:0},
+    {q:"Berapa jumlah tulang pada tubuh manusia dewasa?",opts:["196","206","216","226"],ans:1,hard:1},
+    {q:"Unsur dengan nomor atom 1 adalah?",opts:["Helium","Oksigen","Hidrogen","Karbon"],ans:2,hard:0},
+    {q:"Kecepatan cahaya dalam vakum adalah?",opts:["3×10⁸ m/s","3×10⁶ m/s","3×10⁵ m/s","3×10⁷ m/s"],ans:0,hard:1},
+    {q:"DNA terdiri dari berapa heliks?",opts:["1","2","3","4"],ans:1,hard:0},
+    {q:"Hukum gravitasi Newton menyatakan gaya berbanding lurus dengan?",opts:["Jarak","Massa×jarak","Massa","1/jarak²"],ans:2,hard:1},
+    {q:"Apa nama ilmuwan yang menemukan teori relativitas?",opts:["Newton","Bohr","Einstein","Curie"],ans:2,hard:0},
+    {q:"Proses pembelahan sel yang menghasilkan 2 sel identik disebut?",opts:["Meiosis","Mitosis","Osmosis","Difusi"],ans:1,hard:1},
+    {q:"Benda jatuh bebas mengalami percepatan gravitasi sekitar?",opts:["5 m/s²","9.8 m/s²","12 m/s²","15 m/s²"],ans:1,hard:0},
+    {q:"Ion Na⁺ memiliki berapa elektron?",opts:["11","10","12","9"],ans:1,hard:2},
+    {q:"Organel sel yang disebut 'power house' adalah?",opts:["Nukleus","Ribosom","Mitokondria","Lisosom"],ans:2,hard:0},
+    {q:"Panjang gelombang cahaya tampak berkisar?",opts:["100-400 nm","400-700 nm","700-1000 nm","1000-1500 nm"],ans:1,hard:2},
+    {q:"Reaksi fisi nuklir memecah?",opts:["Proton","Neutron","Inti atom berat","Elektron"],ans:2,hard:2}
+  ],
+  1: [ // Matematika
+    {q:"Berapakah nilai π (pi) hingga 2 desimal?",opts:["3.12","3.14","3.16","3.18"],ans:1,hard:0},
+    {q:"√144 = ?",opts:["11","12","13","14"],ans:1,hard:0},
+    {q:"2³ × 3² = ?",opts:["48","54","72","64"],ans:2,hard:0},
+    {q:"Integral dari 2x adalah?",opts:["x²","x² + C","2x² + C","x + C"],ans:1,hard:1},
+    {q:"Bilangan prima antara 10 dan 20 ada berapa?",opts:["3","4","5","6"],ans:1,hard:0},
+    {q:"cos(60°) = ?",opts:["0","0.5","√3/2","1"],ans:1,hard:1},
+    {q:"Jika x² - 5x + 6 = 0, maka nilai x adalah?",opts:["2 dan 3","1 dan 6","2 dan 4","3 dan 4"],ans:0,hard:1},
+    {q:"Luas lingkaran dengan r=7 adalah? (π=22/7)",opts:["44","154","22","308"],ans:1,hard:0},
+    {q:"Deret aritmatika 2,5,8,11... suku ke-10 adalah?",opts:["28","29","30","31"],ans:1,hard:1},
+    {q:"log₁₀(1000) = ?",opts:["2","3","4","10"],ans:1,hard:0},
+    {q:"Turunan dari sin(x) adalah?",opts:["cos(x)","-cos(x)","sin(x)","-sin(x)"],ans:0,hard:1},
+    {q:"Matriks identitas 2×2 adalah?",opts:["[[0,0],[0,0]]","[[1,1],[1,1]]","[[1,0],[0,1]]","[[0,1],[1,0]]"],ans:2,hard:1},
+    {q:"Faktorial 5! = ?",opts:["60","100","120","150"],ans:2,hard:0},
+    {q:"Limit dari (x²-1)/(x-1) saat x→1 adalah?",opts:["0","1","2","tak terhingga"],ans:2,hard:2},
+    {q:"Peluang mendapat angka 6 pada dadu adalah?",opts:["1/5","1/6","1/4","1/3"],ans:1,hard:0}
+  ],
+  2: [ // Teknologi & Blockchain
+    {q:"Apa kepanjangan dari HTML?",opts:["Hyper Text Markup Language","High Text Machine Learning","Hyper Transfer Markup Language","High Transfer Markup List"],ans:0,hard:0},
+    {q:"Bitcoin diciptakan oleh siapa?",opts:["Vitalik Buterin","Satoshi Nakamoto","Elon Musk","Nick Szabo"],ans:1,hard:0},
+    {q:"Ethereum menggunakan konsensus?",opts:["Proof of Work","Proof of Stake","Delegated PoS","Proof of Authority"],ans:1,hard:0},
+    {q:"Apa yang dimaksud smart contract?",opts:["Kontrak fisik","Program otomatis di blockchain","Database terenkripsi","Dompet digital"],ans:1,hard:0},
+    {q:"CPU singkatan dari?",opts:["Central Processing Unit","Computer Programming Unit","Central Program Utility","Compute Power Unit"],ans:0,hard:0},
+    {q:"Berapa total supply Bitcoin?",opts:["18 juta","21 juta","100 juta","1 miliar"],ans:1,hard:0},
+    {q:"Apa itu hash dalam kriptografi?",opts:["Password","Fungsi satu arah","Enkripsi dua arah","Kunci publik"],ans:1,hard:1},
+    {q:"ERC-20 adalah standar token di blockchain?",opts:["Bitcoin","Solana","Ethereum","Binance Smart Chain"],ans:2,hard:0},
+    {q:"RAM singkatan dari?",opts:["Read Access Memory","Random Access Memory","Rapid Access Mode","Read And Memory"],ans:1,hard:0},
+    {q:"Apa itu DeFi?",opts:["Desktop Finance","Decentralized Finance","Digital Finance","Derivative Finance"],ans:1,hard:0},
+    {q:"Algoritma hashing Bitcoin menggunakan?",opts:["MD5","SHA-1","SHA-256","SHA-512"],ans:2,hard:1},
+    {q:"NFT singkatan dari?",opts:["New Finance Token","Non-Fungible Token","New Fungible Token","Net Finance Trade"],ans:1,hard:0},
+    {q:"Bahasa pemrograman yang digunakan untuk smart contract Ethereum?",opts:["Python","JavaScript","Solidity","Rust"],ans:2,hard:0},
+    {q:"Apa itu gas fee di Ethereum?",opts:["Biaya listrik","Biaya transaksi","Biaya staking","Biaya mining"],ans:1,hard:0},
+    {q:"Apa itu 51% attack di blockchain?",opts:["Server down","Kendali mayoritas hashrate","Bug dalam kode","Hack wallet"],ans:1,hard:2}
+  ],
+  3: [ // Pengetahuan Umum
+    {q:"Ibu kota Indonesia adalah?",opts:["Surabaya","Bandung","Jakarta","Medan"],ans:2,hard:0},
+    {q:"Benua terbesar di dunia adalah?",opts:["Amerika","Afrika","Asia","Eropa"],ans:2,hard:0},
+    {q:"Gunung tertinggi di dunia adalah?",opts:["K2","Kangchenjunga","Lhotse","Everest"],ans:3,hard:0},
+    {q:"Sungai terpanjang di dunia adalah?",opts:["Amazon","Mississippi","Nil","Yangtze"],ans:2,hard:0},
+    {q:"Negara dengan luas wilayah terbesar adalah?",opts:["China","Amerika","Kanada","Rusia"],ans:3,hard:0},
+    {q:"Berapa jumlah benua di dunia?",opts:["5","6","7","8"],ans:2,hard:0},
+    {q:"Bahasa yang paling banyak digunakan di dunia adalah?",opts:["Inggris","Mandarin","Hindi","Spanyol"],ans:1,hard:0},
+    {q:"Negara dengan populasi terbanyak di dunia adalah?",opts:["India","China","Amerika","Indonesia"],ans:0,hard:0},
+    {q:"Samudra terluas di dunia adalah?",opts:["Atlantik","Hindia","Arktik","Pasifik"],ans:3,hard:0},
+    {q:"Indonesia terletak di antara dua samudra yaitu?",opts:["Atlantik & Hindia","Pasifik & Hindia","Pasifik & Arktik","Hindia & Arktik"],ans:1,hard:0},
+    {q:"PBB didirikan pada tahun?",opts:["1944","1945","1946","1947"],ans:1,hard:1},
+    {q:"Negara pertama yang mendaratkan manusia di bulan?",opts:["Rusia","Cina","Amerika","Inggris"],ans:2,hard:0},
+    {q:"Berapa persen permukaan bumi tertutup air?",opts:["61%","71%","81%","51%"],ans:1,hard:1},
+    {q:"Ibu kota Australia adalah?",opts:["Sydney","Melbourne","Brisbane","Canberra"],ans:3,hard:1},
+    {q:"Negara penghasil minyak bumi terbesar adalah?",opts:["Iraq","Arab Saudi","Amerika","Iran"],ans:2,hard:1}
+  ],
+  4: [ // Sejarah
+    {q:"Indonesia merdeka pada tanggal?",opts:["16 Agustus 1945","17 Agustus 1945","18 Agustus 1945","17 Agustus 1944"],ans:1,hard:0},
+    {q:"Siapa proklamator kemerdekaan Indonesia?",opts:["Sudirman & Hatta","Soekarno & Hatta","Soeharto & Hatta","Soekarno & Sudirman"],ans:1,hard:0},
+    {q:"Perang Dunia II berakhir pada tahun?",opts:["1943","1944","1945","1946"],ans:2,hard:0},
+    {q:"Tembok Berlin runtuh pada tahun?",opts:["1987","1988","1989","1990"],ans:2,hard:1},
+    {q:"Revolusi Prancis dimulai pada tahun?",opts:["1787","1788","1789","1790"],ans:2,hard:1},
+    {q:"Siapa yang menemukan benua Amerika?",opts:["Vasco da Gama","Magellan","Columbus","Cook"],ans:2,hard:0},
+    {q:"Dinasti terpanjang dalam sejarah Cina adalah?",opts:["Han","Tang","Zhou","Ming"],ans:2,hard:2},
+    {q:"Olimpiade modern pertama diadakan di?",opts:["Paris","London","Athena","Roma"],ans:2,hard:1},
+    {q:"Borobudur dibangun pada masa dinasti?",opts:["Majapahit","Syailendra","Mataram","Sriwijaya"],ans:1,hard:1},
+    {q:"Perang kemerdekaan Amerika dimulai tahun?",opts:["1774","1775","1776","1777"],ans:1,hard:2},
+    {q:"Sumpah Pemuda dideklarasikan pada tahun?",opts:["1926","1927","1928","1929"],ans:2,hard:0},
+    {q:"Kerajaan Majapahit mencapai puncak kejayaan di bawah?",opts:["Ken Arok","Hayam Wuruk","Raden Wijaya","Tribhuwana"],ans:1,hard:1},
+    {q:"VOC didirikan pada tahun?",opts:["1600","1601","1602","1603"],ans:2,hard:2},
+    {q:"Napoleon Bonaparte diasingkan ke pulau?",opts:["Corsica","Elba","St Helena","Malta"],ans:2,hard:2},
+    {q:"Konferensi Asia Afrika pertama diadakan di?",opts:["Bandung","Jakarta","Surabaya","Yogyakarta"],ans:0,hard:0}
+  ],
+  5: [ // Ekonomi
+    {q:"GDP singkatan dari?",opts:["Gross Domestic Product","General Domestic Profit","Gross Demand Production","General Demand Product"],ans:0,hard:0},
+    {q:"Inflasi adalah?",opts:["Penurunan harga","Kenaikan harga umum","Pertumbuhan ekonomi","Penurunan pengangguran"],ans:1,hard:0},
+    {q:"Bank Sentral Indonesia adalah?",opts:["BCA","Mandiri","Bank Indonesia","BRI"],ans:2,hard:0},
+    {q:"Hukum permintaan menyatakan jika harga naik maka permintaan?",opts:["Naik","Turun","Tetap","Tidak pasti"],ans:1,hard:0},
+    {q:"Pasar modal Indonesia dikenal sebagai?",opts:["IHSG","BEI","OJK","IDX"],ans:1,hard:0},
+    {q:"Apa itu deflasi?",opts:["Kenaikan harga","Penurunan harga umum","Kenaikan pengangguran","Pertumbuhan negatif"],ans:1,hard:0},
+    {q:"Mata uang Eropa adalah?",opts:["Franc","Pound","Euro","Mark"],ans:2,hard:0},
+    {q:"Teori ekonomi Adam Smith dikenal sebagai?",opts:["Ekonomi Marxis","Ekonomi Klasik","Ekonomi Keynesian","Ekonomi Modern"],ans:1,hard:1},
+    {q:"IPO singkatan dari?",opts:["Initial Public Offering","International Private Order","Initial Private Operation","Internal Public Offering"],ans:0,hard:0},
+    {q:"Liquidity trap pertama kali diperkenalkan oleh?",opts:["Adam Smith","Marx","Keynes","Friedman"],ans:2,hard:2},
+    {q:"Apa itu bull market?",opts:["Pasar menurun","Pasar naik","Pasar stagnan","Pasar volatile"],ans:1,hard:0},
+    {q:"OJK mengawasi industri?",opts:["Pertambangan","Jasa keuangan","Pertanian","Manufaktur"],ans:1,hard:0},
+    {q:"Apa itu yield obligasi?",opts:["Harga beli","Imbal hasil","Nilai tukar","Suku bunga dasar"],ans:1,hard:1},
+    {q:"Monopoli adalah kondisi di mana?",opts:["Banyak penjual","Satu penjual","Dua penjual","Pemerintah menjual"],ans:1,hard:0},
+    {q:"Stagflasi adalah kondisi?",opts:["Inflasi tinggi + pertumbuhan tinggi","Inflasi rendah + pengangguran tinggi","Inflasi tinggi + pertumbuhan rendah","Deflasi + pengangguran rendah"],ans:2,hard:2}
+  ]
+};
+
+// ─── STATE ────────────────────────────────────────────────────
+let provider,signer,userAddr,cVault;
+let roomId,roomData,questions=[],currentQ=0,myScore=0;
+let timerInterval,waitTimerInterval;
+let answered=false,gamePhase='wait'; // wait|playing|sudden|result
+let players={};
+
+// ─── FIREBASE ─────────────────────────────────────────────────
+if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+const db=firebase.database();
+const auth=firebase.auth();
+
+// ─── INIT ─────────────────────────────────────────────────────
+const urlParams=new URLSearchParams(window.location.search);
+roomId=urlParams.get('id');
+if(!roomId){window.location.href='brainclash.html';}
+
+window.addEventListener('load',async()=>{
+  // Connect wallet
+  if(window.ethereum){
+    try{
+      const acc=await window.ethereum.request({method:'eth_accounts'});
+      if(acc.length){
+        provider=new ethers.BrowserProvider(window.ethereum);
+        signer=await provider.getSigner();
+        userAddr=await signer.getAddress();
+        cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+      }
+    }catch(e){}
+  }
+  // Join room di Firebase
+  if(userAddr){
+    const user=auth.currentUser;
+    const name=user?.displayName||user?.email?.split('@')[0]||userAddr.slice(0,8);
+    await db.ref(`brainclash/rooms/${roomId}/players/${userAddr}`).set({
+      name,score:0,joined:Date.now(),disconnected:false
+    });
+  }
+  // Listen room changes
+  db.ref(`brainclash/rooms/${roomId}`).on('value',snap=>{
+    const r=snap.val();
+    if(!r){window.location.href='brainclash.html';return;}
+    roomData=r;
+    handleRoomState(r);
+  });
+  // Start wait timer
+  startWaitTimer();
+});
+
+// ─── ROOM STATE MACHINE ───────────────────────────────────────
+function handleRoomState(r){
+  players=r.players||{};
+  const pList=Object.values(players);
+  updateWaitUI(r,pList);
+
+  if(r.status==='waiting'){
+    showScreen('waitScreen');
+    gamePhase='wait';
+    // Show cancel btn only for creator
+    if(r.creator===userAddr) document.getElementById('cancelBtn').style.display='block';
+  } else if(r.status==='countdown'&&gamePhase==='wait'){
+    gamePhase='countdown';
+    runCountdown();
+  } else if(r.status==='playing'&&gamePhase==='countdown'){
+    gamePhase='playing';
+    questions=r.questions||[];
+    showScreen('gameScreen');
+    startQuestion(0);
+  } else if(r.status==='sudden'&&gamePhase==='playing'){
+    gamePhase='sudden';
+    showSuddenDeath(r.suddenQuestion);
+  } else if(r.status==='finished'){
+    gamePhase='result';
+    showResult(r);
+  }
+}
+
+// ─── WAIT UI ──────────────────────────────────────────────────
+function updateWaitUI(r,pList){
+  const cat=CATS[r.categoryId||0];
+  const pot=Math.floor((r.pot||0)/1e9).toLocaleString();
+  document.getElementById('waitRoomName').textContent=`${r.creatorName||'CHALLENGER'} • ${cat}`;
+  document.getElementById('waitCat').textContent=`// ${r.questionCount||20} SOAL · ${LANGS[r.languageId||0]}`;
+  document.getElementById('waitPot').textContent=pot+' INDC';
+  document.getElementById('waitPotSub').textContent=`${pList.length}/4 player bergabung`;
+
+  const wrap=document.getElementById('waitPlayers');
+  wrap.innerHTML='';
+  for(let i=0;i<4;i++){
+    const p=pList[i];
+    const isMe=p&&Object.keys(players)[i]===userAddr;
+    const isHost=r.creator&&Object.keys(players)[i]===r.creator;
+    wrap.innerHTML+=p
+      ?`<div class="wait-player-row"><div class="wait-player-avatar">${p.name?p.name[0].toUpperCase():'?'}</div><div class="wait-player-name">${p.name||'Player'} ${isMe?'(KAMU)':''}</div>${isHost?'<span class="wait-player-badge host">HOST</span>':'<span class="wait-player-badge">READY</span>'}</div>`
+      :`<div class="wait-player-row empty"><div class="wait-player-avatar" style="opacity:0.3">?</div><div class="wait-player-name" style="color:var(--muted)">Menunggu player ${i+1}...</div></div>`;
+  }
+  const status=pList.length>=2?`// ${pList.length} PLAYER SIAP · GAME DIMULAI SAAT 4 PLAYER / TIMER HABIS`:'// MENUNGGU MINIMAL 2 PLAYER...';
+  document.getElementById('waitStatus').textContent=status;
+}
+
+function startWaitTimer(){
+  let secs=5*60;
+  const circle=document.getElementById('waitTimerCircle');
+  const circumference=339;
+  waitTimerInterval=setInterval(async()=>{
+    secs--;
+    const m=Math.floor(secs/60);
+    const s=secs%60;
+    document.getElementById('waitTimerNum').textContent=m+':'+(s<10?'0':'')+s;
+    circle.style.strokeDashoffset=circumference-(circumference*(secs/(5*60)));
+    if(secs<=0){
+      clearInterval(waitTimerInterval);
+      // Cek apakah host dan ada cukup player
+      if(roomData?.creator===userAddr){
+        const pCount=Object.keys(players).length;
+        if(pCount>=2){await startGameAsHost();}
+        else{await db.ref(`brainclash/rooms/${roomId}`).update({status:'cancelled'});refundAll();}
+      }
+    }
+  },1000);
+}
+
+async function startGameAsHost(){
+  const catId=roomData.categoryId||0;
+  const qCount=roomData.questionCount||20;
+  const lang=roomData.languageId||0;
+  const entryFee=Math.floor((roomData.entryFee||0)/1e9);
+
+  // Generate soal via AI
+  let qs=await generateQuestionsAI(catId,qCount,lang,entryFee);
+  if(!qs||!qs.length) qs=generateBackupQuestions(catId,qCount,entryFee);
+
+  // Update Firebase
+  await db.ref(`brainclash/rooms/${roomId}`).update({
+    status:'countdown',
+    startedAt:Date.now()/1000,
+    questions:qs
+  });
+}
+
+// ─── AI QUESTION GENERATION ───────────────────────────────────
+async function generateQuestionsAI(catId,count,lang,entryFee){
+  try{
+    const catName=CAT_NAMES[catId]||'sains';
+    const langName=lang===0?'Bahasa Indonesia':'English';
+    const diff=entryFee<700?'mudah (level SD-SMP)':entryFee<2000?'sedang (level SMA-kuliah)':'sulit (level olimpiade/profesional)';
+
+    const prompt=`Buat ${count} soal pilihan ganda tentang ${catName} dalam ${langName}.
+Tingkat kesulitan: ${diff}.
+Format HANYA JSON array, tidak ada teks lain:
+[{"q":"pertanyaan","opts":["A","B","C","D"],"ans":0,"hard":0,"time":5}]
+Dimana ans=index jawaban benar (0-3), hard=0(mudah)/1(sedang)/2(sulit), time=detik untuk menjawab (5-10).
+Buat ${count} soal yang beragam dan akurat.`;
+
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:4000,
+        messages:[{role:"user",content:prompt}]
+      })
+    });
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'';
+    const clean=text.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(clean);
+    if(Array.isArray(parsed)&&parsed.length>0) return parsed;
+    return null;
+  }catch(e){
+    console.warn('[BrainClash] AI failed, using backup');
+    return null;
+  }
+}
+
+function generateBackupQuestions(catId,count,entryFee){
+  const pool=BACKUP_QUESTIONS[catId]||BACKUP_QUESTIONS[0];
+  const diff=entryFee<700?0:entryFee<2000?1:2;
+  // Filter by difficulty, lalu shuffle
+  let filtered=pool.filter(q=>diff===0?q.hard<=0:diff===1?q.hard<=1:true);
+  if(filtered.length<count) filtered=pool; // fallback semua
+  // Shuffle
+  const shuffled=[...filtered].sort(()=>Math.random()-0.5);
+  // Loop jika count > pool size
+  const result=[];
+  while(result.length<count) result.push(...shuffled);
+  return result.slice(0,count).map(q=>({...q,time:q.hard===0?5:q.hard===1?7:10}));
+}
+
+// ─── COUNTDOWN ────────────────────────────────────────────────
+function runCountdown(){
+  clearInterval(waitTimerInterval);
+  showScreen('countdownScreen');
+  let n=3;
+  document.getElementById('countdownNum').textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    document.getElementById('countdownNum').textContent=n>0?n:'GO!';
+    if(n<=0){clearInterval(iv);}
+  },1000);
+}
+
+// ─── GAME FLOW ────────────────────────────────────────────────
+function startQuestion(idx){
+  if(idx>=questions.length){endGame();return;}
+  currentQ=idx;
+  answered=false;
+  const q=questions[idx];
+  const time=q.time||7;
+  const total=questions.length;
+  const diffLabels=['MUDAH','SEDANG','SULIT'];
+  const diffClasses=['easy','medium','hard'];
+
+  document.getElementById('gameQNum').textContent=`SOAL ${idx+1}/${total}`;
+  document.getElementById('gameProgress').style.width=((idx/total)*100)+'%';
+  document.getElementById('myScore').textContent=myScore;
+  document.getElementById('qDiff').textContent=diffLabels[q.hard||0];
+  document.getElementById('qDiff').className='q-difficulty '+(diffClasses[q.hard||0]);
+  document.getElementById('questionText').textContent=q.q;
+
+  // Shuffle options
+  const keys=['A','B','C','D'];
+  const idxArr=[0,1,2,3];
+  const shuffleIdx=[...idxArr].sort(()=>Math.random()-0.5);
+  const correctOpt=q.opts[q.ans];
+  const opts=document.getElementById('optionsGrid');
+  opts.innerHTML=shuffleIdx.map((si,i)=>`
+    <button class="option-btn" id="opt-${i}" onclick="answer(${i},'${q.opts[si]}'=='${correctOpt}')">
+      <div class="option-key">${keys[i]}</div>
+      <span class="option-text">${q.opts[si]}</span>
+    </button>`).join('');
+
+  // Timer
+  startTimer(time);
+  updateLiveScores();
+}
+
+function startTimer(secs){
+  clearInterval(timerInterval);
+  let t=secs;
+  const bar=document.getElementById('timerBar');
+  const num=document.getElementById('timerNum');
+  bar.style.transitionDuration=secs+'s';
+  bar.style.width='100%';
+  // Force reflow
+  bar.getBoundingClientRect();
+  bar.style.width='0%';
+
+  timerInterval=setInterval(()=>{
+    t--;
+    num.textContent=t;
+    if(t<=3){num.classList.add('urgent');bar.classList.add('urgent');}
+    if(t<=0){
+      clearInterval(timerInterval);
+      if(!answered) timeOut();
+    }
+  },1000);
+}
+
+function answer(btnIdx,isCorrect){
+  if(answered)return;
+  answered=true;
+  clearInterval(timerInterval);
+
+  const btns=document.querySelectorAll('.option-btn');
+  btns.forEach(b=>b.disabled=true);
+
+  if(isCorrect){
+    btns[btnIdx].classList.add('correct');
+    myScore++;
+    document.getElementById('myScore').textContent=myScore;
+    showFeedback('✅');
+  }else{
+    btns[btnIdx].classList.add('wrong');
+    showFeedback('❌');
+    // Highlight correct
+    btns.forEach((b,i)=>{
+      if(b.querySelector('.option-text').textContent===questions[currentQ].opts[questions[currentQ].ans]){
+        b.classList.add('correct');
+      }
+    });
+  }
+
+  // Save score to Firebase
+  if(userAddr){
+    db.ref(`brainclash/rooms/${roomId}/players/${userAddr}/score`).set(myScore);
+  }
+
+  setTimeout(()=>startQuestion(currentQ+1),1200);
+}
+
+function timeOut(){
+  answered=true;
+  showFeedback('⏰');
+  // Highlight correct
+  const correctText=questions[currentQ].opts[questions[currentQ].ans];
+  document.querySelectorAll('.option-btn').forEach(b=>{
+    b.disabled=true;
+    if(b.querySelector('.option-text').textContent===correctText) b.classList.add('correct');
+  });
+  setTimeout(()=>startQuestion(currentQ+1),1200);
+}
+
+function showFeedback(emoji){
+  const el=document.createElement('div');
+  el.className='feedback';
+  el.textContent=emoji;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),800);
+}
+
+function updateLiveScores(){
+  const ls=document.getElementById('liveScores');
+  const pList=Object.entries(players)
+    .map(([addr,p])=>({addr,name:p.name||addr.slice(0,6),score:p.score||0}))
+    .sort((a,b)=>b.score-a.score);
+  ls.innerHTML=pList.map(p=>`
+    <div class="live-score-pill${p.addr===userAddr?' me':''}">
+      <span class="live-score-name">${p.addr===userAddr?'KAMU':p.name}</span>
+      <span class="live-score-num">${p.score}</span>
+    </div>`).join('');
+}
+
+// ─── END GAME ─────────────────────────────────────────────────
+async function endGame(){
+  if(roomData?.creator!==userAddr)return;
+  // Hitung pemenang
+  const scores=Object.entries(players).map(([addr,p])=>({addr,score:p.score||0,name:p.name||addr}));
+  scores.sort((a,b)=>b.score-a.score);
+  const top=scores[0];
+  const second=scores[1];
+
+  if(top.score===second.score){
+    // Sudden death
+    const sdQ=generateBackupQuestions(roomData.categoryId||0,1,0)[0];
+    await db.ref(`brainclash/rooms/${roomId}`).update({status:'sudden',suddenQuestion:sdQ,drawPlayers:[top.addr,second.addr]});
+  }else{
+    await declareWinner(top.addr);
+  }
+}
+
+async function declareWinner(winnerAddr){
+  await db.ref(`brainclash/rooms/${roomId}`).update({status:'finished',winner:winnerAddr,finishedAt:Date.now()/1000});
+  // Update player stats
+  const pList=Object.entries(players);
+  for(const [addr,p] of pList){
+    const ref=db.ref('brainclash/players/'+addr);
+    const snap=await ref.get();
+    const stats=snap.val()||{games:0,wins:0,totalWon:0};
+    stats.games++;
+    if(addr===winnerAddr){
+      stats.wins++;
+      const prize=Math.floor((roomData.pot||0)/1e9*0.95);
+      stats.totalWon=(stats.totalWon||0)+prize;
+      await cVault.addGameBalance(addr,BigInt(Math.floor((roomData.pot||0)*0.95)));
+    }
+    await ref.set(stats);
+  }
+}
+
+// ─── SUDDEN DEATH ─────────────────────────────────────────────
+function showSuddenDeath(sdQ){
+  showScreen('suddenScreen');
+  if(!sdQ)return;
+  document.getElementById('sdQuestion').textContent=sdQ.q;
+  const keys=['A','B','C','D'];
+  const correctText=sdQ.opts[sdQ.ans];
+  document.getElementById('sdOptions').innerHTML=sdQ.opts.map((o,i)=>`
+    <button class="option-btn" onclick="answerSD(this,'${o}'==='${correctText}')">
+      <div class="option-key">${keys[i]}</div>
+      <span class="option-text">${o}</span>
+    </button>`).join('');
+}
+
+async function answerSD(btn,isCorrect){
+  document.querySelectorAll('#sdOptions .option-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(isCorrect?'correct':'wrong');
+  if(isCorrect&&roomData?.creator===userAddr){
+    await declareWinner(userAddr);
+  } else if(!isCorrect&&roomData?.creator===userAddr){
+    // Pemenang adalah player lain di drawPlayers
+    const others=roomData.drawPlayers?.filter(a=>a!==userAddr);
+    if(others?.length) await declareWinner(others[0]);
+  }
+}
+
+// ─── RESULT ───────────────────────────────────────────────────
+function showResult(r){
+  showScreen('resultScreen');
+  const winnerAddr=r.winner;
+  const winnerP=players[winnerAddr];
+  const winnerName=winnerP?.name||winnerAddr?.slice(0,8)||'???';
+  const pot=Math.floor((r.pot||0)/1e9);
+  const prize=Math.floor(pot*0.95);
+
+  document.getElementById('resultWinnerName').textContent=winnerName;
+  document.getElementById('resultPrize').textContent=prize.toLocaleString()+' INDC';
+  document.getElementById('resultTrophy').textContent=winnerAddr===userAddr?'🏆':'😔';
+
+  // Score table
+  const scores=Object.entries(players)
+    .map(([addr,p])=>({addr,name:p.name||addr.slice(0,6),score:p.score||0}))
+    .sort((a,b)=>b.score-a.score);
+
+  document.getElementById('resultScores').innerHTML=scores.map((p,i)=>`
+    <div class="result-score-row">
+      <div class="result-rank-num${i===0?' first':''}">${['🥇','🥈','🥉','4️⃣'][i]||i+1}</div>
+      <div class="result-player-name">${p.name} ${p.addr===userAddr?'(KAMU)':''}</div>
+      <div>
+        <div class="result-player-score">${p.score}</div>
+        <div class="result-correct">benar</div>
+      </div>
+    </div>`).join('');
+
+  // Show claim only for winner
+  const claimBtn=document.getElementById('claimBtn');
+  if(winnerAddr===userAddr){
+    claimBtn.textContent=`💰 CLAIM ${prize.toLocaleString()} INDC`;
+    claimBtn.style.display='block';
+  }else{
+    claimBtn.style.display='none';
+  }
+}
+
+async function claimPrize(){
+  const btn=document.getElementById('claimBtn');
+  btn.disabled=true;btn.textContent='MEMPROSES...';
+  try{
+    // Prize sudah dikreditkan ke vault saat declareWinner
+    await db.ref(`brainclash/rooms/${roomId}/claimed`).set(true);
+    btn.textContent='✅ PRIZE DI VAULT!';
+    setTimeout(()=>window.location.href='wallet.html',2000);
+  }catch(e){
+    btn.disabled=false;
+    btn.textContent='❌ GAGAL, COBA LAGI';
+  }
+}
+
+async function cancelRoom(){
+  if(!confirm('Batalkan room? Semua entry fee akan direfund.'))return;
+  await db.ref(`brainclash/rooms/${roomId}`).update({status:'cancelled'});
+  window.location.href='brainclash.html';
+}
+
+// ─── SCREEN SWITCHER ──────────────────────────────────────────
+function showScreen(id){
+  ['waitScreen','countdownScreen','gameScreen','suddenScreen','resultScreen']
+    .forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+}
+</script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js')
+    .then(r=>console.log('[SW] BrainClash registered'))
+    .catch(e=>console.warn('[SW] Failed:',e));
+}
+</script>
+</body>
+</html>
