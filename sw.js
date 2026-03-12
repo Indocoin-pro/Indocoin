@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "2.2";
+const VERSION = "2.3";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -67,6 +67,8 @@ const CACHE_FILES = [
   "/brainclash-history.html",
   "/brainclash-notif.js",
   "/brainclash-icon.svg",
+  "/indc-staking.html",
+  "/dev-panel.html",
 ];
 
 // ── INSTALL: cache semua file ──

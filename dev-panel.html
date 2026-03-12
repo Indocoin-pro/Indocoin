@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Dev Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;--dark4:#162032;
+  --text:#e2e8f0;--muted:#64748b;--green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+  --cyan:#06b6d4;--purple:#a855f7;--orange:#f97316;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d,3s) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── TOPNAV ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,15,30,0.97);backdrop-filter:blur(16px);border-bottom:2px solid rgba(255,255,255,0.5);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex-shrink:0;}
+.nav-logo-fb{width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.6);background:linear-gradient(135deg,#1e3a8a,#0f172a);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;background:linear-gradient(90deg,#f59e0b,#facc15,#fef08a,#facc15,#f59e0b);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:goldShimmer 3s linear infinite;letter-spacing:2px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--red);letter-spacing:2px;opacity:0.9;}
+.dev-badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;display:flex;align-items:center;gap:5px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:var(--red);}
+.dev-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink 1s infinite;}
+.btn-connect{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;}
+.btn-connect:hover{background:rgba(250,204,21,0.2);}
+
+/* ── LAYOUT ── */
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 40px;max-width:600px;margin:0 auto;width:100%;}
+
+/* ── ACCESS DENIED ── */
+#accessDenied{display:none;text-align:center;padding:60px 20px;}
+.denied-icon{font-size:60px;margin-bottom:16px;}
+.denied-title{font-family:'Orbitron',sans-serif;font-size:18px;color:var(--red);margin-bottom:8px;}
+.denied-sub{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.stat-card{background:linear-gradient(135deg,#0d2557,#0a1628);border:2px solid rgba(255,255,255,0.15);border-radius:14px;padding:14px;text-align:center;position:relative;overflow:hidden;}
+.stat-card.green{border-color:rgba(34,197,94,0.3);}
+.stat-card.gold{border-color:rgba(250,204,21,0.3);}
+.stat-card.cyan{border-color:rgba(6,182,212,0.3);}
+.stat-card.red{border-color:rgba(239,68,68,0.3);}
+.stat-icon{font-size:20px;margin-bottom:6px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--gold);}
+.stat-card.green .stat-val{color:var(--green);}
+.stat-card.cyan .stat-val{color:var(--cyan);}
+.stat-card.red .stat-val{color:var(--red);}
+.stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:3px;text-transform:uppercase;}
+
+/* ── SECTION DIVIDER ── */
+.sec-div{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:2px;margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-div::after{content:'';flex:1;height:1px;background:rgba(250,204,21,0.12);}
+.sec-div.red{color:var(--red);}
+.sec-div.red::after{background:rgba(239,68,68,0.12);}
+.sec-div.cyan{color:var(--cyan);}
+.sec-div.cyan::after{background:rgba(6,182,212,0.12);}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.filter-btn{font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all 0.2s;letter-spacing:1px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:var(--muted);}
+.filter-btn.active{background:rgba(250,204,21,0.12);border-color:rgba(250,204,21,0.4);color:var(--gold);}
+.filter-btn.pending.active{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.4);color:var(--red);}
+.filter-btn.approved.active{background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.4);color:var(--green);}
+
+/* ── SEARCH BAR ── */
+.search-wrap{position:relative;margin-bottom:10px;}
+.search-wrap input{width:100%;padding:10px 14px 10px 36px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;outline:none;transition:border-color 0.3s;}
+.search-wrap input:focus{border-color:rgba(250,204,21,0.4);}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;}
+
+/* ── BATCH APPROVE BAR ── */
+.batch-bar{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;display:none;}
+.batch-bar.show{display:flex;}
+.batch-info{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--red);letter-spacing:1px;}
+.btn-batch{font-family:'Orbitron',sans-serif;font-size:10px;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;letter-spacing:1px;background:linear-gradient(135deg,var(--red),#dc2626);color:#fff;border:none;transition:all 0.2s;}
+.btn-batch:hover{opacity:0.85;}
+
+/* ── REQUEST CARD ── */
+.req-card{background:rgba(0,0,0,0.25);border-radius:14px;padding:14px;margin-bottom:10px;animation:fadeUp 0.2s ease both;transition:all 0.2s;}
+.req-card.pending{border:2px solid rgba(239,68,68,0.35);border-left:4px solid var(--red);}
+.req-card.approved{border:2px solid rgba(34,197,94,0.25);border-left:4px solid var(--green);opacity:0.8;}
+.req-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.req-wallet{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan);letter-spacing:1px;}
+.req-wallet-full{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;word-break:break-all;}
+.req-status{font-family:'Share Tech Mono',monospace;font-size:9px;padding:4px 10px;border-radius:12px;font-weight:700;white-space:nowrap;}
+.req-status.pending{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.req-status.approved{background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);}
+.req-amounts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;}
+.req-amt{background:rgba(0,0,0,0.3);border-radius:8px;padding:8px 10px;text-align:center;}
+.req-amt-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+.req-amt-val.indc{color:var(--cyan);}
+.req-amt-val.usdt{color:var(--green);}
+.req-amt-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;text-transform:uppercase;}
+.req-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.req-date{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.req-check{display:flex;align-items:center;gap:6px;cursor:pointer;}
+.req-check input{width:16px;height:16px;accent-color:var(--red);cursor:pointer;}
+.req-check-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.btn-approve-single{width:100%;padding:10px;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;background:linear-gradient(135deg,var(--green),#16a34a);color:#fff;}
+.btn-approve-single:hover{opacity:0.85;transform:translateY(-1px);}
+.btn-approve-single:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.btn-copy{background:none;border:1px solid rgba(6,182,212,0.3);color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 8px;border-radius:6px;cursor:pointer;transition:all 0.2s;margin-left:6px;}
+.btn-copy:hover{background:rgba(6,182,212,0.1);}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:14px;}
+.empty-icon{font-size:36px;margin-bottom:10px;}
+
+/* ── LOADING ── */
+.loading{text-align:center;padding:30px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(250,204,21,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:8px;}
+
+/* ── STATUS MSG ── */
+.status-msg{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;padding:8px;margin-top:6px;color:var(--muted);min-height:18px;}
+
+/* ── TABS ── */
+.panel-tabs{display:flex;gap:6px;margin-bottom:14px;}
+.panel-tab{flex:1;padding:10px;border-radius:12px;text-align:center;cursor:pointer;transition:all 0.25s;border:2px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.2);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--muted);}
+.panel-tab.active{background:rgba(250,204,21,0.08);border-color:rgba(250,204,21,0.4);color:var(--gold);}
+
+/* ── REFRESH BTN ── */
+.btn-refresh{font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all 0.2s;letter-spacing:1px;border:1px solid rgba(250,204,21,0.3);background:rgba(250,204,21,0.08);color:var(--gold);}
+.btn-refresh:hover{background:rgba(250,204,21,0.15);}
+</style>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
+<div class="layout">
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN"
+         onerror="this.style.display='none';document.getElementById('logoFb').style.display='flex'">
+    <div id="logoFb" class="nav-logo-fb" style="display:none">🦅</div>
+    <div>
+      <div class="nav-brand-main">INDOCOIN</div>
+      <div class="nav-brand-sub">🔐 DEV PANEL — RESTRICTED</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="dev-badge"><span class="dev-dot"></span>DEV ONLY</div>
+    <button id="walletBtn" class="btn-connect" onclick="connectWallet()">CONNECT</button>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- ACCESS DENIED -->
+  <div id="accessDenied">
+    <div class="denied-icon">🔒</div>
+    <div class="denied-title">AKSES DITOLAK</div>
+    <div class="denied-sub" style="margin-top:8px">Hanya wallet Dev yang bisa mengakses panel ini</div>
+    <div class="denied-sub" style="margin-top:6px;color:var(--cyan)" id="connectedAs"></div>
+  </div>
+
+  <!-- PANEL CONTENT -->
+  <div id="panelContent" style="display:none">
+
+    <!-- STATS -->
+    <div class="sec-div">📊 STATISTIK KONTRAK</div>
+    <div class="stats-grid">
+      <div class="stat-card gold">
+        <div class="stat-icon">🔒</div>
+        <div class="stat-val" id="statTotalA">—</div>
+        <div class="stat-lbl">Total Staked Paket A</div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="stat-icon">💧</div>
+        <div class="stat-val" id="statTotalB">—</div>
+        <div class="stat-lbl">Total Staked Paket B</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" id="statBalance">—</div>
+        <div class="stat-lbl">Saldo Kontrak (INDC)</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-val" id="statPending">0</div>
+        <div class="stat-lbl">Request Pending</div>
+      </div>
+    </div>
+
+    <!-- PANEL TABS -->
+    <div class="panel-tabs">
+      <div class="panel-tab active" id="tabPending" onclick="switchTab('pending')">⏳ PENDING</div>
+      <div class="panel-tab" id="tabApproved" onclick="switchTab('approved')">✅ APPROVED</div>
+      <div class="panel-tab" id="tabAll" onclick="switchTab('all')">📋 SEMUA</div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+      <div class="search-wrap" style="flex:1;min-width:200px;margin-bottom:0">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Cari wallet address..." oninput="renderList()">
+      </div>
+      <button class="btn-refresh" onclick="loadData()">🔄 REFRESH</button>
+    </div>
+
+    <!-- BATCH BAR -->
+    <div class="batch-bar" id="batchBar">
+      <div class="batch-info">🗂️ <span id="batchCount">0</span> request dipilih</div>
+      <button class="btn-batch" onclick="batchApprove()">✅ APPROVE SEMUA TERPILIH</button>
+    </div>
+
+    <!-- LIST -->
+    <div id="reqList">
+      <div class="loading"><div class="spinner"></div><div>Memuat data...</div></div>
+    </div>
+
+    <div class="status-msg" id="statusMsg"></div>
+
+  </div><!-- /panelContent -->
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+/* ════════════════════════════════════════
+   CONFIG
+   ════════════════════════════════════════ */
+const SC = {
+  STAKING:  '0x06e667B1C5cDcd7A082d828e67c7b931eAe07936',
+  INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  DEV:      '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
+  CHAIN_ID: 56,
+  INDC_DEC: 9,
+};
+
+const INDC_UNIT = Math.pow(10, SC.INDC_DEC);
+
+const STAKING_ABI = [
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"reqIndex","type":"uint256"}],"name":"approveRequest","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address[]","name":"users","type":"address[]"},{"internalType":"uint256[]","name":"idxs","type":"uint256[]"}],"name":"approveRequestBatch","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRequests","outputs":[{"components":[{"internalType":"uint256","name":"indcAmount","type":"uint256"},{"internalType":"uint256","name":"usdtMillis","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"approved","type":"bool"}],"internalType":"struct INDCStaking.Request[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"getContractStats","outputs":[{"internalType":"uint256","name":"_totalStakedA","type":"uint256"},{"internalType":"uint256","name":"_totalStakedB","type":"uint256"},{"internalType":"uint256","name":"_balance","type":"uint256"},{"internalType":"uint256","name":"_lockEnd","type":"uint256"},{"internalType":"bool","name":"_pausedA","type":"bool"},{"internalType":"bool","name":"_pausedB","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"indcAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"reqIndex","type":"uint256"}],"name":"RequestedUSDT","type":"event"},
+];
+
+let _provider, _signer, _wallet, _staking;
+let _allRequests = []; // [{user, idx, indc, usdt, time, approved}, ...]
+let _currentTab  = 'pending';
+let _selected    = new Set();
+
+function fromINDC(v){ return Number(BigInt(v.toString())) / INDC_UNIT; }
+function fmtINDC(v){ return parseFloat(v).toLocaleString('id-ID',{maximumFractionDigits:2}); }
+function shortAddr(a){ return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
+function setStatus(txt, color='var(--muted)'){ const el=document.getElementById('statusMsg'); if(el){el.textContent=txt;el.style.color=color;} }
+
+/* ── CONNECT ── */
+async function connectWallet(){
+  if(!window.ethereum){ alert('Install MetaMask!'); return; }
+  try{
+    const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
+    _wallet = accounts[0].toLowerCase();
+
+    const chainHex = await window.ethereum.request({method:'eth_chainId'});
+    if(parseInt(chainHex,16) !== SC.CHAIN_ID){
+      try{
+        await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});
+      }catch(e){
+        if(e.code===4902) await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',rpcUrls:['https://bsc-dataseed1.binance.org/'],nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},blockExplorerUrls:['https://bscscan.com/']}]});
+      }
+    }
+
+    _provider = new ethers.providers.Web3Provider(window.ethereum);
+    _signer   = _provider.getSigner();
+    _staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
+
+    document.getElementById('walletBtn').textContent = shortAddr(_wallet);
+
+    // Cek apakah wallet adalah Dev
+    if(_wallet.toLowerCase() !== SC.DEV.toLowerCase()){
+      document.getElementById('accessDenied').style.display  = 'block';
+      document.getElementById('panelContent').style.display  = 'none';
+      document.getElementById('connectedAs').textContent     = 'Wallet: ' + _wallet;
+      return;
+    }
+
+    document.getElementById('accessDenied').style.display  = 'none';
+    document.getElementById('panelContent').style.display  = 'block';
+
+    await loadData();
+
+    window.ethereum.on('accountsChanged', ()=>location.reload());
+    window.ethereum.on('chainChanged',    ()=>location.reload());
+
+  }catch(e){ alert('Gagal connect: '+(e.message||e)); }
+}
+
+/* ── LOAD DATA ── */
+async function loadData(){
+  if(!_staking) return;
+  document.getElementById('reqList').innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat data dari blockchain...</div></div>';
+  setStatus('');
+
+  try{
+    // Load stats
+    const stats = await _staking.getContractStats();
+    document.getElementById('statTotalA').textContent  = fmtINDC(fromINDC(stats._totalStakedA));
+    document.getElementById('statTotalB').textContent  = fmtINDC(fromINDC(stats._totalStakedB));
+    document.getElementById('statBalance').textContent = fmtINDC(fromINDC(stats._balance));
+
+    // Load semua request dari event logs
+    await loadRequestsFromEvents();
+
+  }catch(e){
+    console.error(e);
+    document.getElementById('reqList').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Gagal memuat data: ${e.message||e}</div>`;
+  }
+}
+
+async function loadRequestsFromEvents(){
+  try{
+    // Ambil event RequestedUSDT dari block awal hingga sekarang
+    const filter   = _staking.filters.RequestedUSDT();
+    const events   = await _staking.queryFilter(filter, -50000); // 50000 block terakhir (~1.7 hari di BSC)
+
+    // Kumpulkan unique users
+    const userSet = new Set(events.map(e => e.args.user.toLowerCase()));
+    const users   = Array.from(userSet);
+
+    _allRequests = [];
+
+    // Ambil semua request per user
+    for(const user of users){
+      try{
+        const reqs = await _staking.getRequests(user);
+        reqs.forEach((r, idx) => {
+          const indc = fromINDC(r.indcAmount);
+          const usdt = Number(r.usdtMillis) / 1000;
+          _allRequests.push({
+            user     : user,
+            idx      : idx,
+            indc     : indc,
+            usdt     : usdt,
+            time     : Number(r.timestamp),
+            approved : r.approved,
+          });
+        });
+      }catch(e){ console.warn('Skip user', user, e); }
+    }
+
+    // Sort: pending dulu, lalu terbaru
+    _allRequests.sort((a,b) => {
+      if(a.approved !== b.approved) return a.approved ? 1 : -1;
+      return b.time - a.time;
+    });
+
+    // Update counter pending
+    const pendingCount = _allRequests.filter(r => !r.approved).length;
+    document.getElementById('statPending').textContent = pendingCount;
+
+    _selected.clear();
+    renderList();
+
+  }catch(e){
+    // Fallback: jika query event gagal (RPC limit), tampilkan form manual
+    console.warn('Event query gagal, fallback ke manual:', e);
+    document.getElementById('reqList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div style="margin-bottom:12px">Masukkan wallet user untuk melihat request</div>
+        <div style="display:flex;gap:8px;max-width:400px;margin:0 auto">
+          <input id="manualAddr" type="text" placeholder="0x..." style="flex:1;padding:10px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;outline:none">
+          <button onclick="loadManual()" style="padding:10px 16px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;cursor:pointer">CEK</button>
+        </div>
+      </div>`;
+  }
+}
+
+async function loadManual(){
+  const addr = document.getElementById('manualAddr').value.trim();
+  if(!ethers.utils.isAddress(addr)){ alert('Address tidak valid'); return; }
+  try{
+    const reqs = await _staking.getRequests(addr);
+    _allRequests = reqs.map((r,idx) => ({
+      user: addr.toLowerCase(), idx,
+      indc: fromINDC(r.indcAmount),
+      usdt: Number(r.usdtMillis)/1000,
+      time: Number(r.timestamp),
+      approved: r.approved,
+    }));
+    _allRequests.sort((a,b) => a.approved?1:-1 || b.time-a.time);
+    document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
+    _selected.clear();
+    renderList();
+  }catch(e){ alert('Gagal: '+e.message); }
+}
+
+/* ── RENDER LIST ── */
+function renderList(){
+  const search = (document.getElementById('searchInput').value||'').toLowerCase();
+  let filtered = _allRequests.filter(r => {
+    if(_currentTab === 'pending'  && r.approved)  return false;
+    if(_currentTab === 'approved' && !r.approved) return false;
+    if(search && !r.user.includes(search))        return false;
+    return true;
+  });
+
+  // Update batch bar
+  const selectedPending = Array.from(_selected).filter(k => {
+    const r = _allRequests.find(x => key(x)===k);
+    return r && !r.approved;
+  });
+  const batchBar = document.getElementById('batchBar');
+  if(selectedPending.length > 0){
+    batchBar.classList.add('show');
+    document.getElementById('batchCount').textContent = selectedPending.length;
+  } else {
+    batchBar.classList.remove('show');
+  }
+
+  if(filtered.length === 0){
+    document.getElementById('reqList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">${_currentTab==='pending' ? '✅' : '📭'}</div>
+        <div>${_currentTab==='pending' ? 'Tidak ada request pending' : 'Belum ada data'}</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('reqList').innerHTML = filtered.map(r => buildCard(r)).join('');
+}
+
+function key(r){ return r.user+'_'+r.idx; }
+
+function buildCard(r){
+  const dt   = new Date(r.time*1000).toLocaleString('id-ID');
+  const k    = key(r);
+  const chk  = _selected.has(k);
+  const statusClass = r.approved ? 'approved' : 'pending';
+  const statusText  = r.approved ? '✅ APPROVED' : '⏳ PENDING';
+
+  return `<div class="req-card ${statusClass}" id="card_${k}">
+    <div class="req-top">
+      <div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="req-wallet">${shortAddr(r.user)}</span>
+          <button class="btn-copy" onclick="copyAddr('${r.user}')">COPY</button>
+          <a href="https://bscscan.com/address/${r.user}" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-decoration:none;border:1px solid rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">BSCSCAN↗</a>
+        </div>
+        <div class="req-wallet-full">${r.user}</div>
+      </div>
+      <span class="req-status ${statusClass}">${statusText}</span>
+    </div>
+
+    <div class="req-amounts">
+      <div class="req-amt">
+        <div class="req-amt-val indc">${fmtINDC(r.indc)}</div>
+        <div class="req-amt-lbl">INDC Dijual</div>
+      </div>
+      <div class="req-amt">
+        <div class="req-amt-val usdt">$${r.usdt.toFixed(2)}</div>
+        <div class="req-amt-lbl">USDT Dikirim</div>
+      </div>
+      <div class="req-amt">
+        <div class="req-amt-val" style="font-size:10px;color:var(--muted)">#${r.idx}</div>
+        <div class="req-amt-lbl">Request ID</div>
+      </div>
+    </div>
+
+    <div class="req-meta">
+      <span class="req-date">🕐 ${dt}</span>
+      ${!r.approved ? `
+      <label class="req-check">
+        <input type="checkbox" ${chk?'checked':''} onchange="toggleSelect('${k}', this.checked)">
+        <span class="req-check-lbl">PILIH</span>
+      </label>` : ''}
+    </div>
+
+    ${!r.approved ? `
+    <button class="btn-approve-single" onclick="approveOne('${r.user}', ${r.idx}, '${k}')" id="btn_${k}">
+      ✅ APPROVE — Kirim $${r.usdt.toFixed(2)} USDT ke wallet ini
+    </button>` : `
+    <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);padding:8px;background:rgba(34,197,94,0.06);border-radius:8px">
+      ✅ Sudah diapprove · Kirim $${r.usdt.toFixed(2)} USDT ke wallet user
+    </div>`}
+  </div>`;
+}
+
+/* ── APPROVE SINGLE ── */
+async function approveOne(user, idx, k){
+  const btn = document.getElementById('btn_'+k);
+  if(btn){ btn.textContent='⏳ Proses...'; btn.disabled=true; }
+  setStatus('Menunggu konfirmasi transaksi...','var(--gold)');
+  try{
+    const tx = await _staking.approveRequest(user, idx);
+    setStatus('Transaksi dikirim, menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+
+    // Update local state
+    const r = _allRequests.find(x=>key(x)===k);
+    if(r) r.approved = true;
+    _selected.delete(k);
+
+    document.getElementById('statPending').textContent =
+      Math.max(0, parseInt(document.getElementById('statPending').textContent)-1);
+
+    setStatus(`✅ Approve berhasil! Jangan lupa kirim $${_allRequests.find(x=>key(x)===k)?.usdt?.toFixed(2)||'—'} USDT ke wallet user.`,'var(--green)');
+    renderList();
+  }catch(e){
+    if(btn){ btn.textContent='✅ APPROVE'; btn.disabled=false; }
+    setStatus('Gagal: '+(e.reason||e.message||''),'var(--red)');
+  }
+}
+
+/* ── BATCH APPROVE ── */
+async function batchApprove(){
+  const toApprove = Array.from(_selected).map(k => {
+    const r = _allRequests.find(x=>key(x)===k);
+    return r && !r.approved ? r : null;
+  }).filter(Boolean);
+
+  if(toApprove.length === 0){ setStatus('Tidak ada request dipilih','var(--red)'); return; }
+  if(!confirm(`Approve ${toApprove.length} request sekaligus?\n\nPastikan kamu siap kirim USDT ke masing-masing wallet!`)) return;
+
+  setStatus('Menunggu konfirmasi batch approve...','var(--gold)');
+  const btn = document.querySelector('.btn-batch');
+  btn.textContent='⏳ Proses...'; btn.disabled=true;
+
+  try{
+    const users = toApprove.map(r=>r.user);
+    const idxs  = toApprove.map(r=>r.idx);
+    const tx    = await _staking.approveRequestBatch(users, idxs);
+    setStatus('Transaksi dikirim, menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+
+    toApprove.forEach(r=>{ r.approved=true; _selected.delete(key(r)); });
+    const pending = _allRequests.filter(r=>!r.approved).length;
+    document.getElementById('statPending').textContent = pending;
+
+    const totalUsdt = toApprove.reduce((s,r)=>s+r.usdt,0).toFixed(2);
+    setStatus(`✅ Batch approve berhasil! Total $${totalUsdt} USDT perlu dikirim ke ${toApprove.length} wallet.`,'var(--green)');
+    renderList();
+  }catch(e){
+    setStatus('Batch gagal: '+(e.reason||e.message||''),'var(--red)');
+  }finally{
+    btn.textContent='✅ APPROVE SEMUA TERPILIH'; btn.disabled=false;
+  }
+}
+
+/* ── HELPERS ── */
+function toggleSelect(k, checked){
+  if(checked) _selected.add(k);
+  else        _selected.delete(k);
+  renderList();
+}
+
+function switchTab(tab){
+  _currentTab = tab;
+  ['pending','approved','all'].forEach(t=>{
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1))
+      .classList.toggle('active', t===tab);
+  });
+  _selected.clear();
+  renderList();
+}
+
+function copyAddr(addr){
+  navigator.clipboard.writeText(addr).then(()=>{
+    setStatus('✅ Address disalin: '+addr,'var(--green)');
+  });
+}
+
+/* ── STARS ── */
+for(let i=0;i<40;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()*2+0.4;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;animation-delay:${(Math.random()*3).toFixed(1)}s;`;
+  document.body.appendChild(s);
+}
+
+/* ── AUTO CONNECT ── */
+(async function(){
+  if(!window.ethereum) return;
+  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(accounts.length) await connectWallet();
+})();
+</script>
+</body>
+</html>

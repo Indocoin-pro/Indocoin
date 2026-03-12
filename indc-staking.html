@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — INDC Staking Program</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;--dark4:#162032;
+  --text:#e2e8f0;--muted:#64748b;--green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d,3s) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,15,30,0.97);backdrop-filter:blur(16px);border-bottom:2px solid rgba(255,255,255,0.5);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex-shrink:0;box-shadow:0 0 12px rgba(255,255,255,0.15);}
+.nav-logo-fb{width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.6);background:linear-gradient(135deg,#1e3a8a,#0f172a);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.nav-brand{display:flex;flex-direction:column;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;background:linear-gradient(90deg,#f59e0b,#facc15,#fef08a,#facc15,#f59e0b);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:goldShimmer 3s linear infinite;letter-spacing:2px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold2);letter-spacing:2px;opacity:0.85;}
+.pool-badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;display:flex;align-items:center;gap:5px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:var(--green);}
+.pool-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1s infinite;}
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 110px;max-width:480px;margin:0 auto;width:100%;}
+.opsi-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:14px;padding:4px;margin-bottom:14px;width:100%;}
+.opsi-tab{padding:12px 4px;border-radius:10px;text-align:center;cursor:pointer;transition:all 0.25s;border:1px solid transparent;}
+.opsi-tab-period{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--muted);}
+.opsi-tab-rate{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px;}
+.opsi-tab.active{background:linear-gradient(135deg,rgba(250,204,21,0.15),rgba(245,158,11,0.08));border-color:rgba(250,204,21,0.4);}
+.opsi-tab.active .opsi-tab-period,.opsi-tab.active .opsi-tab-rate{color:var(--gold);}
+.opsi-tab:hover:not(.active){background:rgba(250,204,21,0.05);}
+.opsi-content{display:none;}
+.opsi-content.active{display:block;animation:fadeUp 0.25s ease both;}
+.info-card{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);border:2px solid rgba(255,255,255,0.7);border-radius:18px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden;width:100%;box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+.info-card::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(184,134,11,0.06),transparent);pointer-events:none;}
+.info-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.info-title{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--gold);}
+.info-subtitle{font-size:12px;color:var(--muted);margin-top:2px;}
+.info-aktif{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:9px;padding:4px 10px;border-radius:20px;letter-spacing:1px;white-space:nowrap;}
+.info-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+.info-stat{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.6);border-radius:10px;padding:10px;text-align:center;}
+.info-stat-val{font-family:'Orbitron',sans-serif;font-size:17px;font-weight:700;color:var(--gold);}
+.info-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;text-transform:uppercase;}
+.cd-banner{background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.55);border-radius:14px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;width:100%;}
+.cd-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.cd-val{font-family:'Share Tech Mono',monospace;font-size:15px;color:var(--gold);letter-spacing:3px;margin-top:3px;}
+.cd-date-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-align:right;}
+.cd-date-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);margin-top:2px;text-align:right;}
+.sec-div{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:2px;margin:12px 0 8px;display:flex;align-items:center;gap:8px;width:100%;}
+.sec-div::after{content:'';flex:1;height:1px;background:rgba(250,204,21,0.15);}
+.form-card{background:var(--dark4);border:2px solid rgba(255,255,255,0.55);border-radius:14px;padding:14px;width:100%;margin-bottom:4px;}
+.bal-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.bal-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.bal-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);}
+.input-row{display:flex;gap:8px;margin-bottom:6px;width:100%;}
+.input-wrap{flex:1;position:relative;}
+.input-wrap input{width:100%;padding:12px 54px 12px 14px;background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.65);border-radius:10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:15px;outline:none;transition:border-color 0.3s;}
+.input-wrap input:focus{border-color:rgba(255,255,255,0.9);}
+.input-wrap input::placeholder{color:rgba(122,106,48,0.5);}
+.input-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);pointer-events:none;}
+.input-hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px;}
+.btn-approve{width:100%;padding:12px;margin-bottom:8px;background:rgba(34,197,94,0.1);border:2px solid rgba(255,255,255,0.65);color:var(--green);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-approve:hover{background:rgba(34,197,94,0.2);}
+.btn-stake{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 18px rgba(250,204,21,0.25);}
+.btn-stake:hover{box-shadow:0 4px 30px rgba(250,204,21,0.5);transform:translateY(-1px);}
+.status-msg{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;margin-top:8px;color:var(--muted);}
+.req-card{background:var(--dark4);border:2px solid rgba(255,255,255,0.55);border-radius:14px;padding:14px;width:100%;margin-bottom:4px;}
+.req-rate-row{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.3);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.req-rate-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.req-rate-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.req-preview{background:rgba(250,204,21,0.06);border:2px solid rgba(255,255,255,0.5);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.req-preview-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.req-preview-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:var(--gold);}
+.btn-request{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 18px rgba(250,204,21,0.25);}
+.btn-request:hover{box-shadow:0 4px 30px rgba(250,204,21,0.5);transform:translateY(-1px);}
+.req-note{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.6;}
+.reward-row{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.55);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;width:100%;}
+.rr-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;}
+.rr-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--gold);display:block;margin-top:2px;}
+.rr-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(250,204,21,0.5);display:block;}
+.calc-input{width:100%;padding:12px 14px;background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.65);border-radius:10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:15px;outline:none;transition:border-color 0.3s;margin-bottom:10px;}
+.calc-input:focus{border-color:rgba(255,255,255,0.9);}
+.calc-input::placeholder{color:rgba(122,106,48,0.5);}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;width:100%;}
+.calc-item{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.55);border-radius:10px;padding:10px;text-align:center;}
+.calc-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.calc-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;text-transform:uppercase;}
+.calc-total{background:rgba(250,204,21,0.06);border:2px solid rgba(255,255,255,0.65);border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;width:100%;}
+.calc-total span{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.calc-total strong{font-family:'Orbitron',sans-serif;font-size:15px;color:var(--gold);}
+.inner-tabs{display:flex;gap:6px;margin:12px 0 8px;width:100%;}
+.inner-tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:12px;cursor:pointer;transition:all 0.25s;border:2px solid rgba(255,255,255,0.55);background:rgba(0,0,0,0.2);flex:1;}
+.inner-tab-icon{font-size:16px;line-height:1;}
+.inner-tab-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;text-align:center;margin-top:1px;}
+.inner-tab.active{background:rgba(250,204,21,0.1);border-color:rgba(255,255,255,0.8);}
+.inner-tab.active .inner-tab-label{color:var(--gold);}
+.inner-tab:hover:not(.active){background:rgba(255,255,255,0.04);}
+.inner-content{display:none;}
+.inner-content.active{display:block;animation:fadeUp 0.2s ease both;}
+.empty-state{text-align:center;padding:24px;color:var(--muted);font-size:12px;font-family:'Share Tech Mono',monospace;}
+.stake-item{background:rgba(0,0,0,0.25);border:2px solid rgba(255,255,255,0.55);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid var(--gold);}
+.si-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.si-name{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:1px;}
+.si-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:rgba(34,197,94,0.15);color:var(--green);}
+.si-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;width:100%;}
+.si-left{text-align:left;}
+.si-right{text-align:right;}
+.si-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;display:block;}
+.si-val{color:var(--text);display:block;font-size:13px;font-weight:700;margin-top:2px;}
+.countdown-row{background:rgba(250,204,21,0.05);border:2px solid rgba(255,255,255,0.6);border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:10px;}
+.countdown-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.countdown-val{font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--gold);letter-spacing:3px;margin-top:3px;}
+.btn-claim{width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
+.btn-claim:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.btn-unstake{width:100%;padding:10px;background:rgba(239,68,68,0.08);border:2px solid rgba(255,255,255,0.55);color:var(--red);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.btn-unstake:hover{background:rgba(239,68,68,0.15);}
+.btn-unstake:disabled{opacity:0.4;cursor:not-allowed;}
+.req-item{background:rgba(0,0,0,0.25);border:2px solid rgba(255,255,255,0.45);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid var(--blue);}
+.req-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.req-item-name{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--blue);letter-spacing:1px;}
+.req-status-pending{font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:rgba(250,204,21,0.15);color:var(--gold);}
+.req-status-ok{font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:rgba(34,197,94,0.15);color:var(--green);}
+.req-item-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.info-sec-title{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--gold);letter-spacing:2px;margin:14px 0 8px;opacity:0.9;display:flex;align-items:center;gap:6px;}
+.info-sec-title::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.12);}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;width:100%;}
+.info-box-card{background:rgba(0,0,0,0.25);border:2px solid rgba(255,255,255,0.6);border-radius:12px;padding:12px 10px;text-align:center;transition:all 0.2s;}
+.info-box-card:hover{border-color:rgba(255,255,255,0.75);}
+.info-box-icon{font-size:18px;margin-bottom:4px;}
+.info-box-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold);margin-bottom:2px;}
+.info-box-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.info-box-full{background:rgba(0,0,0,0.2);border:2px solid rgba(255,255,255,0.55);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;width:100%;}
+.info-box-full:hover{border-color:rgba(255,255,255,0.7);}
+.info-bf-left{display:flex;align-items:center;gap:8px;}
+.info-bf-icon{font-size:16px;}
+.info-bf-lbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;}
+.info-bf-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+.info-bf-val.red{color:var(--red);}
+.info-bf-val.green{color:var(--green);}
+.cara-kerja{background:rgba(250,204,21,0.04);border:2px solid rgba(255,255,255,0.55);border-radius:12px;padding:12px 14px;margin-top:4px;}
+.ck-step{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+.ck-step:last-child{border-bottom:none;padding-bottom:0;}
+.ck-num{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#000;background:var(--gold);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.ck-text{font-size:12px;color:var(--muted);line-height:1.5;}
+.ck-text b{color:var(--gold);}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);border-top:2px solid rgba(255,255,255,0.6);display:flex;justify-content:space-around;align-items:center;padding:8px 0 14px;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;border-radius:10px;transition:all 0.2s;text-decoration:none;cursor:pointer;}
+.bn-item.active{background:rgba(250,204,21,0.08);}
+.bn-icon{font-size:20px;line-height:1;}
+.bn-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.bn-item.active .bn-label{color:var(--gold);}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
+<div class="layout">
+
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN"
+         onerror="this.style.display='none';document.getElementById('logoFb').style.display='flex'">
+    <div id="logoFb" class="nav-logo-fb" style="display:none">🦅</div>
+    <div class="nav-brand">
+      <span class="nav-brand-main">INDOCOIN</span>
+      <span class="nav-brand-sub">🪙 INDC STAKING PROGRAM</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="pool-badge"><span class="pool-dot"></span>OPEN</div>
+    <button id="walletBtn" onclick="connectWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;">CONNECT</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="opsi-tabs">
+    <div class="opsi-tab active" onclick="switchOpsi(1)">
+      <div class="opsi-tab-period">PAKET A</div>
+      <div class="opsi-tab-rate">2%/hari · Premium</div>
+    </div>
+    <div class="opsi-tab" onclick="switchOpsi(2)">
+      <div class="opsi-tab-period">PAKET B</div>
+      <div class="opsi-tab-rate">1%/hari · Flexible</div>
+    </div>
+  </div>
+  <div id="opsiWrap"></div>
+</div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
+  <a href="earn.html"      class="bn-item active"><span class="bn-icon">💰</span><span class="bn-label">EARN</span></a>
+  <a href="referral.html"  class="bn-item"><span class="bn-icon">🌐</span><span class="bn-label">REFERRAL</span></a>
+  <a href="analytics.html" class="bn-item"><span class="bn-icon">📊</span><span class="bn-label">ANALYTICS</span></a>
+  <a href="presale.html"   class="bn-item"><span class="bn-icon">🚀</span><span class="bn-label">PRESALE</span></a>
+</nav>
+
+<script>
+/* ══ CONFIG ══ */
+const SC = {
+  STAKING: '0x06e667B1C5cDcd7A082d828e67c7b931eAe07936',
+  INDC:    '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  DEV:     '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
+  CHAIN_ID: 56, INDC_DEC: 9,
+};
+const LOCK_END     = new Date('2026-05-30T00:00:00Z').getTime();
+const INDC_PRICE   = 0.003;
+const MIN_REQ_INDC = Math.ceil(1 / INDC_PRICE); // ~334
+
+const PAKET = [
+  { id:1, label:'PAKET A', name:'PREMIUM LOCK',    subtitle:'Lock hingga 30 Mei 2026 · Claim reward sekaligus', rate:0.02, rateLabel:'2%', minS:'1.000', maxS:'50.000', minNum:1000, maxNum:50000 },
+  { id:2, label:'PAKET B', name:'FLEXIBLE REWARD', subtitle:'Reward harian · Tukar ke USDT kapan saja',          rate:0.01, rateLabel:'1%', minS:'1.000', maxS:'25.000', minNum:1000, maxNum:25000 },
+];
+
+const STAKING_ABI = [
+  {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stakePaketA","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"claimPaketA","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stakePaketB","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"unstakePaketB","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"indcAmount","type":"uint256"}],"name":"requestUSDT","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getStakePaketA","outputs":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"since","type":"uint256"},{"internalType":"uint256","name":"reward","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getStakePaketB","outputs":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"since","type":"uint256"},{"internalType":"uint256","name":"pendingReward","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRequests","outputs":[{"components":[{"internalType":"uint256","name":"indcAmount","type":"uint256"},{"internalType":"uint256","name":"usdtAmount","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"approved","type":"bool"}],"internalType":"struct INDCStaking.Request[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+];
+const ERC20_ABI = [
+  {"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
+];
+
+let _provider,_signer,_wallet,_staking,_indc;
+const MAX_UINT='0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+function toINDC(v){return ethers.utils.parseUnits(String(parseFloat(v)||0),SC.INDC_DEC);}
+function fromINDC(v){return Number(BigInt(v.toString()))/Math.pow(10,SC.INDC_DEC);}
+function shortAddr(a){return a?a.slice(0,6)+'…'+a.slice(-4):'';}
+function fmtN(v){return parseFloat(v).toLocaleString('id-ID',{maximumFractionDigits:2});}
+function setMsg(id,txt,color='var(--muted)'){const el=document.getElementById('msg'+id);if(el){el.textContent=txt;el.style.color=color;}}
+
+/* ══ RENDER ══ */
+function renderOpsi(){
+  const wrap=document.getElementById('opsiWrap');
+  const daysLeft=Math.max(0,Math.floor((LOCK_END-Date.now())/86400000));
+  wrap.innerHTML=PAKET.map((p,idx)=>{
+    const isA=p.id===1;
+    const estTotal=(p.rate*100*daysLeft).toFixed(0)+'%';
+    return `
+    <div class="opsi-content${idx===0?' active':''}" id="opsi${p.id}">
+
+      <div class="info-card">
+        <div class="info-head">
+          <div><div class="info-title">🔒 ${p.label} — ${p.name}</div><div class="info-subtitle">${p.subtitle}</div></div>
+          <div class="info-aktif">✅ AKTIF</div>
+        </div>
+        <div class="info-stats">
+          <div class="info-stat"><div class="info-stat-val">${p.rateLabel}</div><div class="info-stat-lbl">Reward/Hari</div></div>
+          <div class="info-stat"><div class="info-stat-val">~${estTotal}</div><div class="info-stat-lbl">Est. Total Reward</div></div>
+          <div class="info-stat"><div class="info-stat-val">${p.minS}</div><div class="info-stat-lbl">Min Stake (INDC)</div></div>
+          <div class="info-stat"><div class="info-stat-val">${p.maxS}</div><div class="info-stat-lbl">Max Stake (INDC)</div></div>
+        </div>
+      </div>
+
+      <div class="cd-banner">
+        <div><div class="cd-lbl">⏳ ${isA?'UNLOCK & CLAIM':'UNLOCK MODAL STAKE'}</div><div class="cd-val" id="cd${p.id}">-- H -- J -- M --</div></div>
+        <div><div class="cd-date-lbl">TARGET DATE</div><div class="cd-date-val">30 MEI 2026</div></div>
+      </div>
+
+      ${!isA?`
+      <div class="sec-div">💸 REQUEST USDT</div>
+      <div class="req-card">
+        <div class="reward-row">
+          <div><span class="rr-lbl">REWARD TERSEDIA</span><span class="rr-val" id="pendingB">0 INDC</span><span class="rr-sub">≈ $<span id="pendingBusd">0.00</span> USDT</span></div>
+          <div style="text-align:right"><span class="rr-lbl">SUDAH REQUEST</span><span style="font-family:'Orbitron',sans-serif;font-size:13px;color:var(--muted);display:block;margin-top:2px" id="requestedB">0 INDC</span></div>
+        </div>
+        <div class="req-rate-row"><span class="req-rate-lbl">KONVERSI HARGA</span><span class="req-rate-val">1 INDC = $0.003 USDT</span></div>
+        <div class="input-row"><div class="input-wrap"><input type="number" id="inpReq" placeholder="Jumlah INDC reward (Min ~334)" oninput="calcRequest()"><span class="input-suffix">INDC</span></div></div>
+        <div class="req-preview"><span class="req-preview-lbl">KAMU TERIMA</span><span class="req-preview-val" id="usdtPreview">$0.00 USDT</span></div>
+        <button class="btn-request" id="btnReq" onclick="doRequest()">💸 REQUEST USDT KE WALLET</button>
+        <div class="req-note">⏱ Maks 1x per hari &nbsp;·&nbsp; Min $1 USDT (~334 INDC) &nbsp;·&nbsp; INDC masuk wallet Dev setelah diapprove</div>
+        <div class="status-msg" id="msgReq">Hubungkan wallet untuk request USDT</div>
+      </div>`:''}
+
+      <div class="sec-div">💎 STAKE INDC</div>
+      <div class="form-card">
+        <div class="bal-row"><span class="bal-lbl">SALDO INDC WALLET</span><span class="bal-val" id="bal${p.id}">— INDC</span></div>
+        <div class="input-row"><div class="input-wrap"><input type="number" id="inp${p.id}" placeholder="Jumlah INDC (Min ${p.minS})" oninput="calcReward(${p.id})"><span class="input-suffix">INDC</span></div></div>
+        <div class="input-hint">📌 Min: ${p.minS} INDC &nbsp;·&nbsp; Max: ${p.maxS} INDC</div>
+        <button class="btn-approve" id="btnApprove${p.id}" onclick="approveINDC(${p.id})">✅ APPROVE INDC</button>
+        <button class="btn-stake" id="btnStake${p.id}" onclick="doStake(${p.id})">🔒 STAKE ${p.label}</button>
+        <div class="status-msg" id="msg${p.id}">Hubungkan wallet untuk mulai staking</div>
+      </div>
+
+      <div class="sec-div">🧮 KALKULATOR REWARD</div>
+      <div class="form-card">
+        <input class="calc-input" type="number" placeholder="Masukkan jumlah INDC..." oninput="calcPreview(${p.id},this.value,${p.rate})">
+        <div class="calc-grid">
+          <div class="calc-item"><div class="calc-val" id="kd${p.id}">0 INDC</div><div class="calc-lbl">Reward/Hari</div></div>
+          <div class="calc-item"><div class="calc-val" id="kh${p.id}">${daysLeft} hari</div><div class="calc-lbl">Sisa Hari</div></div>
+          <div class="calc-item"><div class="calc-val" id="kg${p.id}">0 INDC</div><div class="calc-lbl">Total Reward</div></div>
+          ${!isA?`<div class="calc-item"><div class="calc-val" id="ku${p.id}">$0.00</div><div class="calc-lbl">Nilai USDT/Hari</div></div>`:`<div class="calc-item"><div class="calc-val" id="ku${p.id}" style="font-size:11px">30 Mei 2026</div><div class="calc-lbl">Tanggal Claim</div></div>`}
+        </div>
+        <div class="calc-total"><span>Total Diterima (Modal + Reward):</span><strong id="kt${p.id}">0 INDC</strong></div>
+      </div>
+
+      <div class="inner-tabs">
+        <div class="inner-tab active" id="itab${p.id}riwayat" onclick="switchInner(${p.id},'riwayat')"><span class="inner-tab-icon">📋</span><span class="inner-tab-label">RIWAYAT STAKE</span></div>
+        ${!isA?`<div class="inner-tab" id="itab${p.id}request" onclick="switchInner(${p.id},'request')"><span class="inner-tab-icon">💸</span><span class="inner-tab-label">RIWAYAT REQUEST</span></div>`:''}
+        <div class="inner-tab" id="itab${p.id}info" onclick="switchInner(${p.id},'info')"><span class="inner-tab-icon">ℹ️</span><span class="inner-tab-label">INFO & SYARAT</span></div>
+      </div>
+
+      <div class="inner-content active" id="o${p.id}-riwayat">
+        <div class="empty-state" id="empty${p.id}">📭 Belum ada stake aktif di ${p.label}</div>
+        <div id="stakeList${p.id}"></div>
+      </div>
+
+      ${!isA?`<div class="inner-content" id="o${p.id}-request"><div class="empty-state" id="emptyReq">📭 Belum ada riwayat request USDT</div><div id="reqList"></div></div>`:''}
+
+      <div class="inner-content" id="o${p.id}-info">
+        <div class="info-sec-title">📌 SYARAT STAKING ${p.label}</div>
+        <div class="info-grid">
+          <div class="info-box-card"><div class="info-box-icon">💰</div><div class="info-box-val">${p.minS}</div><div class="info-box-lbl">Min Stake (INDC)</div></div>
+          <div class="info-box-card"><div class="info-box-icon">🏦</div><div class="info-box-val">${p.maxS}</div><div class="info-box-lbl">Max Stake (INDC)</div></div>
+          <div class="info-box-card"><div class="info-box-icon">⏳</div><div class="info-box-val">30 MEI</div><div class="info-box-lbl">Unlock</div></div>
+          <div class="info-box-card"><div class="info-box-icon">📈</div><div class="info-box-val">${p.rateLabel}</div><div class="info-box-lbl">Reward/Hari</div></div>
+        </div>
+        <div class="info-box-card" style="text-align:center;margin-bottom:4px;background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.2);">
+          <div class="info-box-icon">🎯</div><div class="info-box-val" style="font-size:18px">~${estTotal}</div>
+          <div class="info-box-lbl">Estimasi Total Reward (sejak sekarang)</div>
+        </div>
+        <div class="info-sec-title">⚙️ KETENTUAN</div>
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">🔒</span><span class="info-bf-lbl">Lock Period</span></div><span class="info-bf-val">Hingga 30 Mei 2026</span></div>
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">💎</span><span class="info-bf-lbl">Token Reward</span></div><span class="info-bf-val">INDC</span></div>
+        ${isA?`
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">📅</span><span class="info-bf-lbl">Claim Reward</span></div><span class="info-bf-val green">30 Mei 2026 (sekaligus)</span></div>
+        `:`
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">💸</span><span class="info-bf-lbl">Request USDT</span></div><span class="info-bf-val green">Setiap Hari (1x/hari)</span></div>
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">💵</span><span class="info-bf-lbl">Min Request</span></div><span class="info-bf-val">$1 USDT (~334 INDC)</span></div>
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">🔄</span><span class="info-bf-lbl">Alur Tukar</span></div><span class="info-bf-val">INDC → Dev → USDT ke wallet</span></div>
+        `}
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">🚀</span><span class="info-bf-lbl">Listing INDC</span></div><span class="info-bf-val green">1 Juni 2026</span></div>
+        <div class="info-box-full"><div class="info-bf-left"><span class="info-bf-icon">⚠️</span><span class="info-bf-lbl">Early Unstake</span></div><span class="info-bf-val red">Tidak Tersedia</span></div>
+        <div class="info-sec-title">⚙️ CARA KERJA</div>
+        <div class="cara-kerja">
+          ${isA?`
+          <div class="ck-step"><div class="ck-num">1</div><div class="ck-text">Approve INDC → klik <b>STAKE PAKET A</b></div></div>
+          <div class="ck-step"><div class="ck-num">2</div><div class="ck-text">INDC terkunci di smart contract BSC hingga <b>30 Mei 2026</b></div></div>
+          <div class="ck-step"><div class="ck-num">3</div><div class="ck-text">Reward <b>2%/hari</b> dihitung otomatis dari jumlah stake</div></div>
+          <div class="ck-step"><div class="ck-num">4</div><div class="ck-text">Tanggal 30 Mei 2026, klaim <b>modal + total reward sekaligus</b></div></div>
+          <div class="ck-step"><div class="ck-num">5</div><div class="ck-text">INDC listing di exchange <b>1 Juni 2026</b> 🚀</div></div>
+          `:`
+          <div class="ck-step"><div class="ck-num">1</div><div class="ck-text">Approve INDC → klik <b>STAKE PAKET B</b></div></div>
+          <div class="ck-step"><div class="ck-num">2</div><div class="ck-text">Reward <b>1%/hari</b> terkumpul otomatis setiap hari</div></div>
+          <div class="ck-step"><div class="ck-num">3</div><div class="ck-text">Klik <b>REQUEST USDT</b> → masukkan jumlah INDC reward yang ingin dijual</div></div>
+          <div class="ck-step"><div class="ck-num">4</div><div class="ck-text">Dev approve → <b>INDC masuk wallet Dev</b>, USDT dikirim ke wallet kamu</div></div>
+          <div class="ck-step"><div class="ck-num">5</div><div class="ck-text">Modal INDC tetap terkunci hingga <b>30 Mei 2026</b></div></div>
+          `}
+        </div>
+      </div>
+
+    </div>`;
+  }).join('');
+}
+
+function switchOpsi(n){
+  document.querySelectorAll('.opsi-tab').forEach((t,i)=>t.classList.toggle('active',i===n-1));
+  document.querySelectorAll('.opsi-content').forEach((c,i)=>c.classList.toggle('active',i===n-1));
+}
+function switchInner(opsi,tab){
+  const tabs=opsi===1?['riwayat','info']:['riwayat','request','info'];
+  tabs.forEach(t=>{
+    const c=document.getElementById(`o${opsi}-${t}`),b=document.getElementById(`itab${opsi}${t}`);
+    if(c)c.classList.toggle('active',t===tab);if(b)b.classList.toggle('active',t===tab);
+  });
+}
+function calcPreview(id,val,rate){
+  const amt=parseFloat(val)||0,days=Math.max(0,Math.floor((LOCK_END-Date.now())/86400000));
+  const daily=amt*rate,total=daily*days;
+  document.getElementById('kd'+id).textContent=fmtN(daily)+' INDC';
+  document.getElementById('kh'+id).textContent=days+' hari';
+  document.getElementById('kg'+id).textContent=fmtN(total)+' INDC';
+  document.getElementById('kt'+id).textContent=fmtN(amt+total)+' INDC';
+  if(id===2)document.getElementById('ku'+id).textContent='$'+(daily*INDC_PRICE).toFixed(3);
+}
+function calcReward(id){calcPreview(id,document.getElementById('inp'+id).value,PAKET[id-1].rate);}
+function calcRequest(){
+  const indc=parseFloat(document.getElementById('inpReq').value)||0;
+  document.getElementById('usdtPreview').textContent='$'+(indc*INDC_PRICE).toFixed(2)+' USDT';
+}
+
+async function connectWallet(){
+  if(!window.ethereum){alert('Install MetaMask atau Trust Wallet terlebih dahulu!');return;}
+  try{
+    const accounts=await window.ethereum.request({method:'eth_requestAccounts'});
+    _wallet=accounts[0];
+    const chainHex=await window.ethereum.request({method:'eth_chainId'});
+    if(parseInt(chainHex,16)!==SC.CHAIN_ID){
+      try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}
+      catch(e){if(e.code===4902)await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',rpcUrls:['https://bsc-dataseed1.binance.org/'],nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},blockExplorerUrls:['https://bscscan.com/']}]});}
+    }
+    _provider=new ethers.providers.Web3Provider(window.ethereum);
+    _signer=_provider.getSigner();
+    _staking=new ethers.Contract(SC.STAKING,STAKING_ABI,_signer);
+    _indc=new ethers.Contract(SC.INDC,ERC20_ABI,_signer);
+    document.getElementById('walletBtn').textContent=shortAddr(_wallet);
+    await loadBalances();await loadStakeData();
+    PAKET.forEach(p=>setMsg(p.id,'Wallet terhubung. Masukkan jumlah & approve.','var(--green)'));
+    setMsg('Req','Wallet terhubung. Masukkan jumlah INDC untuk request USDT.','var(--green)');
+    window.ethereum.on('accountsChanged',a=>{if(a[0]){_wallet=a[0];loadBalances();loadStakeData();}});
+    window.ethereum.on('chainChanged',()=>location.reload());
+  }catch(e){console.error(e);alert('Gagal connect: '+(e.message||e));}
+}
+async function loadBalances(){
+  if(!_wallet||!_indc)return;
+  try{const bal=await _indc.balanceOf(_wallet);const fmt=fmtN(fromINDC(bal));PAKET.forEach(p=>{const el=document.getElementById('bal'+p.id);if(el)el.textContent=fmt+' INDC';});}catch(e){console.error(e);}
+}
+async function loadStakeData(){
+  if(!_wallet||!_staking)return;
+  try{
+    const a=await _staking.getStakePaketA(_wallet);const aAmt=fromINDC(a.amount);
+    if(aAmt>0){
+      document.getElementById('empty1').style.display='none';
+      const since=new Date(Number(a.since)*1000);const reward=fromINDC(a.reward);
+      document.getElementById('stakeList1').innerHTML=`<div class="stake-item">
+        <div class="si-top"><span class="si-name">🔒 PAKET A — PREMIUM LOCK</span><span class="si-badge">AKTIF</span></div>
+        <div class="si-grid">
+          <div class="si-left"><span class="si-lbl">MODAL STAKE</span><span class="si-val">${fmtN(aAmt)} INDC</span></div>
+          <div class="si-right"><span class="si-lbl">EST. REWARD</span><span class="si-val">${fmtN(reward)} INDC</span></div>
+          <div class="si-left"><span class="si-lbl">MULAI</span><span class="si-val">${since.toLocaleDateString('id-ID')}</span></div>
+          <div class="si-right"><span class="si-lbl">UNLOCK</span><span class="si-val">30 Mei 2026</span></div>
+        </div>
+        <div class="countdown-row"><div class="countdown-lbl">⏳ SISA WAKTU LOCK</div><div class="countdown-val" id="cdStakeA">-- H -- J -- M</div></div>
+        <button class="btn-claim" id="btnClaimA" onclick="claimA()" disabled>🏆 CLAIM REWARD — 30 MEI 2026</button>
+      </div>`;
+    }
+    const b=await _staking.getStakePaketB(_wallet);const bAmt=fromINDC(b.amount);
+    if(bAmt>0){
+      document.getElementById('empty2').style.display='none';
+      const since=new Date(Number(b.since)*1000);const pending=fromINDC(b.pendingReward);
+      document.getElementById('stakeList2').innerHTML=`<div class="stake-item">
+        <div class="si-top"><span class="si-name">💧 PAKET B — FLEXIBLE REWARD</span><span class="si-badge">AKTIF</span></div>
+        <div class="si-grid">
+          <div class="si-left"><span class="si-lbl">MODAL STAKE</span><span class="si-val">${fmtN(bAmt)} INDC</span></div>
+          <div class="si-right"><span class="si-lbl">PENDING REWARD</span><span class="si-val">${fmtN(pending)} INDC</span></div>
+          <div class="si-left"><span class="si-lbl">MULAI</span><span class="si-val">${since.toLocaleDateString('id-ID')}</span></div>
+          <div class="si-right"><span class="si-lbl">UNLOCK MODAL</span><span class="si-val">30 Mei 2026</span></div>
+        </div>
+        <div class="countdown-row"><div class="countdown-lbl">⏳ SISA WAKTU LOCK MODAL</div><div class="countdown-val" id="cdStakeB">-- H -- J -- M</div></div>
+        <button class="btn-unstake" id="btnUnstakeB" onclick="unstakeB()" disabled>📤 UNSTAKE MODAL — 30 MEI 2026</button>
+      </div>`;
+      const pEl=document.getElementById('pendingB');if(pEl)pEl.textContent=fmtN(pending)+' INDC';
+      const uEl=document.getElementById('pendingBusd');if(uEl)uEl.textContent=(pending*INDC_PRICE).toFixed(2);
+    }
+    const reqs=await _staking.getRequests(_wallet);
+    if(reqs.length>0){
+      document.getElementById('emptyReq').style.display='none';
+      document.getElementById('reqList').innerHTML=reqs.slice().reverse().map(r=>{
+        const indc=fromINDC(r.indcAmount),usdt=(indc*INDC_PRICE).toFixed(2),dt=new Date(Number(r.timestamp)*1000).toLocaleDateString('id-ID');
+        return `<div class="req-item"><div class="req-item-top"><span class="req-item-name">💸 REQUEST USDT</span><span class="${r.approved?'req-status-ok':'req-status-pending'}">${r.approved?'✅ APPROVED':'⏳ PENDING'}</span></div>
+          <div class="req-item-grid">
+            <div><span class="si-lbl">INDC DIJUAL</span><span class="si-val">${fmtN(indc)} INDC</span></div>
+            <div style="text-align:right"><span class="si-lbl">USDT DITERIMA</span><span class="si-val">$${usdt}</span></div>
+            <div><span class="si-lbl">TANGGAL</span><span class="si-val">${dt}</span></div>
+          </div></div>`;
+      }).join('');
+    }
+  }catch(e){console.error(e);}
+}
+async function approveINDC(id){
+  if(!_wallet){await connectWallet();return;}
+  const btn=document.getElementById('btnApprove'+id);btn.textContent='⏳ Approving...';btn.disabled=true;
+  setMsg(id,'Menunggu konfirmasi approve...','var(--gold)');
+  try{const tx=await _indc.approve(SC.STAKING,MAX_UINT);await tx.wait();btn.textContent='✅ APPROVED';setMsg(id,'Approve berhasil! Sekarang bisa stake.','var(--green)');}
+  catch(e){btn.textContent='✅ APPROVE INDC';btn.disabled=false;setMsg(id,'Approve dibatalkan: '+(e.reason||e.message||''),'var(--red)');}
+}
+async function doStake(id){
+  if(!_wallet){await connectWallet();return;}
+  const p=PAKET[id-1],val=parseFloat(document.getElementById('inp'+id).value)||0;
+  if(val<p.minNum){setMsg(id,'Minimum stake '+p.minS+' INDC','var(--red)');return;}
+  if(val>p.maxNum){setMsg(id,'Maksimal stake '+p.maxS+' INDC','var(--red)');return;}
+  const btn=document.getElementById('btnStake'+id);btn.textContent='⏳ Staking...';btn.disabled=true;
+  setMsg(id,'Menunggu konfirmasi transaksi...','var(--gold)');
+  try{
+    const amtWei=toINDC(val),allow=await _indc.allowance(_wallet,SC.STAKING);
+    if(allow.lt(amtWei)){setMsg(id,'Allowance kurang, Approve dulu.','var(--red)');btn.textContent='🔒 STAKE '+p.label;btn.disabled=false;return;}
+    const tx=id===1?await _staking.stakePaketA(amtWei):await _staking.stakePaketB(amtWei);
+    setMsg(id,'Transaksi dikirim...','var(--gold)');await tx.wait();
+    setMsg(id,'✅ Stake '+p.label+' berhasil! INDC terkunci hingga 30 Mei 2026.','var(--green)');
+    document.getElementById('inp'+id).value='';await loadBalances();await loadStakeData();
+  }catch(e){setMsg(id,'Stake gagal: '+(e.reason||e.message||''),'var(--red)');}
+  finally{btn.textContent='🔒 STAKE '+p.label;btn.disabled=false;}
+}
+async function claimA(){
+  if(!_wallet){await connectWallet();return;}
+  const btn=document.getElementById('btnClaimA');btn.textContent='⏳ Claiming...';btn.disabled=true;
+  try{const tx=await _staking.claimPaketA();await tx.wait();setMsg(1,'✅ Claim berhasil! Modal + Reward sudah di wallet.','var(--green)');await loadBalances();await loadStakeData();}
+  catch(e){btn.textContent='🏆 CLAIM REWARD';btn.disabled=false;setMsg(1,'Claim gagal: '+(e.reason||e.message||''),'var(--red)');}
+}
+async function unstakeB(){
+  if(!_wallet){await connectWallet();return;}
+  if(!confirm('Unstake modal Paket B? Pastikan sudah 30 Mei 2026.'))return;
+  const btn=document.getElementById('btnUnstakeB');btn.textContent='⏳ Unstaking...';btn.disabled=true;
+  try{const tx=await _staking.unstakePaketB();await tx.wait();setMsg(2,'✅ Unstake berhasil! Modal INDC kembali ke wallet.','var(--green)');await loadBalances();await loadStakeData();}
+  catch(e){btn.textContent='📤 UNSTAKE MODAL';btn.disabled=false;setMsg(2,'Unstake gagal: '+(e.reason||e.message||''),'var(--red)');}
+}
+async function doRequest(){
+  if(!_wallet){await connectWallet();return;}
+  const val=parseFloat(document.getElementById('inpReq').value)||0;
+  if(val<MIN_REQ_INDC){setMsg('Req','Minimum '+MIN_REQ_INDC+' INDC ($1 USDT)','var(--red)');return;}
+  const btn=document.getElementById('btnReq');btn.textContent='⏳ Requesting...';btn.disabled=true;
+  setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
+  try{
+    const tx=await _staking.requestUSDT(toINDC(val));setMsg('Req','Transaksi dikirim...','var(--gold)');await tx.wait();
+    setMsg('Req','✅ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--green)');
+    document.getElementById('inpReq').value='';document.getElementById('usdtPreview').textContent='$0.00 USDT';
+    await loadStakeData();
+  }catch(e){setMsg('Req','Request gagal: '+(e.reason||e.message||''),'var(--red)');}
+  finally{btn.textContent='💸 REQUEST USDT KE WALLET';btn.disabled=false;}
+}
+
+function updateCountdowns(){
+  const now=Date.now(),diff=Math.max(0,LOCK_END-now);
+  const d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000),s=Math.floor((diff%60000)/1000);
+  const str=`${d}H ${h}J ${m}M ${s}D`;
+  ['cd1','cd2','cdStakeA','cdStakeB'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=str;});
+  const passed=Date.now()>=LOCK_END;
+  const ca=document.getElementById('btnClaimA'),ub=document.getElementById('btnUnstakeB');
+  if(ca&&ca.textContent.includes('CLAIM'))ca.disabled=!passed;
+  if(ub&&ub.textContent.includes('UNSTAKE'))ub.disabled=!passed;
+}
+setInterval(updateCountdowns,1000);
+updateCountdowns();
+
+for(let i=0;i<45;i++){
+  const s=document.createElement('div');s.className='star';
+  const sz=Math.random()*2+0.4;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;animation-delay:${(Math.random()*3).toFixed(1)}s;`;
+  document.body.appendChild(s);
+}
+
+renderOpsi();
+
+(async function(){
+  if(!window.ethereum)return;
+  const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(accounts.length)await connectWallet();
+})();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("/sw.js").then(reg=>{
+      reg.addEventListener("updatefound",()=>{
+        const nw=reg.installing;
+        nw.addEventListener("statechange",()=>{if(nw.state==="installed"&&navigator.serviceWorker.controller){nw.postMessage("skipWaiting");window.location.reload();}});
+      });
+    }).catch(e=>console.warn("SW:",e));
+  });
+}
+</script>
+</body>
+</html>
