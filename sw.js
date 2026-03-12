@@ -62,6 +62,11 @@ const CACHE_FILES = [
   "/sanjaya-ui.js",
   "/sanjaya-notif.js",
   "/sanjaya-notif-inject.js",
+  "/brainclash.html",
+  "/brainclash-room.html",
+  "/brainclash-history.html",
+  "/brainclash-notif.js",
+  "/brainclash-icon.svg",
 ];
 
 // ── INSTALL: cache semua file ──
