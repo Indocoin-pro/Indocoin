@@ -973,7 +973,15 @@ body::before {
 const MASTER_CA = "0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
 const BASE_URL  = "https://indocoin.id/referral.html";
 const CHAIN_ID  = 56;
-const RPC       = "https://bsc-dataseed1.binance.org/";
+const RPC_LIST  = [
+  "https://bsc-dataseed1.binance.org/",
+  "https://bsc-dataseed2.binance.org/",
+  "https://bsc-dataseed3.binance.org/",
+  "https://bsc-dataseed4.binance.org/",
+  "https://rpc.ankr.com/bsc",
+  "https://bsc.publicnode.com"
+];
+const RPC       = RPC_LIST[0];
 
 const PROGRAM_NAMES = {
   1: "Growth Lock",
@@ -1345,10 +1353,26 @@ function toast(ico, msg) {
   setTimeout(() => el.classList.remove('on'), 3000);
 }
 
+// Cari RPC terbaik yang aktif
+async function getBestRPC() {
+  for (const rpc of RPC_LIST) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      await Promise.race([
+        p.getBlockNumber(),
+        new Promise((_,rej) => setTimeout(() => rej('timeout'), 3000))
+      ]);
+      return rpc;
+    } catch(e) { continue; }
+  }
+  return RPC_LIST[0];
+}
+
 // Load platform stats (tanpa connect wallet)
 async function loadPlatformStats() {
   try {
-    const readProvider = new ethers.providers.JsonRpcProvider(RPC);
+    const bestRPC = await getBestRPC();
+    const readProvider = new ethers.providers.JsonRpcProvider(bestRPC);
     const cRead = new ethers.Contract(MASTER_CA, MASTER_ABI, readProvider);
     // Tambah fungsi totalMembers & totalBonusPaid ke ABI read
     const abiExt = [
