@@ -1188,6 +1188,7 @@ onAuthStateChanged(auth, user => {
   if(user){
     document.getElementById('userBar').style.display = 'block';
     window._isLoggedIn = true;
+    localStorage.setItem('indocoin_loggedin', '1');
     document.getElementById('userEmail').textContent = user.displayName || user.email;
     document.querySelector('.nav-links').innerHTML = `
       <a href="dashboard.html" style="color:var(--gold)">Dashboard</a>
@@ -1297,7 +1298,14 @@ window.doSignIn = async () => {
     }
     st.textContent = '✅ Berhasil! Mengalihkan...';
     st.className = 'modal-status';
-    setTimeout(()=>{ closeModals(); window.location.href='dashboard.html'; }, 1000);
+    // Set flag sudah login
+    localStorage.setItem('indocoin_loggedin', '1');
+    setTimeout(()=>{
+      closeModals();
+      // Jika dari referral page, balik ke referral
+      const from = new URLSearchParams(location.search).get('from');
+      window.location.href = from === 'referral' ? 'referral.html' : 'dashboard.html';
+    }, 1000);
   }catch(e){
     st.textContent = e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
       ? '❌ Email atau password salah!' : '❌ Gagal: '+e.message;
@@ -1339,8 +1347,10 @@ window.loginGoogle = async () => {
   try{
     const result = await signInWithPopup(auth, googleProvider);
     await saveUser(result.user);
+    localStorage.setItem('indocoin_loggedin', '1');
     closeModals();
-    window.location.href='dashboard.html';
+    const fromG = new URLSearchParams(location.search).get('from');
+    window.location.href = fromG === 'referral' ? 'referral.html' : 'dashboard.html';
   }catch(e){ console.error(e); }
 };
 
@@ -1555,6 +1565,34 @@ function setLang(lang) {
   if(lbls[1]) lbls[1].textContent = t.statSold;
   if(lbls[2]) lbls[2].textContent = t.statNet;
 }
+
+// ===== HANDLE REF DARI REFERRAL PAGE =====
+(function handleRefParams(){
+  const params  = new URLSearchParams(location.search);
+  const ref     = params.get('ref');
+  const from    = params.get('from');
+  const action  = params.get('action');
+
+  // Simpan ref ke localStorage
+  if (ref) localStorage.setItem('indocoin_ref', decodeURIComponent(ref));
+
+  // Jika dari halaman referral dan belum login, auto buka modal signup
+  if (from === 'referral' && action === 'signup') {
+    window._fromReferral = true;
+    // Tunggu landing render, baru buka modal
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        // Skip intro dan langsung tampil
+        const intro = document.getElementById('intro');
+        if (intro) { intro.style.display = 'none'; }
+        const landing = document.getElementById('landing');
+        if (landing) { landing.style.display = 'block'; }
+        // Buka modal signup langsung
+        if (typeof showSignUp === 'function') showSignUp();
+      }, 800);
+    });
+  }
+})();
 
 // ===== LOAD STATS =====
 async function loadStats(){
