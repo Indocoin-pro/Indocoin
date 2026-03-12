@@ -1142,20 +1142,39 @@ async function toggleLevel(lvl) {
     return;
   }
   body.classList.add('open');
+  body.innerHTML = `<div class="loading"><div class="spinner"></div>Memuat level ${lvl}...</div>`;
 
-  // Load downline untuk level ini (hanya level 1 langsung, level lain dari tree)
   try {
-    if (lvl === 1) {
-      const dl = await cMaster.getDirectDownlines(myAddr);
-      renderDownlineItems(body, dl, lvl);
-    } else {
-      // Untuk level > 1, ambil dari direct downlines lalu rekursif
-      // Simplified: tampilkan pesan
-      body.innerHTML = `<div class="no-dl">💡 Data level ${lvl} tersedia di contract. Total ditampilkan di header.</div>`;
-    }
+    const addresses = await getDownlineAtLevel(myAddr, lvl);
+    renderDownlineItems(body, addresses, lvl);
   } catch(e) {
     body.innerHTML = `<div class="no-dl">Gagal memuat data level ${lvl}</div>`;
   }
+}
+
+// Ambil semua downline di level tertentu secara rekursif
+async function getDownlineAtLevel(rootAddr, targetLevel) {
+  if (targetLevel === 1) {
+    return await cMaster.getDirectDownlines(rootAddr);
+  }
+
+  // Ambil semua downline di level sebelumnya, lalu ambil direct downlines mereka
+  const prevLevel = await getDownlineAtLevel(rootAddr, targetLevel - 1);
+  if (prevLevel.length === 0) return [];
+
+  // Batasi pencarian untuk performa (max 50 node per level)
+  const limited = prevLevel.slice(0, 50);
+  const results = await Promise.all(
+    limited.map(addr => cMaster.getDirectDownlines(addr).catch(() => []))
+  );
+
+  // Gabungkan semua, hapus duplikat
+  const allAddrs = results.flat();
+  const unique = [...new Set(allAddrs.map(a => a.toLowerCase()))].map(a => {
+    return allAddrs.find(x => x.toLowerCase() === a);
+  });
+
+  return unique;
 }
 
 async function renderDownlineItems(container, addresses, lvl) {
