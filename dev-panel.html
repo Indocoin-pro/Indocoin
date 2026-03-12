@@ -237,7 +237,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
    CONFIG
    ════════════════════════════════════════ */
 const SC = {
-  STAKING:  '0x97fcF1274061bC34F49E51D96e642b37Ecbd65e7',
+  STAKING:  '0x2C00473e14865995f0AcC83dA407d819647Af819',
   INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   DEV:      '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
   CHAIN_ID: 56,
@@ -249,7 +249,7 @@ const INDC_UNIT = Math.pow(10, SC.INDC_DEC);
 const STAKING_ABI = [
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"reqIndex","type":"uint256"}],"name":"approveRequest","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"address[]","name":"users","type":"address[]"},{"internalType":"uint256[]","name":"idxs","type":"uint256[]"}],"name":"approveRequestBatch","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRequests","outputs":[{"components":[{"internalType":"uint256","name":"indcAmount","type":"uint256"},{"internalType":"uint256","name":"usdtMillis","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"approved","type":"bool"}],"internalType":"struct INDCStaking.Request[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRequests","outputs":[{"components":[{"internalType":"uint256","name":"indcAmount","type":"uint256"},{"internalType":"uint256","name":"usdtAmount","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"approved","type":"bool"}],"internalType":"struct INDCStaking.Request[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"getContractStats","outputs":[{"internalType":"uint256","name":"_totalStakedA","type":"uint256"},{"internalType":"uint256","name":"_totalStakedB","type":"uint256"},{"internalType":"uint256","name":"_balance","type":"uint256"},{"internalType":"uint256","name":"_lockEnd","type":"uint256"},{"internalType":"bool","name":"_pausedA","type":"bool"},{"internalType":"bool","name":"_pausedB","type":"bool"}],"stateMutability":"view","type":"function"},
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"indcAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"reqIndex","type":"uint256"}],"name":"RequestedUSDT","type":"event"},
 ];
@@ -345,7 +345,7 @@ async function loadRequestsFromEvents(){
         const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
           const indc = fromINDC(r.indcAmount);
-          const usdt = Number(r.usdtMillis) / 1000;
+          const usdt = Number(r.usdtAmount) / 1000;
           _allRequests.push({
             user     : user,
             idx      : idx,
@@ -394,7 +394,7 @@ async function loadManual(){
     _allRequests = reqs.map((r,idx) => ({
       user: addr.toLowerCase(), idx,
       indc: fromINDC(r.indcAmount),
-      usdt: Number(r.usdtMillis)/1000,
+      usdt: Number(r.usdtAmount)/1000,
       time: Number(r.timestamp),
       approved: r.approved,
     }));
