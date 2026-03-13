@@ -160,6 +160,32 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .bn-item.active .bn-label{color:var(--gold);}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, push, set, get } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+const _fbApp = initializeApp({
+  apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain:"indocoin-network.firebaseapp.com",
+  databaseURL:"https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"indocoin-network",storageBucket:"indocoin-network.firebasestorage.app",
+  messagingSenderId:"742922450154",appId:"1:742922450154:web:97e0847e85bfe3e9f9d393"
+});
+const _fbDb = getDatabase(_fbApp);
+
+// Simpan request USDT + data matching profit ke Firebase
+window._fbSaveRequest = async (data) => {
+  try { await push(ref(_fbDb, 'usdt_requests'), data); }
+  catch(e) { console.warn('FB save request:', e); }
+};
+
+// Ambil matching profit akumulasi Paket A dari Firebase
+window._fbGetMatchingA = async (wallet) => {
+  try {
+    const snap = await get(ref(_fbDb, 'matching_a/' + wallet.toLowerCase().replace(/0x/i,'')));
+    return snap.exists() ? (snap.val().total || 0) : 0;
+  } catch(e) { return 0; }
+};
+</script>
 </head>
 <body>
 
@@ -210,9 +236,15 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 const SC = {
   STAKING: '0x2C00473e14865995f0AcC83dA407d819647Af819',
   INDC:    '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  MASTER:  '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
   DEV:     '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
   CHAIN_ID: 56, INDC_DEC: 9,
 };
+
+const MASTER_ABI_LITE = [
+  {"inputs":[{"name":"_user","type":"address"}],"name":"getUserInfo","outputs":[{"name":"registered","type":"bool"},{"name":"upline","type":"address"},{"name":"joinTime","type":"uint256"},{"name":"totalRefBonus","type":"uint256"},{"name":"totalDownlineCount","type":"uint256"},{"name":"programs","type":"uint8[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"name":"_user","type":"address"}],"name":"getDirectDownlines","outputs":[{"name":"","type":"address[]"}],"stateMutability":"view","type":"function"},
+];
 const LOCK_END     = new Date('2026-05-30T00:00:00Z').getTime();
 const INDC_PRICE   = 0.003;
 const MIN_REQ_INDC = Math.ceil(1 / INDC_PRICE); // ~334
@@ -238,7 +270,7 @@ const ERC20_ABI = [
   {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
 ];
 
-let _provider,_signer,_wallet,_staking,_indc;
+let _provider,_signer,_wallet,_staking,_indc,_master;
 const MAX_UINT='0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 function toINDC(v){return ethers.utils.parseUnits(String(parseFloat(v)||0),SC.INDC_DEC);}
 function fromINDC(v){return Number(BigInt(v.toString()))/Math.pow(10,SC.INDC_DEC);}
@@ -278,11 +310,15 @@ function renderOpsi(){
       <div class="sec-div">💸 REQUEST USDT</div>
       <div class="req-card">
         <div class="reward-row">
-          <div><span class="rr-lbl">REWARD TERSEDIA</span><span class="rr-val" id="pendingB">0 INDC</span><span class="rr-sub">≈ $<span id="pendingBusd">0.00</span> USDT</span></div>
+          <div><span class="rr-lbl">REWARD PRIBADI</span><span class="rr-val" id="pendingB">0 INDC</span><span class="rr-sub">≈ $<span id="pendingBusd">0.00</span> USDT</span></div>
           <div style="text-align:right"><span class="rr-lbl">SUDAH REQUEST</span><span style="font-family:'Orbitron',sans-serif;font-size:13px;color:var(--muted);display:block;margin-top:2px" id="requestedB">0 INDC</span></div>
         </div>
+        <div class="reward-row" style="background:rgba(124,58,237,0.06);border-color:rgba(124,58,237,0.2)">
+          <div><span class="rr-lbl" style="color:#a78bfa">🎁 MATCHING PROFIT DOWNLINE</span><span class="rr-val" id="matchingB" style="color:#a78bfa">0 INDC</span><span class="rr-sub">≈ $<span id="matchingBusd">0.00</span> USDT</span></div>
+          <div style="text-align:right"><span class="rr-lbl">TOTAL REQUEST</span><span style="font-family:'Orbitron',sans-serif;font-size:14px;color:var(--gold);display:block;margin-top:2px" id="totalRequestB">0 INDC</span></div>
+        </div>
         <div class="req-rate-row"><span class="req-rate-lbl">KONVERSI HARGA</span><span class="req-rate-val">1 INDC = $0.003 USDT</span></div>
-        <div class="input-row"><div class="input-wrap"><input type="number" id="inpReq" placeholder="Jumlah INDC reward (Min ~334)" oninput="calcRequest()"><span class="input-suffix">INDC</span></div></div>
+        <div class="input-row"><div class="input-wrap"><input type="number" id="inpReq" placeholder="Jumlah INDC reward (Min ~334)" oninput="calcRequest();updateMatchingPreview()"><span class="input-suffix">INDC</span></div></div>
         <div class="req-preview"><span class="req-preview-lbl">KAMU TERIMA</span><span class="req-preview-val" id="usdtPreview">$0.00 USDT</span></div>
         <button class="btn-request" id="btnReq" onclick="doRequest()">💸 REQUEST USDT KE WALLET</button>
         <div class="req-note">⏱ Maks 1x per hari &nbsp;·&nbsp; Min $1 USDT (~334 INDC) &nbsp;·&nbsp; INDC masuk wallet Dev setelah diapprove</div>
@@ -410,6 +446,7 @@ async function connectWallet(){
     _signer=_provider.getSigner();
     _staking=new ethers.Contract(SC.STAKING,STAKING_ABI,_signer);
     _indc=new ethers.Contract(SC.INDC,ERC20_ABI,_signer);
+    _master=new ethers.Contract(SC.MASTER,MASTER_ABI_LITE,_provider);
     document.getElementById('walletBtn').textContent=shortAddr(_wallet);
     await loadBalances();await loadStakeData();
     PAKET.forEach(p=>setMsg(p.id,'Wallet terhubung. Masukkan jumlah & approve.','var(--green)'));
@@ -458,6 +495,17 @@ async function loadStakeData(){
       </div>`;
       const pEl=document.getElementById('pendingB');if(pEl)pEl.textContent=fmtN(pending)+' INDC';
       const uEl=document.getElementById('pendingBusd');if(uEl)uEl.textContent=(pending*INDC_PRICE).toFixed(2);
+      // Hitung matching profit dari downline
+      if(_master && pending > 0){
+        hitungMatchingProfit(pending).then(({total})=>{
+          const elM=document.getElementById('matchingB');
+          const elMU=document.getElementById('matchingBusd');
+          const elT=document.getElementById('totalRequestB');
+          if(elM) elM.textContent=total.toFixed(2)+' INDC';
+          if(elMU) elMU.textContent=(total*INDC_PRICE).toFixed(2);
+          if(elT) elT.textContent=(pending+total).toFixed(2)+' INDC';
+        });
+      }
     }
     const reqs=await _staking.getRequests(_wallet);
     if(reqs.length>0){
@@ -511,16 +559,81 @@ async function unstakeB(){
   try{const tx=await _staking.unstakePaketB();await tx.wait();setMsg(2,'✅ Unstake berhasil! Modal INDC kembali ke wallet.','var(--green)');await loadBalances();await loadStakeData();}
   catch(e){btn.textContent='📤 UNSTAKE MODAL';btn.disabled=false;setMsg(2,'Unstake gagal: '+(e.reason||e.message||''),'var(--red)');}
 }
+// ═══ HITUNG MATCHING PROFIT DOWNLINE ═══
+async function hitungMatchingProfit(rewardINDC) {
+  if (!_master || !_wallet) return { total: 0, uplines: [] };
+  try {
+    const PCT = [3, 2, 1, 1, 1, 1, 1, 1, 1, 1]; // level 1-10
+    const uplines = [];
+    let current = _wallet;
+
+    for (let i = 0; i < 10; i++) {
+      const info = await _master.getUserInfo(current);
+      const upline = info.upline;
+      if (!upline || upline === '0x0000000000000000000000000000000000000000') break;
+      const bonus = (rewardINDC * PCT[i]) / 100;
+      uplines.push({ wallet: upline, level: i + 1, pct: PCT[i], bonus });
+      current = upline;
+    }
+
+    const total = uplines.reduce((s, u) => s + u.bonus, 0);
+    return { total, uplines };
+  } catch(e) {
+    console.warn('Hitung matching:', e);
+    return { total: 0, uplines: [] };
+  }
+}
+
+// Update tampilan matching profit saat input berubah
+async function updateMatchingPreview() {
+  const val = parseFloat(document.getElementById('inpReq').value) || 0;
+  if (val <= 0 || !_wallet) return;
+  const { total } = await hitungMatchingProfit(val);
+  const elM = document.getElementById('matchingB');
+  const elMU = document.getElementById('matchingBusd');
+  const elT = document.getElementById('totalRequestB');
+  if (elM) elM.textContent = total.toFixed(2) + ' INDC';
+  if (elMU) elMU.textContent = (total * INDC_PRICE).toFixed(2);
+  const pending = parseFloat(document.getElementById('pendingB')?.textContent) || 0;
+  if (elT) elT.textContent = (pending + total).toFixed(2) + ' INDC';
+}
+
 async function doRequest(){
   if(!_wallet){await connectWallet();return;}
   const val=parseFloat(document.getElementById('inpReq').value)||0;
   if(val<MIN_REQ_INDC){setMsg('Req','Minimum '+MIN_REQ_INDC+' INDC ($1 USDT)','var(--red)');return;}
-  const btn=document.getElementById('btnReq');btn.textContent='⏳ Requesting...';btn.disabled=true;
-  setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
+  const btn=document.getElementById('btnReq');btn.textContent='⏳ Menghitung...';btn.disabled=true;
+  setMsg('Req','Menghitung matching profit downline...','var(--gold)');
+
   try{
-    const tx=await _staking.requestUSDT(toINDC(val));setMsg('Req','Transaksi dikirim...','var(--gold)');await tx.wait();
+    // Hitung matching profit dulu
+    const { total: matchingTotal, uplines } = await hitungMatchingProfit(val);
+
+    setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
+    const tx=await _staking.requestUSDT(toINDC(val));
+    setMsg('Req','Transaksi dikirim...','var(--gold)');
+    await tx.wait();
+
+    // Simpan ke Firebase dengan data matching profit
+    if (typeof window._fbSaveRequest === 'function') {
+      await window._fbSaveRequest({
+        user: _wallet,
+        indcAmount: val,
+        usdtAmount: val * INDC_PRICE,
+        matchingTotal,
+        uplines,
+        ts: Date.now(),
+        status: 'pending'
+      });
+    }
+
     setMsg('Req','✅ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--green)');
-    document.getElementById('inpReq').value='';document.getElementById('usdtPreview').textContent='$0.00 USDT';
+    document.getElementById('inpReq').value='';
+    document.getElementById('usdtPreview').textContent='$0.00 USDT';
+    const elM = document.getElementById('matchingB');
+    const elT = document.getElementById('totalRequestB');
+    if(elM) elM.textContent = '0 INDC';
+    if(elT) elT.textContent = '0 INDC';
     await loadStakeData();
   }catch(e){setMsg('Req','Request gagal: '+(e.reason||e.message||''),'var(--red)');}
   finally{btn.textContent='💸 REQUEST USDT KE WALLET';btn.disabled=false;}

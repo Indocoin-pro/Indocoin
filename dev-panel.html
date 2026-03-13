@@ -6,6 +6,30 @@
 <title>INDOCOIN — Dev Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, onValue, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+const _fbApp = initializeApp({
+  apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain:"indocoin-network.firebaseapp.com",
+  databaseURL:"https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"indocoin-network",storageBucket:"indocoin-network.firebasestorage.app",
+  messagingSenderId:"742922450154",appId:"1:742922450154:web:97e0847e85bfe3e9f9d393"
+});
+const _fbDb = getDatabase(_fbApp);
+
+window._fbListenRequests = (cb) => {
+  const q = query(ref(_fbDb, 'usdt_requests'), orderByChild('ts'));
+  onValue(q, snap => {
+    const items = {};
+    if (snap.exists()) snap.forEach(c => { items[c.key] = { fbKey: c.key, ...c.val() }; });
+    cb(items);
+  });
+};
+
+window._fbUpdateRequest = (fbKey, data) =>
+  update(ref(_fbDb, 'usdt_requests/' + fbKey), data);
+</script>
 <style>
 :root{
   --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
@@ -239,10 +263,15 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 const SC = {
   STAKING:  '0x2C00473e14865995f0AcC83dA407d819647Af819',
   INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  MASTER:   '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
   DEV:      '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
   CHAIN_ID: 56,
   INDC_DEC: 9,
 };
+
+const MASTER_ABI = [
+  {"inputs":[{"name":"_user","type":"address"},{"name":"_rewardAmount","type":"uint256"},{"name":"_programId","type":"uint8"},{"name":"_token","type":"uint8"}],"name":"distributeRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+];
 
 const INDC_UNIT = Math.pow(10, SC.INDC_DEC);
 
@@ -254,8 +283,9 @@ const STAKING_ABI = [
   {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"indcAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"reqIndex","type":"uint256"}],"name":"RequestedUSDT","type":"event"},
 ];
 
-let _provider, _signer, _wallet, _staking;
-let _allRequests = []; // [{user, idx, indc, usdt, time, approved}, ...]
+let _provider, _signer, _wallet, _staking, _master;
+let _allRequests = [];
+let _fbRequests  = {}; // data dari Firebase
 let _currentTab  = 'pending';
 let _selected    = new Set();
 
@@ -283,6 +313,7 @@ async function connectWallet(){
     _provider = new ethers.providers.Web3Provider(window.ethereum);
     _signer   = _provider.getSigner();
     _staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
+    _master   = new ethers.Contract(SC.MASTER, MASTER_ABI, _signer);
 
     document.getElementById('walletBtn').textContent = shortAddr(_wallet);
 
@@ -296,6 +327,11 @@ async function connectWallet(){
 
     document.getElementById('accessDenied').style.display  = 'none';
     document.getElementById('panelContent').style.display  = 'block';
+
+    // Listen Firebase requests realtime
+    if (typeof window._fbListenRequests === 'function') {
+      window._fbListenRequests(items => { _fbRequests = items; });
+    }
 
     await loadData();
 
@@ -442,12 +478,22 @@ function renderList(){
 
 function key(r){ return r.user+'_'+r.idx; }
 
+function getFbData(r) {
+  // Cari di Firebase berdasarkan user wallet dan indcAmount
+  return Object.values(_fbRequests).find(fb =>
+    fb.user && fb.user.toLowerCase() === r.user.toLowerCase() &&
+    Math.abs((fb.indcAmount || 0) - r.indc) < 1 &&
+    fb.status !== 'done'
+  ) || null;
+}
+
 function buildCard(r){
   const dt   = new Date(r.time*1000).toLocaleString('id-ID');
   const k    = key(r);
   const chk  = _selected.has(k);
   const statusClass = r.approved ? 'approved' : 'pending';
   const statusText  = r.approved ? '✅ APPROVED' : '⏳ PENDING';
+  const fb   = getFbData(r);
 
   return `<div class="req-card ${statusClass}" id="card_${k}">
     <div class="req-top">
@@ -477,6 +523,26 @@ function buildCard(r){
       </div>
     </div>
 
+    ${fb ? `
+    <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#a78bfa;letter-spacing:1px;margin-bottom:6px">🎁 MATCHING PROFIT DOWNLINE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div class="req-amt">
+          <div class="req-amt-val" style="color:#a78bfa">${fmtINDC(fb.matchingTotal||0)}</div>
+          <div class="req-amt-lbl">Total Bonus INDC</div>
+        </div>
+        <div class="req-amt">
+          <div class="req-amt-val" style="color:#a78bfa">${fb.uplines ? fb.uplines.length : 0} upline</div>
+          <div class="req-amt-lbl">Penerima Bonus</div>
+        </div>
+      </div>
+      ${fb.uplines && fb.uplines.length > 0 ? `
+      <div style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">
+        ${fb.uplines.slice(0,3).map(u=>`L${u.level}: ${u.wallet.slice(0,8)}... +${u.bonus.toFixed(2)} INDC`).join(' · ')}
+        ${fb.uplines.length > 3 ? ` · +${fb.uplines.length-3} lainnya` : ''}
+      </div>` : ''}
+    </div>` : ''}
+
     <div class="req-meta">
       <span class="req-date">🕐 ${dt}</span>
       ${!r.approved ? `
@@ -500,22 +566,44 @@ function buildCard(r){
 async function approveOne(user, idx, k){
   const btn = document.getElementById('btn_'+k);
   if(btn){ btn.textContent='⏳ Proses...'; btn.disabled=true; }
-  setStatus('Menunggu konfirmasi transaksi...','var(--gold)');
+  setStatus('Menunggu konfirmasi transaksi approve USDT...','var(--gold)');
   try{
+    // 1. Approve request USDT di staking contract
     const tx = await _staking.approveRequest(user, idx);
     setStatus('Transaksi dikirim, menunggu konfirmasi...','var(--gold)');
     await tx.wait();
 
+    // 2. Distribute matching profit ke upline via Referral Master
+    const r   = _allRequests.find(x=>key(x)===k);
+    const fb  = getFbData(r || { user, idx, indc: 0 });
+
+    if (fb && fb.uplines && fb.uplines.length > 0 && _master) {
+      setStatus('✅ USDT approved! Mendistribusi matching profit ke upline...','var(--gold)');
+      try {
+        const rewardWei = ethers.utils.parseUnits(
+          (fb.indcAmount || 0).toString(), 18
+        );
+        const txM = await _master.distributeRefBonus(user, rewardWei, 10, 1);
+        await txM.wait();
+        setStatus('✅ Approve + Matching Profit berhasil didistribusi!','var(--green)');
+      } catch(em) {
+        setStatus('✅ USDT approved! Tapi matching profit gagal: '+(em.reason||em.message),'var(--red)');
+      }
+      // Update Firebase status
+      if (typeof window._fbUpdateRequest === 'function') {
+        await window._fbUpdateRequest(fb.fbKey, { status: 'done', approvedAt: Date.now() });
+      }
+    } else {
+      setStatus(`✅ Approve berhasil! Kirim $${r?.usdt?.toFixed(2)||'—'} USDT ke wallet user.`,'var(--green)');
+    }
+
     // Update local state
-    const r = _allRequests.find(x=>key(x)===k);
     if(r) r.approved = true;
     _selected.delete(k);
-
     document.getElementById('statPending').textContent =
       Math.max(0, parseInt(document.getElementById('statPending').textContent)-1);
-
-    setStatus(`✅ Approve berhasil! Jangan lupa kirim $${_allRequests.find(x=>key(x)===k)?.usdt?.toFixed(2)||'—'} USDT ke wallet user.`,'var(--green)');
     renderList();
+
   }catch(e){
     if(btn){ btn.textContent='✅ APPROVE'; btn.disabled=false; }
     setStatus('Gagal: '+(e.reason||e.message||''),'var(--red)');

@@ -9,6 +9,30 @@
 <title>INDOCOIN — Referral Network</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+const _fbApp = initializeApp({
+  apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain:"indocoin-network.firebaseapp.com",
+  databaseURL:"https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"indocoin-network",
+  storageBucket:"indocoin-network.firebasestorage.app",
+  messagingSenderId:"742922450154",
+  appId:"1:742922450154:web:97e0847e85bfe3e9f9d393"
+});
+const _fbDb = getDatabase(_fbApp);
+window._fbSaveMember = async (wallet, upline) => {
+  try {
+    const key = wallet.toLowerCase().replace(/0x/i,'');
+    await set(ref(_fbDb, 'members/' + key), {
+      wallet: wallet.toLowerCase(),
+      upline: upline.toLowerCase(),
+      joinTime: Date.now()
+    });
+  } catch(e) { console.warn('FB save member:', e); }
+};
+</script>
 <style>
 :root {
   --bg: #080600;
@@ -1316,6 +1340,10 @@ async function doRegister() {
     toast('⏳','Mendaftar ke blockchain...');
     const tx = await cMaster.register(ref);
     await tx.wait();
+    // Simpan wallet ke Firebase untuk tracking matching profit
+    if (typeof window._fbSaveMember === 'function') {
+      await window._fbSaveMember(myAddr, ref);
+    }
     toast('✅','Berhasil daftar referral!');
     await loadAll();
   } catch(e) {
