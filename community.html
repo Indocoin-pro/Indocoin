@@ -343,6 +343,35 @@ body {
 }
 .reaction-count { font-size: 9px; color: var(--muted); }
 
+/* Tombol hapus pesan */
+.btn-delete-msg {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  margin-left: 4px;
+}
+.msg-bubble:hover .btn-delete-msg { opacity: 1; }
+.btn-delete-msg:hover { background: rgba(239,68,68,0.35); }
+
+/* Counter karakter */
+.char-counter {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: right;
+  padding: 2px 6px 0;
+  letter-spacing: 1px;
+  transition: color 0.2s;
+}
+.char-counter.warn { color: var(--gold); }
+.char-counter.limit { color: var(--red); }
+
 /* Emoji picker */
 .emoji-row {
   display: flex;
@@ -851,11 +880,14 @@ body {
           <span id="typingText">seseorang sedang mengetik...</span>
         </div>
         <div class="new-msg-toast" id="newMsgToast" onclick="scrollToBottom()">⬇ Pesan baru</div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chatInput" placeholder="Tulis pesan..." maxlength="300"
-            onkeydown="if(event.key==='Enter')sendMessage()"
-            oninput="onTyping()">
-          <button class="btn-send" onclick="sendMessage()">➤</button>
+        <div class="chat-input-wrap" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="chatInput" placeholder="Tulis pesan..." maxlength="3000"
+              onkeydown="if(event.key==='Enter')sendMessage()"
+              oninput="onTyping();updateCharCount()">
+            <button class="btn-send" onclick="sendMessage()">➤</button>
+          </div>
+          <div class="char-counter" id="charCounter">0 / 3000</div>
         </div>
       </div>
     </div>
@@ -935,14 +967,23 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getDatabase(app);
 
+const ADMIN_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc'.toLowerCase();
 let currentUser = null;
 let currentName = '';
+let isAdmin = false;
 
 // ===== AUTH =====
 onAuthStateChanged(auth, user => {
   if (user) {
     currentUser = user;
     currentName = user.displayName || user.email.split('@')[0];
+    // Cek apakah admin (email mengandung wallet owner)
+    // Admin = user yang emailnya terdaftar sebagai admin di Firebase
+    // atau displayName-nya 'Indocoin' / 'Admin'
+    const uname = (user.displayName || '').toLowerCase();
+    const uemail = (user.email || '').toLowerCase();
+    isAdmin = uname === 'indocoin' || uname === 'admin' || 
+              uemail.includes('indocoin') || uemail.includes('admin@');
     document.getElementById('navUser').textContent = currentName;
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('notLoggedIn').style.display = 'none';
@@ -1007,16 +1048,23 @@ function initChat() {
 
       let emojiPickerHTML = `<div class="emoji-row">${emojis.map(e => `<span class="emoji-pick" onclick="toggleReaction('${msg.id}','${e}')">${e}</span>`).join('')}</div>`;
 
+      // Tombol hapus: tampil untuk pemilik pesan atau admin
+      const canDelete = (isMe || isAdmin) && !msg.deleted;
+      const deleteBtn = canDelete 
+        ? `<button class="btn-delete-msg" onclick="deleteMessage('${msg.id}')" title="${isAdmin && !isMe ? 'Admin: Hapus pesan' : 'Hapus pesan saya'}">🗑️</button>`
+        : '';
+
       container.innerHTML += `
-        <div class="msg-bubble ${isMe ? 'me' : ''}">
+        <div class="msg-bubble ${isMe ? 'me' : ''}" id="msg-${msg.id}">
           <div class="msg-avatar">${initials}</div>
           <div class="msg-content">
             <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
-            <div class="msg-text">${escapeHtml(msg.text)}</div>
+            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}}">${escapeHtml(msg.text)}</div>
             ${emojiPickerHTML}
             <div class="msg-meta">
               <span class="msg-time">${timeStr}</span>
               <div class="msg-reactions">${reactionsHTML}</div>
+              ${deleteBtn}
             </div>
           </div>
         </div>`;
@@ -1127,6 +1175,41 @@ window.sendMessage = function() {
   });
   input.value = '';
 };
+
+window.deleteMessage = function(msgId) {
+  if (!currentUser) return;
+  const msgRef = ref(db, 'community_chat/' + msgId);
+  // Cek apakah pemilik atau admin
+  get(msgRef).then(snap => {
+    if (!snap.exists()) return;
+    const msg = snap.val();
+    const isOwner = msg.uid === currentUser.uid;
+    if (!isOwner && !isAdmin) return;
+    const konfirmasi = isAdmin && !isOwner 
+      ? '⚠️ Admin: Hapus pesan dari ' + (msg.name || 'user') + ' ini?' 
+      : 'Hapus pesan kamu ini?';
+    if (!confirm(konfirmasi)) return;
+    // Tandai sebagai dihapus (tidak hapus permanen agar riwayat tetap ada)
+    set(msgRef, {
+      ...msg,
+      text: isAdmin && !isOwner ? '[Pesan dihapus oleh Admin]' : '[Pesan dihapus]',
+      deleted: true,
+      deletedAt: Date.now(),
+      deletedBy: isAdmin && !isOwner ? 'admin' : 'self'
+    });
+  });
+};
+
+function updateCharCount() {
+  const input = document.getElementById('chatInput');
+  const counter = document.getElementById('charCounter');
+  if (!input || !counter) return;
+  const len = input.value.length;
+  counter.textContent = len + ' / 3000';
+  counter.className = 'char-counter';
+  if (len > 2700) counter.classList.add('limit');
+  else if (len > 2000) counter.classList.add('warn');
+}
 
 window.toggleReaction = function(msgId, emoji) {
   const key = 'community_chat/' + msgId + '/reactions/' + encodeEmoji(emoji);
