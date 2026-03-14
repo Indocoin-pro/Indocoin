@@ -245,9 +245,8 @@ body {
   gap: 0;
 }
 .chat-messages {
-  min-height: 320px;
-  max-height: 420px;
-  overflow-y: auto;
+  height: 420px;
+  overflow-y: scroll;
   padding: 12px;
   background: var(--dark4);
   border: 1px solid rgba(250,204,21,0.1);
@@ -990,7 +989,6 @@ onAuthStateChanged(auth, user => {
     document.getElementById('navUser').textContent = currentName;
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('notLoggedIn').style.display = 'none';
-    initChat();
     initForum();
     updateOnline();
   } else {
@@ -1022,6 +1020,7 @@ function initChat() {
 
     const msgs = [];
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
+
     container.innerHTML = '';
     let lastDate = '';
 
@@ -1163,6 +1162,7 @@ window.sendMessage = function() {
     ts: Date.now()
   });
   input.value = '';
+  window.updateCharCount();
 };
 
 window.deleteMessage = function(msgId) {
@@ -1304,11 +1304,32 @@ function getTimeAgo(d) {
 
 <script>
 // ===== TABS (non-module) =====
+let _chatReady = false;
 window.switchTab = function(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'chat' && !_chatReady && currentUser) {
+    _chatReady = true;
+    initChat();
+  }
+};
+
+window.onTyping = function() {};
+window.scrollToBottom = function() {
+  const c = document.getElementById('chatMessages');
+  if (c) c.scrollTop = c.scrollHeight;
+};
+window.updateCharCount = function() {
+  const input = document.getElementById('chatInput');
+  const counter = document.getElementById('charCounter');
+  if (!input || !counter) return;
+  const len = input.value.length;
+  counter.textContent = len + ' / 3000';
+  counter.className = 'char-counter';
+  if (len > 2700) counter.classList.add('limit');
+  else if (len > 2000) counter.classList.add('warn');
 };
 </script>
 
