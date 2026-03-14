@@ -1129,12 +1129,10 @@ const FRASA_NEGATIF = [
 ];
 
 function mengandungKataKasar(teks) {
-  const teksLower = teks.toLowerCase();
+  const teksBersih = teks.toLowerCase().replace(/\s+/g, '');
   return KATA_KASAR.some(kata => {
-    // Frasa multi-kata: cek substring biasa
-    if (kata.includes(' ')) return teksLower.includes(kata);
-    // Kata tunggal: harus kata utuh, tidak boleh bagian dari kata lain
-    return new RegExp('(?:^|\\s|[^a-zA-Z])' + kata + '(?:$|\\s|[^a-zA-Z])', 'i').test(teksLower);
+    const kataBersih = kata.replace(/\s+/g, '');
+    return teksBersih.includes(kataBersih);
   });
 }
 
@@ -1158,19 +1156,6 @@ window.sendMessage = function() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || !currentUser) return;
-
-  // Cek kata kasar
-  if (mengandungKataKasar(text)) {
-    tampilkanPeringatan('⚠️ Pesan ditolak! Jaga sopan santun ya...');
-    return;
-  }
-
-  // Cek frasa negatif/pesimis
-  if (mengandungFrasaNegatif(text)) {
-    tampilkanPeringatan('🚫 Pesan ditolak! Mari jaga semangat komunitas 💪');
-    return;
-  }
-
   push(ref(db, 'community_chat'), {
     uid: currentUser.uid,
     name: currentName,
