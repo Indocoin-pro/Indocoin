@@ -1022,8 +1022,6 @@ function initChat() {
 
     const msgs = [];
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
-    alert('DEBUG initChat: ' + msgs.length + ' pesan ditemukan');
-
     container.innerHTML = '';
     let lastDate = '';
 
@@ -1063,7 +1061,7 @@ function initChat() {
           <div class="msg-avatar">${initials}</div>
           <div class="msg-content">
             <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
-            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}}">${escapeHtml(msg.text)}</div>
+            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}">${escapeHtml(msg.text)}</div>
             ${emojiPickerHTML}
             <div class="msg-meta">
               <span class="msg-time">${timeStr}</span>
@@ -1155,25 +1153,16 @@ function tampilkanPeringatan(pesan) {
 }
 
 window.sendMessage = function() {
-  try {
-    const input = document.getElementById('chatInput');
-    const text = input.value.trim();
-    if (!text) { alert('DEBUG: Input kosong'); return; }
-    if (!currentUser) { alert('DEBUG: Belum login'); return; }
-    push(ref(db, 'community_chat'), {
-      uid: currentUser.uid,
-      name: currentName,
-      text: text,
-      ts: Date.now()
-    }).then(() => {
-      alert('DEBUG: BERHASIL kirim ke Firebase!');
-      input.value = '';
-    }).catch(e => {
-      alert('DEBUG ERROR Firebase: ' + e.message);
-    });
-  } catch(e) {
-    alert('DEBUG ERROR: ' + e.message);
-  }
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !currentUser) return;
+  push(ref(db, 'community_chat'), {
+    uid: currentUser.uid,
+    name: currentName,
+    text: text,
+    ts: Date.now()
+  });
+  input.value = '';
 };
 
 window.deleteMessage = function(msgId) {
