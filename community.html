@@ -245,7 +245,6 @@ body {
   gap: 0;
 }
 .chat-messages {
-  
   height: 420px;
   overflow-y: scroll;
   padding: 12px;
@@ -1013,7 +1012,7 @@ function updateOnline() {
   });
 }
 
-// ===== SCROLL =====
+// ===== CHAT =====
 function scrollToBottom() {
   const c = document.getElementById('chatMessages');
   if (c) c.scrollTop = c.scrollHeight;
@@ -1021,7 +1020,6 @@ function scrollToBottom() {
   if (t) t.style.display = 'none';
 }
 
-// ===== CHAT =====
 function initChat() {
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
@@ -1040,15 +1038,13 @@ function initChat() {
 
     const emojis = ['👍','❤️','🔥','😂','🚀'];
 
-    // Bersihkan container — pakai innerHTML='' sekali di awal, lalu appendChild (bukan +=)
     container.innerHTML = '';
     let lastDate = '';
 
     msgs.forEach(msg => {
-      const d    = msg.ts ? new Date(msg.ts) : new Date();
-      const dateStr = d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long' });
+      const d = msg.ts ? new Date(msg.ts) : new Date();
+      const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
 
-      // Divider tanggal
       if (dateStr !== lastDate) {
         const div = document.createElement('div');
         div.className = 'divider-date';
@@ -1057,31 +1053,26 @@ function initChat() {
         lastDate = dateStr;
       }
 
-      const isMe     = msg.uid === currentUser.uid;
-      const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
-      const timeStr  = d.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+      const isMe      = msg.uid === currentUser.uid;
+      const initials  = (msg.name || 'U').slice(0, 2).toUpperCase();
+      const timeStr   = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       const reactions = msg.reactions || {};
 
-      // Bubble wrapper
       const bubble = document.createElement('div');
       bubble.className = 'msg-bubble' + (isMe ? ' me' : '');
       bubble.id = 'msg-' + msg.id;
 
-      // Avatar
       const avatar = document.createElement('div');
       avatar.className = 'msg-avatar';
       avatar.textContent = initials;
 
-      // Content
       const content = document.createElement('div');
       content.className = 'msg-content';
 
-      // Nama
       const nameEl = document.createElement('div');
       nameEl.className = 'msg-name';
       nameEl.textContent = msg.name || 'User';
 
-      // Teks
       const textEl = document.createElement('div');
       textEl.className = 'msg-text';
       textEl.textContent = msg.text || '';
@@ -1091,7 +1082,6 @@ function initChat() {
         textEl.style.fontSize = '11px';
       }
 
-      // Emoji picker (hanya jika belum dihapus)
       const emojiRow = document.createElement('div');
       emojiRow.className = 'emoji-row';
       if (!msg.deleted) {
@@ -1104,7 +1094,6 @@ function initChat() {
         });
       }
 
-      // Meta
       const meta = document.createElement('div');
       meta.className = 'msg-meta';
 
@@ -1129,7 +1118,6 @@ function initChat() {
       meta.appendChild(timeEl);
       meta.appendChild(reactDiv);
 
-      // Tombol hapus
       if ((isMe || isAdmin) && !msg.deleted) {
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-delete-msg';
@@ -1143,13 +1131,11 @@ function initChat() {
       content.appendChild(textEl);
       if (!msg.deleted) content.appendChild(emojiRow);
       content.appendChild(meta);
-
       bubble.appendChild(avatar);
       bubble.appendChild(content);
       container.appendChild(bubble);
     });
 
-    // Scroll otomatis hanya kalau sudah di bawah atau pesan dari diri sendiri
     const lastMsg = msgs[msgs.length - 1];
     if (wasAtBottom || (lastMsg && lastMsg.uid === currentUser.uid)) {
       container.scrollTop = container.scrollHeight;
@@ -1172,7 +1158,8 @@ const KATA_KASAR = [
   "pelacur","sundal","bangke","sialan","bejad","bejat","setan",
   "iblis","bedebah","kunyuk","monyet","dungu","sempak","geblek",
   // Bahasa Inggris
-  "fuck","shit","asshole","bitch","bastard","cock","pussy","nigger","retard"
+  "fuck","shit","asshole","bitch","bastard","damn","crap","dick",
+  "pussy","cock","nigger","stupid","idiot","moron","retard"
 ];
 
 const FRASA_NEGATIF = [
@@ -1217,11 +1204,9 @@ const FRASA_NEGATIF = [
 function mengandungKataKasar(teks) {
   const teksLower = teks.toLowerCase();
   return KATA_KASAR.some(kata => {
-    // Frasa multi-kata: cek substring biasa
     if (kata.includes(' ')) return teksLower.includes(kata.toLowerCase());
-    // Kata tunggal: pakai word boundary agar tidak salah blok kata normal
-    const escaped = kata.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('\\b' + escaped + '\\b', 'i').test(teksLower);
+    const esc = kata.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('\\b' + esc + '\\b', 'i').test(teksLower);
   });
 }
 
