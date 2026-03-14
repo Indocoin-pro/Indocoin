@@ -245,6 +245,7 @@ body {
   gap: 0;
 }
 .chat-messages {
+  
   height: 420px;
   overflow-y: scroll;
   padding: 12px;
@@ -1012,7 +1013,7 @@ function updateOnline() {
   });
 }
 
-// ===== SCROLL HELPER =====
+// ===== SCROLL =====
 function scrollToBottom() {
   const c = document.getElementById('chatMessages');
   if (c) c.scrollTop = c.scrollHeight;
@@ -1027,7 +1028,6 @@ function initChat() {
     const container = document.getElementById('chatMessages');
     if (!container) return;
 
-    // Simpan posisi scroll sebelum render
     const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
     if (!snap.exists()) {
@@ -1038,14 +1038,15 @@ function initChat() {
     const msgs = [];
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
 
-    // Rebuild pakai createElement — TIDAK pakai innerHTML += agar event handler stabil
-    container.innerHTML = '';
-    let lastDate = '';
     const emojis = ['👍','❤️','🔥','😂','🚀'];
 
+    // Bersihkan container — pakai innerHTML='' sekali di awal, lalu appendChild (bukan +=)
+    container.innerHTML = '';
+    let lastDate = '';
+
     msgs.forEach(msg => {
-      const d = msg.ts ? new Date(msg.ts) : new Date();
-      const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+      const d    = msg.ts ? new Date(msg.ts) : new Date();
+      const dateStr = d.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long' });
 
       // Divider tanggal
       if (dateStr !== lastDate) {
@@ -1056,12 +1057,12 @@ function initChat() {
         lastDate = dateStr;
       }
 
-      const isMe = msg.uid === currentUser.uid;
+      const isMe     = msg.uid === currentUser.uid;
       const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
-      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const timeStr  = d.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
       const reactions = msg.reactions || {};
 
-      // Bubble
+      // Bubble wrapper
       const bubble = document.createElement('div');
       bubble.className = 'msg-bubble' + (isMe ? ' me' : '');
       bubble.id = 'msg-' + msg.id;
@@ -1071,7 +1072,7 @@ function initChat() {
       avatar.className = 'msg-avatar';
       avatar.textContent = initials;
 
-      // Content wrapper
+      // Content
       const content = document.createElement('div');
       content.className = 'msg-content';
 
@@ -1080,15 +1081,17 @@ function initChat() {
       nameEl.className = 'msg-name';
       nameEl.textContent = msg.name || 'User';
 
-      // Teks pesan
+      // Teks
       const textEl = document.createElement('div');
       textEl.className = 'msg-text';
       textEl.textContent = msg.text || '';
       if (msg.deleted) {
-        textEl.style.cssText = 'color:var(--muted);font-style:italic;font-size:11px;';
+        textEl.style.color = 'var(--muted)';
+        textEl.style.fontStyle = 'italic';
+        textEl.style.fontSize = '11px';
       }
 
-      // Emoji picker (hanya kalau belum dihapus)
+      // Emoji picker (hanya jika belum dihapus)
       const emojiRow = document.createElement('div');
       emojiRow.className = 'emoji-row';
       if (!msg.deleted) {
@@ -1101,7 +1104,7 @@ function initChat() {
         });
       }
 
-      // Meta row
+      // Meta
       const meta = document.createElement('div');
       meta.className = 'msg-meta';
 
@@ -1127,8 +1130,7 @@ function initChat() {
       meta.appendChild(reactDiv);
 
       // Tombol hapus
-      const canDelete = (isMe || isAdmin) && !msg.deleted;
-      if (canDelete) {
+      if ((isMe || isAdmin) && !msg.deleted) {
         const delBtn = document.createElement('button');
         delBtn.className = 'btn-delete-msg';
         delBtn.title = (isAdmin && !isMe) ? 'Admin: Hapus pesan' : 'Hapus pesan saya';
@@ -1147,10 +1149,9 @@ function initChat() {
       container.appendChild(bubble);
     });
 
-    // Scroll logic
+    // Scroll otomatis hanya kalau sudah di bawah atau pesan dari diri sendiri
     const lastMsg = msgs[msgs.length - 1];
-    const isMyMsg = lastMsg && lastMsg.uid === currentUser.uid;
-    if (wasAtBottom || isMyMsg) {
+    if (wasAtBottom || (lastMsg && lastMsg.uid === currentUser.uid)) {
       container.scrollTop = container.scrollHeight;
       const toast = document.getElementById('newMsgToast');
       if (toast) toast.style.display = 'none';
@@ -1171,8 +1172,7 @@ const KATA_KASAR = [
   "pelacur","sundal","bangke","sialan","bejad","bejat","setan",
   "iblis","bedebah","kunyuk","monyet","dungu","sempak","geblek",
   // Bahasa Inggris
-  "fuck","shit","asshole","bitch","bastard","damn","crap","dick",
-  "pussy","cock","nigger","stupid","idiot","moron","retard"
+  "fuck","shit","asshole","bitch","bastard","cock","pussy","nigger","retard"
 ];
 
 const FRASA_NEGATIF = [
@@ -1215,10 +1215,13 @@ const FRASA_NEGATIF = [
 ];
 
 function mengandungKataKasar(teks) {
-  const teksBersih = teks.toLowerCase().replace(/\s+/g, '');
+  const teksLower = teks.toLowerCase();
   return KATA_KASAR.some(kata => {
-    const kataBersih = kata.replace(/\s+/g, '');
-    return teksBersih.includes(kataBersih);
+    // Frasa multi-kata: cek substring biasa
+    if (kata.includes(' ')) return teksLower.includes(kata.toLowerCase());
+    // Kata tunggal: pakai word boundary agar tidak salah blok kata normal
+    const escaped = kata.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('\\b' + escaped + '\\b', 'i').test(teksLower);
   });
 }
 
