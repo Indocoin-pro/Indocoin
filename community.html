@@ -245,9 +245,8 @@ body {
   gap: 0;
 }
 .chat-messages {
-  min-height: 320px;
-  max-height: 420px;
-  overflow-y: auto;
+  height: 420px;
+  overflow-y: scroll;
   padding: 12px;
   background: var(--dark4);
   border: 1px solid rgba(250,204,21,0.1);
@@ -1013,66 +1012,152 @@ function updateOnline() {
   });
 }
 
+// ===== SCROLL HELPER =====
+function scrollToBottom() {
+  const c = document.getElementById('chatMessages');
+  if (c) c.scrollTop = c.scrollHeight;
+  const t = document.getElementById('newMsgToast');
+  if (t) t.style.display = 'none';
+}
+
 // ===== CHAT =====
 function initChat() {
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
     const container = document.getElementById('chatMessages');
-    if (!snap.exists()) { container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>'; return; }
+    if (!container) return;
+
+    // Simpan posisi scroll sebelum render
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+
+    if (!snap.exists()) {
+      container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>';
+      return;
+    }
 
     const msgs = [];
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
 
+    // Rebuild pakai createElement — TIDAK pakai innerHTML += agar event handler stabil
     container.innerHTML = '';
     let lastDate = '';
+    const emojis = ['👍','❤️','🔥','😂','🚀'];
 
     msgs.forEach(msg => {
       const d = msg.ts ? new Date(msg.ts) : new Date();
       const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      // Divider tanggal
       if (dateStr !== lastDate) {
-        container.innerHTML += `<div class="divider-date">${dateStr}</div>`;
+        const div = document.createElement('div');
+        div.className = 'divider-date';
+        div.textContent = dateStr;
+        container.appendChild(div);
         lastDate = dateStr;
       }
 
       const isMe = msg.uid === currentUser.uid;
       const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
       const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-      // Reactions
       const reactions = msg.reactions || {};
-      const emojis = ['👍','❤️','🔥','😂','🚀'];
-      let reactionsHTML = emojis.map(e => {
+
+      // Bubble
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble' + (isMe ? ' me' : '');
+      bubble.id = 'msg-' + msg.id;
+
+      // Avatar
+      const avatar = document.createElement('div');
+      avatar.className = 'msg-avatar';
+      avatar.textContent = initials;
+
+      // Content wrapper
+      const content = document.createElement('div');
+      content.className = 'msg-content';
+
+      // Nama
+      const nameEl = document.createElement('div');
+      nameEl.className = 'msg-name';
+      nameEl.textContent = msg.name || 'User';
+
+      // Teks pesan
+      const textEl = document.createElement('div');
+      textEl.className = 'msg-text';
+      textEl.textContent = msg.text || '';
+      if (msg.deleted) {
+        textEl.style.cssText = 'color:var(--muted);font-style:italic;font-size:11px;';
+      }
+
+      // Emoji picker (hanya kalau belum dihapus)
+      const emojiRow = document.createElement('div');
+      emojiRow.className = 'emoji-row';
+      if (!msg.deleted) {
+        emojis.forEach(e => {
+          const sp = document.createElement('span');
+          sp.className = 'emoji-pick';
+          sp.textContent = e;
+          sp.onclick = () => toggleReaction(msg.id, e);
+          emojiRow.appendChild(sp);
+        });
+      }
+
+      // Meta row
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+
+      const timeEl = document.createElement('span');
+      timeEl.className = 'msg-time';
+      timeEl.textContent = timeStr;
+
+      const reactDiv = document.createElement('div');
+      reactDiv.className = 'msg-reactions';
+      emojis.forEach(e => {
         const count = (reactions[encodeEmoji(e)] || []).length;
-        const hasReacted = count > 0 && (reactions[encodeEmoji(e)] || []).includes(currentUser.uid);
-        return count > 0
-          ? `<button class="reaction-btn ${hasReacted ? 'active' : ''}" onclick="toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
-          : '';
-      }).join('');
+        if (count > 0) {
+          const hasReacted = (reactions[encodeEmoji(e)] || []).includes(currentUser.uid);
+          const btn = document.createElement('button');
+          btn.className = 'reaction-btn' + (hasReacted ? ' active' : '');
+          btn.innerHTML = e + ' <span class="reaction-count">' + count + '</span>';
+          btn.onclick = () => toggleReaction(msg.id, e);
+          reactDiv.appendChild(btn);
+        }
+      });
 
-      let emojiPickerHTML = `<div class="emoji-row">${emojis.map(e => `<span class="emoji-pick" onclick="toggleReaction('${msg.id}','${e}')">${e}</span>`).join('')}</div>`;
+      meta.appendChild(timeEl);
+      meta.appendChild(reactDiv);
 
-      // Tombol hapus: tampil untuk pemilik pesan atau admin
+      // Tombol hapus
       const canDelete = (isMe || isAdmin) && !msg.deleted;
-      const deleteBtn = canDelete 
-        ? `<button class="btn-delete-msg" onclick="deleteMessage('${msg.id}')" title="${isAdmin && !isMe ? 'Admin: Hapus pesan' : 'Hapus pesan saya'}">🗑️</button>`
-        : '';
+      if (canDelete) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete-msg';
+        delBtn.title = (isAdmin && !isMe) ? 'Admin: Hapus pesan' : 'Hapus pesan saya';
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = () => deleteMessage(msg.id);
+        meta.appendChild(delBtn);
+      }
 
-      container.innerHTML += `
-        <div class="msg-bubble ${isMe ? 'me' : ''}" id="msg-${msg.id}">
-          <div class="msg-avatar">${initials}</div>
-          <div class="msg-content">
-            <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
-            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}}">${escapeHtml(msg.text)}</div>
-            ${emojiPickerHTML}
-            <div class="msg-meta">
-              <span class="msg-time">${timeStr}</span>
-              <div class="msg-reactions">${reactionsHTML}</div>
-              ${deleteBtn}
-            </div>
-          </div>
-        </div>`;
+      content.appendChild(nameEl);
+      content.appendChild(textEl);
+      if (!msg.deleted) content.appendChild(emojiRow);
+      content.appendChild(meta);
+
+      bubble.appendChild(avatar);
+      bubble.appendChild(content);
+      container.appendChild(bubble);
     });
-    container.scrollTop = container.scrollHeight;
+
+    // Scroll logic
+    const lastMsg = msgs[msgs.length - 1];
+    const isMyMsg = lastMsg && lastMsg.uid === currentUser.uid;
+    if (wasAtBottom || isMyMsg) {
+      container.scrollTop = container.scrollHeight;
+      const toast = document.getElementById('newMsgToast');
+      if (toast) toast.style.display = 'none';
+    } else {
+      const toast = document.getElementById('newMsgToast');
+      if (toast) toast.style.display = 'block';
+    }
   });
 }
 
@@ -1177,6 +1262,8 @@ window.sendMessage = function() {
     ts: Date.now()
   });
   input.value = '';
+  updateCharCount();
+  scrollToBottom();
 };
 
 window.deleteMessage = function(msgId) {
