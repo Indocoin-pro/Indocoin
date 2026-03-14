@@ -1013,13 +1013,6 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
-function scrollToBottom() {
-  const c = document.getElementById('chatMessages');
-  if (c) c.scrollTop = c.scrollHeight;
-  const t = document.getElementById('newMsgToast');
-  if (t) t.style.display = 'none';
-}
-
 function initChat() {
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
@@ -1037,19 +1030,18 @@ function initChat() {
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
 
     const emojis = ['👍','❤️','🔥','😂','🚀'];
-
     container.innerHTML = '';
     let lastDate = '';
 
     msgs.forEach(msg => {
-      const d = msg.ts ? new Date(msg.ts) : new Date();
+      const d       = msg.ts ? new Date(msg.ts) : new Date();
       const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
 
       if (dateStr !== lastDate) {
-        const div = document.createElement('div');
-        div.className = 'divider-date';
-        div.textContent = dateStr;
-        container.appendChild(div);
+        const divider = document.createElement('div');
+        divider.className = 'divider-date';
+        divider.textContent = dateStr;
+        container.appendChild(divider);
         lastDate = dateStr;
       }
 
@@ -1250,8 +1242,7 @@ window.sendMessage = function() {
     ts: Date.now()
   });
   input.value = '';
-  updateCharCount();
-  scrollToBottom();
+  window.updateCharCount();
 };
 
 window.deleteMessage = function(msgId) {
@@ -1278,7 +1269,26 @@ window.deleteMessage = function(msgId) {
   });
 };
 
-function updateCharCount() {
+// Expose ke window agar bisa dipanggil dari HTML onclick/oninput
+window.scrollToBottom = function() {
+  const c = document.getElementById('chatMessages');
+  if (c) c.scrollTop = c.scrollHeight;
+  const t = document.getElementById('newMsgToast');
+  if (t) t.style.display = 'none';
+};
+
+let _typingTimer = null;
+window.onTyping = function() {
+  if (!currentUser) return;
+  const indicator = document.getElementById('typingIndicator');
+  if (indicator) indicator.classList.add('show');
+  clearTimeout(_typingTimer);
+  _typingTimer = setTimeout(() => {
+    if (indicator) indicator.classList.remove('show');
+  }, 2000);
+};
+
+window.updateCharCount = function() {
   const input = document.getElementById('chatInput');
   const counter = document.getElementById('charCounter');
   if (!input || !counter) return;
@@ -1287,7 +1297,10 @@ function updateCharCount() {
   counter.className = 'char-counter';
   if (len > 2700) counter.classList.add('limit');
   else if (len > 2000) counter.classList.add('warn');
-}
+};
+
+// Alias lokal
+function updateCharCount() { window.updateCharCount(); }
 
 window.toggleReaction = function(msgId, emoji) {
   const key = 'community_chat/' + msgId + '/reactions/' + encodeEmoji(emoji);
