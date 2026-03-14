@@ -417,16 +417,16 @@ function switchInner(opsi,tab){
 function calcPreview(id,val,rate){
   const amt=parseFloat(val)||0,days=Math.max(0,Math.floor((LOCK_END-Date.now())/86400000));
   const daily=amt*rate,total=daily*days;
-  document.getElementById('kd'+id).textContent=fmtN(daily)+' INDC';
-  document.getElementById('kh'+id).textContent=days+' hari';
-  document.getElementById('kg'+id).textContent=fmtN(total)+' INDC';
-  document.getElementById('kt'+id).textContent=fmtN(amt+total)+' INDC';
-  if(id===2)document.getElementById('ku'+id).textContent='$'+(daily*INDC_PRICE).toFixed(3);
+  const _kd=document.getElementById('kd'+id);if(_kd)_kd.textContent=fmtN(daily)+' INDC';
+  const _kh=document.getElementById('kh'+id);if(_kh)_kh.textContent=days+' hari';
+  const _kg=document.getElementById('kg'+id);if(_kg)_kg.textContent=fmtN(total)+' INDC';
+  const _kt=document.getElementById('kt'+id);if(_kt)_kt.textContent=fmtN(amt+total)+' INDC';
+  if(id===2){const _ku=document.getElementById('ku'+id);if(_ku)_ku.textContent='$'+(daily*INDC_PRICE).toFixed(3);}
 }
 function calcReward(id){calcPreview(id,document.getElementById('inp'+id).value,PAKET[id-1].rate);}
 function calcRequest(){
   const indc=parseFloat(document.getElementById('inpReq').value)||0;
-  document.getElementById('usdtPreview').textContent='$'+(indc*INDC_PRICE).toFixed(2)+' USDT';
+  const _pv=document.getElementById('usdtPreview');if(_pv)_pv.textContent='$'+(indc*INDC_PRICE).toFixed(2)+' USDT';
 }
 
 async function connectWallet(){
@@ -444,7 +444,7 @@ async function connectWallet(){
     _staking=new ethers.Contract(SC.STAKING,STAKING_ABI,_signer);
     _indc=new ethers.Contract(SC.INDC,ERC20_ABI,_signer);
     _master=new ethers.Contract(SC.MASTER,MASTER_ABI_LITE,_provider);
-    document.getElementById('walletBtn').textContent=shortAddr(_wallet);
+    const wBtn=document.getElementById('walletBtn');if(wBtn)wBtn.textContent=shortAddr(_wallet);
     await loadBalances();await loadStakeData();
     PAKET.forEach(p=>setMsg(p.id,'Wallet terhubung. Masukkan jumlah & approve.','var(--green)'));
     setMsg('Req','Wallet terhubung. Masukkan jumlah INDC untuk request USDT.','var(--green)');
@@ -626,7 +626,7 @@ async function doRequest(){
 
     setMsg('Req','✅ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--green)');
     document.getElementById('inpReq').value='';
-    document.getElementById('usdtPreview').textContent='$0.00 USDT';
+    const _pv2=document.getElementById('usdtPreview');if(_pv2)_pv2.textContent='$0.00 USDT';
     const elM = document.getElementById('matchingB');
     const elT = document.getElementById('totalRequestB');
     if(elM) elM.textContent = '0 INDC';
@@ -656,13 +656,14 @@ for(let i=0;i<45;i++){
   document.body.appendChild(s);
 }
 
-renderOpsi();
-
-(async function(){
-  if(!window.ethereum)return;
-  const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length)await connectWallet();
-})();
+document.addEventListener('DOMContentLoaded', function(){
+  renderOpsi();
+  (async function(){
+    if(!window.ethereum)return;
+    const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+    if(accounts.length)await connectWallet();
+  })();
+});
 
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
