@@ -989,6 +989,7 @@ onAuthStateChanged(auth, user => {
     document.getElementById('navUser').textContent = currentName;
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('notLoggedIn').style.display = 'none';
+    initChat();
     initForum();
     updateOnline();
   } else {
@@ -1016,115 +1017,60 @@ function initChat() {
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
     const container = document.getElementById('chatMessages');
-    if (!container) return;
-
-    if (!snap.exists()) {
-      container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>';
-      return;
-    }
+    if (!snap.exists()) { container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>'; return; }
 
     const msgs = [];
     snap.forEach(child => msgs.push({ id: child.key, ...child.val() }));
 
-    const emojis = ['👍','❤️','🔥','😂','🚀'];
     container.innerHTML = '';
     let lastDate = '';
 
     msgs.forEach(msg => {
-      const d       = msg.ts ? new Date(msg.ts) : new Date();
+      const d = msg.ts ? new Date(msg.ts) : new Date();
       const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
-
       if (dateStr !== lastDate) {
-        const divider = document.createElement('div');
-        divider.className = 'divider-date';
-        divider.textContent = dateStr;
-        container.appendChild(divider);
+        container.innerHTML += `<div class="divider-date">${dateStr}</div>`;
         lastDate = dateStr;
       }
 
-      const isMe      = msg.uid === currentUser.uid;
-      const initials  = (msg.name || 'U').slice(0, 2).toUpperCase();
-      const timeStr   = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const isMe = msg.uid === currentUser.uid;
+      const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
+      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+      // Reactions
       const reactions = msg.reactions || {};
-
-      const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble' + (isMe ? ' me' : '');
-      bubble.id = 'msg-' + msg.id;
-
-      const avatar = document.createElement('div');
-      avatar.className = 'msg-avatar';
-      avatar.textContent = initials;
-
-      const content = document.createElement('div');
-      content.className = 'msg-content';
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'msg-name';
-      nameEl.textContent = msg.name || 'User';
-
-      const textEl = document.createElement('div');
-      textEl.className = 'msg-text';
-      textEl.textContent = msg.text || '';
-      if (msg.deleted) {
-        textEl.style.color = 'var(--muted)';
-        textEl.style.fontStyle = 'italic';
-        textEl.style.fontSize = '11px';
-      }
-
-      const emojiRow = document.createElement('div');
-      emojiRow.className = 'emoji-row';
-      if (!msg.deleted) {
-        emojis.forEach(e => {
-          const sp = document.createElement('span');
-          sp.className = 'emoji-pick';
-          sp.textContent = e;
-          sp.onclick = () => toggleReaction(msg.id, e);
-          emojiRow.appendChild(sp);
-        });
-      }
-
-      const meta = document.createElement('div');
-      meta.className = 'msg-meta';
-
-      const timeEl = document.createElement('span');
-      timeEl.className = 'msg-time';
-      timeEl.textContent = timeStr;
-
-      const reactDiv = document.createElement('div');
-      reactDiv.className = 'msg-reactions';
-      emojis.forEach(e => {
+      const emojis = ['👍','❤️','🔥','😂','🚀'];
+      let reactionsHTML = emojis.map(e => {
         const count = (reactions[encodeEmoji(e)] || []).length;
-        if (count > 0) {
-          const hasReacted = (reactions[encodeEmoji(e)] || []).includes(currentUser.uid);
-          const btn = document.createElement('button');
-          btn.className = 'reaction-btn' + (hasReacted ? ' active' : '');
-          btn.innerHTML = e + ' <span class="reaction-count">' + count + '</span>';
-          btn.onclick = () => toggleReaction(msg.id, e);
-          reactDiv.appendChild(btn);
-        }
-      });
+        const hasReacted = count > 0 && (reactions[encodeEmoji(e)] || []).includes(currentUser.uid);
+        return count > 0
+          ? `<button class="reaction-btn ${hasReacted ? 'active' : ''}" onclick="toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
+          : '';
+      }).join('');
 
-      meta.appendChild(timeEl);
-      meta.appendChild(reactDiv);
+      let emojiPickerHTML = `<div class="emoji-row">${emojis.map(e => `<span class="emoji-pick" onclick="toggleReaction('${msg.id}','${e}')">${e}</span>`).join('')}</div>`;
 
-      if ((isMe || isAdmin) && !msg.deleted) {
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn-delete-msg';
-        delBtn.title = (isAdmin && !isMe) ? 'Admin: Hapus pesan' : 'Hapus pesan saya';
-        delBtn.textContent = '🗑️';
-        delBtn.onclick = () => deleteMessage(msg.id);
-        meta.appendChild(delBtn);
-      }
+      // Tombol hapus: tampil untuk pemilik pesan atau admin
+      const canDelete = (isMe || isAdmin) && !msg.deleted;
+      const deleteBtn = canDelete 
+        ? `<button class="btn-delete-msg" onclick="deleteMessage('${msg.id}')" title="${isAdmin && !isMe ? 'Admin: Hapus pesan' : 'Hapus pesan saya'}">🗑️</button>`
+        : '';
 
-      content.appendChild(nameEl);
-      content.appendChild(textEl);
-      if (!msg.deleted) content.appendChild(emojiRow);
-      content.appendChild(meta);
-      bubble.appendChild(avatar);
-      bubble.appendChild(content);
-      container.appendChild(bubble);
+      container.innerHTML += `
+        <div class="msg-bubble ${isMe ? 'me' : ''}" id="msg-${msg.id}">
+          <div class="msg-avatar">${initials}</div>
+          <div class="msg-content">
+            <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
+            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}}">${escapeHtml(msg.text)}</div>
+            ${emojiPickerHTML}
+            <div class="msg-meta">
+              <span class="msg-time">${timeStr}</span>
+              <div class="msg-reactions">${reactionsHTML}</div>
+              ${deleteBtn}
+            </div>
+          </div>
+        </div>`;
     });
-
     container.scrollTop = container.scrollHeight;
   });
 }
@@ -1183,11 +1129,10 @@ const FRASA_NEGATIF = [
 ];
 
 function mengandungKataKasar(teks) {
-  const teksLower = teks.toLowerCase();
+  const teksBersih = teks.toLowerCase().replace(/\s+/g, '');
   return KATA_KASAR.some(kata => {
-    if (kata.includes(' ')) return teksLower.includes(kata.toLowerCase());
-    const esc = kata.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('\\b' + esc + '\\b', 'i').test(teksLower);
+    const kataBersih = kata.replace(/\s+/g, '');
+    return teksBersih.includes(kataBersih);
   });
 }
 
@@ -1231,7 +1176,6 @@ window.sendMessage = function() {
     ts: Date.now()
   });
   input.value = '';
-  window.updateCharCount();
 };
 
 window.deleteMessage = function(msgId) {
@@ -1258,9 +1202,7 @@ window.deleteMessage = function(msgId) {
   });
 };
 
-window.onTyping = function() {};  // typing indicator - aman kosong
-
-window.updateCharCount = function() {
+function updateCharCount() {
   const input = document.getElementById('chatInput');
   const counter = document.getElementById('charCounter');
   if (!input || !counter) return;
@@ -1269,14 +1211,7 @@ window.updateCharCount = function() {
   counter.className = 'char-counter';
   if (len > 2700) counter.classList.add('limit');
   else if (len > 2000) counter.classList.add('warn');
-};
-
-window.scrollToBottom = function() {
-  const c = document.getElementById('chatMessages');
-  if (c) c.scrollTop = c.scrollHeight;
-};
-
-function updateCharCount() { window.updateCharCount(); }
+}
 
 window.toggleReaction = function(msgId, emoji) {
   const key = 'community_chat/' + msgId + '/reactions/' + encodeEmoji(emoji);
@@ -1382,17 +1317,28 @@ function getTimeAgo(d) {
 
 <script>
 // ===== TABS (non-module) =====
-let _chatInited = false;
 window.switchTab = function(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  // Inisialisasi chat saat tab chat dibuka
-  if (tab === 'chat' && !_chatInited && currentUser) {
-    _chatInited = true;
-    initChat();
-  }
+};
+
+// Fungsi dipanggil dari HTML - harus di window scope
+window.onTyping = function() {};
+window.scrollToBottom = function() {
+  const c = document.getElementById('chatMessages');
+  if (c) c.scrollTop = c.scrollHeight;
+};
+window.updateCharCount = function() {
+  const input = document.getElementById('chatInput');
+  const counter = document.getElementById('charCounter');
+  if (!input || !counter) return;
+  const len = input.value.length;
+  counter.textContent = len + ' / 3000';
+  counter.className = 'char-counter';
+  if (len > 2700) counter.classList.add('limit');
+  else if (len > 2000) counter.classList.add('warn');
 };
 </script>
 
