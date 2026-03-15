@@ -883,7 +883,6 @@ onAuthStateChanged(auth, user => {
     document.getElementById('navUser').textContent = currentName;
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('notLoggedIn').style.display = 'none';
-    initChat();
     initForum();
     updateOnline();
   } else {
@@ -966,16 +965,13 @@ window.sendMessage = function() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || !currentUser) return;
-  input.value = '';
   push(ref(db, 'community_chat'), {
     uid: currentUser.uid,
     name: currentName,
     text: text,
     ts: Date.now()
-  }).catch(err => {
-    input.value = text;
-    alert('Gagal kirim: ' + (err.message || err.code));
   });
+  input.value = '';
 };
 
 window.toggleReaction = function(msgId, emoji) {
@@ -1088,9 +1084,19 @@ window.switchTab = function(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'chat' && !_chatStarted && currentUser) {
-    _chatStarted = true;
-    initChat();
+  if (tab === 'chat' && !_chatStarted) {
+    if (currentUser) {
+      _chatStarted = true;
+      initChat();
+    } else {
+      const wait = setInterval(() => {
+        if (currentUser) {
+          clearInterval(wait);
+          _chatStarted = true;
+          initChat();
+        }
+      }, 300);
+    }
   }
 };
 </script>
