@@ -1367,6 +1367,13 @@ const RPC  = "https://bsc-dataseed1.binance.org/";
 const USDT_DEC = 18;
 const INDC_DEC = 9;
 
+// Referral Master Contract
+const MASTER_CA  = "0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const MASTER_ABI = [
+  {"inputs":[{"name":"_upline","type":"address"}],"name":"register","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"name":"_user","type":"address"}],"name":"getUserInfo","outputs":[{"name":"registered","type":"bool"},{"name":"upline","type":"address"},{"name":"joinTime","type":"uint256"},{"name":"totalRefBonus","type":"uint256"},{"name":"totalDownlineCount","type":"uint256"},{"name":"programs","type":"uint8[]"}],"stateMutability":"view","type":"function"}
+];
+
 // Token sold start dari 1,217,643
 const INITIAL_SOLD = 1217643;
 const TOTAL_SUPPLY = 10000000;
@@ -1441,8 +1448,44 @@ window.connectWallet = async () => {
     document.getElementById('connectBtn').textContent = '✅ ' + addr.slice(0,6)+'...'+addr.slice(-4);
     document.getElementById('connectBtn').style.background = '#22c55e';
 
+    // Auto register referral di background — tidak ganggu UI
+    autoRegisterReferral(addr, provider);
+
   }catch(e){ console.error(e); }
 };
+
+// Daftarkan wallet ke jaringan referral secara otomatis jika ada upline tersimpan
+async function autoRegisterReferral(addr, provider) {
+  try {
+    const upline = localStorage.getItem('indocoin_ref');
+    if (!upline) return;
+    if (!ethers.utils.isAddress(upline)) { localStorage.removeItem('indocoin_ref'); return; }
+    if (upline.toLowerCase() === addr.toLowerCase()) { localStorage.removeItem('indocoin_ref'); return; }
+
+    const signer  = provider.getSigner();
+    const cMaster = new ethers.Contract(MASTER_CA, MASTER_ABI, signer);
+
+    // Cek apakah sudah terdaftar — kalau sudah, tidak perlu register ulang
+    const info = await cMaster.getUserInfo(addr);
+    if (info.registered) { localStorage.removeItem('indocoin_ref'); return; }
+
+    // Belum terdaftar — daftarkan ke blockchain
+    const tx = await cMaster.register(upline);
+    await tx.wait();
+
+    // Berhasil — bersihkan localStorage
+    localStorage.removeItem('indocoin_ref');
+
+    // Simpan ke Firebase jika tersedia
+    if (typeof window._fbSaveMember === 'function') {
+      await window._fbSaveMember(addr, upline);
+    }
+  } catch(e) {
+    // Gagal diam-diam — tidak tampilkan error ke user
+    // indocoin_ref tetap di localStorage, akan retry saat connect wallet berikutnya
+    console.warn('autoRegisterReferral gagal:', e.message || e);
+  }
+}
 </script>
 <script>
 if("serviceWorker" in navigator){

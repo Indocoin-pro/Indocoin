@@ -877,46 +877,7 @@ body::before {
     </div>
   </div>
 
-  <!-- REGISTER CARD (tampil jika belum register) -->
-  <div class="register-card" id="registerCard">
-
-    <!-- HEADER -->
-    <div class="rc-header">
-      <div class="rc-icon">🛡️</div>
-      <div>
-        <div class="rc-title">DAFTAR JARINGAN REFERRAL</div>
-        <div class="rc-sub">INDOCOIN NETWORK · BSC BLOCKCHAIN</div>
-      </div>
-    </div>
-
-    <!-- STEP 1: Belum login Firebase -->
-    <div id="needLoginBox">
-      <p>Anda diundang bergabung ke jaringan Indocoin. Lengkapi pendaftaran dalam <strong>3 langkah mudah</strong> berikut.</p>
-      <div class="rc-steps">
-        <div class="rc-step">
-          <div class="rc-step-num">1</div>
-          <div class="rc-step-text"><strong>Buat Akun</strong> — Daftar dengan email untuk mengamankan identitas Anda</div>
-        </div>
-        <div class="rc-step">
-          <div class="rc-step-num">2</div>
-          <div class="rc-step-text"><strong>Kembali Otomatis</strong> — Sistem akan mengarahkan Anda kembali ke halaman ini</div>
-        </div>
-        <div class="rc-step">
-          <div class="rc-step-num">3</div>
-          <div class="rc-step-text"><strong>Connect Wallet</strong> — Daftarkan wallet ke blockchain & mulai earn</div>
-        </div>
-      </div>
-      <button class="btn-register" onclick="goRegisterEmail()">📝 MULAI PENDAFTARAN</button>
-    </div>
-
-    <!-- STEP 2: Sudah login Firebase -->
-    <div id="needBlockchainBox" style="display:none;">
-      <p>Akun Anda telah aktif. Langkah terakhir — daftarkan wallet ke jaringan referral blockchain.</p>
-      <input class="inp-ref" id="refInput" placeholder="Alamat wallet upline (pengundang Anda)" />
-      <button class="btn-register" onclick="doRegister()">🔗 DAFTARKAN KE BLOCKCHAIN</button>
-    </div>
-
-  </div>
+  <!-- Register card dihapus — pendaftaran blockchain dilakukan otomatis saat connect wallet di dashboard -->
 
   <!-- UPLINE INFO -->
   <div class="upline-card" id="uplineCard" style="display:none; margin:0 14px 0;">
@@ -1089,9 +1050,8 @@ async function loadAll() {
     userRegistered = info.registered;
 
     if (!userRegistered) {
-      document.getElementById('registerCard').style.display = 'block';
+      // Belum terdaftar — tampilkan data kosong, registrasi akan dilakukan otomatis di dashboard
       document.getElementById('uplineCard').style.display = 'none';
-      checkFirebaseAuth();
       document.getElementById('statTotal').textContent = '0';
       document.getElementById('statDirect').textContent = '0';
       document.getElementById('statBonus').textContent = '$0';
@@ -1100,8 +1060,6 @@ async function loadAll() {
       renderPrograms([]);
       return;
     }
-
-    document.getElementById('registerCard').style.display = 'none';
 
     // Upline
     if (info.upline !== '0x0000000000000000000000000000000000000000') {
@@ -1330,26 +1288,7 @@ async function renderPrograms(activePrograms) {
 // ═══════════════════════════════════════
 // REGISTER
 // ═══════════════════════════════════════
-async function doRegister() {
-  if (!myAddr) { toast('❌','Connect wallet dulu!'); return; }
-  const ref = document.getElementById('refInput').value.trim();
-  if (!ethers.utils.isAddress(ref)) { toast('❌','Alamat referrer tidak valid!'); return; }
-  if (ref.toLowerCase() === myAddr.toLowerCase()) { toast('❌','Tidak bisa refer diri sendiri!'); return; }
-
-  try {
-    toast('⏳','Mendaftar ke blockchain...');
-    const tx = await cMaster.register(ref);
-    await tx.wait();
-    // Simpan wallet ke Firebase untuk tracking matching profit
-    if (typeof window._fbSaveMember === 'function') {
-      await window._fbSaveMember(myAddr, ref);
-    }
-    toast('✅','Berhasil daftar referral!');
-    await loadAll();
-  } catch(e) {
-    toast('❌', e.code === 4001 ? 'Dibatalkan' : (e.reason || 'Gagal daftar'));
-  }
-}
+// doRegister dihapus — registrasi blockchain dilakukan otomatis di dashboard
 
 // ═══════════════════════════════════════
 // UTILS
@@ -1432,41 +1371,22 @@ function goToEarn() {
   window.location.href = 'earn.html';
 }
 
-// ═══════════════════════════════════════
-// FUNGSI ARAHKAN DAFTAR EMAIL
-// ═══════════════════════════════════════
-function goRegisterEmail() {
-  // Simpan ref dulu sebelum pergi ke landing
-  const ref = localStorage.getItem('indocoin_ref') || '';
-  // Bawa ref di URL agar landing bisa tangkap
-  const url = 'landing.html?ref=' + encodeURIComponent(ref) + '&from=referral&action=signup';
-  window.location.href = url;
-}
+// goRegisterEmail dihapus — tidak dipakai lagi
 
-// Cek apakah user sudah login Firebase
-function checkFirebaseAuth() {
-  // Cek via indocoin_loggedin flag yang di-set landing.html setelah login
-  const isLoggedIn = localStorage.getItem('indocoin_loggedin') === '1';
-  const registerCard = document.getElementById('registerCard');
-  if (!registerCard) return;
-
-  if (isLoggedIn) {
-    // Sudah login — tampilkan form blockchain register
-    document.getElementById('needLoginBox').style.display = 'none';
-    document.getElementById('needBlockchainBox').style.display = 'block';
-  } else {
-    // Belum login — tampilkan tombol daftar email
-    document.getElementById('needLoginBox').style.display = 'block';
-    document.getElementById('needBlockchainBox').style.display = 'none';
-  }
-}
+// checkFirebaseAuth dihapus — tidak dipakai lagi
 
 // Auto init jika wallet sudah connect
 window.addEventListener('load', () => {
   const urlRef = new URLSearchParams(location.search).get('ref');
-  if (urlRef) localStorage.setItem('indocoin_ref', urlRef);
+
+  // Jika ada ?ref di URL → simpan ke localStorage → redirect ke landing untuk daftar
+  if (urlRef && ethers.utils.isAddress(urlRef)) {
+    localStorage.setItem('indocoin_ref', urlRef);
+    window.location.href = 'landing.html?ref=' + encodeURIComponent(urlRef) + '&action=signup';
+    return;
+  }
+
   loadPlatformStats();
-  checkFirebaseAuth();
   if (window.ethereum && window.ethereum.selectedAddress) initWallet();
 });
 </script>
