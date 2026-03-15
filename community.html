@@ -525,11 +525,9 @@ function startChat() {
   }
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   _chatUnsubscribe = onValue(msgsRef, snap => {
-    const count = snap.exists() ? Object.keys(snap.val()||{}).length : 0;
-    showToast('🔄 Update: ' + count + ' pesan');
     renderChat(snap);
   }, err => {
-    showToast('❌ Read error: ' + (err.message||err.code));
+    showToast('❌ Gagal memuat chat: ' + (err.message||err.code));
   });
 }
 
@@ -547,11 +545,13 @@ function renderChat(snap) {
   const msgs = [];
   snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
 
-  area.innerHTML = '';
+  // Hapus debug toast — tidak perlu lagi
+  const html_parts = [];
   let lastDate = '';
   const emojis = ['👍','❤️','🔥','😂','🚀'];
 
   msgs.forEach(msg => {
+    try {
     const isMe = currentUser && msg.uid === currentUser.uid;
     const init = (msg.name||'U').slice(0,2).toUpperCase();
     const d = msg.ts ? new Date(msg.ts) : new Date();
@@ -559,7 +559,7 @@ function renderChat(snap) {
     const timeStr = d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
 
     if (dateStr !== lastDate) {
-      area.innerHTML += `<div class="date-divider">${dateStr}</div>`;
+      html_parts.push(`<div class="date-divider">${dateStr}</div>`);
       lastDate = dateStr;
     }
 
@@ -582,7 +582,7 @@ function renderChat(snap) {
       `<span class="emoji-opt" onclick="window.toggleReaction('${msg.id}','${e}')">${e}</span>`
     ).join('');
 
-    area.innerHTML += `
+    html_parts.push(`
       <div class="msg-row ${isMe?'me':''}" id="msg-${msg.id}">
         <div class="msg-avatar">${init}</div>
         <div class="msg-body">
@@ -597,8 +597,15 @@ function renderChat(snap) {
             ${canDelete ? `<button class="btn-del" onclick="window.deleteMsg('${msg.id}')" title="Hapus">🗑</button>` : ''}
           </div>
         </div>
-      </div>`;
+      </div>`);
+    } catch(msgErr) {
+      // Skip pesan yang bermasalah, lanjut ke pesan berikutnya
+      console.warn('Skip pesan error:', msgErr.message);
+    }
   });
+
+  // Render semua sekaligus — lebih aman dan cepat
+  area.innerHTML = html_parts.join('');
 
   if (wasAtBottom) area.scrollTop = area.scrollHeight;
 }
