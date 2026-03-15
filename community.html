@@ -1256,5 +1256,26 @@ if("serviceWorker" in navigator){
   });
 }
 </script>
+
+<div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#000;color:#0f0;font-size:10px;padding:8px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;"></div>
+
+<script>
+// Debug panel - tampilkan semua error dan log
+const debugPanel = document.getElementById('debugPanel');
+function debugLog(msg, color) {
+  debugPanel.style.display = 'block';
+  const line = document.createElement('div');
+  line.style.color = color || '#0f0';
+  line.textContent = new Date().toLocaleTimeString() + ' > ' + msg;
+  debugPanel.appendChild(line);
+  debugPanel.scrollTop = debugPanel.scrollHeight;
+}
+window.addEventListener('error', e => debugLog('ERROR: ' + e.message + ' (line ' + e.lineno + ')', '#f00'));
+window.addEventListener('unhandledrejection', e => debugLog('PROMISE ERROR: ' + (e.reason?.message || e.reason?.code || e.reason), '#f55'));
+const origError = console.error.bind(console);
+console.error = (...args) => { debugLog('console.error: ' + args.join(' '), '#f88'); origError(...args); };
+const origWarn = console.warn.bind(console);
+console.warn = (...args) => { debugLog('console.warn: ' + args.join(' '), '#ff0'); origWarn(...args); };
+</script>
 </body>
 </html>
