@@ -1222,7 +1222,7 @@ body {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, query, where, getDocs, limit, orderBy } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, query, where, getDocs, limit, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
@@ -1461,9 +1461,37 @@ window.connectWallet = async () => {
 // Daftarkan wallet ke jaringan referral secara otomatis jika ada upline tersimpan
 async function autoRegisterReferral(addr, provider) {
   try {
-    const upline = localStorage.getItem('indocoin_ref');
+    // Ambil upline dari localStorage dulu
+    let upline = localStorage.getItem('indocoin_ref');
+
+    // Jika localStorage kosong, coba ambil dari Firestore
+    // (kasus: user verifikasi email di tab baru, localStorage tidak terbawa)
+    if (!upline) {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.referralCode && ethers.utils.isAddress(data.referralCode)) {
+              upline = data.referralCode;
+              // Simpan balik ke localStorage untuk sesi berikutnya
+              localStorage.setItem('indocoin_ref', upline);
+            }
+          }
+        }
+      } catch(fe) {
+        console.warn('Gagal ambil ref dari Firestore:', fe.message);
+      }
+    }
+
+    // Tidak ada upline dari manapun — stop
     if (!upline) return;
+
+    // Validasi alamat upline
     if (!ethers.utils.isAddress(upline)) { localStorage.removeItem('indocoin_ref'); return; }
+
+    // Tidak bisa refer diri sendiri
     if (upline.toLowerCase() === addr.toLowerCase()) { localStorage.removeItem('indocoin_ref'); return; }
 
     const signer  = provider.getSigner();
@@ -1484,9 +1512,11 @@ async function autoRegisterReferral(addr, provider) {
     if (typeof window._fbSaveMember === 'function') {
       await window._fbSaveMember(addr, upline);
     }
+
+    console.log('✅ Referral registered:', addr, '->', upline);
   } catch(e) {
     // Gagal diam-diam — tidak tampilkan error ke user
-    // indocoin_ref tetap di localStorage, akan retry saat connect wallet berikutnya
+    // akan retry saat connect wallet berikutnya
     console.warn('autoRegisterReferral gagal:', e.message || e);
   }
 }
