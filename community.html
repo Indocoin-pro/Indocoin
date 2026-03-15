@@ -652,35 +652,48 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
+function renderMsgs(msgs) {
+  const box = document.getElementById('chatMessages');
+  if (!box) return;
+  const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
+  box.innerHTML = '';
+  if (!msgs || msgs.length === 0) {
+    box.innerHTML = '<div class="empty-state">Belum ada pesan. Mulai percakapan! 👋</div>';
+    return;
+  }
+  msgs.forEach(msg => {
+    const isMe = msg.uid === currentUser.uid;
+    const init = (msg.name || 'U').slice(0,2).toUpperCase();
+    const t = msg.ts ? new Date(msg.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
+    box.innerHTML += `
+      <div class="msg-bubble ${isMe?'me':''}">
+        <div class="msg-avatar">${init}</div>
+        <div class="msg-content">
+          <div class="msg-name">${esc(msg.name||'User')}</div>
+          <div class="msg-text">${esc(msg.text||'')}</div>
+          <div class="msg-time">${t}</div>
+        </div>
+      </div>`;
+  });
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
 function loadChat() {
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
+  // onValue untuk real-time
   onValue(msgsRef, snap => {
-    const box = document.getElementById('chatMessages');
-    if (!box) return;
-    if (!snap.exists()) {
-      box.innerHTML = '<div class="empty-state">Belum ada pesan. Mulai percakapan! 👋</div>';
-      return;
-    }
     const msgs = [];
-    snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-    const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
-    box.innerHTML = '';
-    msgs.forEach(msg => {
-      const isMe = msg.uid === currentUser.uid;
-      const init = (msg.name || 'U').slice(0,2).toUpperCase();
-      const t = msg.ts ? new Date(msg.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-      box.innerHTML += `
-        <div class="msg-bubble ${isMe?'me':''}">
-          <div class="msg-avatar">${init}</div>
-          <div class="msg-content">
-            <div class="msg-name">${esc(msg.name||'User')}</div>
-            <div class="msg-text">${esc(msg.text||'')}</div>
-            <div class="msg-time">${t}</div>
-          </div>
-        </div>`;
-    });
-    if (atBottom) box.scrollTop = box.scrollHeight;
+    if (snap.exists()) snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
+    renderMsgs(msgs);
   });
+  // Polling setiap 3 detik sebagai fallback
+  setInterval(() => {
+    get(msgsRef).then(snap => {
+      const msgs = [];
+      if (snap.exists()) snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
+      renderMsgs(msgs);
+    });
+  }, 3000);
 }
 
 window.sendMsg = function() {
