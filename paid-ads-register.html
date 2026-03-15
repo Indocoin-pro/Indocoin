@@ -633,7 +633,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       </div>
       <div class="summary-row">
         <div class="sum-label">Biaya Iklan / Tahun</div>
-        <div class="sum-val" id="sumBiaya">1.825.000 INDC</div>
+        <div class="sum-val" id="sumBiaya">Rp 1.825.000</div>
+        <div class="sum-val" style="font-size:11px;color:rgba(250,204,21,0.6)" id="sumBiayaINDC">± 38000 INDC</div>
       </div>
       <div class="summary-row" id="sumBannerRow" style="display:none">
         <div class="sum-label">Biaya Desain Banner</div>
@@ -646,11 +647,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="summary-total">
         <div>
           <div class="sum-total-label">TOTAL BAYAR</div>
-          <div class="sum-total-unit">dibayar dari saldo INDC</div>
+          <div class="sum-total-unit">estimasi pembayaran</div>
         </div>
         <div style="text-align:right">
-          <div class="sum-total-val" id="sumTotal">1.825.000</div>
-          <div class="sum-total-unit">INDC</div>
+          <div class="sum-total-val" id="sumTotalIDR">Rp 1.825.000</div>
+          <div class="sum-total-unit" id="sumTotalINDC">± 38000 INDC</div>
         </div>
       </div>
     </div>
@@ -728,7 +729,9 @@ for(let i=0;i<30;i++){
 }
 
 // ── HARGA ──
-const prices       = { umkm:1825000, ud:3650000, cv:10950000, pt:18250000 };
+const prices       = { umkm:1825000, ud:3650000, cv:10950000, pt:18250000 }; // dalam Rupiah
+const pricesIDR    = { umkm:1825000, ud:3650000, cv:10950000, pt:18250000 }; // Rupiah
+const pricesINDC   = { umkm:38000,   ud:76000,   cv:228000,   pt:380000   }; // ± INDC
 const designPrices = { umkm:10000,   ud:20000,   cv:30000,    pt:50000    };
 const INDC_USD     = 0.003;
 let selectedCat    = 'umkm';
@@ -762,24 +765,19 @@ function selectBanner(opt) {
 window.selectBanner = selectBanner;
 
 function updateSummary() {
-  const base   = prices[selectedCat];
-  const design = selectedBanner === 'design' ? designPrices[selectedCat] : 0;
-  const total  = base + design;
-  const usd    = (total * INDC_USD).toFixed(2);
-  document.getElementById('sumKategori').textContent = selectedCat.toUpperCase();
-  document.getElementById('sumBiaya').textContent    = base.toLocaleString('id-ID') + ' INDC';
+  const baseIDR    = pricesIDR[selectedCat];
+  const baseINDC   = pricesINDC[selectedCat];
+  const design     = selectedBanner === 'design' ? designPrices[selectedCat] : 0;
+  const totalIDR   = baseIDR + (design * 50); // design fee dalam INDC * Rp50
+  const totalINDC  = baseINDC + design;
+
+  document.getElementById('sumKategori').textContent  = selectedCat.toUpperCase();
+  document.getElementById('sumBiaya').textContent     = 'Rp ' + baseIDR.toLocaleString('id-ID');
+  document.getElementById('sumBiayaINDC').textContent = '± ' + baseINDC.toLocaleString('id-ID') + ' INDC';
   document.getElementById('sumBannerRow').style.display = design > 0 ? 'flex' : 'none';
-  document.getElementById('sumBanner').textContent   = design.toLocaleString('id-ID') + ' INDC';
-  document.getElementById('sumTotal').textContent    = total.toLocaleString('id-ID');
-  // Tampilkan estimasi USD
-  let usdEl = document.getElementById('sumUsd');
-  if (!usdEl) {
-    usdEl = document.createElement('div');
-    usdEl.id = 'sumUsd';
-    usdEl.style.cssText = 'text-align:right;font-family:Share Tech Mono,monospace;font-size:11px;color:#64748b;margin-top:4px;';
-    document.getElementById('sumTotal').parentElement.appendChild(usdEl);
-  }
-  usdEl.textContent = `≈ $${usd} USD`;
+  document.getElementById('sumBanner').textContent    = '+' + design.toLocaleString('id-ID') + ' INDC';
+  document.getElementById('sumTotalIDR').textContent  = 'Rp ' + totalIDR.toLocaleString('id-ID');
+  document.getElementById('sumTotalINDC').textContent = '± ' + totalINDC.toLocaleString('id-ID') + ' INDC';
 }
 
 // ── FOTO ──
