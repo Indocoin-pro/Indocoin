@@ -1237,6 +1237,12 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
+// Expose ke window agar bisa diakses dari script non-module
+window._auth = auth;
+window._db   = db;
+window._doc  = doc;
+window._getDoc = getDoc;
+
 onAuthStateChanged(auth, user => {
   if(user){
     document.getElementById('mainDashboard').style.display = 'block';
@@ -1468,9 +1474,9 @@ async function autoRegisterReferral(addr, provider) {
     // (kasus: user verifikasi email di tab baru, localStorage tidak terbawa)
     if (!upline) {
       try {
-        const user = auth.currentUser;
-        if (user) {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const user = window._auth && window._auth.currentUser;
+        if (user && window._db && window._doc && window._getDoc) {
+          const userDoc = await window._getDoc(window._doc(window._db, 'users', user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             if (data.referralCode && ethers.utils.isAddress(data.referralCode)) {
