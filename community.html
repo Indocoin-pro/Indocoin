@@ -1045,6 +1045,9 @@ function initChat() {
     let lastDate = '';
 
     msgs.forEach(msg => {
+      // Sembunyikan pesan yang sudah dihapus
+      if (msg.deleted) return;
+
       const d = msg.ts ? new Date(msg.ts) : new Date();
       const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
       if (dateStr !== lastDate) {
@@ -1175,14 +1178,37 @@ window.sendMessage = function() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || !currentUser) return;
+
+  // Filter kata kasar
+  if (mengandungKataKasar(text)) {
+    tampilkanPeringatan('⚠️ Pesan mengandung kata tidak sopan');
+    return;
+  }
+  // Filter frasa negatif
+  if (mengandungFrasaNegatif(text)) {
+    tampilkanPeringatan('⚠️ Pesan tidak sesuai aturan komunitas');
+    return;
+  }
+
+  input.value = '';
+  window.updateCharCount();
+
   push(ref(db, 'community_chat'), {
     uid: currentUser.uid,
     name: currentName,
     text: text,
     ts: Date.now()
+  }).then(() => {
+    // Berhasil — scroll ke bawah
+    const c = document.getElementById('chatMessages');
+    if (c) c.scrollTop = c.scrollHeight;
+  }).catch(err => {
+    // Gagal — kembalikan teks ke input agar tidak hilang
+    input.value = text;
+    window.updateCharCount();
+    console.error('Gagal kirim pesan:', err);
+    tampilkanPeringatan('⚠️ Gagal kirim pesan: ' + (err.code || err.message));
   });
-  input.value = '';
-  window.updateCharCount();
 };
 
 window.deleteMessage = function(msgId) {
