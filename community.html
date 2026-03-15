@@ -952,7 +952,7 @@ body {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import {
-  getDatabase, ref, push, onValue, set, get, serverTimestamp, query, limitToLast, orderByChild
+  getDatabase, ref, push, onValue, set, get, remove, serverTimestamp, query, limitToLast, orderByChild
 } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -969,29 +969,36 @@ const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getDatabase(app);
 
-const ADMIN_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc'.toLowerCase();
 let currentUser = null;
 let currentName = '';
 let isAdmin = false;
+let chatListenerActive = false;
+
+// ===== HELPER =====
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ===== AUTH =====
 onAuthStateChanged(auth, user => {
   if (user) {
     currentUser = user;
     currentName = user.displayName || user.email.split('@')[0];
-    // Cek apakah admin (email mengandung wallet owner)
-    // Admin = user yang emailnya terdaftar sebagai admin di Firebase
-    // atau displayName-nya 'Indocoin' / 'Admin'
     const uname = (user.displayName || '').toLowerCase();
     const uemail = (user.email || '').toLowerCase();
-    isAdmin = uname === 'indocoin' || uname === 'admin' || 
+    isAdmin = uname === 'indocoin' || uname === 'admin' ||
               uemail.includes('indocoin') || uemail.includes('admin@');
     document.getElementById('navUser').textContent = currentName;
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('notLoggedIn').style.display = 'none';
-    initForum();
     updateOnline();
+    initForum();
+    // Kalau tab chat sedang aktif, langsung init
+    if (!chatListenerActive) startChatListener();
   } else {
+    currentUser = null;
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'flex';
   }
@@ -999,6 +1006,17 @@ onAuthStateChanged(auth, user => {
 
 window.doSignOut = () => {
   signOut(auth).then(() => window.location.href = 'landing.html');
+};
+
+// ===== SWITCH TAB =====
+window.switchTab = function(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'chat' && currentUser && !chatListenerActive) {
+    startChatListener();
+  }
 };
 
 // ===== ONLINE COUNT =====
@@ -1012,162 +1030,71 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
-function initChat() {
+function startChatListener() {
   if (!currentUser) return;
+  chatListenerActive = true;
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
-    const container = document.getElementById('chatMessages');
-    if (!snap.exists()) { container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>'; return; }
+    renderChat(snap);
+  });
+}
 
-    const allMsgs = [];
-    snap.forEach(child => allMsgs.push({ id: child.key, ...child.val() }));
+function renderChat(snap) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
 
-    // Filter pesan yang dihapus
-    const msgs = allMsgs.filter(m => !m.deleted);
+  if (!snap || !snap.exists()) {
+    container.innerHTML = '<div style="text-align:center;color:#888;padding:30px 0;font-size:13px">Belum ada pesan. Mulai percakapan! 👋</div>';
+    return;
+  }
 
-    if (msgs.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:30px 0">Belum ada pesan. Mulai percakapan! 👋</div>';
-      return;
-    }
+  const allMsgs = [];
+  snap.forEach(child => allMsgs.push({ id: child.key, ...child.val() }));
+  const msgs = allMsgs.filter(m => !m.deleted);
 
-    container.innerHTML = '';
-    let lastDate = '';
+  if (msgs.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:#888;padding:30px 0;font-size:13px">Belum ada pesan. Mulai percakapan! 👋</div>';
+    return;
+  }
 
-    msgs.forEach(msg => {
-      const d = msg.ts ? new Date(msg.ts) : new Date();
-      const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
-      if (dateStr !== lastDate) {
-        container.innerHTML += `<div class="divider-date">${dateStr}</div>`;
-        lastDate = dateStr;
-      }
+  const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+  container.innerHTML = '';
 
-      const isMe = msg.uid === currentUser.uid;
-      const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
-      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  msgs.forEach(msg => {
+    const isMe = currentUser && msg.uid === currentUser.uid;
+    const initials = (msg.name || 'U').slice(0, 2).toUpperCase();
+    const d = msg.ts ? new Date(msg.ts) : new Date();
+    const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const canDelete = (isMe || isAdmin);
 
-      // Reactions
-      const reactions = msg.reactions || {};
-      const emojis = ['👍','❤️','🔥','😂','🚀'];
-      let reactionsHTML = emojis.map(e => {
-        const count = (reactions[encodeEmoji(e)] || []).length;
-        const hasReacted = count > 0 && (reactions[encodeEmoji(e)] || []).includes(currentUser.uid);
-        return count > 0
-          ? `<button class="reaction-btn ${hasReacted ? 'active' : ''}" onclick="toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
-          : '';
-      }).join('');
-
-      let emojiPickerHTML = `<div class="emoji-row">${emojis.map(e => `<span class="emoji-pick" onclick="toggleReaction('${msg.id}','${e}')">${e}</span>`).join('')}</div>`;
-
-      // Tombol hapus: tampil untuk pemilik pesan atau admin
-      const canDelete = (isMe || isAdmin) && !msg.deleted;
-      const deleteBtn = canDelete 
-        ? `<button class="btn-delete-msg" onclick="deleteMessage('${msg.id}')" title="${isAdmin && !isMe ? 'Admin: Hapus pesan' : 'Hapus pesan saya'}">🗑️</button>`
-        : '';
-
-      container.innerHTML += `
-        <div class="msg-bubble ${isMe ? 'me' : ''}" id="msg-${msg.id}">
-          <div class="msg-avatar">${initials}</div>
-          <div class="msg-content">
-            <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
-            <div class="msg-text" style="${msg.deleted ? 'color:var(--muted);font-style:italic;font-size:11px;' : ''}">${escapeHtml(msg.text)}</div>
-            ${emojiPickerHTML}
-            <div class="msg-meta">
-              <span class="msg-time">${timeStr}</span>
-              <div class="msg-reactions">${reactionsHTML}</div>
-              ${deleteBtn}
-            </div>
+    container.innerHTML += `
+      <div class="msg-bubble ${isMe ? 'me' : ''}" id="msg-${msg.id}">
+        <div class="msg-avatar">${initials}</div>
+        <div class="msg-content">
+          <div class="msg-name">${escapeHtml(msg.name || 'User')}</div>
+          <div class="msg-text">${escapeHtml(msg.text || '')}</div>
+          <div class="msg-meta">
+            <span class="msg-time">${timeStr}</span>
+            ${canDelete ? `<button class="btn-delete-msg" onclick="window.deleteMessage('${msg.id}')" title="Hapus">🗑️</button>` : ''}
           </div>
-        </div>`;
-    });
-    container.scrollTop = container.scrollHeight;
+        </div>
+      </div>`;
   });
+
+  if (wasAtBottom) container.scrollTop = container.scrollHeight;
 }
 
-// ===== FILTER KATA KASAR & KALIMAT NEGATIF =====
-const KATA_KASAR = [
-  // Bahasa Indonesia
-  "anjing","anjir","anying","bangsat","brengsek","bajingan","keparat",
-  "babi","celeng","goblok","goblog","tolol","idiot","bodoh banget",
-  "tai","tahi","kontol","memek","pepek","jembut","ngentot","entot",
-  "kampret","asu","jancok","jancuk","cok","bacot","pecun","lonte",
-  "pelacur","sundal","bangke","sialan","bejad","bejat","setan",
-  "iblis","bedebah","kunyuk","monyet","dungu","sempak","geblek",
-  // Bahasa Inggris
-  "fuck","shit","asshole","bitch","bastard","damn","crap","dick",
-  "pussy","cock","nigger","stupid","idiot","moron","retard"
-];
-
-const FRASA_NEGATIF = [
-  // Pesimis terhadap platform
-  "tidak suka platform","gak suka platform","ga suka platform",
-  "platform ini jelek","platform jelek","platform buruk",
-  "platform ini sampah","platform sampah","platform gagal",
-  "tidak percaya platform","gak percaya platform",
-  "platform tidak bagus","platform tidak berguna",
-  "menyesal bergabung","menyesal ikut","menyesal daftar",
-  "buang waktu","buang uang","sia-sia ikut","percuma ikut",
-  "tidak ada gunanya","gak ada gunanya","ga ada gunanya",
-  // Tuduhan penipuan
-  "ini penipuan","ini tipu","ini scam","ini bohong",
-  "indocoin scam","indocoin tipu","indocoin bohong",
-  "indocoin penipuan","indocoin palsu","indocoin gagal",
-  "indocoin tidak amanah","indocoin tidak jujur",
-  "jangan percaya indocoin","jangan ikut indocoin",
-  "hindari indocoin","indocoin rugi","indocoin bangkrut",
-  "project scam","project gagal","project bohong",
-  "rug pull","rugpull","exit scam",
-  // Hasutan & provokasi
-  "jangan ikut","jangan bergabung","jangan daftar",
-  "keluar saja","cabut saja","mundur saja",
-  "lebih baik keluar","lebih baik mundur",
-  "ajak keluar","provokasi","hasut",
-  "jebakan","jebak","tipu daya",
-  "korban penipuan","tertipu","ditipu",
-  // Merendahkan komunitas
-  "komunitas jelek","komunitas buruk","komunitas sampah",
-  "member bodoh","member tolol","member goblok",
-  "admin bohong","admin tipu","admin scam",
-  "tidak transparan","tidak amanah","tidak bertanggung jawab",
-  // Pesimis harga/investasi
-  "harga tidak akan naik","harga tidak naik",
-  "token tidak ada nilai","token tidak berguna",
-  "investasi rugi","investasi gagal","investasi bodoh",
-  "uang hilang","uang hangus","uang melayang",
-  "jual semua","dijual semua",
-];
-
-function mengandungKataKasar(teks) {
-  const teksBersih = teks.toLowerCase().replace(/\s+/g, '');
-  return KATA_KASAR.some(kata => {
-    const kataBersih = kata.replace(/\s+/g, '');
-    return teksBersih.includes(kataBersih);
-  });
-}
-
-function mengandungFrasaNegatif(teks) {
-  const teksLower = teks.toLowerCase();
-  return FRASA_NEGATIF.some(frasa => teksLower.includes(frasa.toLowerCase()));
-}
-
-function tampilkanPeringatan(pesan) {
-  const input = document.getElementById('chatInput');
-  input.style.border = '1.5px solid #ef4444';
-  input.placeholder = pesan;
-  input.value = '';
-  setTimeout(() => {
-    input.style.border = '';
-    input.placeholder = 'Tulis pesan...';
-  }, 3000);
-}
-
+// ===== SEND MESSAGE =====
 window.sendMessage = function() {
   const input = document.getElementById('chatInput');
+  if (!input) return;
   const text = input.value.trim();
-  if (!text || !currentUser) return;
-  if (mengandungKataKasar(text)) { tampilkanPeringatan('Pesan mengandung kata tidak sopan'); return; }
-  if (mengandungFrasaNegatif(text)) { tampilkanPeringatan('Pesan tidak sesuai aturan komunitas'); return; }
+  if (!text) return;
+  if (!currentUser) { alert('Silakan login terlebih dahulu'); return; }
+
   input.value = '';
-  window.updateCharCount();
+  if (window.updateCharCount) window.updateCharCount();
+
   push(ref(db, 'community_chat'), {
     uid: currentUser.uid,
     name: currentName,
@@ -1175,55 +1102,20 @@ window.sendMessage = function() {
     ts: Date.now()
   }).catch(err => {
     input.value = text;
-    window.updateCharCount();
-    tampilkanPeringatan('Gagal kirim: ' + (err.code || err.message));
+    alert('Gagal kirim pesan: ' + (err.code || err.message));
   });
 };
 
+// ===== DELETE MESSAGE =====
 window.deleteMessage = function(msgId) {
   if (!currentUser) return;
+  if (!confirm('Hapus pesan ini?')) return;
   const msgRef = ref(db, 'community_chat/' + msgId);
-  // Cek apakah pemilik atau admin
   get(msgRef).then(snap => {
     if (!snap.exists()) return;
     const msg = snap.val();
-    const isOwner = msg.uid === currentUser.uid;
-    if (!isOwner && !isAdmin) return;
-    const konfirmasi = isAdmin && !isOwner 
-      ? '⚠️ Admin: Hapus pesan dari ' + (msg.name || 'user') + ' ini?' 
-      : 'Hapus pesan kamu ini?';
-    if (!confirm(konfirmasi)) return;
-    // Tandai sebagai dihapus (tidak hapus permanen agar riwayat tetap ada)
-    set(msgRef, {
-      ...msg,
-      text: isAdmin && !isOwner ? '[Pesan dihapus oleh Admin]' : '[Pesan dihapus]',
-      deleted: true,
-      deletedAt: Date.now(),
-      deletedBy: isAdmin && !isOwner ? 'admin' : 'self'
-    });
-  });
-};
-
-function updateCharCount() {
-  const input = document.getElementById('chatInput');
-  const counter = document.getElementById('charCounter');
-  if (!input || !counter) return;
-  const len = input.value.length;
-  counter.textContent = len + ' / 1000';
-  counter.className = 'char-counter';
-  if (len > 900) counter.classList.add('limit');
-  else if (len > 700) counter.classList.add('warn');
-}
-
-window.toggleReaction = function(msgId, emoji) {
-  const key = 'community_chat/' + msgId + '/reactions/' + encodeEmoji(emoji);
-  const rRef = ref(db, key);
-  get(rRef).then(snap => {
-    const arr = snap.exists() ? snap.val() : [];
-    const idx = arr.indexOf(currentUser.uid);
-    if (idx === -1) arr.push(currentUser.uid);
-    else arr.splice(idx, 1);
-    set(rRef, arr);
+    if (msg.uid !== currentUser.uid && !isAdmin) return;
+    set(msgRef, { ...msg, deleted: true, deletedAt: Date.now() });
   });
 };
 
@@ -1232,108 +1124,100 @@ function initForum() {
   const forumsRef = query(ref(db, 'community_forum'), orderByChild('ts'), limitToLast(30));
   onValue(forumsRef, snap => {
     const container = document.getElementById('forumList');
-    if (!snap.exists()) {
-      container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:40px 0">Belum ada thread. Jadilah yang pertama berdiskusi! 🧵</div>';
-      return;
-    }
+    if (!container) return;
+    if (!snap.exists()) { container.innerHTML = '<div style="text-align:center;color:#888;padding:20px">Belum ada thread.</div>'; return; }
     const threads = [];
     snap.forEach(child => threads.push({ id: child.key, ...child.val() }));
     threads.reverse();
-
-    container.innerHTML = threads.map(t => {
-      const d = new Date(t.ts || Date.now());
-      const timeAgo = getTimeAgo(d);
-      const replies = t.replies || 0;
-      const views = t.views || Math.floor(Math.random() * 200 + 10);
-      const tagClass = replies > 10 ? 'hot' : (Date.now() - d.getTime() < 86400000 ? 'new' : '');
-      const tagLabel = tagClass === 'hot' ? '🔥 HOT' : tagClass === 'new' ? '✨ NEW' : t.category || 'Diskusi';
-
-      return `
-        <div class="thread-card" onclick="openThread('${t.id}')">
-          <div class="thread-top">
-            <div class="thread-tag ${tagClass}">${tagLabel}</div>
-          </div>
-          <div class="thread-title">${escapeHtml(t.title)}</div>
-          <div class="thread-preview">${escapeHtml(t.body)}</div>
-          <div class="thread-footer">
-            <span class="thread-stat">💬 ${replies}</span>
-            <span class="thread-stat">👁️ ${views}</span>
-            <span class="thread-stat">⏰ ${timeAgo}</span>
-            <span class="thread-author">${escapeHtml(t.name || 'User')}</span>
-          </div>
+    container.innerHTML = '';
+    threads.forEach(t => {
+      const d = t.ts ? new Date(t.ts) : new Date();
+      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+      container.innerHTML += `
+        <div class="thread-item" onclick="window.openThread('${t.id}')">
+          <div class="thread-title">${escapeHtml(t.title || 'Tanpa Judul')}</div>
+          <div class="thread-meta">${escapeHtml(t.author || 'User')} · ${dateStr} ${timeStr}</div>
         </div>`;
-    }).join('');
+    });
   });
 }
 
-window.openModal = function() {
-  document.getElementById('threadModal').classList.add('open');
+window.openThread = function(id) {
+  const modal = document.getElementById('threadModal');
+  if (modal) { modal.style.display = 'flex'; modal.dataset.threadId = id; }
+  const commentsRef = query(ref(db, 'community_forum/' + id + '/comments'), orderByChild('ts'), limitToLast(50));
+  onValue(commentsRef, snap => {
+    const container = document.getElementById('threadComments');
+    if (!container) return;
+    if (!snap.exists()) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px">Belum ada komentar.</div>'; return; }
+    const comments = [];
+    snap.forEach(c => comments.push({ id: c.key, ...c.val() }));
+    container.innerHTML = '';
+    comments.forEach(c => {
+      const d = c.ts ? new Date(c.ts) : new Date();
+      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      container.innerHTML += `
+        <div class="comment-item">
+          <div class="comment-author">${escapeHtml(c.author || 'User')}</div>
+          <div class="comment-text">${escapeHtml(c.text || '')}</div>
+          <div class="comment-time">${timeStr}</div>
+        </div>`;
+    });
+  });
 };
-window.closeModal = function() {
-  document.getElementById('threadModal').classList.remove('open');
+
+window.closeThread = function() {
+  const modal = document.getElementById('threadModal');
+  if (modal) modal.style.display = 'none';
 };
-window.postThread = function() {
-  const title = document.getElementById('threadTitle').value.trim();
-  const body  = document.getElementById('threadBody').value.trim();
-  const cat   = document.getElementById('threadCategory').value;
-  if (!title || !body) { alert('Judul dan isi tidak boleh kosong!'); return; }
+
+window.submitComment = function() {
+  const modal = document.getElementById('threadModal');
+  const input = document.getElementById('commentInput');
+  if (!modal || !input || !currentUser) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const threadId = modal.dataset.threadId;
+  push(ref(db, 'community_forum/' + threadId + '/comments'), {
+    uid: currentUser.uid,
+    author: currentName,
+    text: text,
+    ts: Date.now()
+  });
+  input.value = '';
+};
+
+window.submitThread = function() {
+  const titleEl = document.getElementById('threadTitle');
+  const bodyEl = document.getElementById('threadBody');
+  if (!titleEl || !bodyEl || !currentUser) return;
+  const title = titleEl.value.trim();
+  const body = bodyEl.value.trim();
+  if (!title || !body) return;
   push(ref(db, 'community_forum'), {
     uid: currentUser.uid,
-    name: currentName,
-    title, body,
-    category: cat,
-    ts: Date.now(),
-    replies: 0
-  }).then(() => {
-    document.getElementById('threadTitle').value = '';
-    document.getElementById('threadBody').value = '';
-    closeModal();
+    author: currentName,
+    title: title,
+    body: body,
+    ts: Date.now()
   });
-};
-window.openThread = function(id) {
-  // Update view count
-  const vRef = ref(db, 'community_forum/' + id + '/views');
-  get(vRef).then(snap => set(vRef, (snap.val() || 0) + 1));
-  alert('Detail thread akan tersedia segera! Fitur reply coming soon 🚀');
+  titleEl.value = '';
+  bodyEl.value = '';
+  const modal = document.getElementById('newThreadModal');
+  if (modal) modal.style.display = 'none';
 };
 
-// ===== HELPERS =====
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function encodeEmoji(e) {
-  return [...e].map(c => c.codePointAt(0).toString(16)).join('_');
-}
-function getTimeAgo(d) {
-  const diff = Date.now() - d.getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'baru saja';
-  if (m < 60) return m + ' menit lalu';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + ' jam lalu';
-  return Math.floor(h / 24) + ' hari lalu';
-}
-
-// ===== SWITCH TAB (di dalam module agar bisa akses currentUser & initChat) =====
-let _chatReady = false;
-window.switchTab = function(tab) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('sec-' + tab).classList.add('active');
-  document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'chat' && !_chatReady) {
-    _chatReady = true;
-    if (currentUser) {
-      initChat();
-    } else {
-      const wait = setInterval(() => {
-        if (currentUser) { clearInterval(wait); initChat(); }
-      }, 200);
-    }
-  }
+window.openNewThread = function() {
+  const modal = document.getElementById('newThreadModal');
+  if (modal) modal.style.display = 'flex';
 };
+
+window.closeNewThread = function() {
+  const modal = document.getElementById('newThreadModal');
+  if (modal) modal.style.display = 'none';
+};
+
 </script>
 
 <script>
