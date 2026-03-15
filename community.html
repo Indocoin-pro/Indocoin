@@ -991,6 +991,10 @@ onAuthStateChanged(auth, user => {
     document.getElementById('notLoggedIn').style.display = 'none';
     initForum();
     updateOnline();
+    // Jika tab chat sudah aktif saat login, langsung init
+    if (document.getElementById('sec-chat') && document.getElementById('sec-chat').classList.contains('active')) {
+      if (!_chatReady) { _chatReady = true; initChat(); }
+    }
   } else {
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'flex';
@@ -1310,9 +1314,19 @@ window.switchTab = function(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'chat' && !_chatReady && currentUser) {
-    _chatReady = true;
-    initChat();
+  if (tab === 'chat' && !_chatReady) {
+    if (currentUser) {
+      _chatReady = true;
+      initChat();
+    } else {
+      // Auth belum siap, tunggu sebentar lalu coba lagi
+      const waitForAuth = setInterval(() => {
+        if (currentUser) {
+          clearInterval(waitForAuth);
+          if (!_chatReady) { _chatReady = true; initChat(); }
+        }
+      }, 300);
+    }
   }
 };
 
