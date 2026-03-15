@@ -989,9 +989,10 @@ onAuthStateChanged(auth, user => {
     document.getElementById('notLoggedIn').style.display = 'none';
     initForum();
     updateOnline();
-    // Jika user klik tab chat sebelum auth selesai, init sekarang
-    if (_chatReady) { initChat(); }
+    // Selalu init chat saat login — satu kali saja karena _chatInited menjaga
+    initChat();
   } else {
+    currentUser = null;
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'flex';
   }
@@ -1012,27 +1013,22 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
-// ===== SWITCH TAB (dipindah ke module agar akses currentUser & initChat langsung) =====
-let _chatReady = false;
+let _chatInited = false;
+let _chatUnsubscribe = null;
+
+// ===== SWITCH TAB =====
 window.switchTab = function(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('sec-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'chat' && !_chatReady) {
-    _chatReady = true;
-    if (currentUser) {
-      initChat();
-    } else {
-      // Tunggu auth selesai
-      const wait = setInterval(() => {
-        if (currentUser) { clearInterval(wait); initChat(); }
-      }, 200);
-    }
-  }
 };
 
 function initChat() {
+  // Jangan init ulang kalau sudah aktif
+  if (_chatInited) return;
+  if (!currentUser) return;
+  _chatInited = true;
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
   onValue(msgsRef, snap => {
     const container = document.getElementById('chatMessages');
