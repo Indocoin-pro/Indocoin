@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Panel Penjual</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;--dark4:#162032;
+  --text:#e2e8f0;--muted:#64748b;--green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+  --glow:0 0 20px #facc1566;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);height:min(85vw,85vh);object-fit:contain;opacity:0.03;filter:blur(2px);}
+.layout{position:relative;z-index:1;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(10,15,30,0.95);backdrop-filter:blur(16px);border-bottom:1px solid rgba(250,204,21,0.15);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-back{width:34px;height:34px;border-radius:10px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.3s;text-decoration:none;color:var(--text);}
+.nav-back:hover{background:rgba(250,204,21,0.15);}
+.nav-title-wrap{display:flex;flex-direction:column;line-height:1.2;}
+.nav-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;}
+.status-badge{display:flex;align-items:center;gap:5px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-size:9px;font-family:'Orbitron',sans-serif;padding:4px 10px;border-radius:20px;letter-spacing:1px;}
+.s-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+.main{padding:16px 16px 100px;max-width:480px;margin:0 auto;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;animation:fadeUp 0.4s ease both;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;padding:8px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(250,204,21,0.1);border-radius:20px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.3s;white-space:nowrap;}
+.tab:hover,.tab.active{background:rgba(250,204,21,0.1);border-color:var(--gold);color:var(--gold);}
+.tab-badge{display:inline-block;background:var(--red);color:#fff;font-size:8px;padding:1px 5px;border-radius:10px;margin-left:4px;font-family:'Orbitron',sans-serif;}
+
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* SELLER HEADER */
+.seller-header{background:linear-gradient(135deg,#0d2010,#071a30,#0d1a0d);border:1px solid rgba(250,204,21,0.2);border-radius:18px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;animation:fadeUp 0.4s ease both;}
+.sh-scan{position:absolute;top:0;left:-10%;width:50px;height:100%;background:linear-gradient(90deg,transparent,rgba(250,204,21,0.07),transparent);animation:scanH 5s linear infinite;}
+@keyframes scanH{0%{left:-10%}100%{left:110%}}
+.sh-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.sh-avatar{width:52px;height:52px;border-radius:12px;background:rgba(250,204,21,0.1);border:2px solid rgba(250,204,21,0.3);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;box-shadow:0 0 20px rgba(250,204,21,0.2);}
+.sh-info{flex:1;}
+.sh-name{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--gold);}
+.sh-cat{font-size:12px;color:var(--muted);margin-top:2px;}
+.sh-stats{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.sh-stat{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:8px 6px;text-align:center;}
+.sh-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.sh-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:0.5px;margin-top:2px;text-transform:uppercase;}
+
+/* EXPIRE ALERT */
+.expire-alert{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;animation:fadeUp 0.45s ease both;animation-delay:0.05s;}
+.ea-icon{font-size:20px;flex-shrink:0;}
+.ea-text{flex:1;font-size:13px;color:#fbbf24;line-height:1.5;}
+.ea-text b{color:var(--gold);}
+.btn-renew{flex-shrink:0;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;padding:7px 12px;cursor:pointer;letter-spacing:1px;}
+
+/* INCOME CHART */
+.chart-card{background:var(--dark4);border:1px solid rgba(250,204,21,0.1);border-radius:16px;padding:16px;margin-bottom:14px;animation:fadeUp 0.5s ease both;animation-delay:0.08s;}
+.chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.chart-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:1px;}
+.chart-total{text-align:right;}
+.chart-total-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--gold);}
+.chart-total-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.chart-wrap{position:relative;height:160px;}
+
+/* ORDER CARDS */
+.order-filter{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.order-filter::-webkit-scrollbar{display:none;}
+.of-btn{flex-shrink:0;padding:6px 12px;background:rgba(0,0,0,0.25);border:1px solid rgba(250,204,21,0.1);border-radius:16px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all 0.3s;white-space:nowrap;}
+.of-btn:hover,.of-btn.active{background:rgba(250,204,21,0.1);border-color:var(--gold);color:var(--gold);}
+.order-card{background:var(--dark4);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;margin-bottom:10px;transition:all 0.3s;}
+.order-card.pending{border-left:3px solid var(--gold);}
+.order-card.approved{border-left:3px solid var(--green);}
+.order-card.cancelled{border-left:3px solid var(--red);opacity:0.6;}
+.oc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.oc-id{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;}
+.oc-status{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:1px;}
+.status-pending{background:rgba(250,204,21,0.15);color:var(--gold);}
+.status-approved{background:rgba(34,197,94,0.15);color:var(--green);}
+.status-cancelled{background:rgba(239,68,68,0.15);color:var(--red);}
+.oc-prod{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.oc-buyer{font-size:12px;color:var(--muted);}
+.oc-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);}
+.oc-price{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold);}
+.oc-usd{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.oc-actions{display:flex;gap:6px;}
+.btn-approve{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;padding:7px 12px;border-radius:8px;cursor:pointer;transition:all 0.3s;letter-spacing:1px;}
+.btn-approve:hover{background:rgba(34,197,94,0.2);}
+.btn-reject{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;font-family:'Orbitron',sans-serif;font-size:9px;padding:7px 10px;border-radius:8px;cursor:pointer;transition:all 0.3s;}
+.btn-reject:hover{background:rgba(239,68,68,0.2);}
+.oc-timer{font-family:'Share Tech Mono',monospace;font-size:9px;color:#f59e0b;display:flex;align-items:center;gap:4px;}
+
+/* PRODUCTS MANAGE */
+.prod-manage-card{background:var(--dark4);border:1px solid rgba(250,204,21,0.1);border-radius:14px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.pm-icon{font-size:24px;flex-shrink:0;}
+.pm-info{flex:1;}
+.pm-name{font-size:14px;font-weight:700;color:var(--text);}
+.pm-price{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold);margin-top:2px;}
+.pm-usd{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.pm-sold{font-size:11px;color:var(--muted);margin-top:2px;}
+.pm-sold b{color:var(--green);}
+.pm-actions{display:flex;gap:6px;flex-shrink:0;}
+.btn-edit{width:32px;height:32px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:8px;color:#60a5fa;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;}
+.btn-edit:hover{background:rgba(59,130,246,0.2);}
+.btn-del{width:32px;height:32px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#f87171;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;}
+.btn-del:hover{background:rgba(239,68,68,0.2);}
+.btn-add-prod{width:100%;padding:12px;background:rgba(250,204,21,0.06);border:1.5px dashed rgba(250,204,21,0.25);border-radius:12px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-size:14px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;}
+.btn-add-prod:hover{background:rgba(250,204,21,0.1);border-color:var(--gold);}
+
+/* BANNER DASHBOARD SECTION */
+.banner-dash-card{background:linear-gradient(135deg,#0d2557,#0a1628);border:1px solid rgba(250,204,21,0.2);border-radius:16px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;}
+.bdc-scan{position:absolute;top:0;left:-10%;width:50px;height:100%;background:linear-gradient(90deg,transparent,rgba(250,204,21,0.06),transparent);animation:scanH 5s linear infinite;}
+.bdc-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.bdc-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(250,204,21,0.3),transparent);}
+.bdc-status-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.bdc-status{display:flex;align-items:center;gap:6px;font-size:13px;}
+.bdc-stat-inactive{color:var(--muted);}
+.bdc-pricing{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.bdc-price-item{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 10px;}
+.bdc-cat{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;}
+.bdc-price{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);margin-top:3px;}
+.bdc-per{font-size:10px;color:var(--muted);}
+.btn-pasang-banner{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:2px;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 20px rgba(250,204,21,0.25);}
+.btn-pasang-banner:hover{transform:translateY(-1px);box-shadow:0 6px 30px rgba(250,204,21,0.45);}
+
+/* SECTION TITLE */
+.sec-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(250,204,21,0.3),transparent);}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);border-top:1px solid rgba(250,204,21,0.15);display:flex;justify-content:space-around;align-items:center;padding:8px 0 12px;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;border-radius:10px;transition:all 0.2s;text-decoration:none;}
+.bn-item:hover,.bn-item.active{background:rgba(250,204,21,0.08);}
+.bn-icon{font-size:20px;line-height:1;}
+.bn-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.bn-item.active .bn-label{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+
+<div class="layout">
+  <nav class="topnav">
+    <div class="nav-left">
+      <a href="paid-ads.html" class="nav-back">←</a>
+      <div class="nav-title-wrap">
+        <span class="nav-title">TOKO SAYA</span>
+        <span class="nav-sub">📢 Panel Penjual</span>
+      </div>
+    </div>
+    <div class="status-badge"><span class="s-dot"></span>AKTIF</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- SELLER HEADER -->
+    <div class="seller-header">
+      <div class="sh-scan"></div>
+      <div class="sh-top">
+        <div class="sh-avatar">🏵️</div>
+        <div class="sh-info">
+          <div class="sh-name">Haidar Batik</div>
+          <div class="sh-cat">UMKM · Pekalongan · ✓ Terverifikasi</div>
+        </div>
+      </div>
+      <div class="sh-stats">
+        <div class="sh-stat"><div class="sh-val">1.24K</div><div class="sh-lbl">Terjual</div></div>
+        <div class="sh-stat"><div class="sh-val" style="color:var(--green)">4.9★</div><div class="sh-lbl">Rating</div></div>
+        <div class="sh-stat"><div class="sh-val">320</div><div class="sh-lbl">Ulasan</div></div>
+        <div class="sh-stat"><div class="sh-val" style="color:var(--blue)">247</div><div class="sh-lbl">Hari Aktif</div></div>
+      </div>
+    </div>
+
+    <!-- EXPIRE ALERT -->
+    <div class="expire-alert">
+      <div class="ea-icon">⚠️</div>
+      <div class="ea-text">Iklan berakhir dalam <b>7 hari</b> (22 Mar 2026). Perpanjang sekarang agar toko tetap aktif!</div>
+      <button class="btn-renew" onclick="renewAd()">PERPANJANG</button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('overview')">📊 Overview</div>
+      <div class="tab" onclick="switchTab('products')">📦 Produk</div>
+      <div class="tab" onclick="switchTab('banner')">📢 Banner</div>
+      <div class="tab" onclick="switchTab('history')">📋 Riwayat</div>
+    </div>
+
+    <!-- TAB: OVERVIEW -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📈 PENDAPATAN BULANAN</div>
+          <div class="chart-total">
+            <div class="chart-total-val">124.5K</div>
+            <div class="chart-total-lbl">INDC · BULAN INI</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="incomeChart"></canvas>
+        </div>
+      </div>
+
+      <div class="sec-title">📊 STATISTIK TOKO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div style="background:var(--dark4);border:1px solid rgba(250,204,21,0.1);border-radius:14px;padding:14px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">TOTAL PENDAPATAN</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--gold);">847.2K</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">INDC · all time</div>
+          <div style="font-size:11px;color:var(--green);margin-top:4px;">≈ $2,541 USD</div>
+        </div>
+        <div style="background:var(--dark4);border:1px solid rgba(34,197,94,0.15);border-radius:14px;padding:14px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">ORDER BULAN INI</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--green);">48</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">order · March</div>
+          <div style="font-size:11px;color:var(--green);margin-top:4px;">↑ +12% vs bulan lalu</div>
+        </div>
+        <div style="background:var(--dark4);border:1px solid rgba(59,130,246,0.15);border-radius:14px;padding:14px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">PENDING ORDER</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:#60a5fa;">3</div>
+          <div style="font-size:11px;color:#f59e0b;margin-top:6px;">⏳ Perlu approve segera!</div>
+        </div>
+        <div style="background:var(--dark4);border:1px solid rgba(250,204,21,0.1);border-radius:14px;padding:14px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">KONVERSI RATE</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--gold);">68%</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">dari pengunjung toko</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PRODUCTS -->
+    <div class="tab-content" id="tab-products">
+      <div class="sec-title">📦 KELOLA PRODUK</div>
+      <div id="prodManageList"></div>
+      <button class="btn-add-prod" onclick="addProduct()">＋ Tambah Produk Baru</button>
+    </div>
+
+    <!-- TAB: BANNER DASHBOARD -->
+    <div class="tab-content" id="tab-banner">
+      <div class="banner-dash-card">
+        <div class="bdc-scan"></div>
+        <div class="bdc-title">📢 BANNER HALAMAN DASHBOARD</div>
+        <div class="bdc-status-row">
+          <div class="bdc-status bdc-stat-inactive">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;"></span>
+            Tidak Aktif
+          </div>
+          <div style="font-size:11px;color:var(--muted);font-family:'Share Tech Mono',monospace;">SLOT: 7/20 terisi</div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6;">Tampilkan banner tokomu di halaman dashboard semua pengguna Indocoin. Slideshow otomatis bergantian dengan max 20 pengiklan.</div>
+        <div class="bdc-pricing">
+          <div class="bdc-price-item"><div class="bdc-cat">UMKM</div><div class="bdc-price">150.000</div><div class="bdc-per">INDC / bulan</div></div>
+          <div class="bdc-price-item"><div class="bdc-cat">UD</div><div class="bdc-price">300.000</div><div class="bdc-per">INDC / bulan</div></div>
+          <div class="bdc-price-item"><div class="bdc-cat">CV</div><div class="bdc-price">500.000</div><div class="bdc-per">INDC / bulan</div></div>
+          <div class="bdc-price-item"><div class="bdc-cat">PT</div><div class="bdc-price">750.000</div><div class="bdc-per">INDC / bulan</div></div>
+        </div>
+        <div style="background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.1);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
+          💡 Kategori kamu (UMKM): <b style="color:var(--gold);">150.000 INDC / bulan</b> · ≈ $<b style="color:var(--gold);">450</b>. Dibayar dari saldo INDC. Slot penuh → daftar tunggu otomatis.
+        </div>
+        <button class="btn-pasang-banner" onclick="pasangBanner()">📢 DAFTAR BANNER DASHBOARD</button>
+      </div>
+
+      <!-- Waitlist info -->
+      <div style="background:var(--dark4);border:1px solid rgba(59,130,246,0.15);border-radius:14px;padding:14px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:10px;color:#60a5fa;letter-spacing:1px;margin-bottom:10px;">📋 DAFTAR TUNGGU BANNER</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;">Kamu belum ada di daftar tunggu. Daftar sekarang untuk mendapat slot banner dashboard saat ada yang kosong.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:'Share Tech Mono',monospace;">SLOT TERSEDIA: 13 dari 20</div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORY -->
+    <div class="tab-content" id="tab-history">
+      <div class="sec-title">📋 RIWAYAT TRANSAKSI</div>
+      <div id="historyList"></div>
+    </div>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="dashboard.html" class="bn-item"><div class="bn-icon">🏠</div><div class="bn-label">Home</div></a>
+    <a href="earn.html" class="bn-item"><div class="bn-icon">💰</div><div class="bn-label">Earn</div></a>
+    <a href="paid-ads.html" class="bn-item active"><div class="bn-icon">📢</div><div class="bn-label">Iklan</div></a>
+    <a href="referral.html" class="bn-item"><div class="bn-icon">👥</div><div class="bn-label">Referral</div></a>
+    <a href="community.html" class="bn-item"><div class="bn-icon">🌐</div><div class="bn-label">Community</div></a>
+  </nav>
+</div>
+
+<script>
+const INDC_PRICE = 0.003;
+
+// ── TABS ──
+function switchTab(name) {
+  const names = ['overview','products','banner','history'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="paid-ads-contract.js"></script>
+<script type="module">
+import { initializeApp }                                                    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged }                                      from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain:"indocoin-network.firebaseapp.com",
+  projectId:"indocoin-network",
+  storageBucket:"indocoin-network.firebasestorage.app",
+  messagingSenderId:"742922450154",
+  appId:"1:742922450154:web:97e0847e85bfe3e9f9d393"
+};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const INDC_PRICE = 0.003;
+let currentUser  = null;
+let adData       = null;
+
+// ── AUTH & LOAD DATA ──
+onAuthStateChanged(auth, async user => {
+  if (!user) { window.location.href = 'landing.html'; return; }
+  currentUser = user;
+  await loadAdData();
+});
+
+async function loadAdData() {
+  const snap = await getDoc(doc(db, 'paidAds', currentUser.uid));
+  if (!snap.exists() || !snap.data().active) {
+    // Belum daftar → redirect
+    window.location.href = 'paid-ads-register.html';
+    return;
+  }
+  adData = snap.data();
+  renderSellerHeader();
+  renderExpireAlert();
+  renderProducts();
+  renderHistory();
+  initChart();
+  checkContractStatus();
+}
+
+function renderSellerHeader() {
+  document.querySelector('.sh-name').textContent = adData.namaUsaha || '—';
+  document.querySelector('.sh-cat').textContent  =
+    `${adData.kategori} · ${adData.kota} · ${adData.suspended ? '⚠️ SUSPENDED' : '✓ Terverifikasi'}`;
+
+  const expiry   = adData.expiresAt?.toDate ? adData.expiresAt.toDate() : new Date(adData.expiresAt);
+  const daysLeft = Math.ceil((expiry - Date.now()) / 86_400_000);
+  document.querySelector('.status-badge').innerHTML =
+    `<span class="s-dot"></span>${daysLeft > 0 ? 'AKTIF' : 'EXPIRED'}`;
+  document.querySelector('.status-badge').style.background =
+    daysLeft > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
+}
+
+function renderExpireAlert() {
+  const expiry   = adData.expiresAt?.toDate ? adData.expiresAt.toDate() : new Date(adData.expiresAt);
+  const daysLeft = Math.ceil((expiry - Date.now()) / 86_400_000);
+  const alertEl  = document.querySelector('.expire-alert');
+  if (daysLeft <= 7 && daysLeft > 0) {
+    alertEl.style.display = 'flex';
+    alertEl.querySelector('.ea-text').innerHTML =
+      `Iklan berakhir dalam <b>${daysLeft} hari</b> (${expiry.toLocaleDateString('id-ID')}). Perpanjang sekarang!`;
+  } else if (daysLeft <= 0) {
+    alertEl.style.background = 'rgba(239,68,68,0.08)';
+    alertEl.style.borderColor = 'rgba(239,68,68,0.3)';
+    alertEl.querySelector('.ea-text').innerHTML =
+      `<b style="color:#f87171">Iklan sudah berakhir!</b> Perpanjang sekarang untuk kembali aktif.`;
+    alertEl.style.display = 'flex';
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+// ── TABS ──
+function switchTab(name) {
+  const names = ['overview','products','banner','history'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+window.switchTab = switchTab;
+
+// ── PRODUCTS ──
+function renderProducts() {
+  if (!adData?.produk?.length) {
+    document.getElementById('prodManageList').innerHTML =
+      `<div style="text-align:center;padding:20px;color:var(--muted);">Belum ada produk</div>`;
+    return;
+  }
+  document.getElementById('prodManageList').innerHTML = adData.produk.map((p,i) => `
+    <div class="prod-manage-card">
+      <div class="pm-icon">📦</div>
+      <div class="pm-info">
+        <div class="pm-name">${p.nama}</div>
+        ${p.showPrice
+          ? `<div class="pm-price">${(p.harga||0).toLocaleString('id-ID')} INDC</div>
+             <div class="pm-usd">≈ $${((p.harga||0)*INDC_PRICE).toFixed(2)}</div>`
+          : `<div class="pm-usd" style="font-style:italic;">Harga disembunyikan</div>`}
+      </div>
+      <div class="pm-actions">
+        <button class="btn-edit" onclick="editProduct(${i})" title="Edit">✏️</button>
+        <button class="btn-del"  onclick="delProduct(${i})"  title="Hapus">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function delProduct(idx) {
+  if (!confirm('Hapus produk ini?')) return;
+  const prod = adData.produk[idx];
+  await updateDoc(doc(db,'paidAds',currentUser.uid), { produk: arrayRemove(prod) });
+  await updateDoc(doc(db,'paidAdsPublic',currentUser.uid), { produk: arrayRemove(prod) });
+  adData.produk.splice(idx,1);
+  renderProducts();
+}
+window.delProduct = delProduct;
+
+function editProduct(idx) {
+  const p     = adData.produk[idx];
+  const nama  = prompt('Nama produk:', p.nama);
+  if (!nama) return;
+  const harga = parseFloat(prompt('Harga INDC (0 jika sembunyikan):', p.harga)) || 0;
+  const show  = confirm('Tampilkan harga di katalog?');
+  adData.produk[idx] = { ...p, nama, harga, showPrice: show };
+  updateDoc(doc(db,'paidAds',currentUser.uid), { produk: adData.produk });
+  updateDoc(doc(db,'paidAdsPublic',currentUser.uid), { produk: adData.produk });
+  renderProducts();
+}
+window.editProduct = editProduct;
+
+function addProduct() {
+  const nama  = prompt('Nama produk:');
+  if (!nama?.trim()) return;
+  const harga = parseFloat(prompt('Harga INDC (0 jika sembunyikan):')) || 0;
+  const show  = confirm('Tampilkan harga di katalog?');
+  const prod  = { nama: nama.trim(), harga, showPrice: show };
+  adData.produk = adData.produk || [];
+  adData.produk.push(prod);
+  updateDoc(doc(db,'paidAds',currentUser.uid), { produk: arrayUnion(prod) });
+  updateDoc(doc(db,'paidAdsPublic',currentUser.uid), { produk: arrayUnion(prod) });
+  renderProducts();
+}
+window.addProduct = addProduct;
+
+// ── HISTORY ──
+function renderHistory() {
+  const history = adData.history || [];
+  if (!history.length) {
+    document.getElementById('historyList').innerHTML =
+      `<div style="text-align:center;padding:30px;color:var(--muted);">Belum ada riwayat</div>`;
+    return;
+  }
+  document.getElementById('historyList').innerHTML = history.map(h => `
+    <div style="background:var(--dark4);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">${h.tgl}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-top:3px;">${h.keterangan}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);">-${(h.jumlah||0).toLocaleString('id-ID')}</div>
+        <div style="font-size:10px;color:var(--muted);">INDC</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── CHART (placeholder data sampai ada data real) ──
+function initChart() {
+  const ctx = document.getElementById('incomeChart').getContext('2d');
+  new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['Sep','Okt','Nov','Des','Jan','Feb','Mar'],
+      datasets:[{ label:'Kunjungan', data:[12,28,22,45,38,52,61],
+        backgroundColor:'rgba(250,204,21,0.2)', borderColor:'#facc15',
+        borderWidth:2, borderRadius:6, borderSkipped:false }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        title:{display:true,text:'Kunjungan Profil Toko',color:'#64748b',font:{size:10}} },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b',font:{size:10}}}
+      }
+    }
+  });
+}
+
+// ── CEK STATUS CONTRACT ──
+async function checkContractStatus() {
+  try {
+    if (!window.ethereum) return;
+    await PaidAdsContract.init();
+    const info = await PaidAdsContract.getMyAdInfo();
+    if (info) {
+      // Update daysLeft dari contract (lebih akurat)
+      const badge = document.querySelector('.sh-stat:last-child .sh-val');
+      if (badge) badge.textContent = info.daysLeft > 0 ? info.daysLeft : 0;
+    }
+  } catch(e) { console.warn('Contract check skipped:', e.message); }
+}
+
+// ── PERPANJANG IKLAN ──
+async function renewAd() {
+  if (!currentUser) return;
+  if (!confirm(`Perpanjang iklan 1 tahun?\nBiaya: ${new Intl.NumberFormat('id-ID').format(
+    {UMKM:1825000,UD:3650000,CV:10950000,PT:18250000}[adData.kategori]
+  )} INDC`)) return;
+
+  try {
+    await PaidAdsContract.init();
+    const bal = await PaidAdsContract.getBalance();
+    const fee = {UMKM:1825000,UD:3650000,CV:10950000,PT:18250000}[adData.kategori];
+    if (bal < fee) { alert(`❌ Saldo tidak cukup! Butuh ${fee.toLocaleString('id-ID')} INDC`); return; }
+
+    document.querySelector('.btn-renew').textContent = '⏳ Proses...';
+    await PaidAdsContract.renewAd(adData.kategori.toLowerCase());
+
+    // Update Firestore
+    const newExpiry = new Date(Date.now() + 365*24*60*60*1000);
+    await updateDoc(doc(db,'paidAds',currentUser.uid), {
+      expiresAt: newExpiry, active: true,
+      history: arrayUnion({ keterangan:'Perpanjang Iklan 1 Tahun', jumlah: fee, tgl: new Date().toLocaleDateString('id-ID') })
+    });
+    await updateDoc(doc(db,'paidAdsPublic',currentUser.uid), { expiresAt: newExpiry, active: true });
+
+    alert('✅ Iklan berhasil diperpanjang 1 tahun!');
+    adData.expiresAt = newExpiry;
+    renderExpireAlert();
+    document.querySelector('.btn-renew').textContent = 'PERPANJANG';
+  } catch(e) {
+    document.querySelector('.btn-renew').textContent = 'PERPANJANG';
+    alert('❌ Gagal: ' + (e.message || 'Coba lagi'));
+  }
+}
+window.renewAd = renewAd;
+
+// ── DAFTAR BANNER DASHBOARD ──
+async function pasangBanner() {
+  if (!currentUser || !adData) return;
+  const fees = {UMKM:150000,UD:300000,CV:500000,PT:750000};
+  const fee  = fees[adData.kategori];
+  if (!confirm(`Daftar Banner Dashboard?\nBiaya: ${fee.toLocaleString('id-ID')} INDC/bulan\n≈ $${(fee*0.003).toFixed(2)} USD`)) return;
+
+  try {
+    await PaidAdsContract.init();
+    const bal = await PaidAdsContract.getBalance();
+    if (bal < fee) { alert(`❌ Saldo tidak cukup! Butuh ${fee.toLocaleString('id-ID')} INDC`); return; }
+
+    document.querySelector('.btn-pasang-banner').textContent = '⏳ Proses...';
+    const result = await PaidAdsContract.registerBanner(adData.kategori.toLowerCase());
+
+    if (result.status === 'waitlist') {
+      const pos = await PaidAdsContract.getMyWaitlistPosition();
+      await updateDoc(doc(db,'paidAds',currentUser.uid), { bannerStatus:'waitlist', bannerWaitlistPos: pos });
+      alert(`📋 Slot penuh! Kamu masuk daftar tunggu posisi #${pos}.\nKamu akan dapat notifikasi saat slot tersedia.`);
+    } else {
+      const endTime = new Date(Date.now() + 30*24*60*60*1000);
+      await updateDoc(doc(db,'paidAds',currentUser.uid), {
+        bannerStatus:'active', bannerEndTime: endTime,
+        history: arrayUnion({ keterangan:'Banner Dashboard 30 Hari', jumlah: fee, tgl: new Date().toLocaleDateString('id-ID') })
+      });
+      alert('✅ Banner dashboard aktif selama 30 hari!');
+    }
+    document.querySelector('.btn-pasang-banner').textContent = '📢 DAFTAR BANNER DASHBOARD';
+  } catch(e) {
+    document.querySelector('.btn-pasang-banner').textContent = '📢 DAFTAR BANNER DASHBOARD';
+    alert('❌ Gagal: ' + (e.message || 'Coba lagi'));
+  }
+}
+window.pasangBanner = pasangBanner;
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      reg.addEventListener("updatefound", () => {
+        const newSW = reg.installing;
+        newSW.addEventListener("statechange", () => {
+          if(newSW.state === "installed" && navigator.serviceWorker.controller){
+            newSW.postMessage("skipWaiting");
+            window.location.reload();
+          }
+        });
+      });
+    }).catch(e => console.warn("SW:", e));
+  });
+}
+</script>
+</body>
+</html>

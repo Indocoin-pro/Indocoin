@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Daftar Paid Ad Space</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="paid-ads-contract.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;--dark4:#162032;
+  --text:#e2e8f0;--muted:#64748b;--green:#22c55e;--blue:#3b82f6;--red:#ef4444;
+  --glow:0 0 20px #facc1566;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* BG */
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);height:min(85vw,85vh);object-fit:contain;opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1;transform:scale(1)}to{opacity:0.7;transform:scale(1.4)}}
+
+.layout{position:relative;z-index:1;min-height:100vh;}
+
+/* TOP NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(10,15,30,0.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(250,204,21,0.15);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-back{width:34px;height:34px;border-radius:10px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.3s;}
+.nav-back:hover{background:rgba(250,204,21,0.15);}
+.nav-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-badge{background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);color:var(--gold);font-size:9px;font-family:'Share Tech Mono',monospace;padding:3px 9px;border-radius:20px;letter-spacing:1px;}
+
+.main{padding:20px 16px 100px;max-width:480px;margin:0 auto;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* HERO BANNER */
+.hero-card{
+  background:linear-gradient(135deg,#0d2010,#071a30,#0d1a0d);
+  border:1px solid rgba(250,204,21,0.25);
+  border-radius:20px;padding:22px 20px;margin-bottom:16px;
+  position:relative;overflow:hidden;
+  animation:fadeUp 0.4s ease both;
+}
+.hero-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle,rgba(250,204,21,0.12),transparent);
+  animation:heroBgPulse 4s ease-in-out infinite alternate;
+}
+.hero-card::after{
+  content:'';position:absolute;bottom:-30px;left:-30px;
+  width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(34,197,94,0.1),transparent);
+}
+@keyframes heroBgPulse{0%{opacity:0.5;transform:scale(0.9)}100%{opacity:1;transform:scale(1.1)}}
+.hero-scan{
+  position:absolute;top:0;left:-10%;
+  width:50px;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(250,204,21,0.07),transparent);
+  animation:scanH 5s linear infinite;
+}
+@keyframes scanH{0%{left:-10%}100%{left:110%}}
+.hero-top{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.hero-icon{
+  width:54px;height:54px;border-radius:14px;
+  background:rgba(250,204,21,0.1);
+  border:1.5px solid rgba(250,204,21,0.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;flex-shrink:0;
+  box-shadow:0 0 20px rgba(250,204,21,0.2);
+  animation:iconPulse 2.5s ease-in-out infinite alternate;
+}
+@keyframes iconPulse{0%{box-shadow:0 0 10px rgba(250,204,21,0.2)}100%{box-shadow:0 0 30px rgba(250,204,21,0.5)}}
+.hero-info{flex:1;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--gold);letter-spacing:1px;}
+.hero-sub{font-size:12px;color:var(--muted);margin-top:3px;letter-spacing:0.5px;}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.hstat{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px 8px;text-align:center;}
+.hstat-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.hstat-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px;text-transform:uppercase;}
+
+/* PRICING CARDS */
+.price-section{margin-bottom:16px;animation:fadeUp 0.45s ease both;animation-delay:0.05s;}
+.section-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(250,204,21,0.3),transparent);}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.price-card{
+  background:var(--dark4);
+  border:1.5px solid rgba(250,204,21,0.1);
+  border-radius:14px;padding:14px 12px;
+  cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;
+}
+.price-card:hover{border-color:rgba(250,204,21,0.35);transform:translateY(-2px);}
+.price-card.selected{
+  border-color:var(--gold);
+  background:rgba(250,204,21,0.06);
+  box-shadow:0 0 20px rgba(250,204,21,0.15);
+}
+.price-card.recommended{border-color:rgba(34,197,94,0.4);}
+.price-card.recommended.selected{border-color:var(--green);box-shadow:0 0 20px rgba(34,197,94,0.2);}
+.rec-badge{
+  position:absolute;top:8px;right:8px;
+  background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);
+  color:var(--green);font-size:8px;font-family:'Orbitron',sans-serif;
+  padding:2px 6px;border-radius:6px;letter-spacing:1px;
+}
+.price-check{
+  width:20px;height:20px;border-radius:50%;
+  border:1.5px solid rgba(250,204,21,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;margin-bottom:8px;transition:all 0.3s;
+}
+.price-card.selected .price-check{background:var(--gold);border-color:var(--gold);color:#000;}
+.price-card.recommended .price-check{border-color:rgba(34,197,94,0.4);}
+.price-card.recommended.selected .price-check{background:var(--green);border-color:var(--green);}
+.price-type{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--text);letter-spacing:1px;}
+.price-val{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--gold);margin-top:5px;}
+.price-per{font-size:10px;color:var(--muted);letter-spacing:1px;}
+.price-feat{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6;}
+
+/* SYARAT CARD */
+.syarat-card{
+  background:linear-gradient(135deg,#0d1f35,#0a1628);
+  border:1px solid rgba(59,130,246,0.2);
+  border-radius:16px;padding:16px;margin-bottom:16px;
+  animation:fadeUp 0.5s ease both;animation-delay:0.1s;
+}
+.syarat-title{font-family:'Orbitron',sans-serif;font-size:10px;color:#60a5fa;letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.syarat-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(59,130,246,0.3),transparent);}
+.syarat-list{display:flex;flex-direction:column;gap:8px;}
+.syarat-item{display:flex;gap:10px;align-items:flex-start;}
+.syarat-dot{width:20px;height:20px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:1px;}
+.syarat-text{font-size:13px;color:var(--text);line-height:1.5;}
+.syarat-text b{color:var(--gold);}
+.syarat-note{
+  margin-top:12px;padding:10px 12px;
+  background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);
+  border-radius:10px;font-size:11px;color:var(--muted);line-height:1.6;
+  display:flex;gap:8px;
+}
+
+/* FORM */
+.form-card{
+  background:var(--dark4);border:1px solid rgba(250,204,21,0.12);
+  border-radius:18px;padding:18px 16px;margin-bottom:14px;
+  animation:fadeUp 0.55s ease both;animation-delay:0.15s;
+}
+.form-section-title{
+  font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);
+  letter-spacing:2px;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.form-section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(250,204,21,0.3),transparent);}
+.form-group{margin-bottom:14px;}
+.form-label{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+.form-label .req{color:var(--red);font-size:12px;}
+.form-label .opt{color:var(--muted);font-size:9px;opacity:0.7;}
+.form-input{
+  width:100%;padding:13px 15px;
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(250,204,21,0.15);
+  border-radius:12px;color:var(--text);
+  font-family:'Rajdhani',sans-serif;font-size:15px;
+  outline:none;transition:all 0.3s;
+}
+.form-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(250,204,21,0.06);}
+.form-input::placeholder{color:var(--muted);font-size:14px;}
+.form-input.hidden-field{display:none;}
+.form-input-icon{position:relative;}
+.form-input-icon .form-input{padding-left:40px;}
+.form-input-icon .f-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-hint{font-size:11px;color:var(--muted);margin-top:5px;letter-spacing:0.3px;}
+
+/* FILE UPLOAD */
+.upload-zone{
+  border:1.5px dashed rgba(250,204,21,0.25);
+  border-radius:12px;padding:18px;
+  text-align:center;cursor:pointer;transition:all 0.3s;
+  background:rgba(250,204,21,0.02);
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:rgba(250,204,21,0.05);}
+.upload-icon{font-size:28px;margin-bottom:8px;}
+.upload-text{font-size:13px;color:var(--muted);}
+.upload-text b{color:var(--gold);}
+.upload-sub{font-size:11px;color:var(--muted);opacity:0.6;margin-top:4px;}
+.upload-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.preview-thumb{
+  width:70px;height:70px;border-radius:10px;
+  background:rgba(0,0,0,0.4);border:1px solid rgba(250,204,21,0.2);
+  overflow:hidden;position:relative;
+}
+.preview-thumb img{width:100%;height:100%;object-fit:cover;}
+.preview-remove{
+  position:absolute;top:3px;right:3px;
+  width:18px;height:18px;border-radius:50%;
+  background:rgba(239,68,68,0.8);color:#fff;
+  font-size:10px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.upload-count{font-size:11px;color:var(--muted);margin-top:6px;text-align:center;}
+
+/* BANNER OPTION */
+.banner-opts{display:flex;flex-direction:column;gap:10px;}
+.banner-opt{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(0,0,0,0.25);border:1.5px solid rgba(250,204,21,0.1);
+  border-radius:12px;padding:13px 14px;cursor:pointer;transition:all 0.3s;
+}
+.banner-opt:hover{border-color:rgba(250,204,21,0.3);}
+.banner-opt.selected{border-color:var(--gold);background:rgba(250,204,21,0.05);}
+.bopt-radio{
+  width:18px;height:18px;border-radius:50%;
+  border:1.5px solid rgba(250,204,21,0.3);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.3s;
+}
+.banner-opt.selected .bopt-radio{background:var(--gold);border-color:var(--gold);}
+.bopt-radio::after{content:'';width:7px;height:7px;border-radius:50%;background:#000;opacity:0;transition:opacity 0.2s;}
+.banner-opt.selected .bopt-radio::after{opacity:1;}
+.bopt-info{flex:1;}
+.bopt-title{font-size:14px;font-weight:600;color:var(--text);}
+.bopt-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+.bopt-price{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold);font-weight:700;white-space:nowrap;}
+
+/* PRODUK LIST */
+.produk-list{display:flex;flex-direction:column;gap:8px;}
+.produk-row{display:flex;gap:8px;align-items:center;}
+.produk-row .form-input{flex:1;}
+.produk-row .form-input.price-input{width:130px;flex:none;}
+.btn-add-produk{
+  width:100%;padding:11px;margin-top:4px;
+  background:rgba(250,204,21,0.06);
+  border:1.5px dashed rgba(250,204,21,0.25);
+  border-radius:10px;color:var(--gold);
+  font-family:'Rajdhani',sans-serif;font-size:14px;
+  cursor:pointer;transition:all 0.3s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn-add-produk:hover{background:rgba(250,204,21,0.1);border-color:var(--gold);}
+.btn-del-produk{
+  width:32px;height:32px;flex-shrink:0;
+  background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+  border-radius:8px;color:#f87171;font-size:14px;
+  cursor:pointer;transition:all 0.3s;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-del-produk:hover{background:rgba(239,68,68,0.2);}
+
+/* RINGKASAN BIAYA */
+.summary-card{
+  background:linear-gradient(135deg,#0d2010,#071a30);
+  border:1px solid rgba(250,204,21,0.3);
+  border-radius:18px;padding:18px;margin-bottom:16px;
+  animation:fadeUp 0.6s ease both;animation-delay:0.2s;
+  position:relative;overflow:hidden;
+}
+.summary-card::before{content:'';position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(250,204,21,0.1),transparent);}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+.summary-row:last-child{border-bottom:none;}
+.sum-label{font-size:13px;color:var(--muted);}
+.sum-val{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text);}
+.sum-val.gold{color:var(--gold);font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;}
+.summary-total{
+  margin-top:12px;padding:14px;
+  background:rgba(250,204,21,0.06);
+  border:1px solid rgba(250,204,21,0.2);
+  border-radius:12px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.sum-total-label{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:1px;}
+.sum-total-val{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--gold);text-shadow:var(--glow);}
+.sum-total-unit{font-size:11px;color:var(--muted);margin-top:2px;text-align:right;}
+
+/* SLOT INFO */
+.slot-info{
+  background:rgba(34,197,94,0.07);
+  border:1px solid rgba(34,197,94,0.25);
+  border-radius:12px;padding:12px 14px;margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+  animation:fadeUp 0.6s ease both;animation-delay:0.22s;
+}
+.slot-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.slot-text{font-size:13px;color:var(--text);}
+.slot-text b{color:var(--green);}
+
+/* SUBMIT BUTTON */
+.btn-submit{
+  width:100%;padding:17px;
+  background:linear-gradient(135deg,var(--gold),var(--gold3));
+  color:#000;border:none;border-radius:14px;
+  font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+  letter-spacing:2px;cursor:pointer;transition:all 0.3s;
+  box-shadow:0 4px 25px rgba(250,204,21,0.3);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  animation:fadeUp 0.65s ease both;animation-delay:0.25s;
+}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 6px 35px rgba(250,204,21,0.5);}
+.btn-submit:active{transform:translateY(0);}
+
+/* LOADING OVERLAY */
+.loading-overlay{
+  position:fixed;inset:0;z-index:999;
+  background:rgba(10,15,30,0.92);backdrop-filter:blur(10px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+.loading-overlay.show{display:flex;}
+.loading-spinner{
+  width:60px;height:60px;border-radius:50%;
+  border:3px solid rgba(250,204,21,0.2);
+  border-top-color:var(--gold);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold);letter-spacing:2px;}
+
+/* SUCCESS OVERLAY */
+.success-overlay{
+  position:fixed;inset:0;z-index:999;
+  background:rgba(10,15,30,0.95);backdrop-filter:blur(10px);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  padding:30px;text-align:center;
+}
+.success-overlay.show{display:flex;}
+.success-icon{font-size:60px;animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275) both;}
+@keyframes popIn{0%{transform:scale(0)}100%{transform:scale(1)}}
+.success-title{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--gold);}
+.success-sub{font-size:15px;color:var(--muted);max-width:300px;line-height:1.6;}
+.success-id{
+  background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);
+  border-radius:12px;padding:12px 20px;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--gold);
+  letter-spacing:2px;
+}
+.btn-success{
+  padding:14px 32px;
+  background:linear-gradient(135deg,var(--gold),var(--gold3));
+  color:#000;border:none;border-radius:12px;
+  font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;
+  letter-spacing:1px;cursor:pointer;margin-top:6px;
+}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);border-top:1px solid rgba(250,204,21,0.15);display:flex;justify-content:space-around;align-items:center;padding:8px 0 12px;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;border-radius:10px;transition:all 0.2s;text-decoration:none;}
+.bn-item:hover,.bn-item.active{background:rgba(250,204,21,0.08);}
+.bn-icon{font-size:20px;line-height:1;}
+.bn-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.bn-item.active .bn-label{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">MEMPROSES PENDAFTARAN...</div>
+</div>
+
+<!-- Success -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-icon">🎉</div>
+  <div class="success-title">IKLAN AKTIF!</div>
+  <div class="success-sub">Pendaftaran berhasil. Iklan kamu sudah aktif di platform Indocoin dan siap dilihat oleh ribuan komunitas.</div>
+  <div class="success-id" id="successId">ID: #ADS-000000</div>
+  <button class="btn-success" onclick="window.location.href='paid-ads.html'">LIHAT IKLAN SAYA →</button>
+</div>
+
+<div class="layout">
+  <!-- TOP NAV -->
+  <nav class="topnav">
+    <div class="nav-left">
+      <div class="nav-back" onclick="history.back()">←</div>
+      <span class="nav-title">PAID AD SPACE</span>
+    </div>
+    <div class="nav-badge">📢 DAFTAR IKLAN</div>
+  </nav>
+
+  <div class="main">
+
+    <!-- HERO -->
+    <div class="hero-card">
+      <div class="hero-scan"></div>
+      <div class="hero-top">
+        <div class="hero-icon">📢</div>
+        <div class="hero-info">
+          <div class="hero-title">PASANG IKLAN KAMU</div>
+          <div class="hero-sub">Jangkau ribuan komunitas Indocoin · Bayar dengan INDC</div>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="hstat-val" id="slotAktif">87</div><div class="hstat-lbl">Slot Aktif</div></div>
+        <div class="hstat"><div class="hstat-val" style="color:var(--red)" id="slotSisa">13</div><div class="hstat-lbl">Sisa Slot</div></div>
+        <div class="hstat"><div class="hstat-val" style="color:var(--green)">100</div><div class="hstat-lbl">Max Slot</div></div>
+      </div>
+    </div>
+
+    <!-- SLOT INFO -->
+    <div class="slot-info">
+      <div class="slot-dot"></div>
+      <div class="slot-text"><b>13 slot tersedia</b> saat ini. Daftar sekarang sebelum penuh!</div>
+    </div>
+
+    <!-- PILIH KATEGORI -->
+    <div class="price-section">
+      <div class="section-title">① PILIH KATEGORI USAHA</div>
+      <div class="price-grid">
+        <div class="price-card recommended" id="cat-umkm" onclick="selectCategory('umkm')">
+          <div class="rec-badge">POPULER</div>
+          <div class="price-check" id="chk-umkm">✓</div>
+          <div class="price-type">UMKM</div>
+          <div class="price-val">1.825.000 INDC</div>
+          <div class="price-per">per tahun</div>
+          <div class="price-feat">• KTP + Banner + Foto produk<br>• Tanpa NIB & izin usaha</div>
+        </div>
+        <div class="price-card" id="cat-ud" onclick="selectCategory('ud')">
+          <div class="price-check" id="chk-ud"></div>
+          <div class="price-type">UD</div>
+          <div class="price-val">3.650.000 INDC</div>
+          <div class="price-per">per tahun</div>
+          <div class="price-feat">• Semua dokumen lengkap<br>• NIB + Izin Usaha</div>
+        </div>
+        <div class="price-card" id="cat-cv" onclick="selectCategory('cv')">
+          <div class="price-check" id="chk-cv"></div>
+          <div class="price-type">CV</div>
+          <div class="price-val">10.950.000 INDC</div>
+          <div class="price-per">per tahun</div>
+          <div class="price-feat">• Semua dokumen lengkap<br>• Akses fitur premium</div>
+        </div>
+        <div class="price-card" id="cat-pt" onclick="selectCategory('pt')">
+          <div class="price-check" id="chk-pt"></div>
+          <div class="price-type">PT</div>
+          <div class="price-val">18.250.000 INDC</div>
+          <div class="price-per">per tahun</div>
+          <div class="price-feat">• Semua dokumen lengkap<br>• Badge PT Verified</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYARAT & KETENTUAN -->
+    <div class="syarat-card">
+      <div class="syarat-title">📋 SYARAT & KETENTUAN</div>
+      <div class="syarat-list">
+        <div class="syarat-item">
+          <div class="syarat-dot">1</div>
+          <div class="syarat-text">Pendaftar <b>wajib memiliki akun Indocoin</b> yang aktif dan saldo INDC yang cukup untuk membayar biaya tahunan.</div>
+        </div>
+        <div class="syarat-item">
+          <div class="syarat-dot">2</div>
+          <div class="syarat-text">Iklan aktif selama <b>1 tahun</b> sejak tanggal pendaftaran. Peringatan perpanjangan dikirim <b>7 hari sebelum</b> masa aktif habis.</div>
+        </div>
+        <div class="syarat-item">
+          <div class="syarat-dot">3</div>
+          <div class="syarat-text">Produk yang dijual hanya bisa dipesan oleh <b>anggota komunitas Indocoin</b>. Pembayaran menggunakan token INDC.</div>
+        </div>
+        <div class="syarat-item">
+          <div class="syarat-dot">4</div>
+          <div class="syarat-text">Penjual <b>wajib meng-approve</b> setiap order dalam <b>maksimal 24 jam</b>. Lewat batas waktu, order otomatis dibatalkan dan token dikembalikan ke pembeli.</div>
+        </div>
+        <div class="syarat-item">
+          <div class="syarat-dot">5</div>
+          <div class="syarat-text">Platform berhak <b>menangguhkan iklan</b> jika ditemukan pelanggaran. Pemberitahuan akan dikirim via notifikasi dan email.</div>
+        </div>
+        <div class="syarat-item">
+          <div class="syarat-dot">6</div>
+          <div class="syarat-text">Slot banner dashboard tersedia secara <b>terpisah</b> dengan biaya bulanan. Daftar tunggu berlaku jika semua slot penuh.</div>
+        </div>
+      </div>
+      <div class="syarat-note">
+        <span>⚠️</span>
+        <span>Dengan mendaftar, kamu menyetujui semua syarat & ketentuan di atas. Pastikan data yang diisi akurat dan dapat dipertanggungjawabkan.</span>
+      </div>
+    </div>
+
+    <!-- FORM DATA USAHA -->
+    <div class="form-card">
+      <div class="form-section-title">② DATA USAHA</div>
+
+      <div class="form-group">
+        <div class="form-label">Nama Usaha <span class="req">*</span></div>
+        <div class="form-input-icon">
+          <span class="f-icon">🏪</span>
+          <input class="form-input" type="text" id="namaUsaha" placeholder="Contoh: Batik Haidar Pekalongan">
+        </div>
+      </div>
+
+      <!-- NIB & Izin — disembunyikan untuk UMKM -->
+      <div id="fieldNonUmkm">
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">Nomor NIB <span class="req">*</span></div>
+            <input class="form-input" type="text" id="nib" placeholder="13 digit NIB">
+          </div>
+          <div class="form-group">
+            <div class="form-label">No. Izin Usaha <span class="req">*</span></div>
+            <input class="form-input" type="text" id="izinUsaha" placeholder="No. izin">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Nama Pemilik <span class="req">*</span></div>
+          <input class="form-input" type="text" id="namaPemilik" placeholder="Nama lengkap KTP">
+        </div>
+        <div class="form-group">
+          <div class="form-label">No. KTP Pemilik <span class="req">*</span></div>
+          <input class="form-input" type="text" id="noKtp" placeholder="16 digit NIK">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Kota / Lokasi <span class="req">*</span></div>
+          <div class="form-input-icon">
+            <span class="f-icon">📍</span>
+            <input class="form-input" type="text" id="kota" placeholder="Kota usaha">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">No. WhatsApp <span class="req">*</span></div>
+          <div class="form-input-icon">
+            <span class="f-icon">📱</span>
+            <input class="form-input" type="text" id="whatsapp" placeholder="08xxxxxxxxxx">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Jam Buka <span class="req">*</span></div>
+          <input class="form-input" type="text" id="jamBuka" placeholder="Contoh: 08.00">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Jam Tutup <span class="req">*</span></div>
+          <input class="form-input" type="text" id="jamTutup" placeholder="Contoh: 21.00">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Alamat Wallet BNB <span class="req">*</span></div>
+        <div class="form-input-icon">
+          <span class="f-icon">💛</span>
+          <input class="form-input" type="text" id="walletBnb" placeholder="0x... (BEP-20 BNB Chain)">
+        </div>
+        <div class="form-hint">⚠️ Pastikan alamat wallet BNB kamu benar. Token hasil penjualan akan dikirim ke alamat ini.</div>
+      </div>
+    </div>
+
+    <!-- FORM FOTO -->
+    <div class="form-card">
+      <div class="form-section-title">③ FOTO USAHA & PRODUK</div>
+      <div class="form-group">
+        <div class="form-label">Foto Lokasi & Produk <span class="req">*</span> <span class="opt">(Min 3 — Max 5 foto)</span></div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fotoInput').click()">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Tap untuk <b>pilih foto</b> atau drag & drop</div>
+          <div class="upload-sub">JPG, PNG · Maks 2MB per foto</div>
+          <input type="file" id="fotoInput" accept="image/*" multiple style="display:none" onchange="handleFotos(this)">
+        </div>
+        <div class="upload-preview" id="previewFoto"></div>
+        <div class="upload-count" id="fotoCount"></div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Foto Profil Toko <span class="req">*</span></div>
+        <div class="upload-zone" onclick="document.getElementById('fotoProfil').click()">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-text">Tap untuk <b>upload foto profil</b> toko</div>
+          <div class="upload-sub">JPG, PNG · Maks 2MB · Disarankan format persegi</div>
+          <input type="file" id="fotoProfil" accept="image/*" style="display:none" onchange="handleProfil(this)">
+        </div>
+        <div id="previewProfil"></div>
+      </div>
+    </div>
+
+    <!-- FORM BANNER -->
+    <div class="form-card">
+      <div class="form-section-title">④ BANNER IKLAN</div>
+      <div class="form-group">
+        <div class="form-label">Pilih Opsi Banner <span class="req">*</span></div>
+        <div class="banner-opts">
+          <div class="banner-opt selected" id="bopt-upload" onclick="selectBanner('upload')">
+            <div class="bopt-radio"></div>
+            <div class="bopt-info">
+              <div class="bopt-title">Upload Banner Sendiri</div>
+              <div class="bopt-desc">Ukuran ideal: 700×160px · Format JPG/PNG</div>
+            </div>
+            <div class="bopt-price">Gratis</div>
+          </div>
+          <div class="banner-opt" id="bopt-design" onclick="selectBanner('design')">
+            <div class="bopt-radio"></div>
+            <div class="bopt-info">
+              <div class="bopt-title">Minta Desain Indocoin</div>
+              <div class="bopt-desc" id="designDesc">Tim Indocoin akan mendesain banner profesional untukmu</div>
+            </div>
+            <div class="bopt-price" id="designPrice">+10.000 INDC</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload banner sendiri -->
+      <div id="bannerUploadArea" class="form-group">
+        <div class="upload-zone" onclick="document.getElementById('bannerInput').click()">
+          <div class="upload-icon">🎨</div>
+          <div class="upload-text">Tap untuk <b>upload banner</b></div>
+          <div class="upload-sub">Ukuran ideal 700×160px · JPG/PNG · Maks 3MB</div>
+          <input type="file" id="bannerInput" accept="image/*" style="display:none" onchange="handleBanner(this)">
+        </div>
+        <div id="previewBanner"></div>
+      </div>
+
+      <!-- Catatan desain -->
+      <div id="designNoteArea" class="form-group" style="display:none">
+        <div class="form-label">Catatan untuk Tim Desain <span class="opt">(opsional)</span></div>
+        <textarea class="form-input" id="designNote" rows="3" placeholder="Contoh: warna dominan biru, ada logo toko, tampilkan produk unggulan..." style="resize:none;line-height:1.5;"></textarea>
+      </div>
+    </div>
+
+    <!-- FORM PRODUK -->
+    <div class="form-card">
+      <div class="form-section-title">⑤ DAFTAR PRODUK & HARGA</div>
+      <div class="form-hint" style="margin-bottom:12px;">Tambahkan produk yang ingin ditampilkan. Harga dalam INDC.</div>
+      <div class="produk-list" id="produkList">
+        <div class="produk-row">
+          <input class="form-input" type="text" placeholder="Nama produk">
+          <input class="form-input price-input" type="number" placeholder="Harga INDC">
+        </div>
+        <div class="produk-row">
+          <input class="form-input" type="text" placeholder="Nama produk">
+          <input class="form-input price-input" type="number" placeholder="Harga INDC">
+        </div>
+      </div>
+      <button class="btn-add-produk" onclick="addProdukRow()">＋ Tambah Produk</button>
+    </div>
+
+    <!-- RINGKASAN BIAYA -->
+    <div class="summary-card">
+      <div class="section-title" style="margin-bottom:12px;">💰 RINGKASAN BIAYA</div>
+      <div class="summary-row">
+        <div class="sum-label">Kategori</div>
+        <div class="sum-val" id="sumKategori">UMKM</div>
+      </div>
+      <div class="summary-row">
+        <div class="sum-label">Biaya Iklan / Tahun</div>
+        <div class="sum-val" id="sumBiaya">1.825.000 INDC</div>
+      </div>
+      <div class="summary-row" id="sumBannerRow" style="display:none">
+        <div class="sum-label">Biaya Desain Banner</div>
+        <div class="sum-val" id="sumBanner">10.000 INDC</div>
+      </div>
+      <div class="summary-row">
+        <div class="sum-label">Masa Aktif</div>
+        <div class="sum-val">1 Tahun</div>
+      </div>
+      <div class="summary-total">
+        <div>
+          <div class="sum-total-label">TOTAL BAYAR</div>
+          <div class="sum-total-unit">dibayar dari saldo INDC</div>
+        </div>
+        <div style="text-align:right">
+          <div class="sum-total-val" id="sumTotal">1.825.000</div>
+          <div class="sum-total-unit">INDC</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <button class="btn-submit" onclick="submitForm()">
+      <span>🚀</span>
+      <span>DAFTAR & AKTIFKAN IKLAN</span>
+    </button>
+
+  </div><!-- /main -->
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <a href="dashboard.html" class="bn-item">
+      <div class="bn-icon">🏠</div><div class="bn-label">Home</div>
+    </a>
+    <a href="earn.html" class="bn-item">
+      <div class="bn-icon">💰</div><div class="bn-label">Earn</div>
+    </a>
+    <a href="paid-ads.html" class="bn-item active">
+      <div class="bn-icon">📢</div><div class="bn-label">Iklan</div>
+    </a>
+    <a href="referral.html" class="bn-item">
+      <div class="bn-icon">👥</div><div class="bn-label">Referral</div>
+    </a>
+    <a href="community.html" class="bn-item">
+      <div class="bn-icon">🌐</div><div class="bn-label">Community</div>
+    </a>
+  </nav>
+</div>
+
+<script type="module">
+import { initializeApp }                                          from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged }                           from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp, getDoc }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL }         from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
+
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey           : "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain       : "indocoin-network.firebaseapp.com",
+  projectId        : "indocoin-network",
+  storageBucket    : "indocoin-network.firebasestorage.app",
+  messagingSenderId: "742922450154",
+  appId            : "1:742922450154:web:97e0847e85bfe3e9f9d393"
+};
+const app     = initializeApp(firebaseConfig);
+const auth    = getAuth(app);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+
+// ── AUTH GUARD ──
+let currentUser = null;
+onAuthStateChanged(auth, user => {
+  if (!user) { window.location.href = 'landing.html'; return; }
+  currentUser = user;
+  checkAlreadyRegistered();
+});
+
+async function checkAlreadyRegistered() {
+  const snap = await getDoc(doc(db, 'paidAds', currentUser.uid));
+  if (snap.exists() && snap.data().active) {
+    showStatus('info', '✅ Kamu sudah terdaftar sebagai pengiklan. Mengarahkan ke panel...');
+    setTimeout(() => window.location.href = 'paid-ads-seller.html', 2000);
+  }
+}
+
+// ── STARS ──
+for(let i=0;i<30;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()*2+1;
+  s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${Math.random()*3+2}s;`;
+  document.body.appendChild(s);
+}
+
+// ── HARGA ──
+const prices       = { umkm:1825000, ud:3650000, cv:10950000, pt:18250000 };
+const designPrices = { umkm:10000,   ud:20000,   cv:30000,    pt:50000    };
+const INDC_USD     = 0.003;
+let selectedCat    = 'umkm';
+let selectedBanner = 'upload';
+
+function selectCategory(cat) {
+  ['umkm','ud','cv','pt'].forEach(c => {
+    document.getElementById('cat-'+c).classList.remove('selected');
+    document.getElementById('chk-'+c).textContent = '';
+  });
+  document.getElementById('cat-'+cat).classList.add('selected');
+  document.getElementById('chk-'+cat).textContent = '✓';
+  selectedCat = cat;
+  document.getElementById('fieldNonUmkm').style.display = cat === 'umkm' ? 'none' : 'block';
+  const dp = designPrices[cat].toLocaleString('id-ID');
+  document.getElementById('designPrice').textContent = `+${dp} INDC`;
+  document.getElementById('designDesc').textContent = `Tim Indocoin mendesain banner profesional (${dp} INDC)`;
+  updateSummary();
+}
+window.selectCategory = selectCategory;
+selectCategory('umkm');
+
+function selectBanner(opt) {
+  ['upload','design'].forEach(o => document.getElementById('bopt-'+o).classList.remove('selected'));
+  document.getElementById('bopt-'+opt).classList.add('selected');
+  selectedBanner = opt;
+  document.getElementById('bannerUploadArea').style.display = opt === 'upload' ? 'block' : 'none';
+  document.getElementById('designNoteArea').style.display   = opt === 'design' ? 'block' : 'none';
+  updateSummary();
+}
+window.selectBanner = selectBanner;
+
+function updateSummary() {
+  const base   = prices[selectedCat];
+  const design = selectedBanner === 'design' ? designPrices[selectedCat] : 0;
+  const total  = base + design;
+  const usd    = (total * INDC_USD).toFixed(2);
+  document.getElementById('sumKategori').textContent = selectedCat.toUpperCase();
+  document.getElementById('sumBiaya').textContent    = base.toLocaleString('id-ID') + ' INDC';
+  document.getElementById('sumBannerRow').style.display = design > 0 ? 'flex' : 'none';
+  document.getElementById('sumBanner').textContent   = design.toLocaleString('id-ID') + ' INDC';
+  document.getElementById('sumTotal').textContent    = total.toLocaleString('id-ID');
+  // Tampilkan estimasi USD
+  let usdEl = document.getElementById('sumUsd');
+  if (!usdEl) {
+    usdEl = document.createElement('div');
+    usdEl.id = 'sumUsd';
+    usdEl.style.cssText = 'text-align:right;font-family:Share Tech Mono,monospace;font-size:11px;color:#64748b;margin-top:4px;';
+    document.getElementById('sumTotal').parentElement.appendChild(usdEl);
+  }
+  usdEl.textContent = `≈ $${usd} USD`;
+}
+
+// ── FOTO ──
+let fotoFiles = [];
+function handleFotos(input) {
+  fotoFiles = [...fotoFiles, ...Array.from(input.files)].slice(0,5);
+  renderFotoPreviews();
+}
+window.handleFotos = handleFotos;
+
+function renderFotoPreviews() {
+  const c = document.getElementById('previewFoto');
+  c.innerHTML = '';
+  fotoFiles.forEach((f,i) => {
+    const r = new FileReader();
+    r.onload = e => {
+      const d = document.createElement('div');
+      d.className = 'preview-thumb';
+      d.innerHTML = `<img src="${e.target.result}"><div class="preview-remove" onclick="removeFoto(${i})">×</div>`;
+      c.appendChild(d);
+    };
+    r.readAsDataURL(f);
+  });
+  const n = fotoFiles.length;
+  const el = document.getElementById('fotoCount');
+  el.textContent  = n > 0 ? `${n}/5 foto ${n < 3 ? '⚠️ min 3 foto' : '✓'}` : '';
+  el.style.color  = n >= 3 ? '#22c55e' : '#f59e0b';
+}
+function removeFoto(i) { fotoFiles.splice(i,1); renderFotoPreviews(); }
+window.removeFoto = removeFoto;
+
+function handleProfil(input) {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById('previewProfil').innerHTML =
+      `<div class="preview-thumb" style="width:80px;height:80px;margin-top:10px;"><img src="${e.target.result}"></div>`;
+  };
+  r.readAsDataURL(f);
+}
+window.handleProfil = handleProfil;
+
+function handleBanner(input) {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById('previewBanner').innerHTML =
+      `<div style="margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid rgba(250,204,21,0.2);"><img src="${e.target.result}" style="width:100%;height:auto;display:block;"></div>`;
+  };
+  r.readAsDataURL(f);
+}
+window.handleBanner = handleBanner;
+
+// ── PRODUK ──
+function addProdukRow() {
+  const list = document.getElementById('produkList');
+  const row  = document.createElement('div');
+  row.className = 'produk-row';
+  row.innerHTML = `
+    <input class="form-input" type="text" placeholder="Nama produk">
+    <select class="form-input price-input" style="width:130px;flex:none;">
+      <option value="show">Tampilkan harga</option>
+      <option value="hide">Sembunyikan harga</option>
+    </select>
+    <input class="form-input price-input" type="number" placeholder="Harga INDC">
+    <button class="btn-del-produk" onclick="this.parentElement.remove()">✕</button>
+  `;
+  list.appendChild(row);
+}
+window.addProdukRow = addProdukRow;
+
+// ── HELPER STATUS ──
+function showStatus(type, msg) {
+  let el = document.getElementById('globalStatus');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'globalStatus';
+    el.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:999;padding:12px 20px;border-radius:12px;font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:1px;max-width:360px;text-align:center;';
+    document.body.appendChild(el);
+  }
+  const styles = {
+    error : 'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;',
+    success:'background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:#4ade80;',
+    info  : 'background:rgba(250,204,21,0.12);border:1px solid rgba(250,204,21,0.3);color:#facc15;',
+  };
+  el.style.cssText += styles[type] || styles.info;
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (type !== 'error') setTimeout(() => el.style.display = 'none', 4000);
+}
+
+// ── UPLOAD FILE TO FIREBASE STORAGE ──
+async function uploadFiles(uid) {
+  const urls = { fotos:[], profil:null, banner:null };
+
+  // Upload foto usaha
+  for (let i = 0; i < fotoFiles.length; i++) {
+    const r   = ref(storage, `paidAds/${uid}/fotos/foto_${i}_${Date.now()}`);
+    await uploadBytes(r, fotoFiles[i]);
+    urls.fotos.push(await getDownloadURL(r));
+  }
+
+  // Upload foto profil
+  const profilInput = document.getElementById('fotoProfil');
+  if (profilInput.files[0]) {
+    const r = ref(storage, `paidAds/${uid}/profil_${Date.now()}`);
+    await uploadBytes(r, profilInput.files[0]);
+    urls.profil = await getDownloadURL(r);
+  }
+
+  // Upload banner jika ada
+  const bannerInput = document.getElementById('bannerInput');
+  if (selectedBanner === 'upload' && bannerInput.files[0]) {
+    const r = ref(storage, `paidAds/${uid}/banner_${Date.now()}`);
+    await uploadBytes(r, bannerInput.files[0]);
+    urls.banner = await getDownloadURL(r);
+  }
+
+  return urls;
+}
+
+// ── KUMPULKAN DATA PRODUK ──
+function collectProducts() {
+  const rows  = document.querySelectorAll('#produkList .produk-row');
+  const prods = [];
+  rows.forEach(row => {
+    const inputs  = row.querySelectorAll('input');
+    const select  = row.querySelector('select');
+    const nama    = inputs[0]?.value.trim();
+    const harga   = parseFloat(inputs[1]?.value) || 0;
+    const showP   = select ? select.value === 'show' : true;
+    if (nama) prods.push({ nama, harga, showPrice: showP });
+  });
+  return prods;
+}
+
+// ── MAIN SUBMIT ──
+async function submitForm() {
+  if (!currentUser) { showStatus('error','⚠️ Kamu belum login!'); return; }
+
+  // Validasi field
+  const namaUsaha   = document.getElementById('namaUsaha').value.trim();
+  const namaPemilik = document.getElementById('namaPemilik').value.trim();
+  const noKtp       = document.getElementById('noKtp').value.trim();
+  const whatsapp    = document.getElementById('whatsapp').value.trim();
+  const kota        = document.getElementById('kota').value.trim();
+  const jamBuka     = document.getElementById('jamBuka').value.trim();
+  const jamTutup    = document.getElementById('jamTutup').value.trim();
+  const nib         = selectedCat !== 'umkm' ? document.getElementById('nib').value.trim() : 'N/A';
+  const izin        = selectedCat !== 'umkm' ? document.getElementById('izinUsaha').value.trim() : 'N/A';
+
+  if (!namaUsaha || !namaPemilik || !noKtp || !whatsapp || !kota) {
+    showStatus('error','⚠️ Lengkapi semua field wajib (*)'); return;
+  }
+  if (selectedCat !== 'umkm' && (!nib || nib.length < 5)) {
+    showStatus('error','⚠️ Nomor NIB tidak valid'); return;
+  }
+  if (fotoFiles.length < 3) {
+    showStatus('error','⚠️ Upload minimal 3 foto usaha / produk'); return;
+  }
+
+  // ── CONNECT METAMASK & BAYAR ──
+  document.getElementById('loadingOverlay').classList.add('show');
+  document.querySelector('.loading-text').textContent = 'MENGHUBUNGKAN WALLET...';
+
+  try {
+    // Init contract
+    await PaidAdsContract.init();
+
+    // Cek saldo INDC
+    const totalFee = prices[selectedCat] + (selectedBanner === 'design' ? designPrices[selectedCat] : 0);
+    const balance  = await PaidAdsContract.getBalance();
+
+    if (balance < totalFee) {
+      document.getElementById('loadingOverlay').classList.remove('show');
+      showStatus('error', `⚠️ Saldo INDC tidak cukup! Butuh ${totalFee.toLocaleString('id-ID')} INDC, saldo kamu ${balance.toLocaleString('id-ID')} INDC`);
+      return;
+    }
+
+    // Approve & bayar ke contract → devWallet
+    document.querySelector('.loading-text').textContent = 'MEMPROSES PEMBAYARAN INDC...';
+    const wantDesign = selectedBanner === 'design';
+    const { adId } = await PaidAdsContract.registerAd(selectedCat, wantDesign);
+
+    // Upload file ke Firebase Storage
+    document.querySelector('.loading-text').textContent = 'MENGUPLOAD FOTO & DOKUMEN...';
+    const fileUrls = await uploadFiles(currentUser.uid);
+
+    // Simpan data ke Firestore
+    document.querySelector('.loading-text').textContent = 'MENYIMPAN DATA...';
+    const produk = collectProducts();
+    const adData = {
+      uid          : currentUser.uid,
+      adId         : adId,
+      walletAddress: PaidAdsContract.userAddr,
+      namaUsaha, namaPemilik, noKtp, nib, izin,
+      kota, whatsapp,
+      jamOperasional: `${jamBuka} – ${jamTutup}`,
+      kategori     : selectedCat.toUpperCase(),
+      wantDesign,
+      produk,
+      fotoUrls     : fileUrls.fotos,
+      profilUrl    : fileUrls.profil,
+      bannerUrl    : fileUrls.banner,
+      active       : true,
+      suspended    : false,
+      registeredAt : serverTimestamp(),
+      expiresAt    : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      feePaid      : totalFee,
+      // Untuk sistem notifikasi expire
+      expireNotifSent: false,
+    };
+
+    await setDoc(doc(db, 'paidAds', currentUser.uid), adData);
+
+    // Juga simpan ke collection untuk listing
+    await setDoc(doc(db, 'paidAdsPublic', currentUser.uid), {
+      adId, namaUsaha, kota, kategori: selectedCat.toUpperCase(),
+      whatsapp, jamOperasional: `${jamBuka} – ${jamTutup}`,
+      profilUrl: fileUrls.profil, bannerUrl: fileUrls.banner,
+      produk, active: true, suspended: false,
+      registeredAt: serverTimestamp(),
+      expiresAt   : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      rating: 0, ulasan: 0,
+    });
+
+    // Redirect ke banner picker
+    document.getElementById('loadingOverlay').classList.remove('show');
+    const params = new URLSearchParams({
+      nama: namaUsaha, kota, kategori: selectedCat.toUpperCase(),
+      wa: whatsapp, adId: adId || '',
+    });
+    window.location.href = 'paid-ads-banner-picker.html?' + params.toString();
+
+  } catch (err) {
+    document.getElementById('loadingOverlay').classList.remove('show');
+    console.error(err);
+    if (err.code === 4001 || err.message?.includes('rejected')) {
+      showStatus('error','❌ Transaksi dibatalkan oleh user');
+    } else if (err.message?.includes('insufficient')) {
+      showStatus('error','❌ Saldo BNB tidak cukup untuk gas fee');
+    } else {
+      showStatus('error','❌ Error: ' + (err.message || 'Coba lagi'));
+    }
+  }
+}
+window.submitForm = submitForm;
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      reg.addEventListener("updatefound", () => {
+        const newSW = reg.installing;
+        newSW.addEventListener("statechange", () => {
+          if(newSW.state === "installed" && navigator.serviceWorker.controller){
+            newSW.postMessage("skipWaiting");
+            window.location.reload();
+          }
+        });
+      });
+    }).catch(e => console.warn("SW:", e));
+  });
+}
+</script>
+</body>
+</html>
