@@ -516,9 +516,15 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
+let _chatUnsubscribe = null;
 function startChat() {
+  // Matikan listener lama jika ada — cegah multiple listener
+  if (_chatUnsubscribe) {
+    _chatUnsubscribe();
+    _chatUnsubscribe = null;
+  }
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
-  onValue(msgsRef, snap => {
+  _chatUnsubscribe = onValue(msgsRef, snap => {
     renderChat(snap);
   });
 }
@@ -607,6 +613,10 @@ window.sendMsg = function() {
     text: text,
     ts: Date.now(),
     isAdmin: isAdmin
+  }).then(() => {
+    // Scroll ke bawah setelah kirim
+    const area = document.getElementById('chatArea');
+    if (area) setTimeout(() => area.scrollTop = area.scrollHeight, 300);
   }).catch(err => {
     input.value = text;
     showToast('❌ Gagal kirim: ' + (err.message||err.code));
