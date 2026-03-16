@@ -583,21 +583,19 @@ function startChat() {
   const area = document.getElementById('chatArea');
   if (area) area.innerHTML = '';
 
-  // STEP 1: Load 50 pesan terakhir sekali saja
-  // 7 hari ke belakang
+  // STEP 1: Ambil semua chat, sort & filter di client
   const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  // Max 100 chat terakhir, filter 7 hari di client
-  const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(100));
-  get(msgsRef).then(snap => {
+  get(ref(db, 'community_chat')).then(snap => {
     if (snap && snap.exists()) {
       const msgs = [];
       snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-      // Filter: hanya sembunyikan yang JELAS lebih dari 7 hari
-      // Kalau ts tidak ada atau tidak valid → tetap tampil (aman)
-      msgs.filter(msg => {
-        if (!msg.ts || typeof msg.ts !== 'number') return true; // tampil jika ts tidak valid
-        return msg.ts >= sevenDaysAgo; // tampil jika dalam 7 hari
-      }).forEach(msg => {
+      // Sort by ts ascending
+      msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      // Filter 7 hari, ambil 100 terakhir
+      const filtered = msgs
+        .filter(msg => !msg.ts || typeof msg.ts !== 'number' || msg.ts >= sevenDaysAgo)
+        .slice(-100);
+      filtered.forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
       });
