@@ -822,15 +822,28 @@ window.sendMsg = function() {
   // Mode edit
   if (_editMsgId) {
     const editRef = ref(db, 'community_chat/' + _editMsgId);
+    // Optimistic update — update DOM langsung dulu
+    const msgRow = document.getElementById('msg-' + _editMsgId);
+    if (msgRow) {
+      const bubble = msgRow.querySelector('.msg-bubble');
+      if (bubble) {
+        const footer = bubble.querySelector('.bubble-footer');
+        const replyBox = bubble.querySelector('.reply-in-bubble');
+        const footerHTML = footer ? footer.outerHTML : '';
+        const replyHTML = replyBox ? replyBox.outerHTML : '';
+        bubble.innerHTML = replyHTML + esc(text) + '<span class="edited-label"> diedit</span>' + footerHTML;
+      }
+    }
+    showToast('✅ Pesan diupdate');
+    const savedId = _editMsgId;
+    window.closeEdit();
+    // Sinkron ke Firebase di background
     get(editRef).then(snap => {
       if (!snap.exists()) return;
       const msg = snap.val();
       if (msg.uid !== currentUser.uid && !isAdmin) return;
       if ((msg.editCount||0) >= 3) { showToast('❌ Maksimal 3x edit'); return; }
       set(editRef, { ...msg, text: text, edited: true, editCount: (msg.editCount||0) + 1 });
-    }).then(() => {
-      showToast('✅ Pesan diupdate');
-      window.closeEdit();
     }).catch(() => showToast('❌ Gagal edit'));
     return;
   }
