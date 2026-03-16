@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "8.1";
+const VERSION = "8.2";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -19,7 +19,6 @@ const CACHE_FILES = [
   "/analytics.html",
   "/assets.html",
   "/arisan.html",
-  "/community.html",
   "/guild.html",
   "/guruku.html",
   "/indowar.html",
