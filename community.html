@@ -416,6 +416,17 @@ html, body {
       </div>
     </div>
 
+    <!-- REPLY PREVIEW -->
+    <div id="replyPreview" style="display:none;padding:6px 10px;background:var(--white);border-top:1px solid var(--border);flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;background:var(--bluelight);border-left:3px solid var(--blue);border-radius:4px;padding:4px 8px;">
+          <div id="replyPreviewName" style="font-size:10px;font-weight:700;color:var(--blue);"></div>
+          <div id="replyPreviewText" style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;"></div>
+        </div>
+        <button onclick="window.closeReply()" style="background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;">✕</button>
+      </div>
+    </div>
+
     <!-- INPUT -->
     <div class="input-area">
       <div class="input-row">
@@ -650,7 +661,7 @@ function appendMsg(msg) {
               <span class="btn-more-dot"></span>
             </button>
             <div class="msg-menu" id="menu-${msg.id}">
-              <div class="msg-menu-item">↩️ Reply</div>
+              <div class="msg-menu-item" onclick="window.doReply(event,'${msg.id}','${esc(msg.name||'User')}')">↩️ Reply</div>
               <div class="msg-menu-divider"></div>
               <div class="msg-menu-item">😊 Emoji</div>
               <div class="msg-menu-divider"></div>
@@ -773,13 +784,18 @@ window.sendMsg = function() {
   input.value = '';
   input.style.height = 'auto';
   document.getElementById('charCounter').textContent = '0 / 3000';
-  push(ref(db, 'community_chat'), {
+  const msgData = {
     uid: currentUser.uid,
     name: currentName,
     text: text,
     ts: Date.now(),
     isAdmin: isAdmin
-  }).then(() => {
+  };
+  if (_replyTo) {
+    msgData.replyTo = { name: _replyTo.name, text: _replyTo.text };
+    window.closeReply();
+  }
+  push(ref(db, 'community_chat'), msgData).then(() => {
     // Scroll ke bawah setelah kirim
     const area = document.getElementById('chatArea');
     if (area) setTimeout(() => area.scrollTop = area.scrollHeight, 300);
@@ -835,12 +851,28 @@ window.toggleMsgMenu = function(event, msgId) {
   document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
   if (!isOpen) {
-    // Posisi menu di tengah layar agar tidak terpotong
     const rect = event.target.getBoundingClientRect();
     menu.style.top = (rect.bottom + 4) + 'px';
     menu.style.left = Math.min(rect.left, window.innerWidth - 150) + 'px';
     menu.classList.add('show');
   }
+};
+
+let _replyTo = null;
+window.doReply = function(event, msgId, senderName) {
+  event.stopPropagation();
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
+  const bubble = document.querySelector('#msg-' + msgId + ' .msg-bubble');
+  const text = bubble ? (bubble.innerText || bubble.textContent || '').trim() : '';
+  _replyTo = { msgId: msgId, name: senderName, text: text };
+  document.getElementById('replyPreviewName').textContent = senderName;
+  document.getElementById('replyPreviewText').textContent = text;
+  document.getElementById('replyPreview').style.display = 'block';
+  document.getElementById('chatInput').focus();
+};
+window.closeReply = function() {
+  _replyTo = null;
+  document.getElementById('replyPreview').style.display = 'none';
 };
 
 // Tutup picker & menu saat klik di luar
