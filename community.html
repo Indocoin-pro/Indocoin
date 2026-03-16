@@ -592,8 +592,12 @@ function startChat() {
     if (snap && snap.exists()) {
       const msgs = [];
       snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-      // Filter: hanya tampilkan 7 hari ke belakang
-      msgs.filter(msg => !msg.ts || msg.ts >= sevenDaysAgo).forEach(msg => {
+      // Filter: hanya sembunyikan yang JELAS lebih dari 7 hari
+      // Kalau ts tidak ada atau tidak valid → tetap tampil (aman)
+      msgs.filter(msg => {
+        if (!msg.ts || typeof msg.ts !== 'number') return true; // tampil jika ts tidak valid
+        return msg.ts >= sevenDaysAgo; // tampil jika dalam 7 hari
+      }).forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
       });
