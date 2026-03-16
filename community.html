@@ -860,12 +860,18 @@ window.sendMsg = function() {
 window.deleteMsg = function(msgId) {
   if (!currentUser) return;
   if (!confirm('Hapus pesan ini?')) return;
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   const msgRef = ref(db, 'community_chat/' + msgId);
   get(msgRef).then(snap => {
     if (!snap.exists()) return;
     const msg = snap.val();
     if (msg.uid !== currentUser.uid && !isAdmin) return;
-    remove(msgRef).then(() => showToast('✅ Pesan dihapus'));
+    // Hapus dari DOM langsung — optimistic
+    const el = document.getElementById('msg-' + msgId);
+    if (el) el.remove();
+    showToast('✅ Pesan dihapus');
+    // Hapus dari Firebase di background
+    remove(msgRef).catch(() => showToast('❌ Gagal hapus'));
   });
 };
 
