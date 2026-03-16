@@ -521,18 +521,129 @@ function updateOnline() {
 
 // ===== CHAT =====
 let _chatUnsubscribe = null;
+let _renderedIds = new Set(); // Simpan ID pesan yang sudah ditampilkan
+let _chatInitialized = false; // Flag apakah sudah load awal
+
 function startChat() {
-  // Matikan listener lama jika ada — cegah multiple listener
   if (_chatUnsubscribe) {
     _chatUnsubscribe();
     _chatUnsubscribe = null;
   }
+  _renderedIds = new Set();
+  _chatInitialized = false;
+
+  const area = document.getElementById('chatArea');
+  if (area) area.innerHTML = '';
+
+  // STEP 1: Load 50 pesan terakhir sekali saja
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
-  _chatUnsubscribe = onValue(msgsRef, snap => {
-    renderChat(snap);
-  }, err => {
+  get(msgsRef).then(snap => {
+    if (snap && snap.exists()) {
+      const msgs = [];
+      snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
+      msgs.forEach(msg => {
+        appendMsg(msg);
+        _renderedIds.add(msg.id);
+      });
+      // Scroll ke bawah setelah load awal
+      if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+    } else {
+      if (area) area.innerHTML = '<div class="empty-chat"><div style="font-size:40px">💬</div><div>Belum ada pesan. Mulai percakapan!</div></div>';
+    }
+    _chatInitialized = true;
+
+    // STEP 2: Listen hanya untuk pesan BARU setelah load awal
+    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(1));
+    _chatUnsubscribe = onValue(newMsgsRef, snap => {
+      if (!_chatInitialized) return;
+      if (!snap || !snap.exists()) return;
+      snap.forEach(c => {
+        const msg = { id: c.key, ...c.val() };
+        if (!_renderedIds.has(msg.id)) {
+          // Hapus empty-chat jika ada
+          const empty = area ? area.querySelector('.empty-chat') : null;
+          if (empty) empty.remove();
+          appendMsg(msg);
+          _renderedIds.add(msg.id);
+          // Scroll ke bawah untuk pesan baru
+          if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+        }
+      });
+    });
+  }).catch(err => {
     showToast('❌ Gagal memuat chat');
   });
+}
+
+// ===== APPEND SATU PESAN KE AREA =====
+function appendMsg(msg) {
+  const area = document.getElementById('chatArea');
+  if (!area || !currentUser) return;
+
+  try {
+    const isMe = msg.uid === currentUser.uid;
+    const init = (msg.name||'U').slice(0,2).toUpperCase();
+    const d = msg.ts ? new Date(msg.ts) : new Date();
+
+    // Format manual — kompatibel semua dApp browser
+    const HARI  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const dateStr = HARI[d.getDay()] + ', ' + d.getDate() + ' ' + BULAN[d.getMonth()] + ' ' + d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const timeStr = hh + ':' + mm;
+
+    // Tambah date divider jika tanggal berbeda dari sebelumnya
+    const lastDivider = area.querySelector('.date-divider:last-of-type');
+    const lastDateStr = lastDivider ? lastDivider.textContent : '';
+    if (dateStr !== lastDateStr) {
+      const divider = document.createElement('div');
+      divider.className = 'date-divider';
+      divider.textContent = dateStr;
+      area.appendChild(divider);
+    }
+
+    // Buat elemen pesan
+    const emojis = ['👍','❤️','🔥','😂','🚀'];
+    const canDelete = isMe || isAdmin;
+    const reactions = msg.reactions || {};
+
+    const reactionBtns = emojis.map(e => {
+      const key = encodeURIComponent(e);
+      const arr = reactions[key] || [];
+      const count = arr.length;
+      const hasReacted = arr.includes(currentUser.uid);
+      return count > 0
+        ? `<button class="reaction-btn ${hasReacted?'active':''}" onclick="window.toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
+        : '';
+    }).join('');
+
+    const emojiPicker = emojis.map(e =>
+      `<span class="emoji-opt" onclick="window.toggleReaction('${msg.id}','${e}')">${e}</span>`
+    ).join('');
+
+    const row = document.createElement('div');
+    row.className = 'msg-row' + (isMe ? ' me' : '');
+    row.id = 'msg-' + msg.id;
+    row.innerHTML = `
+      <div class="msg-avatar">${init}</div>
+      <div class="msg-body">
+        ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
+        <div class="msg-wrapper">
+          <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
+          <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
+        </div>
+        <div class="msg-reactions">${reactionBtns}</div>
+        <div class="msg-footer">
+          <span class="msg-time">${timeStr}</span>
+          ${canDelete ? `<button class="btn-del" onclick="window.deleteMsg('${msg.id}')" title="Hapus">🗑</button>` : ''}
+        </div>
+      </div>`;
+
+    area.appendChild(row);
+  } catch(e) {
+    console.warn('appendMsg error:', e.message);
+  }
 }
 
 function renderChat(snap) {
@@ -559,8 +670,14 @@ function renderChat(snap) {
     const isMe = currentUser && msg.uid === currentUser.uid;
     const init = (msg.name||'U').slice(0,2).toUpperCase();
     const d = msg.ts ? new Date(msg.ts) : new Date();
-    const dateStr = d.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long'});
-    const timeStr = d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+
+    // Format manual — kompatibel semua dApp browser tanpa locale
+    const HARI  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const dateStr = HARI[d.getDay()] + ', ' + d.getDate() + ' ' + BULAN[d.getMonth()] + ' ' + d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const timeStr = hh + ':' + mm;
 
     if (dateStr !== lastDate) {
       html_parts.push(`<div class="date-divider">${dateStr}</div>`);
