@@ -156,7 +156,7 @@ html, body {
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 16px 16px 16px 4px;
-  padding: 8px 12px;
+  padding: 7px 10px 20px;
   font-size: 12px;
   line-height: 1.45;
   word-break: break-word;
@@ -220,6 +220,24 @@ html, body {
 .emoji-opt:hover { background: var(--bluelight); }
 
 .msg-wrapper { position: relative; }
+
+/* Jam + reaction di dalam bubble */
+.bubble-footer {
+  position:absolute; bottom:4px; right:8px;
+  display:flex; align-items:center; gap:4px;
+}
+.msg-time-inner {
+  font-size:9px; color:#94a3b8; white-space:nowrap; line-height:1;
+}
+.msg-row.me .msg-time-inner { color:rgba(255,255,255,0.65); }
+.reaction-inline {
+  display:inline-flex; align-items:center; gap:1px;
+  background:rgba(0,0,0,0.06); border-radius:10px;
+  padding:1px 4px; font-size:9px; color:#475569; cursor:pointer;
+}
+.msg-row.me .reaction-inline { background:rgba(255,255,255,0.2); color:rgba(255,255,255,0.9); }
+.reaction-inline.active { background:#dbeafe; color:#2563eb; }
+.msg-row.me .reaction-inline.active { background:rgba(255,255,255,0.3); color:#fff; }
 .edited-label { font-size:9px;color:rgba(255,255,255,0.65);font-style:italic;margin-left:4px; }
 .msg-row:not(.me) .edited-label { color:var(--text2); }
 .reply-in-bubble { background:rgba(37,99,235,0.08);border-left:3px solid var(--blue);border-radius:4px;padding:3px 7px;margin-bottom:5px;font-size:10px; }
@@ -643,9 +661,9 @@ function appendMsg(msg) {
       const arr = reactions[key] || [];
       const count = arr.length;
       const hasReacted = arr.includes(currentUser.uid);
-      return count > 0
-        ? `<button class="reaction-btn ${hasReacted?'active':''}" onclick="window.toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
-        : '';
+      if (count === 0) return '';
+      const cls = hasReacted ? 'reaction-inline active' : 'reaction-inline';
+      return '<span class="' + cls + '" onclick="window.toggleReaction(&quot;' + msg.id + '&quot;,&quot;' + key + '&quot;)">' + e + ' ' + count + '</span>';
     }).join('');
 
     const emojiPicker = emojis.map(e =>
@@ -666,7 +684,13 @@ function appendMsg(msg) {
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
         <div style="display:flex;align-items:flex-start;gap:3px;">
           <div class="msg-wrapper">
-            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${replyBox}${esc(msg.text||'')}${msg.edited ? '<span class="edited-label">diedit</span>' : ''}</div>
+            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">
+              ${replyBox}${esc(msg.text||'')}${msg.edited ? '<span class="edited-label"> diedit</span>' : ''}
+              <div class="bubble-footer">
+                ${reactionBtns}
+                <span class="msg-time-inner">${timeStr}</span>
+              </div>
+            </div>
             <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
           </div>
           <div class="msg-menu-wrap">
@@ -684,10 +708,7 @@ function appendMsg(msg) {
             </div>
           </div>
         </div>
-        <div class="msg-reactions">${reactionBtns}</div>
-        <div class="msg-footer">
-          <span class="msg-time">${timeStr}</span>
-        </div>
+
       </div>`;
 
     area.appendChild(row);
