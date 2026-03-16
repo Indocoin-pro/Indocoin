@@ -221,6 +221,30 @@ html, body {
 
 .msg-wrapper { position: relative; }
 
+/* Titik 3 */
+.btn-more {
+  background: none; border: none; cursor: pointer;
+  padding: 2px 1px; flex-shrink: 0; margin-top: 6px;
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+}
+.btn-more-dot { width: 3px; height: 3px; background: var(--text2); border-radius: 50%; display: block; }
+.msg-menu-wrap { position: relative; }
+.msg-menu {
+  display: none; position: absolute; top: 22px; left: 0;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 50; min-width: 120px; overflow: hidden;
+}
+.msg-row.me .msg-menu { left: auto; right: 0; }
+.msg-menu.show { display: block; }
+.msg-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; font-size: 12px; cursor: pointer; color: var(--text);
+}
+.msg-menu-item:active { background: var(--bluelight); }
+.msg-menu-item.danger { color: var(--red); }
+.msg-menu-divider { height: 1px; background: var(--bluelight); }
+
 /* Delete button */
 .btn-del {
   background: none;
@@ -405,6 +429,15 @@ html, body {
         <div style="font-size:40px">💬</div>
         <div>Belum ada pesan. Mulai percakapan!</div>
       </div>
+    </div>
+
+    <!-- REPLY PREVIEW -->
+    <div id="replyPreview" style="display:none;padding:6px 10px;background:var(--white);border-top:1px solid var(--border);align-items:center;gap:8px;flex-shrink:0;">
+      <div style="flex:1;background:var(--bluelight);border-left:3px solid var(--blue);border-radius:4px;padding:4px 8px;">
+        <div id="replyPreviewName" style="font-size:10px;font-weight:700;color:var(--blue);"></div>
+        <div id="replyPreviewText" style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;"></div>
+      </div>
+      <button onclick="window.closeReply()" style="background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>
     </div>
 
     <!-- INPUT -->
@@ -629,14 +662,28 @@ function appendMsg(msg) {
       <div class="msg-avatar">${init}</div>
       <div class="msg-body">
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
-        <div class="msg-wrapper">
-          <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
-          <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
+        <div style="display:flex;align-items:flex-start;gap:3px;${isMe?'flex-direction:row-reverse':''}">
+          <div class="msg-wrapper">
+            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
+            <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
+          </div>
+          <div class="msg-menu-wrap">
+            <button class="btn-more" onclick="window.toggleMsgMenu('menu-${msg.id}',event)">
+              <span class="btn-more-dot"></span>
+              <span class="btn-more-dot"></span>
+              <span class="btn-more-dot"></span>
+            </button>
+            <div class="msg-menu" id="menu-${msg.id}">
+              <div class="msg-menu-item" onclick="window.doReply('${msg.id}','${esc(msg.name||'User')}',event)">↩️ Reply</div>
+              <div class="msg-menu-divider"></div>
+              <div class="msg-menu-item" onclick="window.showEmojiForMsg('${msg.id}')">😊 Emoji</div>
+              ${canDelete ? '<div class="msg-menu-divider"></div><div class="msg-menu-item danger" onclick="window.deleteMsg(''+msg.id+'')">🗑 Hapus</div>' : ''}
+            </div>
+          </div>
         </div>
         <div class="msg-reactions">${reactionBtns}</div>
         <div class="msg-footer">
           <span class="msg-time">${timeStr}</span>
-          ${canDelete ? `<button class="btn-del" onclick="window.deleteMsg('${msg.id}')" title="Hapus">🗑</button>` : ''}
         </div>
       </div>`;
 
@@ -748,13 +795,18 @@ window.sendMsg = function() {
   input.value = '';
   input.style.height = 'auto';
   document.getElementById('charCounter').textContent = '0 / 3000';
-  push(ref(db, 'community_chat'), {
+  const msgData = {
     uid: currentUser.uid,
     name: currentName,
     text: text,
     ts: Date.now(),
     isAdmin: isAdmin
-  }).then(() => {
+  };
+  if (_replyTo) {
+    msgData.replyTo = { name: _replyTo.name, text: _replyTo.text };
+    window.closeReply();
+  }
+  push(ref(db, 'community_chat'), msgData).then(() => {
     // Scroll ke bawah setelah kirim
     const area = document.getElementById('chatArea');
     if (area) setTimeout(() => area.scrollTop = area.scrollHeight, 300);
@@ -798,13 +850,49 @@ window.toggleEmojiPicker = function(pickerId) {
   if (!picker) return;
   const isOpen = picker.classList.contains('show');
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   if (!isOpen) picker.classList.add('show');
 };
 
-// Tutup picker saat klik di luar
+window.toggleMsgMenu = function(menuId, event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const isOpen = menu.classList.contains('show');
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+  if (!isOpen) menu.classList.add('show');
+};
+
+window.showEmojiForMsg = function(msgId) {
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
+  window.toggleEmojiPicker('picker-' + msgId);
+};
+
+// State reply
+let _replyTo = null;
+window.doReply = function(msgId, senderName, event) {
+  if (event) event.stopPropagation();
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
+  const bubble = document.querySelector('#msg-' + msgId + ' .msg-bubble');
+  const rawText = bubble ? (bubble.innerText || bubble.textContent || '') : '';
+  const text = rawText.replace(/\d{1,2}:\d{2}$/, '').trim();
+  _replyTo = { msgId, name: senderName, text };
+  document.getElementById('replyPreviewName').textContent = senderName;
+  document.getElementById('replyPreviewText').textContent = text;
+  document.getElementById('replyPreview').classList.add('show');
+  document.getElementById('chatInput').focus();
+};
+window.closeReply = function() {
+  _replyTo = null;
+  document.getElementById('replyPreview').classList.remove('show');
+};
+
+// Tutup picker & menu saat klik di luar
 document.addEventListener('click', e => {
-  if (!e.target.closest('.msg-wrapper')) {
+  if (!e.target.closest('.msg-wrapper') && !e.target.closest('.msg-menu-wrap')) {
     document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   }
 });
 
