@@ -583,19 +583,13 @@ function startChat() {
   const area = document.getElementById('chatArea');
   if (area) area.innerHTML = '';
 
-  // STEP 1: Ambil semua chat, sort & filter di client
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  get(ref(db, 'community_chat')).then(snap => {
+  // STEP 1: Load 50 pesan terakhir sekali saja
+  const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
+  get(msgsRef).then(snap => {
     if (snap && snap.exists()) {
       const msgs = [];
       snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-      // Sort by ts ascending
-      msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      // Filter 7 hari, ambil 100 terakhir
-      const filtered = msgs
-        .filter(msg => !msg.ts || typeof msg.ts !== 'number' || msg.ts >= sevenDaysAgo)
-        .slice(-100);
-      filtered.forEach(msg => {
+      msgs.forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
       });
