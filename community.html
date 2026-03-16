@@ -220,11 +220,11 @@ html, body {
 .emoji-opt:hover { background: var(--bluelight); }
 
 .msg-wrapper { position: relative; }
-.btn-more { background:none;border:none;cursor:pointer;padding:2px 1px;flex-shrink:0;margin-top:6px;display:flex;flex-direction:column;gap:2px;align-items:center; }
+.btn-more { background:none;border:none;cursor:pointer;padding:3px;display:flex;flex-direction:column;gap:2px;align-items:center;position:absolute;top:4px;right:4px;z-index:2;opacity:0.5; }
+.btn-more:active { opacity:1; }
 .btn-more-dot { width:3px;height:3px;background:var(--text2);border-radius:50%;display:block; }
 .msg-menu-wrap { position:relative; }
-.msg-menu { display:none;position:absolute;top:22px;left:0;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:50;min-width:120px;overflow:hidden; }
-.msg-row.me .msg-menu { left:auto;right:0; }
+.msg-menu { display:none;position:fixed;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:999;min-width:130px;overflow:hidden; }
 .msg-menu.show { display:block; }
 .msg-menu-item { display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12px;cursor:pointer;color:var(--text); }
 .msg-menu-item:active { background:var(--bluelight); }
@@ -639,24 +639,22 @@ function appendMsg(msg) {
       <div class="msg-avatar">${init}</div>
       <div class="msg-body">
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
-        <div style="display:flex;align-items:flex-start;gap:3px;${isMe?'flex-direction:row-reverse':''}">
-          <div class="msg-wrapper">
-            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
-            <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
-          </div>
-          <div class="msg-menu-wrap">
-            <button class="btn-more" onclick="window.toggleMsgMenu(event,'${msg.id}')">
+        <div class="msg-wrapper">
+          <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">
+            ${esc(msg.text||'')}
+            <button class="btn-more" onclick="event.stopPropagation();window.toggleMsgMenu(event,'${msg.id}')">
               <span class="btn-more-dot"></span>
               <span class="btn-more-dot"></span>
               <span class="btn-more-dot"></span>
             </button>
-            <div class="msg-menu" id="menu-${msg.id}">
-              <div class="msg-menu-item">↩️ Reply</div>
-              <div class="msg-menu-divider"></div>
-              <div class="msg-menu-item">😊 Emoji</div>
-              <div class="msg-menu-divider"></div>
-              <div class="msg-menu-item danger">🗑 Hapus</div>
-            </div>
+          </div>
+          <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
+          <div class="msg-menu" id="menu-${msg.id}">
+            <div class="msg-menu-item">↩️ Reply</div>
+            <div class="msg-menu-divider"></div>
+            <div class="msg-menu-item">😊 Emoji</div>
+            <div class="msg-menu-divider"></div>
+            <div class="msg-menu-item danger">🗑 Hapus</div>
           </div>
         </div>
         <div class="msg-reactions">${reactionBtns}</div>
@@ -835,7 +833,13 @@ window.toggleMsgMenu = function(event, msgId) {
   const isOpen = menu.classList.contains('show');
   document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
-  if (!isOpen) menu.classList.add('show');
+  if (!isOpen) {
+    // Posisi menu di tengah layar agar tidak terpotong
+    const rect = event.target.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = Math.min(rect.left, window.innerWidth - 150) + 'px';
+    menu.classList.add('show');
+  }
 };
 
 // Tutup picker & menu saat klik di luar
