@@ -96,6 +96,7 @@ html, body {
 /* ===== CHAT AREA ===== */
 .chat-area {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px 10px;
   display: flex;
@@ -215,7 +216,7 @@ html, body {
 .emoji-picker.show { display: flex; }
 .msg-row.me .emoji-picker { right: auto; left: 4px; }
 .emoji-opt {
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   padding: 1px;
 }
@@ -223,25 +224,7 @@ html, body {
 
 .msg-wrapper { position: relative; }
 
-/* Jam dalam bubble */
-.msg-time-inner {
-  position: absolute; bottom: 4px; right: 7px;
-  font-size: 9px; color: var(--text2); line-height: 1;
-}
-.msg-row.me .msg-time-inner { color: rgba(255,255,255,0.65); }
-
-/* Delete button */
-.btn-del {
-  background: none;
-  border: none;
-  color: var(--text2);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.6;
-}
-.btn-del:hover { opacity: 1; color: var(--red); }
+/* btn-del dihapus - diganti titik 3 */
 
 /* Admin badge */
 .admin-badge {
@@ -384,6 +367,7 @@ html, body {
   font-size: 14px;
   gap: 8px;
 }
+
 </style>
 </head>
 <body>
@@ -400,7 +384,7 @@ html, body {
   </div>
 
   <!-- MAIN (saat login) -->
-  <div id="mainContent" style="display:none; flex:1; display:none; flex-direction:column; overflow:hidden;">
+  <div id="mainContent" style="display:none; flex-direction:column; overflow:hidden; flex:1; min-height:0;">
 
     <!-- ONLINE BAR -->
     <div class="online-bar">
@@ -430,7 +414,7 @@ html, body {
   </div>
 
   <!-- NOT LOGGED IN -->
-  <div id="notLoggedIn" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center;background:var(--bluelight);">
+  <div id="notLoggedIn" style="flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;text-align:center;background:var(--bluelight);">
     <div style="font-size:50px">🔒</div>
     <h2 style="font-size:20px;color:var(--blue);">Belum Login</h2>
     <p style="font-size:14px;color:var(--text2);">Silakan login untuk bergabung dengan komunitas</p>
@@ -498,11 +482,14 @@ onAuthStateChanged(auth, user => {
               uemail.includes('indocoin') || uemail.includes('admin@');
 
     document.getElementById('navUser').textContent = currentName + (isAdmin ? ' 👑' : '');
-    document.getElementById('mainContent').style.display = 'flex';
-    document.getElementById('mainContent').style.flexDirection = 'column';
-    document.getElementById('mainContent').style.overflow = 'hidden';
-    document.getElementById('mainContent').style.flex = '1';
     document.getElementById('notLoggedIn').style.display = 'none';
+    const mc = document.getElementById('mainContent');
+    mc.style.display = 'flex';
+    mc.style.flexDirection = 'column';
+    mc.style.overflow = 'hidden';
+    mc.style.flex = '1';
+    mc.style.minHeight = '0';
+    mc.style.height = '100%';
 
     updateOnline();
     startChat();
@@ -526,11 +513,138 @@ function updateOnline() {
 }
 
 // ===== CHAT =====
+let _chatUnsubscribe = null;
+let _renderedIds = new Set(); // Simpan ID pesan yang sudah ditampilkan
+let _chatInitialized = false; // Flag apakah sudah load awal
+
 function startChat() {
+  if (_chatUnsubscribe) {
+    _chatUnsubscribe();
+    _chatUnsubscribe = null;
+  }
+  _renderedIds = new Set();
+  _chatInitialized = false;
+
+  const area = document.getElementById('chatArea');
+  if (area) area.innerHTML = '';
+
+  // Filter 7 hari ke belakang
+  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+  // STEP 1: Load 50 pesan terakhir sekali saja (filter 7 hari di client)
   const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
-  onValue(msgsRef, snap => {
-    renderChat(snap);
+  get(msgsRef).then(snap => {
+    if (snap && snap.exists()) {
+      const msgs = [];
+      snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
+      // Filter: hanya tampilkan 7 hari ke belakang
+      msgs.filter(msg => msg.ts >= sevenDaysAgo).forEach(msg => {
+        appendMsg(msg);
+        _renderedIds.add(msg.id);
+      });
+      // Scroll ke bawah setelah load awal
+      if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+    } else {
+      if (area) area.innerHTML = '<div class="empty-chat"><div style="font-size:40px">💬</div><div>Belum ada pesan. Mulai percakapan!</div></div>';
+    }
+    _chatInitialized = true;
+
+    // STEP 2: Listen hanya untuk pesan BARU setelah load awal
+    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(1));
+    _chatUnsubscribe = onValue(newMsgsRef, snap => {
+      if (!_chatInitialized) return;
+      if (!snap || !snap.exists()) return;
+      snap.forEach(c => {
+        const msg = { id: c.key, ...c.val() };
+        if (!_renderedIds.has(msg.id)) {
+          // Hapus empty-chat jika ada
+          const empty = area ? area.querySelector('.empty-chat') : null;
+          if (empty) empty.remove();
+          appendMsg(msg);
+          _renderedIds.add(msg.id);
+          // Scroll ke bawah untuk pesan baru
+          if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+        }
+      });
+    });
+  }).catch(err => {
+    showToast('❌ Gagal memuat chat');
   });
+}
+
+// ===== APPEND SATU PESAN KE AREA =====
+function appendMsg(msg) {
+  const area = document.getElementById('chatArea');
+  if (!area || !currentUser) return;
+
+  try {
+    const isMe = msg.uid === currentUser.uid;
+    const init = (msg.name||'U').slice(0,2).toUpperCase();
+    const d = msg.ts ? new Date(msg.ts) : new Date();
+
+    // Format manual — kompatibel semua dApp browser
+    const HARI  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const dateStr = HARI[d.getDay()] + ', ' + d.getDate() + ' ' + BULAN[d.getMonth()] + ' ' + d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const timeStr = hh + ':' + mm;
+
+    // Tambah date divider hanya jika tanggal berbeda dari terakhir
+    const lastDateStr = area.dataset.lastDate || '';
+    if (dateStr !== lastDateStr) {
+      const divider = document.createElement('div');
+      divider.className = 'date-divider';
+      divider.textContent = dateStr;
+      area.appendChild(divider);
+      area.dataset.lastDate = dateStr;
+    }
+
+    // Buat elemen pesan
+    const emojis = ['👍','❤️','🔥','😂','🚀'];
+    const canDelete = isMe || isAdmin;
+    const reactions = msg.reactions || {};
+
+    const reactionBtns = emojis.map(e => {
+      const key = encodeURIComponent(e);
+      const arr = reactions[key] || [];
+      const count = arr.length;
+      const hasReacted = arr.includes(currentUser.uid);
+      return count > 0
+        ? `<button class="reaction-btn ${hasReacted?'active':''}" onclick="window.toggleReaction('${msg.id}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
+        : '';
+    }).join('');
+
+    const emojiPicker = emojis.map(e =>
+      `<span class="emoji-opt" onclick="window.toggleReaction('${msg.id}','${e}')">${e}</span>`
+    ).join('');
+
+    const emojiPicker = emojis.map(e =>
+      `<span class="emoji-opt" onclick="window.toggleReaction('${msg.id}','${e}')">${e}</span>`
+    ).join('');
+
+    const row = document.createElement('div');
+    row.className = 'msg-row' + (isMe ? ' me' : '');
+    row.id = 'msg-' + msg.id;
+    row.innerHTML = `
+      <div class="msg-avatar">${init}</div>
+      <div class="msg-body">
+        ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
+        <div class="msg-wrapper">
+          <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
+          <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
+        </div>
+        <div class="msg-reactions">${reactionBtns}</div>
+        <div class="msg-footer">
+          <span class="msg-time">${timeStr}</span>
+          ${canDelete ? `<button class="btn-del" onclick="window.deleteMsg('${msg.id}')" title="Hapus">🗑</button>` : ''}
+        </div>
+      </div>`;
+
+    area.appendChild(row);
+  } catch(e) {
+    console.warn('appendMsg error:', e.message);
+  }
 }
 
 function renderChat(snap) {
@@ -547,23 +661,30 @@ function renderChat(snap) {
   const msgs = [];
   snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
 
-  area.innerHTML = '';
+  // Hapus debug toast — tidak perlu lagi
+  const html_parts = [];
   let lastDate = '';
   const emojis = ['👍','❤️','🔥','😂','🚀'];
 
   msgs.forEach(msg => {
+    try {
     const isMe = currentUser && msg.uid === currentUser.uid;
     const init = (msg.name||'U').slice(0,2).toUpperCase();
     const d = msg.ts ? new Date(msg.ts) : new Date();
-    const dateStr = d.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long'});
-    const timeStr = d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+
+    // Format manual — kompatibel semua dApp browser tanpa locale
+    const HARI  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const dateStr = HARI[d.getDay()] + ', ' + d.getDate() + ' ' + BULAN[d.getMonth()] + ' ' + d.getFullYear();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const timeStr = hh + ':' + mm;
 
     if (dateStr !== lastDate) {
-      area.innerHTML += `<div class="date-divider">${dateStr}</div>`;
+      html_parts.push(`<div class="date-divider">${dateStr}</div>`);
       lastDate = dateStr;
     }
 
-    const canDelete = isMe || isAdmin;
     const reactions = msg.reactions || {};
 
     const reactionBtns = emojis.map(e => {
@@ -582,24 +703,41 @@ function renderChat(snap) {
       `<span class="emoji-opt" onclick="window.toggleReaction('${msg.id}','${e}')">${e}</span>`
     ).join('');
 
-    area.innerHTML += `
+    html_parts.push(`
       <div class="msg-row ${isMe?'me':''}" id="msg-${msg.id}">
         <div class="msg-avatar">${init}</div>
         <div class="msg-body">
           ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
           <div class="msg-wrapper">
-            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}<span class="msg-time-inner">${timeStr}</span></div>
+            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${esc(msg.text||'')}</div>
             <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
           </div>
           <div class="msg-reactions">${reactionBtns}</div>
           <div class="msg-footer">
+            <span class="msg-time">${timeStr}</span>
             ${canDelete ? `<button class="btn-del" onclick="window.deleteMsg('${msg.id}')" title="Hapus">🗑</button>` : ''}
           </div>
         </div>
-      </div>`;
+      </div>`);
+    } catch(msgErr) {
+      // Skip pesan yang bermasalah, lanjut ke pesan berikutnya
+      showToast('⚠️ Skip 1 pesan: ' + (msgErr.message||'').slice(0,30));
+    }
   });
 
-  if (wasAtBottom) area.scrollTop = area.scrollHeight;
+  // Render semua sekaligus — lebih aman dan cepat
+  if (html_parts.length === 0) {
+    showToast('⚠️ 0 dari ' + msgs.length + ' pesan berhasil render');
+    area.innerHTML = '<div class="empty-chat"><div style="font-size:40px">⚠️</div><div>Gagal menampilkan pesan</div></div>';
+    return;
+  }
+
+  area.innerHTML = html_parts.join('');
+
+  // Force scroll ke bawah
+  requestAnimationFrame(() => {
+    area.scrollTop = area.scrollHeight;
+  });
 }
 
 // ===== SEND =====
@@ -616,6 +754,9 @@ window.sendMsg = function() {
     text: text,
     ts: Date.now(),
     isAdmin: isAdmin
+  }).then(() => {
+    const area = document.getElementById('chatArea');
+    if (area) setTimeout(() => area.scrollTop = area.scrollHeight, 300);
   }).catch(err => {
     input.value = text;
     showToast('❌ Gagal kirim: ' + (err.message||err.code));
@@ -641,11 +782,34 @@ window.toggleReaction = function(msgId, emoji) {
   const key = 'community_chat/' + msgId + '/reactions/' + encodeURIComponent(emoji);
   const rRef = ref(db, key);
   get(rRef).then(snap => {
-    const arr = snap.exists() ? snap.val() : [];
+    const arr = snap.exists() ? (snap.val()||[]) : [];
     const idx = arr.indexOf(currentUser.uid);
     if (idx === -1) arr.push(currentUser.uid);
     else arr.splice(idx, 1);
-    set(rRef, arr);
+    return set(rRef, arr).then(() => arr);
+  }).then(arr => {
+    // Update tampilan reaction langsung di DOM
+    const msgRow = document.getElementById('msg-' + msgId);
+    if (!msgRow) return;
+    const reactionsDiv = msgRow.querySelector('.msg-reactions');
+    if (!reactionsDiv) return;
+
+    // Cari atau buat tombol reaction untuk emoji ini
+    const emojis = ['👍','❤️','🔥','😂','🚀'];
+    // Rebuild semua reaction buttons untuk pesan ini
+    get(ref(db, 'community_chat/' + msgId + '/reactions')).then(allSnap => {
+      const allReactions = allSnap.exists() ? allSnap.val() : {};
+      const btns = emojis.map(e => {
+        const k = encodeURIComponent(e);
+        const a = allReactions[k] || [];
+        const count = a.length;
+        const hasReacted = a.includes(currentUser.uid);
+        return count > 0
+          ? `<button class="reaction-btn ${hasReacted?'active':''}" onclick="window.toggleReaction('${msgId}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
+          : '';
+      }).join('');
+      reactionsDiv.innerHTML = btns;
+    });
   });
   // Tutup picker
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
@@ -656,6 +820,7 @@ window.toggleEmojiPicker = function(pickerId) {
   if (!picker) return;
   const isOpen = picker.classList.contains('show');
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
   if (!isOpen) picker.classList.add('show');
 };
 
