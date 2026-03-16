@@ -608,7 +608,19 @@ function showToast(msg) {
 }
 
 // ===== AUTH =====
+// Timeout fallback — kalau 3 detik Firebase belum respond, sembunyikan loading
+const _authTimeout = setTimeout(() => {
+  const loading = document.getElementById('authLoading');
+  if (loading && loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    if (!currentUser) {
+      document.getElementById('notLoggedIn').style.display = 'flex';
+    }
+  }
+}, 3000);
+
 onAuthStateChanged(auth, user => {
+  clearTimeout(_authTimeout);
   if (user) {
     currentUser = user;
     currentName = user.displayName || user.email.split('@')[0];
