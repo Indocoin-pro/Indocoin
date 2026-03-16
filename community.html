@@ -783,11 +783,34 @@ window.toggleReaction = function(msgId, emoji) {
   const key = 'community_chat/' + msgId + '/reactions/' + encodeURIComponent(emoji);
   const rRef = ref(db, key);
   get(rRef).then(snap => {
-    const arr = snap.exists() ? snap.val() : [];
+    const arr = snap.exists() ? (snap.val()||[]) : [];
     const idx = arr.indexOf(currentUser.uid);
     if (idx === -1) arr.push(currentUser.uid);
     else arr.splice(idx, 1);
-    set(rRef, arr);
+    return set(rRef, arr).then(() => arr);
+  }).then(arr => {
+    // Update tampilan reaction langsung di DOM
+    const msgRow = document.getElementById('msg-' + msgId);
+    if (!msgRow) return;
+    const reactionsDiv = msgRow.querySelector('.msg-reactions');
+    if (!reactionsDiv) return;
+
+    // Cari atau buat tombol reaction untuk emoji ini
+    const emojis = ['👍','❤️','🔥','😂','🚀'];
+    // Rebuild semua reaction buttons untuk pesan ini
+    get(ref(db, 'community_chat/' + msgId + '/reactions')).then(allSnap => {
+      const allReactions = allSnap.exists() ? allSnap.val() : {};
+      const btns = emojis.map(e => {
+        const k = encodeURIComponent(e);
+        const a = allReactions[k] || [];
+        const count = a.length;
+        const hasReacted = a.includes(currentUser.uid);
+        return count > 0
+          ? `<button class="reaction-btn ${hasReacted?'active':''}" onclick="window.toggleReaction('${msgId}','${e}')">${e} <span class="reaction-count">${count}</span></button>`
+          : '';
+      }).join('');
+      reactionsDiv.innerHTML = btns;
+    });
   });
   // Tutup picker
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
