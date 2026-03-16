@@ -583,37 +583,39 @@ function startChat() {
   const area = document.getElementById('chatArea');
   if (area) area.innerHTML = '';
 
-  // STEP 1: Load 50 pesan terakhir sekali saja
-  const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
-  get(msgsRef).then(snap => {
+  // STEP 1: Load semua pesan dari Firebase
+  let _lastTs = 0; // Simpan timestamp pesan terakhir yang sudah dirender
+  get(ref(db, 'community_chat')).then(snap => {
     if (snap && snap.exists()) {
       const msgs = [];
       snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
+      // Sort by ts ascending
+      msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
       msgs.forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
+        if (msg.ts && msg.ts > _lastTs) _lastTs = msg.ts;
       });
-      // Scroll ke bawah setelah load awal
       if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
     } else {
       if (area) area.innerHTML = '<div class="empty-chat"><div style="font-size:40px">💬</div><div>Belum ada pesan. Mulai percakapan!</div></div>';
     }
     _chatInitialized = true;
 
-    // STEP 2: Listen hanya untuk pesan BARU setelah load awal
-    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(1));
+    // STEP 2: Listen pesan BARU — hanya yang ts lebih baru dari terakhir
+    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(5));
     _chatUnsubscribe = onValue(newMsgsRef, snap => {
       if (!_chatInitialized) return;
       if (!snap || !snap.exists()) return;
       snap.forEach(c => {
         const msg = { id: c.key, ...c.val() };
-        if (!_renderedIds.has(msg.id)) {
-          // Hapus empty-chat jika ada
+        // Hanya tampilkan kalau belum dirender DAN ts lebih baru
+        if (!_renderedIds.has(msg.id) && msg.ts > _lastTs) {
           const empty = area ? area.querySelector('.empty-chat') : null;
           if (empty) empty.remove();
           appendMsg(msg);
           _renderedIds.add(msg.id);
-          // Scroll ke bawah untuk pesan baru
+          _lastTs = msg.ts;
           if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
         }
       });
