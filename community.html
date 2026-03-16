@@ -663,7 +663,7 @@ function appendMsg(msg) {
       const hasReacted = arr.includes(currentUser.uid);
       if (count === 0) return '';
       const cls = hasReacted ? 'reaction-inline active' : 'reaction-inline';
-      return '<span class="' + cls + '" onclick="window.toggleReaction(&quot;' + msg.id + '&quot;,&quot;' + key + '&quot;)">' + e + ' ' + count + '</span>';
+      return '<span class="' + cls + '" data-key="' + key + '" data-count="' + count + '" onclick="window.toggleReaction(&quot;' + msg.id + '&quot;,&quot;' + key + '&quot;)">' + e + ' ' + count + '</span>';
     }).join('');
 
     const emojiPicker = emojis.map(e =>
@@ -870,19 +870,59 @@ window.deleteMsg = function(msgId) {
 };
 
 // ===== REACTIONS =====
-window.toggleReaction = function(msgId, emoji) {
+window.toggleReaction = function(msgId, emojiOrKey) {
   if (!currentUser) return;
-  const key = 'community_chat/' + msgId + '/reactions/' + encodeURIComponent(emoji);
-  const rRef = ref(db, key);
+  document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+
+  // emojiOrKey bisa emoji langsung atau encoded key
+  const emojiKey = encodeURIComponent(emojiOrKey).length === emojiOrKey.length
+    ? emojiOrKey  // sudah encoded
+    : encodeURIComponent(emojiOrKey);
+
+  const rRef = ref(db, 'community_chat/' + msgId + '/reactions/' + emojiKey);
+
+  // Optimistic update — update DOM dulu tanpa tunggu Firebase
+  const msgRow = document.getElementById('msg-' + msgId);
+  if (msgRow) {
+    const footer = msgRow.querySelector('.bubble-footer');
+    if (footer) {
+      const timeEl = footer.querySelector('.msg-time-inner');
+      const timeText = timeEl ? timeEl.textContent : '';
+      // Cari span reaction yang ada
+      const existing = footer.querySelector('[data-key="' + emojiKey + '"]');
+      const emoji = decodeURIComponent(emojiKey);
+      if (existing) {
+        let count = parseInt(existing.getAttribute('data-count') || '1');
+        const hasReacted = existing.classList.contains('active');
+        if (hasReacted) { count--; } else { count++; }
+        if (count <= 0) {
+          existing.remove();
+        } else {
+          existing.setAttribute('data-count', count);
+          existing.textContent = emoji + ' ' + count;
+          existing.classList.toggle('active', !hasReacted);
+        }
+      } else {
+        // Tambah reaction baru
+        const span = document.createElement('span');
+        span.className = 'reaction-inline active';
+        span.setAttribute('data-key', emojiKey);
+        span.setAttribute('data-count', '1');
+        span.textContent = emoji + ' 1';
+        span.onclick = function() { window.toggleReaction(msgId, emojiKey); };
+        footer.insertBefore(span, timeEl);
+      }
+    }
+  }
+
+  // Sinkron ke Firebase di background
   get(rRef).then(snap => {
-    const arr = snap.exists() ? snap.val() : [];
+    const arr = snap.exists() ? (snap.val() || []) : [];
     const idx = arr.indexOf(currentUser.uid);
     if (idx === -1) arr.push(currentUser.uid);
     else arr.splice(idx, 1);
-    set(rRef, arr);
-  });
-  // Tutup picker
-  document.querySelectorAll('.emoji-picker').forEach(p => p.classList.remove('show'));
+    return set(rRef, arr.length > 0 ? arr : null);
+  }).catch(() => {});
 };
 
 window.toggleEmojiPicker = function(pickerId) {
