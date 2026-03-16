@@ -220,8 +220,12 @@ html, body {
 .emoji-opt:hover { background: var(--bluelight); }
 
 .msg-wrapper { position: relative; }
+.edited-label { font-size:9px;color:rgba(255,255,255,0.65);font-style:italic;margin-left:4px; }
+.msg-row:not(.me) .edited-label { color:var(--text2); }
 .reply-in-bubble { background:rgba(37,99,235,0.08);border-left:3px solid var(--blue);border-radius:4px;padding:3px 7px;margin-bottom:5px;font-size:10px; }
-.msg-row.me .reply-in-bubble { background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.6); }
+.msg-row.me .edited-label { font-size:9px;color:rgba(255,255,255,0.65);font-style:italic;margin-left:4px; }
+.msg-row:not(.me) .edited-label { color:var(--text2); }
+.reply-in-bubble { background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.6); }
 .reply-in-name { font-weight:700;color:var(--blue);font-size:10px;margin-bottom:1px; }
 .msg-row.me .reply-in-name { color:rgba(255,255,255,0.9); }
 .reply-in-text { color:var(--text2);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px; }
@@ -662,7 +666,7 @@ function appendMsg(msg) {
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
         <div style="display:flex;align-items:flex-start;gap:3px;">
           <div class="msg-wrapper">
-            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${replyBox}${esc(msg.text||'')}</div>
+            <div class="msg-bubble" onclick="window.toggleEmojiPicker('picker-${msg.id}')">${replyBox}${esc(msg.text||'')}${msg.edited ? '<span class="edited-label">diedit</span>' : ''}</div>
             <div class="emoji-picker" id="picker-${msg.id}">${emojiPicker}</div>
           </div>
           <div class="msg-menu-wrap">
@@ -674,7 +678,7 @@ function appendMsg(msg) {
             <div class="msg-menu" id="menu-${msg.id}">
               <div class="msg-menu-item" onclick="window.doReply(event,'${msg.id}','${esc(msg.name||'User')}')">↩️ Reply</div>
               <div class="msg-menu-divider"></div>
-              <div class="msg-menu-item">😊 Emoji</div>
+              ${(isMe || isAdmin) && (msg.editCount||0) < 3 ? '<div class="msg-menu-item" onclick="window.doEdit(event,\''+msg.id+'\',\''+esc(msg.text||'')+'\')">✏️ Edit</div><div class="msg-menu-divider"></div>' : ''}
               <div class="msg-menu-divider"></div>
               <div class="msg-menu-item danger" onclick="window.deleteMsg('${msg.id}')">🗑 Hapus</div>
             </div>
@@ -795,6 +799,22 @@ window.sendMsg = function() {
   input.value = '';
   input.style.height = 'auto';
   document.getElementById('charCounter').textContent = '0 / 3000';
+  // Mode edit
+  if (_editMsgId) {
+    const editRef = ref(db, 'community_chat/' + _editMsgId);
+    get(editRef).then(snap => {
+      if (!snap.exists()) return;
+      const msg = snap.val();
+      if (msg.uid !== currentUser.uid && !isAdmin) return;
+      if ((msg.editCount||0) >= 3) { showToast('❌ Maksimal 3x edit'); return; }
+      set(editRef, { ...msg, text: text, edited: true, editCount: (msg.editCount||0) + 1 });
+    }).then(() => {
+      showToast('✅ Pesan diupdate');
+      window.closeEdit();
+    }).catch(() => showToast('❌ Gagal edit'));
+    return;
+  }
+
   const msgData = {
     uid: currentUser.uid,
     name: currentName,
@@ -884,6 +904,24 @@ window.doReply = function(event, msgId, senderName) {
 window.closeReply = function() {
   _replyTo = null;
   document.getElementById('replyPreview').style.display = 'none';
+};
+
+let _editMsgId = null;
+window.doEdit = function(event, msgId, currentText) {
+  event.stopPropagation();
+  document.querySelectorAll('.msg-menu').forEach(m => m.classList.remove('show'));
+  _editMsgId = msgId;
+  _replyTo = null;
+  document.getElementById('replyPreview').style.display = 'none';
+  const input = document.getElementById('chatInput');
+  input.value = currentText;
+  autoResize(input);
+  input.focus();
+  showToast('✏️ Mode edit — kirim untuk simpan');
+};
+window.closeEdit = function() {
+  _editMsgId = null;
+  document.getElementById('chatInput').value = '';
 };
 
 // Tutup picker & menu saat klik di luar
