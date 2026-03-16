@@ -584,12 +584,16 @@ function startChat() {
   if (area) area.innerHTML = '';
 
   // STEP 1: Load 50 pesan terakhir sekali saja
-  const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
+  // 7 hari ke belakang
+  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+  // Max 100 chat terakhir, filter 7 hari di client
+  const msgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(100));
   get(msgsRef).then(snap => {
     if (snap && snap.exists()) {
       const msgs = [];
       snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-      msgs.forEach(msg => {
+      // Filter: hanya tampilkan 7 hari ke belakang
+      msgs.filter(msg => !msg.ts || msg.ts >= sevenDaysAgo).forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
       });
