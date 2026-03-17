@@ -985,67 +985,122 @@ const PROGRAM_NAMES = {
 // ── 10 CONTRACT STAKING — untuk deteksi program aktif downline ──
 const STAKING_CONTRACTS = [
   {
+    // Growth Lock: getUserStakes() → array of structs, cek length > 0
     id: 1, name: "Growth Lock",
     ca: "0xf017dF02f2BEFe09B7969E5E818c320607C5d900",
-    abi: ["function getUserStakes(address user) external view returns (tuple(uint256 amount,uint256 startTime,uint256 endTime,uint256 reward,bool claimed)[])"],
-    check: async (c, addr) => { const s = await c.getUserStakes(addr); return s.length > 0; }
+    abi: ["function getUserStakes(address user) view returns (tuple(uint256 amount,uint256 startTime,uint256 endTime,uint256 reward,bool claimed)[])"],
+    check: async (c, addr) => {
+      const s = await c.getUserStakes(addr);
+      return Array.isArray(s) && s.length > 0 && ethers.BigNumber.from(s[0].amount.toString()).gt(0);
+    }
   },
   {
+    // Dynamic Level: getUserStakes() → array of structs, cek length > 0
     id: 2, name: "Dynamic Level",
     ca: "0x3662356ef99E6566D216a0e241B9C5038A0B04C3",
-    abi: ["function getUserStakes(address user) external view returns (tuple(uint8 level,uint256 amount,uint256 startTime,uint256 claimedAt,bool claimed,bool withdrawn,bool rewardPending)[])"],
-    check: async (c, addr) => { const s = await c.getUserStakes(addr); return s.length > 0; }
+    abi: ["function getUserStakes(address user) view returns (tuple(uint8 level,uint256 amount,uint256 startTime,uint256 claimedAt,bool claimed,bool withdrawn,bool rewardPending)[])"],
+    check: async (c, addr) => {
+      const s = await c.getUserStakes(addr);
+      return Array.isArray(s) && s.length > 0;
+    }
   },
   {
+    // Flexi Yield: getStakeCount() → uint256
     id: 3, name: "Flexi Yield",
     ca: "0x1EfE297BE37f3FDa2a6eb933e609CBb951fC37D9",
     abi: ["function getStakeCount(address) view returns(uint256)"],
-    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+    check: async (c, addr) => {
+      const n = await c.getStakeCount(addr);
+      return ethers.BigNumber.from(n.toString()).gt(0);
+    }
   },
   {
+    // Boost Level: getStakeCount() → uint256
     id: 4, name: "Boost Level",
     ca: "0x77AAB6C0B5643735A98294760D474B2c09FC8e7f",
     abi: ["function getStakeCount(address) view returns(uint256)"],
-    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+    check: async (c, addr) => {
+      const n = await c.getStakeCount(addr);
+      return ethers.BigNumber.from(n.toString()).gt(0);
+    }
   },
   {
+    // Locked Diamond: getStakeCount() → uint256
     id: 5, name: "Locked Diamond",
     ca: "0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504",
     abi: ["function getStakeCount(address) view returns(uint256)"],
-    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+    check: async (c, addr) => {
+      const n = await c.getStakeCount(addr);
+      return ethers.BigNumber.from(n.toString()).gt(0);
+    }
   },
   {
+    // Auto Compound: getStakeCount() → uint256
     id: 6, name: "Auto Compound",
     ca: "0x5A1EBe20493DbF69d781453870F96953EdB16f34",
     abi: ["function getStakeCount(address) view returns(uint256)"],
-    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+    check: async (c, addr) => {
+      const n = await c.getStakeCount(addr);
+      return ethers.BigNumber.from(n.toString()).gt(0);
+    }
   },
   {
+    // Referral Power: getUserInfo() → struct, cek registered && active
     id: 7, name: "Referral Power",
     ca: "0xF2FD48D3D5a84ab2b9d76ec2bDe34a5699aE3552",
     abi: ["function getUserInfo(address userAddr) view returns(bool registered,bool active,address referrer,uint256 principal,uint256 rewardClaimed,uint256 pendingReward,uint256 roiCapRemaining,bool roiCapReached)"],
-    check: async (c, addr) => { const u = await c.getUserInfo(addr); return u.registered && u.active; }
+    check: async (c, addr) => {
+      const u = await c.getUserInfo(addr);
+      // u bisa berupa array atau object tergantung ethers versi
+      const registered = u.registered !== undefined ? u.registered : u[0];
+      const active     = u.active     !== undefined ? u.active     : u[1];
+      return registered === true && active === true;
+    }
   },
   {
+    // Garuda Force: getMemberInfo1() → struct, cek isActive
     id: 8, name: "Garuda Force",
     ca: "0x6a22e4871aa23b61289CB3544d0915bf5083610a",
     abi: ["function getMemberInfo1(address _member) view returns(bool isActive,bool isFrozen,uint8 tier,uint8 rank,uint256 stakeAmount)"],
-    check: async (c, addr) => { const m = await c.getMemberInfo1(addr); return m.isActive; }
+    check: async (c, addr) => {
+      const m = await c.getMemberInfo1(addr);
+      const isActive = m.isActive !== undefined ? m.isActive : m[0];
+      return isActive === true;
+    }
   },
   {
+    // Point Vault: getPinCount() → uint256
     id: 9, name: "Point Vault",
     ca: "0x3A5729aAa08167E71bD4EA73B583DA668D330Af9",
     abi: ["function getPinCount(address _user) view returns(uint256)"],
-    check: async (c, addr) => { const n = await c.getPinCount(addr); return n.toNumber() > 0; }
+    check: async (c, addr) => {
+      const n = await c.getPinCount(addr);
+      return ethers.BigNumber.from(n.toString()).gt(0);
+    }
   },
   {
+    // STAKE WIN: getStakePaketA & B → multiple return values
+    // Paket A: lock 30 Mei 2026 | Paket B: fleksibel harian
+    // Decimal INDC = 9
     id: 10, name: "STAKE WIN",
     ca: "0x2C00473e14865995f0AcC83dA407d819647Af819",
-    abi: ["function getStakePaketA(address user) view returns(uint256 amount,uint256 since,uint256 reward)", "function getStakePaketB(address user) view returns(uint256 amount,uint256 since,uint256 pendingReward)"],
+    abi: [
+      "function getStakePaketA(address user) view returns(uint256 amount,uint256 since,uint256 reward)",
+      "function getStakePaketB(address user) view returns(uint256 amount,uint256 since,uint256 pendingReward)"
+    ],
     check: async (c, addr) => {
-      const a = await c.getStakePaketA(addr);
-      const b = await c.getStakePaketB(addr);
-      return a.amount.gt(0) || b.amount.gt(0);
+      const [a, b] = await Promise.all([
+        c.getStakePaketA(addr),
+        c.getStakePaketB(addr)
+      ]);
+      // Ambil amount dari index [0] atau property .amount — keduanya dicoba
+      const amtA = ethers.BigNumber.from(
+        (a.amount !== undefined ? a.amount : a[0]).toString()
+      );
+      const amtB = ethers.BigNumber.from(
+        (b.amount !== undefined ? b.amount : b[0]).toString()
+      );
+      return amtA.gt(0) || amtB.gt(0);
     }
   }
 ];
@@ -1054,24 +1109,43 @@ const STAKING_CONTRACTS = [
 const _programCache = {};
 
 // Fungsi utama: cek semua program aktif untuk 1 wallet
+// Menggunakan multiple RPC fallback agar lebih reliable
 async function getActivePrograms(addr) {
   const key = addr.toLowerCase();
   if (_programCache[key]) return _programCache[key];
 
-  const readProvider = new ethers.providers.JsonRpcProvider(RPC);
+  // Coba RPC satu per satu sampai berhasil
+  let readProvider = null;
+  for (const rpc of RPC_LIST) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      await Promise.race([
+        p.getBlockNumber(),
+        new Promise((_,rej) => setTimeout(()=>rej('timeout'), 4000))
+      ]);
+      readProvider = p;
+      break;
+    } catch(e) { continue; }
+  }
+  if (!readProvider) readProvider = new ethers.providers.JsonRpcProvider(RPC_LIST[0]);
+
   const activeList = [];
 
-  // Query semua contract secara paralel
+  // Query semua 10 contract secara paralel dengan timeout per contract
   const results = await Promise.allSettled(
     STAKING_CONTRACTS.map(async (prog) => {
       const c = new ethers.Contract(prog.ca, prog.abi, readProvider);
-      const isActive = await prog.check(c, addr);
+      // Timeout 8 detik per contract
+      const isActive = await Promise.race([
+        prog.check(c, addr),
+        new Promise((_,rej) => setTimeout(()=>rej('timeout'), 8000))
+      ]);
       return { id: prog.id, name: prog.name, active: isActive };
     })
   );
 
   for (const r of results) {
-    if (r.status === 'fulfilled' && r.value.active) {
+    if (r.status === 'fulfilled' && r.value.active === true) {
       activeList.push(r.value.name);
     }
   }
