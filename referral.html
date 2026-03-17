@@ -978,8 +978,107 @@ const PROGRAM_NAMES = {
   6: "Auto Compound",
   7: "Referral Power",
   8: "Garuda Force",
-  9: "Point Vault"
+  9: "Point Vault",
+  10: "STAKE WIN"
 };
+
+// ── 10 CONTRACT STAKING — untuk deteksi program aktif downline ──
+const STAKING_CONTRACTS = [
+  {
+    id: 1, name: "Growth Lock",
+    ca: "0xf017dF02f2BEFe09B7969E5E818c320607C5d900",
+    abi: ["function getUserStakes(address user) external view returns (tuple(uint256 amount,uint256 startTime,uint256 endTime,uint256 reward,bool claimed)[])"],
+    check: async (c, addr) => { const s = await c.getUserStakes(addr); return s.length > 0; }
+  },
+  {
+    id: 2, name: "Dynamic Level",
+    ca: "0x3662356ef99E6566D216a0e241B9C5038A0B04C3",
+    abi: ["function getUserStakes(address user) external view returns (tuple(uint8 level,uint256 amount,uint256 startTime,uint256 claimedAt,bool claimed,bool withdrawn,bool rewardPending)[])"],
+    check: async (c, addr) => { const s = await c.getUserStakes(addr); return s.length > 0; }
+  },
+  {
+    id: 3, name: "Flexi Yield",
+    ca: "0x1EfE297BE37f3FDa2a6eb933e609CBb951fC37D9",
+    abi: ["function getStakeCount(address) view returns(uint256)"],
+    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+  },
+  {
+    id: 4, name: "Boost Level",
+    ca: "0x77AAB6C0B5643735A98294760D474B2c09FC8e7f",
+    abi: ["function getStakeCount(address) view returns(uint256)"],
+    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+  },
+  {
+    id: 5, name: "Locked Diamond",
+    ca: "0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504",
+    abi: ["function getStakeCount(address) view returns(uint256)"],
+    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+  },
+  {
+    id: 6, name: "Auto Compound",
+    ca: "0x5A1EBe20493DbF69d781453870F96953EdB16f34",
+    abi: ["function getStakeCount(address) view returns(uint256)"],
+    check: async (c, addr) => { const n = await c.getStakeCount(addr); return n.toNumber() > 0; }
+  },
+  {
+    id: 7, name: "Referral Power",
+    ca: "0xF2FD48D3D5a84ab2b9d76ec2bDe34a5699aE3552",
+    abi: ["function getUserInfo(address userAddr) view returns(bool registered,bool active,address referrer,uint256 principal,uint256 rewardClaimed,uint256 pendingReward,uint256 roiCapRemaining,bool roiCapReached)"],
+    check: async (c, addr) => { const u = await c.getUserInfo(addr); return u.registered && u.active; }
+  },
+  {
+    id: 8, name: "Garuda Force",
+    ca: "0x6a22e4871aa23b61289CB3544d0915bf5083610a",
+    abi: ["function getMemberInfo1(address _member) view returns(bool isActive,bool isFrozen,uint8 tier,uint8 rank,uint256 stakeAmount)"],
+    check: async (c, addr) => { const m = await c.getMemberInfo1(addr); return m.isActive; }
+  },
+  {
+    id: 9, name: "Point Vault",
+    ca: "0x3A5729aAa08167E71bD4EA73B583DA668D330Af9",
+    abi: ["function getPinCount(address _user) view returns(uint256)"],
+    check: async (c, addr) => { const n = await c.getPinCount(addr); return n.toNumber() > 0; }
+  },
+  {
+    id: 10, name: "STAKE WIN",
+    ca: "0x2C00473e14865995f0AcC83dA407d819647Af819",
+    abi: ["function getStakePaketA(address user) view returns(uint256 amount,uint256 since,uint256 reward)", "function getStakePaketB(address user) view returns(uint256 amount,uint256 since,uint256 pendingReward)"],
+    check: async (c, addr) => {
+      const a = await c.getStakePaketA(addr);
+      const b = await c.getStakePaketB(addr);
+      return a.amount.gt(0) || b.amount.gt(0);
+    }
+  }
+];
+
+// Cache hasil cek program per session agar tidak query ulang
+const _programCache = {};
+
+// Fungsi utama: cek semua program aktif untuk 1 wallet
+async function getActivePrograms(addr) {
+  const key = addr.toLowerCase();
+  if (_programCache[key]) return _programCache[key];
+
+  const readProvider = new ethers.providers.JsonRpcProvider(RPC);
+  const activeList = [];
+
+  // Query semua contract secara paralel
+  const results = await Promise.allSettled(
+    STAKING_CONTRACTS.map(async (prog) => {
+      const c = new ethers.Contract(prog.ca, prog.abi, readProvider);
+      const isActive = await prog.check(c, addr);
+      return { id: prog.id, name: prog.name, active: isActive };
+    })
+  );
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.active) {
+      activeList.push(r.value.name);
+    }
+  }
+
+  _programCache[key] = activeList;
+  return activeList;
+}
 
 const MASTER_ABI = [
   {"inputs":[{"name":"_upline","type":"address"}],"name":"register","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -1174,32 +1273,45 @@ async function renderDownlineItems(container, addresses, lvl) {
     return;
   }
 
-  let html = '';
-  for (const addr of addresses.slice(0, 20)) {
-    let programs = [];
-    try {
-      const pInfo = await cMaster.getUserPrograms(addr);
-      programs = pInfo.map(p => PROGRAM_NAMES[p] || 'P'+p);
-    } catch(e) {}
-
-    const progHtml = programs.length > 0
-      ? programs.map(p => `<span class="dl-prog">${p}</span>`).join('')
-      : '<span class="dl-prog" style="color:var(--dim)">Belum ada program</span>';
-
-    html += `
-    <div class="dl-item">
+  // Tampilkan skeleton dulu sambil load
+  let html = addresses.slice(0, 20).map(addr => `
+    <div class="dl-item" id="dlitem-${addr.slice(2,10)}">
       <div style="flex:1">
         <div class="dl-addr">${addr.slice(0,10)}...${addr.slice(-6)}</div>
-        <div class="dl-programs" style="margin-top:4px">${progHtml}</div>
+        <div class="dl-programs" style="margin-top:4px">
+          <span class="dl-prog" style="color:var(--dim);opacity:.6">⏳ Memuat program...</span>
+        </div>
       </div>
-    </div>`;
-  }
+    </div>`).join('');
 
   if (addresses.length > 20) {
     html += `<div class="no-dl" style="font-size:10px">+${addresses.length-20} lainnya</div>`;
   }
-
   container.innerHTML = html;
+
+  // Query program tiap wallet secara paralel, update satu per satu
+  const batch = addresses.slice(0, 20);
+  await Promise.all(batch.map(async (addr) => {
+    let progHtml = '';
+    try {
+      const programs = await getActivePrograms(addr);
+      if (programs.length > 0) {
+        progHtml = programs.map(p =>
+          `<span class="dl-prog">${p}</span>`
+        ).join('');
+      } else {
+        progHtml = '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
+      }
+    } catch(e) {
+      progHtml = '<span class="dl-prog" style="color:var(--dim)">Gagal cek program</span>';
+    }
+
+    // Update elemen spesifik tanpa re-render semua
+    const el = container.querySelector(`#dlitem-${addr.slice(2,10)}`);
+    if (el) {
+      el.querySelector('.dl-programs').innerHTML = progHtml;
+    }
+  }));
 }
 
 function renderEmptyDownline() {
