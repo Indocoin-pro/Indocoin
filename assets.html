@@ -612,25 +612,101 @@ function renderTargets() {
     </div>`).join("");
 }
 
-/* ═══ TX HISTORY ═══ */
-function renderTX() {
-  const rnd = () => { const h="0123456789abcdef"; let s="0x"; for(let i=0;i<4;i++) s+=h[Math.floor(Math.random()*16)]; return s+"..."+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]; };
-  const types = [{t:"Transfer INDC",i:"💛",c:"var(--gold)"},{t:"Terima BNB",i:"💚",c:"var(--green)"},{t:"Kirim INDC",i:"🔴",c:"var(--red)"},{t:"Staking",i:"🔒",c:"var(--violet)"}];
-  const txs = Array.from({length:8},(_,i)=>{
-    const tp=types[i%types.length];
-    return `<div class="tx-row">
-      <div class="tx-icon" style="background:${tp.c}18">${tp.i}</div>
-      <div class="tx-detail">
-        <div class="tx-type" style="color:${tp.c}">${tp.t}</div>
-        <div class="tx-addr">${rnd()} → ${rnd()}</div>
-      </div>
-      <div class="tx-right">
-        <div class="tx-amount" style="color:${tp.c}">${(Math.random()*10000+100).toFixed(0)} INDC</div>
-        <div class="tx-time">${Math.floor(Math.random()*60)+1} mnt lalu</div>
-      </div>
-    </div>`;
-  });
-  document.getElementById("txHistory").innerHTML = txs.join("");
+/* ═══ TX HISTORY — DATA REAL DARI BSCSCAN ═══ */
+const BSCSCAN_KEY  = "377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2";
+const BSCSCAN_API  = "https://api.bscscan.com/api";
+const CHAIN_ID     = "56"; // BSC
+
+async function renderTX() {
+  const el = document.getElementById("txHistory");
+  el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Memuat transaksi...</div>`;
+
+  try {
+    // Ambil transaksi BNB & token INDC secara paralel
+    const [resBNB, resINDC] = await Promise.all([
+      fetch(`${BSCSCAN_API}?module=account&action=txlist&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`),
+      fetch(`${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`)
+    ]);
+
+    const dataBNB  = await resBNB.json();
+    const dataINDC = await resINDC.json();
+
+    // Gabungkan & sort by timestamp terbaru
+    let txList = [];
+
+    // Proses transaksi BNB
+    if (dataBNB.status === "1" && dataBNB.result) {
+      dataBNB.result.slice(0, 5).forEach(tx => {
+        const isIn   = tx.to.toLowerCase() === userAddress.toLowerCase();
+        const value  = parseFloat(ethers.formatEther(tx.value));
+        if (value === 0) return; // skip contract calls tanpa nilai
+        txList.push({
+          type   : isIn ? "Terima BNB" : "Kirim BNB",
+          icon   : isIn ? "💚" : "🔵",
+          color  : isIn ? "var(--green)" : "var(--cyan)",
+          from   : tx.from.slice(0,6)+"..."+tx.from.slice(-4),
+          to     : tx.to.slice(0,6)+"..."+tx.to.slice(-4),
+          amount : value.toFixed(4) + " BNB",
+          time   : tx.timeStamp,
+          hash   : tx.hash,
+          isIn,
+        });
+      });
+    }
+
+    // Proses transaksi INDC
+    if (dataINDC.status === "1" && dataINDC.result) {
+      dataINDC.result.slice(0, 5).forEach(tx => {
+        const isIn   = tx.to.toLowerCase() === userAddress.toLowerCase();
+        const dec    = parseInt(tx.tokenDecimal) || 9;
+        const value  = parseFloat(tx.value) / Math.pow(10, dec);
+        txList.push({
+          type   : isIn ? "Terima INDC" : "Kirim INDC",
+          icon   : isIn ? "💛" : "🔴",
+          color  : isIn ? "var(--gold)" : "var(--red)",
+          from   : tx.from.slice(0,6)+"..."+tx.from.slice(-4),
+          to     : tx.to.slice(0,6)+"..."+tx.to.slice(-4),
+          amount : Math.floor(value).toLocaleString("id") + " INDC",
+          time   : tx.timeStamp,
+          hash   : tx.hash,
+          isIn,
+        });
+      });
+    }
+
+    // Sort terbaru dulu
+    txList.sort((a, b) => b.time - a.time);
+
+    if (txList.length === 0) {
+      el.innerHTML = `<div style="padding:24px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Belum ada transaksi</div>`;
+      return;
+    }
+
+    // Render
+    el.innerHTML = txList.map(tx => {
+      const now   = Math.floor(Date.now() / 1000);
+      const diff  = now - tx.time;
+      const timeStr = diff < 60 ? "Baru saja" :
+                      diff < 3600 ? Math.floor(diff/60) + " mnt lalu" :
+                      diff < 86400 ? Math.floor(diff/3600) + " jam lalu" :
+                      Math.floor(diff/86400) + " hari lalu";
+      return `<div class="tx-row" onclick="window.open('https://bscscan.com/tx/${tx.hash}','_blank')">
+        <div class="tx-icon" style="background:${tx.color}18">${tx.icon}</div>
+        <div class="tx-detail">
+          <div class="tx-type" style="color:${tx.color}">${tx.type}</div>
+          <div class="tx-addr">${tx.from} → ${tx.to}</div>
+        </div>
+        <div class="tx-right">
+          <div class="tx-amount" style="color:${tx.color}">${tx.amount}</div>
+          <div class="tx-time">${timeStr}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+  } catch(e) {
+    el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⚠️ Gagal memuat transaksi</div>`;
+    console.warn("renderTX error:", e);
+  }
 }
 
 /* ═══ SHOW CONNECTED ═══ */
