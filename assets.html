@@ -339,7 +339,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 const INDC_CONTRACT = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_CHAIN_ID  = "0x38";
 const BSC_RPC       = "https://bsc-dataseed.binance.org/";
-const USD_TO_IDR    = 16350;
+let USD_TO_IDR = 16350; // default, akan diupdate dari API
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -391,16 +391,17 @@ async function loadWalletData() {
     updateRanking(indcBalance, supply);
   } catch(e) { console.error("INDC error:", e); }
 
-  // BNB price from CoinGecko
+  // BNB price + kurs IDR dari CoinGecko
   let bnbPrice = 580;
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd&include_24hr_change=true");
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr&include_24hr_change=true");
     const d = await r.json();
-    bnbPrice = d.binancecoin.usd;
-    const chg = d.binancecoin.usd_24h_change || 0;
-    updateUI(bnbPrice, 0.001, chg); // INDC pre-listing ~$0.001
+    bnbPrice   = d.binancecoin.usd;
+    USD_TO_IDR = d.binancecoin.idr / d.binancecoin.usd; // kurs real USD→IDR
+    const chg  = d.binancecoin.usd_24h_change || 0;
+    updateUI(bnbPrice, 0.003, chg); // INDC harga presale $0.003
   } catch(e) {
-    updateUI(bnbPrice, 0.001, 0);
+    updateUI(bnbPrice, 0.003, 0); // fallback tetap pakai $0.003
   }
 }
 
