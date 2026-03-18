@@ -942,10 +942,12 @@ async function loadChainData(){
   try{
     for(const [key, idx] of Object.entries(TIER_IDX)){
       const r = await contract.getActiveRound(idx);
-      const target = TIERS[key].target;
       const collected = parseFloat(ethers.utils.formatUnits(r.poolCollected, 9)); // INDC decimal = 9
+      const target    = parseFloat(ethers.utils.formatUnits(r.poolTarget,    9)); // ambil target dari SC
+      const sold      = r.ticketSold.toNumber();                                  // ambil ticketSold dari SC
       poolData[key] = collected;
-      // Update kupon counter dari SC
+      TIERS[key].targetOnChain = target > 0 ? target : TIERS[key].target; // fallback ke hardcode jika 0
+      TIERS[key].soldOnChain   = sold;
     }
     // Total tiket dari SC
     const next = await contract.nextTicket();
@@ -1060,10 +1062,13 @@ async function doBeli(){
 function updateBars(){
   Object.keys(TIERS).forEach(k=>{
     const t=TIERS[k];
-    const pct=Math.min(100,Math.round((poolData[k]/t.target)*100));
+    // Prioritaskan data dari SC, fallback ke hardcode jika belum connect wallet
+    const target = t.targetOnChain || t.target;
+    const sold   = t.soldOnChain   !== undefined ? t.soldOnChain : Math.floor(poolData[k]/t.price);
+    const pct    = Math.min(100,Math.round((poolData[k]/target)*100));
     document.getElementById('bar-'+k).style.width=pct+'%';
     document.getElementById('pct-'+k).textContent=pct+'%';
-    document.getElementById('cnt-'+k).textContent=Math.floor(poolData[k]/t.price)+' kupon terjual';
+    document.getElementById('cnt-'+k).textContent=sold+' kupon terjual';
     if(pct>=100){
       document.getElementById('st-'+k).textContent='PENUH';
       document.getElementById('st-'+k).className='tc-status st-full';
