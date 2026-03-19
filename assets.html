@@ -394,21 +394,31 @@ async function loadWalletData() {
   // BNB price + kurs IDR dari CoinGecko
   let bnbPrice = 580;
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr&include_24hr_change=true");
-    const d = await r.json();
-    bnbPrice   = d.binancecoin.usd;
-    USD_TO_IDR = d.binancecoin.idr / d.binancecoin.usd; // kurs real USD→IDR
-    const chg  = d.binancecoin.usd_24h_change || 0;
-    updateUI(bnbPrice, 0.003, chg); // INDC harga presale $0.003
+    // Fetch harga BNB sekarang + kurs IDR + histori 30 hari sekaligus
+    const [rPrice, rHistory] = await Promise.all([
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr&include_24hr_change=true"),
+      fetch("https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=30&interval=daily")
+    ]);
+    const dPrice   = await rPrice.json();
+    const dHistory = await rHistory.json();
+
+    bnbPrice   = dPrice.binancecoin.usd;
+    USD_TO_IDR = dPrice.binancecoin.idr / dPrice.binancecoin.usd;
+    const chg  = dPrice.binancecoin.usd_24h_change || 0;
+
+    // Simpan histori harga untuk grafik
+    const priceHistory = dHistory.prices || []; // [[timestamp, price], ...]
+
+    updateUI(bnbPrice, 0.003, chg, priceHistory);
   } catch(e) {
-    updateUI(bnbPrice, 0.003, 0); // fallback tetap pakai $0.003
+    updateUI(bnbPrice, 0.003, 0, []);
   }
 }
 
-function updateUI(bnbPrice, indcPrice, bnbChg) {
-  const bnbUSD  = bnbBalance * bnbPrice;
-  const indcUSD = indcBalance * indcPrice;
-  const total   = bnbUSD + indcUSD;
+function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
+  const bnbUSD   = bnbBalance * bnbPrice;
+  const indcUSD  = indcBalance * indcPrice;
+  const total    = bnbUSD + indcUSD;
   const totalIDR = total * USD_TO_IDR;
 
   document.getElementById("totalUSD").textContent = "$" + total.toLocaleString("id", {maximumFractionDigits:2});
@@ -416,10 +426,12 @@ function updateUI(bnbPrice, indcPrice, bnbChg) {
   document.getElementById("statBNB").textContent  = bnbBalance.toFixed(4) + " BNB";
   document.getElementById("statINDC").textContent = indcBalance.toLocaleString("id", {maximumFractionDigits:0}) + " INDC";
 
-  // Draw sparkline
-  setTimeout(() => drawSparkline(total), 100);
+  // Draw sparkline pakai histori 7 hari real
+  const history7  = priceHistory.slice(-8);  // 7 hari + hari ini
+  const history30 = priceHistory.slice(-31); // 30 hari
+  setTimeout(() => drawSparkline(total, bnbBalance, indcPrice, history7), 100);
 
-  // PNL simulation
+  // PNL 24 jam dari CoinGecko
   const pnlPct = bnbChg.toFixed(2);
   const pnlUSD = (total * bnbChg / 100).toFixed(2);
   const isUp   = bnbChg >= 0;
@@ -427,11 +439,24 @@ function updateUI(bnbPrice, indcPrice, bnbChg) {
   badge.textContent = (isUp?"▲ +":"▼ ") + pnlPct + "% (24J)";
   badge.className   = "ph-pnl-badge " + (isUp?"up":"down");
   document.getElementById("pnlUSD").textContent = (isUp?"+$":"-$") + Math.abs(pnlUSD);
-
   document.getElementById("plToday").textContent = (isUp?"+$":"-$") + Math.abs(pnlUSD);
-  document.getElementById("pl7d").textContent    = "+$" + (total*0.05).toFixed(2);
-  document.getElementById("pl30d").textContent   = "+$" + (total*0.12).toFixed(2);
-  document.getElementById("pl30d").style.color   = "var(--green)";
+
+  // Point 6 — PnL 7 hari & 30 hari dari histori harga real
+  if (priceHistory.length >= 8) {
+    const price7dAgo  = priceHistory[priceHistory.length - 8]?.[1] || bnbPrice;
+    const price30dAgo = priceHistory[0]?.[1] || bnbPrice;
+    const pnl7d  = ((bnbPrice - price7dAgo)  / price7dAgo  * 100);
+    const pnl30d = ((bnbPrice - price30dAgo) / price30dAgo * 100);
+    const usd7d  = (total * pnl7d  / 100).toFixed(2);
+    const usd30d = (total * pnl30d / 100).toFixed(2);
+    document.getElementById("pl7d").textContent  = (pnl7d  >= 0 ? "+$" : "-$") + Math.abs(usd7d);
+    document.getElementById("pl7d").style.color  = pnl7d  >= 0 ? "var(--green)" : "var(--red)";
+    document.getElementById("pl30d").textContent = (pnl30d >= 0 ? "+$" : "-$") + Math.abs(usd30d);
+    document.getElementById("pl30d").style.color = pnl30d >= 0 ? "var(--green)" : "var(--red)";
+  } else {
+    document.getElementById("pl7d").textContent  = "—";
+    document.getElementById("pl30d").textContent = "—";
+  }
 
   // Wallet btn
   const shortAddr = userAddress.slice(0,6)+"..."+userAddress.slice(-4);
@@ -444,8 +469,8 @@ function updateUI(bnbPrice, indcPrice, bnbChg) {
   renderTokenList(bnbPrice, indcPrice, bnbChg);
   // Pie chart
   renderPie(bnbUSD, indcUSD);
-  // PL Chart
-  renderPLChart();
+  // Point 4 — PL Chart 30 hari real
+  renderPLChart(bnbBalance, indcPrice, history30);
   // Locked
   renderLocked(indcBalance);
   // TX
@@ -547,28 +572,48 @@ function renderPie(bnbUSD, indcUSD) {
     </div>`).join("");
 }
 
-/* ═══ P&L CHART ═══ */
-function renderPLChart() {
+/* ═══ P&L CHART — DATA REAL 30 HARI ═══ */
+function renderPLChart(bnbBal=0, indcPrice=0.003, priceHistory=[]) {
   const canvas = document.getElementById("plChart");
   const W = canvas.offsetWidth||300; canvas.width=W*2; canvas.height=240;
   canvas.style.width=W+"px"; canvas.style.height="120px";
   const ctx=canvas.getContext("2d");
-  const n=30, pad={t:10,r:10,b:20,l:10};
+  const pad={t:10,r:10,b:20,l:10};
   const iw=canvas.width-pad.l-pad.r, ih=canvas.height-pad.t-pad.b;
-  const data=Array.from({length:n},(_,i)=>({v:Math.sin(i/4)*20+(Math.random()-0.4)*15+i*0.5}));
-  const maxV=Math.max(...data.map(d=>d.v)), minV=Math.min(...data.map(d=>d.v));
-  const xS=iw/(n-1), yP=v=>pad.t+ih-((v-minV)/(maxV-minV||1))*ih;
-  // Area
+
+  // Gunakan histori harga real jika tersedia, fallback flat line
+  let data;
+  if (priceHistory.length >= 2) {
+    data = priceHistory.map(p => ({
+      v: bnbBal * p[1] + (indcBalance * indcPrice)
+    }));
+  } else {
+    // Fallback: flat line di nilai total sekarang
+    const total = bnbBal * 580 + indcBalance * indcPrice;
+    data = Array.from({length:30}, () => ({v: total}));
+  }
+
+  const n    = data.length;
+  const maxV = Math.max(...data.map(d=>d.v));
+  const minV = Math.min(...data.map(d=>d.v));
+  const xS   = iw/(n-1);
+  const yP   = v => pad.t+ih-((v-minV)/(maxV-minV||1))*ih;
+  const isUp = data[n-1].v >= data[0].v;
+  const lineColor = isUp ? "#34d399" : "#f87171";
+
+  // Area gradient
   const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+ih);
-  grad.addColorStop(0,"rgba(52,211,153,0.25)"); grad.addColorStop(1,"rgba(52,211,153,0)");
+  grad.addColorStop(0, isUp?"rgba(52,211,153,0.25)":"rgba(248,113,113,0.25)");
+  grad.addColorStop(1,"rgba(0,0,0,0)");
   ctx.beginPath(); ctx.moveTo(pad.l,yP(data[0].v));
   data.forEach((d,i)=>ctx.lineTo(pad.l+i*xS,yP(d.v)));
   ctx.lineTo(pad.l+(n-1)*xS,pad.t+ih); ctx.lineTo(pad.l,pad.t+ih); ctx.closePath();
   ctx.fillStyle=grad; ctx.fill();
+
   // Line
   ctx.beginPath(); ctx.moveTo(pad.l,yP(data[0].v));
   data.forEach((d,i)=>ctx.lineTo(pad.l+i*xS,yP(d.v)));
-  ctx.strokeStyle="#34d399"; ctx.lineWidth=3; ctx.stroke();
+  ctx.strokeStyle=lineColor; ctx.lineWidth=3; ctx.stroke();
 }
 
 /* ═══ LOCKED TOKENS ═══ */
@@ -741,28 +786,41 @@ if (window.ethereum) {
   window.ethereum.on("chainChanged",    ()=>location.reload());
 }
 
-/* SPARKLINE */
-function drawSparkline(total) {
+/* SPARKLINE — DATA REAL 7 HARI */
+function drawSparkline(total, bnbBal=0, indcPrice=0.003, priceHistory=[]) {
   const canvas = document.getElementById("sparkline");
   if (!canvas) return;
   const W = canvas.offsetWidth || 140;
   canvas.width = W * 2; canvas.height = 140;
   canvas.style.width = W + "px"; canvas.style.height = "70px";
   const ctx = canvas.getContext("2d");
-  // Generate 7 hari data simulasi
-  const data = Array.from({length:7}, (_,i) => {
-    const variation = (Math.random() - 0.4) * total * 0.08;
-    return Math.max(0, total * (0.85 + i * 0.02) + variation);
-  });
-  data[6] = total; // hari ini = nilai real
+
+  // Hitung nilai portfolio per hari dari histori harga BNB real
+  let data, labels;
+  const days = ["Sen","Sel","Rab","Kam","Jum","Sab","Min"];
+
+  if (priceHistory.length >= 2) {
+    data = priceHistory.map(p => bnbBal * p[1] + (indcBalance * indcPrice));
+    // Label hari dari timestamp
+    labels = priceHistory.map(p => {
+      const d = new Date(p[0]);
+      return ["Min","Sen","Sel","Rab","Kam","Jum","Sab"][d.getDay()];
+    });
+  } else {
+    // Fallback flat
+    data   = Array(7).fill(total);
+    labels = days;
+  }
+
   const maxV = Math.max(...data), minV = Math.min(...data);
-  const pad = {t:10,r:6,b:20,l:6};
-  const iw = canvas.width - pad.l - pad.r;
-  const ih = canvas.height - pad.t - pad.b;
-  const xS = iw / (data.length - 1);
-  const yP = v => pad.t + ih - ((v - minV) / (maxV - minV || 1)) * ih;
-  const isUp = data[6] >= data[0];
+  const pad  = {t:10,r:6,b:20,l:6};
+  const iw   = canvas.width - pad.l - pad.r;
+  const ih   = canvas.height - pad.t - pad.b;
+  const xS   = iw / (data.length - 1);
+  const yP   = v => pad.t + ih - ((v - minV) / (maxV - minV || 1)) * ih;
+  const isUp = data[data.length-1] >= data[0];
   const lineColor = isUp ? "#34d399" : "#f87171";
+
   // Area gradient
   const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ih);
   grad.addColorStop(0, isUp ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)");
@@ -774,23 +832,25 @@ function drawSparkline(total) {
   ctx.lineTo(pad.l, pad.t + ih);
   ctx.closePath();
   ctx.fillStyle = grad; ctx.fill();
+
   // Line
   ctx.beginPath();
   ctx.moveTo(pad.l, yP(data[0]));
   data.forEach((d, i) => ctx.lineTo(pad.l + i * xS, yP(d)));
   ctx.strokeStyle = lineColor; ctx.lineWidth = 3; ctx.stroke();
-  // Dots hari
-  const days = ["Sen","Sel","Rab","Kam","Jum","Sab","Min"];
+
+  // Dots & label hari
   data.forEach((d, i) => {
     ctx.beginPath();
     ctx.arc(pad.l + i * xS, yP(d), 4, 0, Math.PI*2);
-    ctx.fillStyle = i === 6 ? lineColor : "rgba(255,255,255,0.3)";
+    ctx.fillStyle = i === data.length-1 ? lineColor : "rgba(255,255,255,0.3)";
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.font = "16px Share Tech Mono"; ctx.textAlign = "center";
-    ctx.fillText(days[i], pad.l + i * xS, pad.t + ih + 16);
+    ctx.fillText(labels[i] || days[i % 7], pad.l + i * xS, pad.t + ih + 16);
   });
-  const pct = ((data[6]-data[0])/data[0]*100).toFixed(1);
+
+  const pct = data[0] > 0 ? ((data[data.length-1]-data[0])/data[0]*100).toFixed(1) : "0.0";
   document.getElementById("sparkTrend").textContent = (isUp?"▲ +":"▼ ") + pct + "% minggu ini";
   document.getElementById("sparkTrend").style.color = lineColor;
 }
