@@ -395,6 +395,17 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 </nav>
 
 <script>
+/* ═══ FORCE SW UNREGISTER (fix cache lama) ═══ */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
+    if (regs.length > 0) {
+      console.log("SW lama di-unregister, reload...");
+      window.location.reload(true);
+    }
+  });
+}
+
 /* ═══ CONFIG ═══ */
 const INDC_CONTRACT = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_CHAIN_ID  = "0x38"; // 56
@@ -729,21 +740,8 @@ setInterval(renderHistory, 6000);
 window.addEventListener("resize", () => { if(currentCandles.length) drawCandles(currentCandles); });
 </script>
 <script>
-if("serviceWorker" in navigator){
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").then(reg => {
-      reg.addEventListener("updatefound", () => {
-        const newSW = reg.installing;
-        newSW.addEventListener("statechange", () => {
-          if(newSW.state === "installed" && navigator.serviceWorker.controller){
-            newSW.postMessage("skipWaiting");
-            window.location.reload();
-          }
-        });
-      });
-    }).catch(e => console.warn("SW:", e));
-  });
-}
+/* SW register dinonaktifkan sementara untuk menghindari cache lama */
+// if("serviceWorker" in navigator){ ... }
 </script>
 </body>
 </html>
