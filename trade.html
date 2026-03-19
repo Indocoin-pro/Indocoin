@@ -108,6 +108,18 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
 .coming-soon-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:8px 14px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--red);margin-top:10px;width:100%;justify-content:center;}
 
+/* SLIPPAGE BUTTONS */
+.slip-btn{padding:4px 10px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all 0.15s;}
+.slip-btn.on{background:rgba(250,204,21,0.12);border-color:rgba(250,204,21,0.35);color:var(--gold);}
+
+/* TOKEN LIST ITEM */
+.tk-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:8px;cursor:pointer;transition:background 0.12s;}
+.tk-item:hover{background:rgba(250,204,21,0.06);}
+.tk-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;flex-shrink:0;}
+.tk-name{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--text);}
+.tk-sym{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.tk-bal{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);margin-left:auto;}
+
 /* LIMIT */
 .limit-form{padding:14px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
@@ -263,40 +275,83 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
           <div class="trade-tab" data-panel="liquidity">LIKUIDITAS</div>
         </div>
 
-        <!-- SWAP -->
+        <!-- SWAP — 1inch Integration -->
         <div id="panel-swap" class="swap-form">
+
+          <!-- TOKEN FROM -->
           <div class="swap-input-wrap">
             <div class="swap-input-label">
               <span class="sil-text">DARI</span>
-              <span class="sil-bal" id="swapFromBal">Saldo: — BNB</span>
+              <span class="sil-bal" id="swapFromBal">Saldo: —</span>
             </div>
             <div class="swap-input-row">
-              <input class="swap-amount" type="number" placeholder="0.00" id="swapFrom">
-              <div class="token-select">
-                <div class="token-icon" style="background:#f0b90b22;color:#f0b90b">B</div>
-                <span class="token-sym">BNB</span>
+              <input class="swap-amount" type="number" placeholder="0.00" id="swapFrom" oninput="onAmountChange()">
+              <div class="token-select" id="btnSelectFrom" onclick="openTokenModal('from')" style="min-width:110px">
+                <img id="iconFrom" src="" style="width:22px;height:22px;border-radius:50%;display:none">
+                <div class="token-icon" id="letterFrom" style="background:#f0b90b22;color:#f0b90b">B</div>
+                <span class="token-sym" id="symFrom">BNB</span>
+                <span style="font-size:10px;color:var(--muted)">▾</span>
               </div>
             </div>
           </div>
-          <div class="swap-divider"><div class="swap-flip" id="flipBtn">⇅</div></div>
+
+          <div class="swap-divider"><div class="swap-flip" id="flipBtn" onclick="flipTokens()">⇅</div></div>
+
+          <!-- TOKEN TO -->
           <div class="swap-input-wrap">
             <div class="swap-input-label">
               <span class="sil-text">KE</span>
-              <span class="sil-bal" id="swapToBal">Saldo: — INDC</span>
+              <span class="sil-bal" id="swapToBal">Saldo: —</span>
             </div>
             <div class="swap-input-row">
               <input class="swap-amount" type="number" placeholder="0.00" id="swapTo" readonly>
-              <div class="token-select">
-                <div class="token-icon" style="background:#facc1522;color:#facc15">I</div>
-                <span class="token-sym">INDC</span>
+              <div class="token-select" id="btnSelectTo" onclick="openTokenModal('to')" style="min-width:110px">
+                <img id="iconTo" src="" style="width:22px;height:22px;border-radius:50%;display:none">
+                <div class="token-icon" id="letterTo" style="background:#facc1522;color:#facc15">I</div>
+                <span class="token-sym" id="symTo">INDC</span>
+                <span style="font-size:10px;color:var(--muted)">▾</span>
               </div>
             </div>
           </div>
-          <div class="swap-rate">
-            <span>Via PancakeSwap</span>
-            <span>Fee: 0.25%</span>
+
+          <!-- RATE INFO -->
+          <div class="swap-rate" id="swapRateRow" style="display:none">
+            <span id="swapRateText">Memuat harga...</span>
+            <span id="swapFeeText">—</span>
           </div>
-          <div class="coming-soon-badge">⏳ SWAP AKTIF SETELAH INDC LISTING DI DEX</div>
+          <div id="swapQuoteInfo" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.12);border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.8;">
+            <div>Estimasi: <span id="quoteEstOut" style="color:var(--gold)">—</span></div>
+            <div>Slippage: <span id="quoteSlippage" style="color:var(--cyan)">1%</span></div>
+            <div>Min diterima: <span id="quoteMinOut" style="color:var(--green)">—</span></div>
+          </div>
+
+          <!-- SLIPPAGE -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:10px;">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);">SLIPPAGE:</span>
+            <div style="display:flex;gap:4px;">
+              <button class="slip-btn on" data-slip="0.5" onclick="setSlippage(this)">0.5%</button>
+              <button class="slip-btn" data-slip="1" onclick="setSlippage(this)">1%</button>
+              <button class="slip-btn" data-slip="3" onclick="setSlippage(this)">3%</button>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btnSwap" onclick="doSwap()" disabled>SWAP</button>
+          <div id="swapStatus" style="margin-top:8px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);display:none;"></div>
+        </div>
+
+        <!-- TOKEN MODAL -->
+        <div id="tokenModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center;">
+          <div style="background:var(--dark2);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;">PILIH TOKEN</span>
+              <span onclick="closeTokenModal()" style="cursor:pointer;font-size:18px;color:var(--muted);">✕</span>
+            </div>
+            <div style="padding:10px 16px;">
+              <input id="tokenSearch" type="text" placeholder="Cari nama atau paste alamat kontrak..." oninput="filterTokens()"
+                style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);outline:none;">
+            </div>
+            <div id="tokenList" style="overflow-y:auto;flex:1;padding:0 8px 12px;"></div>
+          </div>
         </div>
 
         <!-- LIMIT ORDER -->
@@ -395,17 +450,6 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 </nav>
 
 <script>
-/* ═══ FORCE SW UNREGISTER (fix cache lama) ═══ */
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(reg => reg.unregister());
-    if (regs.length > 0) {
-      console.log("SW lama di-unregister, reload...");
-      window.location.reload(true);
-    }
-  });
-}
-
 /* ═══ CONFIG ═══ */
 const INDC_CONTRACT = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_CHAIN_ID  = "0x38"; // 56
@@ -462,6 +506,7 @@ async function connectWallet() {
 
     await updateWalletUI();
     showConnectedState();
+    updateTokenUI();
 
   } catch(e) {
     console.error("Connect error:", e);
@@ -535,6 +580,7 @@ window.addEventListener("load", async () => {
         userAddress = await signer.getAddress();
         await updateWalletUI();
         showConnectedState();
+        updateTokenUI();
         return;
       }
     } catch(e) {}
@@ -552,7 +598,293 @@ if (window.ethereum) {
   window.ethereum.on("chainChanged",    () => location.reload());
 }
 
-/* ═══ CANDLESTICK — DATA REAL DARI MORALIS ═══ */
+
+/* ═══ 1INCH SWAP INTEGRATION ═══ */
+const ONEINCH_API  = "https://api.1inch.dev/swap/v6.0/56";
+const ONEINCH_KEY  = ""; // Isi API key 1inch di sini jika sudah punya
+const NATIVE_BNB   = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+// Token default BSC
+const DEFAULT_TOKENS = [
+  { symbol:"BNB",  name:"BNB",        address: NATIVE_BNB,                                       decimals:18, color:"#f0b90b", letter:"B" },
+  { symbol:"INDC", name:"IndoCoin",   address:"0xD772c96e1beFd2ea9C9a83182c71f4d32f306571",      decimals:18, color:"#facc15", letter:"I" },
+  { symbol:"USDT", name:"Tether USD", address:"0x55d398326f99059fF775485246999027B3197955",      decimals:18, color:"#26a17b", letter:"T" },
+  { symbol:"USDC", name:"USD Coin",   address:"0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",      decimals:18, color:"#2775ca", letter:"U" },
+  { symbol:"WBNB", name:"Wrapped BNB",address:"0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",      decimals:18, color:"#f0b90b", letter:"W" },
+  { symbol:"CAKE", name:"PancakeSwap",address:"0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",      decimals:18, color:"#1fc7d4", letter:"C" },
+  { symbol:"ETH",  name:"Ethereum",   address:"0x2170Ed0880ac9A755fd29B2688956BD959F933F8",       decimals:18, color:"#627eea", letter:"E" },
+  { symbol:"BTCB", name:"Bitcoin BEP20",address:"0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",    decimals:18, color:"#f7931a", letter:"₿" },
+];
+
+let tokenFrom = DEFAULT_TOKENS[0]; // BNB
+let tokenTo   = DEFAULT_TOKENS[1]; // INDC
+let slippage  = 1; // %
+let quoteTimer = null;
+let selectingFor = "from"; // "from" atau "to"
+let allTokens = [...DEFAULT_TOKENS];
+
+function setSlippage(btn) {
+  document.querySelectorAll(".slip-btn").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  slippage = parseFloat(btn.dataset.slip);
+  onAmountChange();
+}
+
+function updateTokenUI() {
+  // FROM
+  document.getElementById("symFrom").textContent = tokenFrom.symbol;
+  const iconFrom = document.getElementById("iconFrom");
+  const letterFrom = document.getElementById("letterFrom");
+  if (tokenFrom.logoURI) {
+    iconFrom.src = tokenFrom.logoURI;
+    iconFrom.style.display = "block";
+    letterFrom.style.display = "none";
+  } else {
+    iconFrom.style.display = "none";
+    letterFrom.style.display = "grid";
+    letterFrom.style.background = (tokenFrom.color||"#888") + "22";
+    letterFrom.style.color = tokenFrom.color || "#888";
+    letterFrom.textContent = tokenFrom.letter || tokenFrom.symbol[0];
+  }
+  // TO
+  document.getElementById("symTo").textContent = tokenTo.symbol;
+  const iconTo = document.getElementById("iconTo");
+  const letterTo = document.getElementById("letterTo");
+  if (tokenTo.logoURI) {
+    iconTo.src = tokenTo.logoURI;
+    iconTo.style.display = "block";
+    letterTo.style.display = "none";
+  } else {
+    iconTo.style.display = "none";
+    letterTo.style.display = "grid";
+    letterTo.style.background = (tokenTo.color||"#888") + "22";
+    letterTo.style.color = tokenTo.color || "#888";
+    letterTo.textContent = tokenTo.letter || tokenTo.symbol[0];
+  }
+  // Update saldo
+  if (userAddress) updateTokenBalances();
+}
+
+async function updateTokenBalances() {
+  try {
+    // FROM balance
+    let fromBal = "—";
+    if (tokenFrom.address === NATIVE_BNB) {
+      const b = await provider.getBalance(userAddress);
+      fromBal = parseFloat(ethers.formatEther(b)).toFixed(4);
+    } else {
+      const c = new ethers.Contract(tokenFrom.address, ERC20_ABI, provider);
+      const d = await c.decimals();
+      const b = await c.balanceOf(userAddress);
+      fromBal = parseFloat(ethers.formatUnits(b, d)).toFixed(4);
+    }
+    document.getElementById("swapFromBal").textContent = "Saldo: " + fromBal + " " + tokenFrom.symbol;
+
+    // TO balance
+    let toBal = "—";
+    if (tokenTo.address === NATIVE_BNB) {
+      const b = await provider.getBalance(userAddress);
+      toBal = parseFloat(ethers.formatEther(b)).toFixed(4);
+    } else {
+      const c = new ethers.Contract(tokenTo.address, ERC20_ABI, provider);
+      const d = await c.decimals();
+      const b = await c.balanceOf(userAddress);
+      toBal = parseFloat(ethers.formatUnits(b, d)).toFixed(4);
+    }
+    document.getElementById("swapToBal").textContent = "Saldo: " + toBal + " " + tokenTo.symbol;
+  } catch(e) {}
+}
+
+function onAmountChange() {
+  clearTimeout(quoteTimer);
+  const amt = parseFloat(document.getElementById("swapFrom").value);
+  if (!amt || amt <= 0) {
+    document.getElementById("swapTo").value = "";
+    document.getElementById("swapRateRow").style.display = "none";
+    document.getElementById("swapQuoteInfo").style.display = "none";
+    document.getElementById("btnSwap").disabled = true;
+    return;
+  }
+  document.getElementById("swapRateRow").style.display = "flex";
+  document.getElementById("swapRateText").textContent = "⏳ Menghitung harga...";
+  quoteTimer = setTimeout(() => getQuote(amt), 600);
+}
+
+async function getQuote(amt) {
+  try {
+    const amtWei = ethers.parseUnits(amt.toString(), tokenFrom.decimals).toString();
+    const url = `${ONEINCH_API}/quote?src=${tokenFrom.address}&dst=${tokenTo.address}&amount=${amtWei}`;
+    const headers = ONEINCH_KEY ? { "Authorization": "Bearer " + ONEINCH_KEY } : {};
+    const res  = await fetch(url, { headers });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.description || data.error);
+
+    const outAmt  = parseFloat(ethers.formatUnits(data.dstAmount, tokenTo.decimals));
+    const minOut  = outAmt * (1 - slippage / 100);
+    const rate    = outAmt / amt;
+
+    document.getElementById("swapTo").value = outAmt.toFixed(6);
+    document.getElementById("swapRateText").textContent = `1 ${tokenFrom.symbol} ≈ ${rate.toFixed(6)} ${tokenTo.symbol}`;
+    document.getElementById("swapFeeText").textContent  = `Gas: ~${data.gas || "—"}`;
+    document.getElementById("quoteEstOut").textContent  = outAmt.toFixed(6) + " " + tokenTo.symbol;
+    document.getElementById("quoteSlippage").textContent = slippage + "%";
+    document.getElementById("quoteMinOut").textContent  = minOut.toFixed(6) + " " + tokenTo.symbol;
+    document.getElementById("swapQuoteInfo").style.display = "block";
+    document.getElementById("btnSwap").disabled = !userAddress;
+  } catch(e) {
+    document.getElementById("swapRateText").textContent = "⚠️ Gagal ambil harga";
+    document.getElementById("swapTo").value = "";
+    document.getElementById("btnSwap").disabled = true;
+    console.warn("Quote error:", e);
+  }
+}
+
+async function doSwap() {
+  if (!userAddress) { alert("Connect wallet dulu!"); return; }
+  const amt = parseFloat(document.getElementById("swapFrom").value);
+  if (!amt || amt <= 0) return;
+
+  const statusEl = document.getElementById("swapStatus");
+  statusEl.style.display = "block";
+  statusEl.style.color = "var(--gold)";
+  statusEl.textContent = "⏳ Menyiapkan transaksi...";
+  document.getElementById("btnSwap").disabled = true;
+
+  try {
+    const amtWei = ethers.parseUnits(amt.toString(), tokenFrom.decimals).toString();
+    const slipBps = Math.floor(slippage * 10); // 1inch pakai basis points
+    const headers = { "Content-Type": "application/json" };
+    if (ONEINCH_KEY) headers["Authorization"] = "Bearer " + ONEINCH_KEY;
+
+    const url = `${ONEINCH_API}/swap?src=${tokenFrom.address}&dst=${tokenTo.address}&amount=${amtWei}&from=${userAddress}&slippage=${slippage}&disableEstimate=false`;
+    const res  = await fetch(url, { headers });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.description || data.error);
+
+    // Kirim transaksi
+    statusEl.textContent = "⏳ Konfirmasi di wallet Anda...";
+    const tx = await signer.sendTransaction({
+      to:    data.tx.to,
+      data:  data.tx.data,
+      value: BigInt(data.tx.value || "0"),
+      gasLimit: BigInt(Math.floor(Number(data.tx.gas) * 1.2)),
+    });
+
+    statusEl.textContent = "⏳ Menunggu konfirmasi blockchain...";
+    await tx.wait();
+
+    statusEl.style.color = "var(--green)";
+    statusEl.textContent = "✅ Swap berhasil! TX: " + tx.hash.slice(0,10) + "...";
+    document.getElementById("swapFrom").value = "";
+    document.getElementById("swapTo").value = "";
+    updateTokenBalances();
+  } catch(e) {
+    statusEl.style.color = "var(--red)";
+    statusEl.textContent = "❌ " + (e.reason || e.message || "Swap gagal");
+    console.error("Swap error:", e);
+  } finally {
+    document.getElementById("btnSwap").disabled = false;
+  }
+}
+
+function flipTokens() {
+  [tokenFrom, tokenTo] = [tokenTo, tokenFrom];
+  updateTokenUI();
+  document.getElementById("swapFrom").value = "";
+  document.getElementById("swapTo").value = "";
+  document.getElementById("swapRateRow").style.display = "none";
+  document.getElementById("swapQuoteInfo").style.display = "none";
+  document.getElementById("btnSwap").disabled = true;
+}
+
+/* ═══ TOKEN MODAL ═══ */
+function openTokenModal(forSide) {
+  selectingFor = forSide;
+  document.getElementById("tokenSearch").value = "";
+  renderTokenList(allTokens);
+  const modal = document.getElementById("tokenModal");
+  modal.style.display = "flex";
+  setTimeout(() => document.getElementById("tokenSearch").focus(), 100);
+}
+
+function closeTokenModal() {
+  document.getElementById("tokenModal").style.display = "none";
+}
+
+function renderTokenList(tokens) {
+  const el = document.getElementById("tokenList");
+  if (!tokens.length) {
+    el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Token tidak ditemukan</div>`;
+    return;
+  }
+  el.innerHTML = tokens.map((t, i) => `
+    <div class="tk-item" onclick="selectToken(${i})">
+      ${t.logoURI
+        ? `<img src="${t.logoURI}" class="tk-icon" style="width:32px;height:32px;border-radius:50%;" onerror="this.style.display='none'">`
+        : `<div class="tk-icon" style="background:${(t.color||"#888")}22;color:${t.color||"#888"}">${t.letter||t.symbol[0]}</div>`
+      }
+      <div>
+        <div class="tk-name">${t.name}</div>
+        <div class="tk-sym">${t.symbol}</div>
+      </div>
+      <div class="tk-bal" id="tbal_${i}">—</div>
+    </div>
+  `).join("");
+}
+
+function selectToken(idx) {
+  const token = allTokens[idx];
+  if (selectingFor === "from") tokenFrom = token;
+  else tokenTo = token;
+  closeTokenModal();
+  updateTokenUI();
+  document.getElementById("swapFrom").value = "";
+  document.getElementById("swapTo").value = "";
+  document.getElementById("swapRateRow").style.display = "none";
+  document.getElementById("swapQuoteInfo").style.display = "none";
+  document.getElementById("btnSwap").disabled = true;
+}
+
+async function filterTokens() {
+  const q = document.getElementById("tokenSearch").value.trim().toLowerCase();
+  if (!q) { renderTokenList(allTokens); return; }
+
+  // Cari di list lokal dulu
+  const local = allTokens.filter(t =>
+    t.symbol.toLowerCase().includes(q) ||
+    t.name.toLowerCase().includes(q) ||
+    t.address.toLowerCase() === q
+  );
+
+  if (local.length) { renderTokenList(local); return; }
+
+  // Jika input seperti contract address, coba fetch info token
+  if (q.startsWith("0x") && q.length === 42) {
+    document.getElementById("tokenList").innerHTML = `<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Mencari token...</div>`;
+    try {
+      const c = new ethers.Contract(q, ERC20_ABI, provider || new ethers.JsonRpcProvider(BSC_RPC));
+      const [sym, name, dec] = await Promise.all([c.symbol(), c.name(), c.decimals()]);
+      const found = [{ symbol: sym, name, address: q, decimals: Number(dec), color:"#a78bfa", letter: sym[0] }];
+      renderTokenList(found);
+    } catch(e) {
+      document.getElementById("tokenList").innerHTML = `<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--red)">Token tidak ditemukan</div>`;
+    }
+  } else {
+    renderTokenList([]);
+  }
+}
+
+// Tutup modal kalau klik backdrop
+document.getElementById("tokenModal").addEventListener("click", function(e) {
+  if (e.target === this) closeTokenModal();
+});
+
+// Init token UI
+updateTokenUI();
+
+
 async function genCandles(n) {
   try {
     // Ambil histori harga BNB dari CoinGecko sebagai referensi pergerakan
@@ -740,8 +1072,21 @@ setInterval(renderHistory, 6000);
 window.addEventListener("resize", () => { if(currentCandles.length) drawCandles(currentCandles); });
 </script>
 <script>
-/* SW register dinonaktifkan sementara untuk menghindari cache lama */
-// if("serviceWorker" in navigator){ ... }
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      reg.addEventListener("updatefound", () => {
+        const newSW = reg.installing;
+        newSW.addEventListener("statechange", () => {
+          if(newSW.state === "installed" && navigator.serviceWorker.controller){
+            newSW.postMessage("skipWaiting");
+            window.location.reload();
+          }
+        });
+      });
+    }).catch(e => console.warn("SW:", e));
+  });
+}
 </script>
 </body>
 </html>
