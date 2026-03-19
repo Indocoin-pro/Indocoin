@@ -477,12 +477,51 @@ function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
   renderTX();
 }
 
-function updateRanking(indc, supply) {
-  const pct  = (indc / supply * 100);
-  const rank = Math.max(1, Math.floor(Math.random()*500+50));
-  document.getElementById("rankNum").textContent  = rank;
+async function updateRanking(indc, supply) {
+  const pct = (indc / supply * 100);
+
+  // Update persen dulu sementara load ranking
   document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
   document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
+  document.getElementById("rankNum").textContent  = "...";
+
+  try {
+    // Ambil daftar top holder INDC dari BSCScan
+    const res  = await fetch(`${BSCSCAN_API}?module=token&action=tokenholderlist&contractaddress=${INDC_CONTRACT}&page=1&offset=100&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`);
+    const data = await res.json();
+
+    if (data.status === "1" && data.result && data.result.length > 0) {
+      // Cari posisi wallet user di daftar holder
+      const holders    = data.result;
+      const userLower  = userAddress.toLowerCase();
+      const idx        = holders.findIndex(h => h.TokenHolderAddress.toLowerCase() === userLower);
+
+      if (idx !== -1) {
+        // User ditemukan di top 100
+        const rank = idx + 1;
+        document.getElementById("rankNum").textContent  = rank;
+        document.getElementById("rankDesc").textContent = `Top ${rank} dari ${holders.length}+ holder · ${pct.toFixed(6)}% supply`;
+        document.getElementById("rankPct").textContent  = "TOP " + (rank <= 10 ? "10" : rank <= 50 ? "50" : "100") + " HOLDER";
+      } else {
+        // User tidak di top 100 — estimasi dari persentase
+        const totalHolders = 100; // minimal dari data
+        document.getElementById("rankNum").textContent  = "100+";
+        document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
+        document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
+      }
+    } else {
+      // Fallback jika API tidak return data
+      document.getElementById("rankNum").textContent  = "—";
+      document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
+      document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
+    }
+  } catch(e) {
+    // Fallback jika error
+    document.getElementById("rankNum").textContent  = "—";
+    document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
+    document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
+    console.warn("updateRanking error:", e);
+  }
 }
 
 /* ═══ TOKEN LIST ═══ */
