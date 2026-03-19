@@ -239,7 +239,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <!-- CANDLESTICK CHART -->
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><div class="title-dot" style="background:var(--gold);box-shadow:0 0 5px var(--gold)"></div>GRAFIK HARGA INDC</div>
+        <div class="card-title"><div class="title-dot" style="background:var(--gold);box-shadow:0 0 5px var(--gold)"></div>GRAFIK BNB/USDT — LIVE</div>
         <div style="display:flex;gap:4px" id="tfBtns">
           <div class="chart-btn" data-tf="5m">5M</div>
           <div class="chart-btn on" data-tf="1h">1J</div>
@@ -258,45 +258,28 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <!-- TRADE PANEL -->
       <div class="card" style="margin-bottom:0">
         <div class="trade-tabs">
-          <div class="trade-tab on" data-panel="swap">SWAP</div>
+          <div class="trade-tab on" data-panel="swap">🔄 SWAP</div>
           <div class="trade-tab" data-panel="limit">LIMIT ORDER</div>
           <div class="trade-tab" data-panel="liquidity">LIKUIDITAS</div>
         </div>
 
-        <!-- SWAP -->
-        <div id="panel-swap" class="swap-form">
-          <div class="swap-input-wrap">
-            <div class="swap-input-label">
-              <span class="sil-text">DARI</span>
-              <span class="sil-bal" id="swapFromBal">Saldo: — BNB</span>
-            </div>
-            <div class="swap-input-row">
-              <input class="swap-amount" type="number" placeholder="0.00" id="swapFrom">
-              <div class="token-select">
-                <div class="token-icon" style="background:#f0b90b22;color:#f0b90b">B</div>
-                <span class="token-sym">BNB</span>
-              </div>
-            </div>
+        <!-- SWAP — PancakeSwap Embed -->
+        <div id="panel-swap" class="swap-form" style="padding:0;overflow:hidden;border-radius:0 0 12px 12px;">
+          <div style="background:rgba(250,204,21,0.05);border-bottom:1px solid rgba(250,204,21,0.1);padding:8px 12px;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:1px;">🐰 Powered by PancakeSwap</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);">BSC Network</span>
           </div>
-          <div class="swap-divider"><div class="swap-flip" id="flipBtn">⇅</div></div>
-          <div class="swap-input-wrap">
-            <div class="swap-input-label">
-              <span class="sil-text">KE</span>
-              <span class="sil-bal" id="swapToBal">Saldo: — INDC</span>
-            </div>
-            <div class="swap-input-row">
-              <input class="swap-amount" type="number" placeholder="0.00" id="swapTo" readonly>
-              <div class="token-select">
-                <div class="token-icon" style="background:#facc1522;color:#facc15">I</div>
-                <span class="token-sym">INDC</span>
-              </div>
-            </div>
+          <iframe
+            src="https://pancakeswap.finance/swap?chain=bsc&inputCurrency=BNB&outputCurrency=0xD772c96e1beFd2ea9C9a83182c71f4d32f306571&theme=dark"
+            style="width:100%;height:480px;border:none;display:block;"
+            allow="clipboard-write; clipboard-read"
+            title="PancakeSwap DEX"
+            id="pancakeFrame"
+          ></iframe>
+          <div style="padding:8px 12px;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">⚠️ INDC aktif setelah listing DEX Q2 2026</span>
+            <a href="https://pancakeswap.finance/swap?chain=bsc" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);text-decoration:none;">Buka Full ↗</a>
           </div>
-          <div class="swap-rate">
-            <span>Via PancakeSwap</span>
-            <span>Fee: 0.25%</span>
-          </div>
-          <div class="coming-soon-badge">⏳ SWAP AKTIF SETELAH INDC LISTING DI DEX</div>
         </div>
 
         <!-- LIMIT ORDER -->
@@ -544,7 +527,7 @@ if (window.ethereum) {
 /* ═══ CANDLESTICK — DATA REAL DARI MORALIS ═══ */
 async function genCandles(n) {
   try {
-    // Ambil histori harga BNB dari CoinGecko sebagai referensi pergerakan
+    // Ambil histori harga BNB real dari CoinGecko
     const days = n <= 40 ? 7 : 30;
     const r = await fetch(`https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=${days}&interval=hourly`);
     const d = await r.json();
@@ -552,23 +535,18 @@ async function genCandles(n) {
 
     if (prices.length < 4) return genCandlesFallback(n);
 
-    // Konversi histori BNB ke candlestick INDC ($0.003 base, ikuti % perubahan BNB)
-    const step   = Math.floor(prices.length / n);
+    // Gunakan harga BNB langsung untuk candlestick
+    const step    = Math.floor(prices.length / n);
     const candles = [];
     for (let i = 0; i < n; i++) {
-      const idx  = i * step;
-      const pBNB = prices[idx]?.[1] || 580;
-      const pRef = prices[0]?.[1] || 580;
-      // Skala harga INDC mengikuti % perubahan BNB dari base $0.003
-      const scale = pBNB / pRef;
-      const base  = INDC_PRICE * scale;
-      const o     = base;
-      const nextBNB = prices[Math.min(idx + step, prices.length-1)]?.[1] || pBNB;
-      const cl    = INDC_PRICE * (nextBNB / pRef);
+      const idx     = i * step;
+      const o       = prices[idx]?.[1] || 580;
+      const nextIdx = Math.min(idx + step, prices.length - 1);
+      const cl      = prices[nextIdx]?.[1] || o;
       candles.push({
         o, c: cl,
-        h: Math.max(o, cl) * (1 + 0.002),
-        l: Math.min(o, cl) * (1 - 0.002),
+        h: Math.max(o, cl) * 1.003,
+        l: Math.min(o, cl) * 0.997,
       });
     }
     return candles;
@@ -577,7 +555,7 @@ async function genCandles(n) {
   }
 }
 
-// Fallback jika API gagal — pakai harga $0.003 flat
+// Fallback jika API gagal
 function genCandlesFallback(n) {
   let price = INDC_PRICE;
   const c = [];
