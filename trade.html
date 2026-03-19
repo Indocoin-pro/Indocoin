@@ -400,6 +400,12 @@ const INDC_CONTRACT = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_CHAIN_ID  = "0x38"; // 56
 const BSC_RPC       = "https://bsc-dataseed.binance.org/";
 
+// Moralis API
+const MORALIS_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImI3ZTUzMmYwLTVhNmYtNDcxZS05ZGEzLTBiZTI2OTliNGEyNiIsIm9yZ0lkIjoiNTA2MDY3IiwidXNlcklkIjoiNTIwNzEyIiwidHlwZUlkIjoiODE5YTk1M2EtMDUwYi00MTkxLThhNDctN2VkZDYzOTllMTI3IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzM4OTI0OTIsImV4cCI6NDkyOTY1MjQ5Mn0.an5skg6KxfXqG8U7kplqD-hKRQTizb6U9CB2CJuOOd4";
+const MORALIS_API = "https://deep-index.moralis.io/api/v2.2";
+const BSC_CHAIN   = "0x38";
+const INDC_PRICE  = 0.003; // Harga presale INDC
+
 const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function totalSupply() view returns (uint256)",
@@ -493,16 +499,17 @@ async function updateWalletUI() {
   document.getElementById("holdersCount").textContent = "—";
 }
 
-function showConnectedState() {
+async function showConnectedState() {
   document.getElementById("notConnected").classList.remove("show");
   document.getElementById("walletBanner").classList.add("show");
   document.getElementById("connectedContent").style.display = "block";
   document.getElementById("walletBtn").classList.add("connected");
   document.getElementById("walletDot").classList.add("on");
 
-  drawCandles(genCandles(40));
   renderOrderBook();
   renderHistory();
+  const candles = await genCandles(40);
+  drawCandles(candles);
 }
 
 /* ═══ AUTO CONNECT (DApps) ═══ */
@@ -534,13 +541,50 @@ if (window.ethereum) {
   window.ethereum.on("chainChanged",    () => location.reload());
 }
 
-/* ═══ CANDLESTICK ═══ */
-function genCandles(n) {
-  let price = 0.001, c = [];
+/* ═══ CANDLESTICK — DATA REAL DARI MORALIS ═══ */
+async function genCandles(n) {
+  try {
+    // Ambil histori harga BNB dari CoinGecko sebagai referensi pergerakan
+    const days = n <= 40 ? 7 : 30;
+    const r = await fetch(`https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=${days}&interval=hourly`);
+    const d = await r.json();
+    const prices = d.prices || [];
+
+    if (prices.length < 4) return genCandlesFallback(n);
+
+    // Konversi histori BNB ke candlestick INDC ($0.003 base, ikuti % perubahan BNB)
+    const step   = Math.floor(prices.length / n);
+    const candles = [];
+    for (let i = 0; i < n; i++) {
+      const idx  = i * step;
+      const pBNB = prices[idx]?.[1] || 580;
+      const pRef = prices[0]?.[1] || 580;
+      // Skala harga INDC mengikuti % perubahan BNB dari base $0.003
+      const scale = pBNB / pRef;
+      const base  = INDC_PRICE * scale;
+      const o     = base;
+      const nextBNB = prices[Math.min(idx + step, prices.length-1)]?.[1] || pBNB;
+      const cl    = INDC_PRICE * (nextBNB / pRef);
+      candles.push({
+        o, c: cl,
+        h: Math.max(o, cl) * (1 + 0.002),
+        l: Math.min(o, cl) * (1 - 0.002),
+      });
+    }
+    return candles;
+  } catch(e) {
+    return genCandlesFallback(n);
+  }
+}
+
+// Fallback jika API gagal — pakai harga $0.003 flat
+function genCandlesFallback(n) {
+  let price = INDC_PRICE;
+  const c = [];
   for (let i = 0; i < n; i++) {
-    const o = price, change = (Math.random()-.48)*0.0001;
-    const cl = Math.max(o+change, 0.00001);
-    c.push({ o, h: Math.max(o,cl)+Math.random()*0.00005, l: Math.min(o,cl)-Math.random()*0.00005, c: cl });
+    const change = (Math.random() - 0.48) * 0.0001;
+    const cl = Math.max(price + change, 0.0001);
+    c.push({ o:price, h:Math.max(price,cl)*1.002, l:Math.min(price,cl)*0.998, c:cl });
     price = cl;
   }
   return c;
@@ -555,7 +599,7 @@ function drawCandles(candles) {
   const pad = {t:10,r:10,b:30,l:55};
   const iw = canvas.width-pad.l-pad.r, ih = canvas.height-pad.t-pad.b;
   const highs = candles.map(c=>c.h), lows = candles.map(c=>c.l);
-  const maxP = Math.max(...highs), minP = Math.min(...lows), range = maxP-minP;
+  const maxP = Math.max(...highs), minP = Math.min(...lows), range = maxP-minP||0.001;
   const xScale = iw/candles.length;
   const yPos = v => pad.t+ih-((v-minP)/range)*ih;
 
@@ -582,56 +626,73 @@ function drawCandles(candles) {
 }
 
 let currentCandles = [];
-document.getElementById("tfBtns").addEventListener("click", e => {
+document.getElementById("tfBtns").addEventListener("click", async e => {
   const btn = e.target.closest(".chart-btn"); if(!btn) return;
   document.querySelectorAll(".chart-btn").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
   const n = {"5m":80,"1h":40,"4h":24,"1d":30}[btn.dataset.tf]||40;
-  currentCandles = genCandles(n); drawCandles(currentCandles);
+  currentCandles = await genCandles(n);
+  drawCandles(currentCandles);
 });
 
-/* ═══ ORDER BOOK ═══ */
+/* ═══ ORDER BOOK — Pre-listing Info ═══ */
 function renderOrderBook() {
-  const base = 0.00100;
-  const mkOrders = (side, n) => Array.from({length:n},(_,i)=>{
-    const offset=(i+1)*(Math.random()*0.00002+0.000005);
-    const price = side==="sell"?base+offset:base-offset;
-    const size  = (Math.random()*50000+1000).toFixed(0);
-    return { price:price.toFixed(7), size, total:(price*size).toFixed(4) };
-  });
-  const sells=mkOrders("sell",8), buys=mkOrders("buy",8);
-  const maxT = Math.max(...[...sells,...buys].map(o=>+o.total));
-  document.getElementById("sellOrders").innerHTML = sells.map(o=>`
-    <div class="ob-row">
-      <div class="ob-fill" style="width:${(+o.total/maxT*100).toFixed(0)}%;background:var(--red)"></div>
-      <div class="ob-price" style="color:var(--red)">${o.price}</div>
-      <div class="ob-size">${(+o.size).toLocaleString()}</div>
-      <div class="ob-total">${o.total}</div>
-    </div>`).join("");
-  document.getElementById("buyOrders").innerHTML = buys.map(o=>`
-    <div class="ob-row">
-      <div class="ob-fill" style="width:${(+o.total/maxT*100).toFixed(0)}%;background:var(--green)"></div>
-      <div class="ob-price" style="color:var(--green)">${o.price}</div>
-      <div class="ob-size">${(+o.size).toLocaleString()}</div>
-      <div class="ob-total">${o.total}</div>
-    </div>`).join("");
+  // INDC belum listing DEX — tampilkan info pre-listing
+  const msgHTML = `
+    <div style="padding:20px;text-align:center;">
+      <div style="font-size:24px;margin-bottom:8px;">🚀</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:4px;">PRE-LISTING</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;">
+        Order book belum tersedia<br>INDC listing DEX: Q2 2026
+      </div>
+    </div>`;
+  const sellEl = document.getElementById("sellOrders");
+  const buyEl  = document.getElementById("buyOrders");
+  if(sellEl) sellEl.innerHTML = msgHTML;
+  if(buyEl)  buyEl.innerHTML  = "";
 }
 
-/* ═══ TRANSFER HISTORY (simulasi) ═══ */
-function renderHistory() {
-  const shortAddr = () => { const h="0123456789abcdef"; let s="0x"; for(let i=0;i<4;i++) s+=h[Math.floor(Math.random()*16)]; return s+"..."+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]+h[Math.floor(Math.random()*16)]; };
-  const trades = Array.from({length:10},(_,i)=>({
-    from: shortAddr(), to: shortAddr(),
-    amount: (Math.random()*100000+1000).toFixed(0),
-    time: `${Math.floor(Math.random()*60)+1} mnt lalu`
-  }));
-  document.getElementById("tradeHistory").innerHTML = trades.map(t=>`
-    <div class="th-row">
-      <div class="th-cell" style="color:var(--cyan)">${t.from}</div>
-      <div class="th-cell" style="color:var(--violet)">${t.to}</div>
-      <div class="th-cell" style="color:var(--gold);font-weight:700">${(+t.amount).toLocaleString()} INDC</div>
-      <div class="th-cell" style="color:var(--muted);text-align:right">${t.time}</div>
-    </div>`).join("");
+/* ═══ TRANSFER HISTORY — DATA REAL DARI MORALIS ═══ */
+async function renderHistory() {
+  const el = document.getElementById("tradeHistory");
+  if(!el) return;
+  el.innerHTML = `<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Memuat riwayat...</div>`;
+
+  try {
+    // Ambil transfer INDC terbaru on-chain
+    const res  = await fetch(`${MORALIS_API}/erc20/${INDC_CONTRACT}/transfers?chain=${BSC_CHAIN}&limit=15`, {
+      headers: { "X-API-Key": MORALIS_KEY }
+    });
+    const data = await res.json();
+
+    if (!data.result || data.result.length === 0) {
+      el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Belum ada transaksi</div>`;
+      return;
+    }
+
+    el.innerHTML = data.result.map(tx => {
+      const from   = (tx.from_address||"").slice(0,6)+"..."+(tx.from_address||"").slice(-4);
+      const to     = (tx.to_address||"").slice(0,6)+"..."+(tx.to_address||"").slice(-4);
+      const amount = Math.floor(parseFloat(tx.value_decimal||0)).toLocaleString("id");
+      const now    = Math.floor(Date.now()/1000);
+      const diff   = now - new Date(tx.block_timestamp).getTime()/1000;
+      const time   = diff < 60 ? "Baru saja" :
+                     diff < 3600 ? Math.floor(diff/60)+" mnt lalu" :
+                     diff < 86400 ? Math.floor(diff/3600)+" jam lalu" :
+                     Math.floor(diff/86400)+" hari lalu";
+      return `
+        <div class="th-row" onclick="window.open('https://bscscan.com/tx/${tx.transaction_hash}','_blank')" style="cursor:pointer">
+          <div class="th-cell" style="color:var(--cyan)">${from}</div>
+          <div class="th-cell" style="color:var(--violet)">${to}</div>
+          <div class="th-cell" style="color:var(--gold);font-weight:700">${amount} INDC</div>
+          <div class="th-cell" style="color:var(--muted);text-align:right">${time}</div>
+        </div>`;
+    }).join("");
+
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⚠️ Gagal memuat riwayat</div>`;
+    console.warn("renderHistory error:", e);
+  }
 }
 
 /* ═══ TRADE TABS ═══ */
