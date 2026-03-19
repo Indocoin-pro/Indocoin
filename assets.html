@@ -341,10 +341,10 @@ const BSC_CHAIN_ID  = "0x38";
 const BSC_RPC       = "https://bsc-dataseed.binance.org/";
 let USD_TO_IDR = 16350; // default, akan diupdate dari API
 
-// BSCScan API — letakkan di atas agar tersedia untuk semua fungsi
-const BSCSCAN_KEY  = "377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2";
-const BSCSCAN_API  = "https://api.bscscan.com/api";
-const CHAIN_ID     = "56"; // BSC
+// Etherscan API V2 — support BSC dengan chainid=56
+const ESCAN_KEY = "377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2";
+const ESCAN_API = "https://api.etherscan.io/v2/api";
+const CHAIN_ID  = "56"; // BSC chainid
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -491,7 +491,7 @@ async function updateRanking(indc, supply) {
   document.getElementById("rankNum").textContent  = "...";
 
   try {
-    const res  = await fetch(`${BSCSCAN_API}?module=token&action=tokenholderlist&contractaddress=${INDC_CONTRACT}&page=1&offset=100&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`);
+    const res  = await fetch(`${ESCAN_API}?module=token&action=tokenholderlist&contractaddress=${INDC_CONTRACT}&page=1&offset=100&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`);
     const data = await res.json();
 
     if (data.status === "1" && data.result && data.result.length > 0) {
@@ -656,7 +656,7 @@ async function renderLocked(indc) {
 
   try {
     // Ambil semua transfer INDC keluar dari wallet user ke kontrak lain
-    const res  = await fetch(`${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`);
+    const res  = await fetch(`${ESCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`);
     const data = await res.json();
 
     if (data.status !== "1" || !data.result) {
@@ -749,7 +749,7 @@ function renderTargets() {
     </div>`).join("");
 }
 
-/* ═══ TX HISTORY — DATA REAL DARI BSCSCAN ═══ */
+/* ═══ TX HISTORY — DATA REAL DARI ETHERSCAN API V2 ═══ */
 async function renderTX() {
   const el = document.getElementById("txHistory");
   el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Memuat transaksi...</div>`;
@@ -757,8 +757,8 @@ async function renderTX() {
   try {
     // Ambil transaksi BNB & token INDC secara paralel
     const [resBNB, resINDC] = await Promise.all([
-      fetch(`${BSCSCAN_API}?module=account&action=txlist&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`),
-      fetch(`${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${BSCSCAN_KEY}&chainid=${CHAIN_ID}`)
+      fetch(`${ESCAN_API}?module=account&action=txlist&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`),
+      fetch(`${ESCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`)
     ]);
 
     const dataBNB  = await resBNB.json();
