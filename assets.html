@@ -342,9 +342,10 @@ const BSC_RPC       = "https://bsc-dataseed.binance.org/";
 let USD_TO_IDR = 16350; // default, akan diupdate dari API
 
 // Etherscan API V2 — support BSC dengan chainid=56
-const ESCAN_KEY = "377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2";
-const ESCAN_API = "https://api.etherscan.io/v2/api";
-const CHAIN_ID  = "56"; // BSC chainid
+const ESCAN_KEY = "377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2"; // tidak dipakai lagi
+const MORALIS_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImI3ZTUzMmYwLTVhNmYtNDcxZS05ZGEzLTBiZTI2OTliNGEyNiIsIm9yZ0lkIjoiNTA2MDY3IiwidXNlcklkIjoiNTIwNzEyIiwidHlwZUlkIjoiODE5YTk1M2EtMDUwYi00MTkxLThhNDctN2VkZDYzOTllMTI3IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzM4OTI0OTIsImV4cCI6NDkyOTY1MjQ5Mn0.an5skg6KxfXqG8U7kplqD-hKRQTizb6U9CB2CJuOOd4";
+const MORALIS_API = "https://deep-index.moralis.io/api/v2.2";
+const CHAIN_ID  = "0x38"; // BSC untuk Moralis
 
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -485,24 +486,26 @@ function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
 async function updateRanking(indc, supply) {
   const pct = (indc / supply * 100);
 
-  // Tampil dulu sementara loading
   document.getElementById("rankDesc").textContent = `Memiliki ${pct.toFixed(6)}% dari total supply`;
   document.getElementById("rankPct").textContent  = "TOP " + (pct < 0.001 ? "<0.001" : pct.toFixed(3)) + "%";
   document.getElementById("rankNum").textContent  = "...";
 
   try {
-    const res  = await fetch(`${ESCAN_API}?module=token&action=tokenholderlist&contractaddress=${INDC_CONTRACT}&page=1&offset=100&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`);
+    // Moralis: ambil top holder token INDC
+    const res  = await fetch(`${MORALIS_API}/erc20/${INDC_CONTRACT}/owners?chain=${CHAIN_ID}&limit=100`, {
+      headers: { "X-API-Key": MORALIS_KEY }
+    });
     const data = await res.json();
 
-    if (data.status === "1" && data.result && data.result.length > 0) {
+    if (data.result && data.result.length > 0) {
       const holders   = data.result;
       const userLower = userAddress.toLowerCase();
-      const idx       = holders.findIndex(h => h.TokenHolderAddress.toLowerCase() === userLower);
+      const idx       = holders.findIndex(h => h.owner_address.toLowerCase() === userLower);
 
       if (idx !== -1) {
         const rank = idx + 1;
         document.getElementById("rankNum").textContent  = rank;
-        document.getElementById("rankDesc").textContent = `Peringkat #${rank} dari ${holders.length}+ holder · ${pct.toFixed(4)}% supply`;
+        document.getElementById("rankDesc").textContent = `Peringkat #${rank} dari ${data.total || holders.length}+ holder · ${pct.toFixed(4)}% supply`;
         document.getElementById("rankPct").textContent  = rank <= 10 ? "🏆 TOP 10" : rank <= 50 ? "⭐ TOP 50" : "✅ TOP 100";
       } else {
         document.getElementById("rankNum").textContent  = "100+";
@@ -649,47 +652,42 @@ function renderPLChart(bnbBal=0, indcPrice=0.003, priceHistory=[]) {
   ctx.strokeStyle=lineColor; ctx.lineWidth=3; ctx.stroke();
 }
 
-/* ═══ LOCKED TOKENS — DATA REAL DARI BSCSCAN ═══ */
+/* ═══ LOCKED TOKENS — DATA REAL DARI MORALIS ═══ */
 async function renderLocked(indc) {
   const el = document.getElementById("lockedList");
   el.innerHTML = `<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Memuat token terkunci...</div>`;
 
   try {
-    // Ambil semua transfer INDC keluar dari wallet user ke kontrak lain
-    const res  = await fetch(`${ESCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`);
+    // Moralis: ambil semua transfer INDC dari/ke wallet user
+    const res  = await fetch(`${MORALIS_API}/${userAddress}/erc20/transfers?chain=${CHAIN_ID}&contract_addresses=${INDC_CONTRACT}&limit=50`, {
+      headers: { "X-API-Key": MORALIS_KEY }
+    });
     const data = await res.json();
 
-    if (data.status !== "1" || !data.result) {
+    if (!data.result || data.result.length === 0) {
       el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Tidak ada token terkunci</div>`;
       return;
     }
 
     const userLower = userAddress.toLowerCase();
-    // Hitung saldo INDC per kontrak (keluar - masuk)
     const contractBalance = {};
-    const contractNames   = {};
 
     data.result.forEach(tx => {
-      const from  = tx.from.toLowerCase();
-      const to    = tx.to.toLowerCase();
-      const dec   = parseInt(tx.tokenDecimal) || 9;
-      const value = parseFloat(tx.value) / Math.pow(10, dec);
+      const from  = tx.from_address.toLowerCase();
+      const to    = tx.to_address.toLowerCase();
+      const value = parseFloat(tx.value_decimal || 0);
 
-      // Jika kirim ke kontrak (bukan ke wallet biasa)
       if (from === userLower && to !== userLower) {
         contractBalance[to] = (contractBalance[to] || 0) + value;
-        contractNames[to]   = to.slice(0,6)+"..."+to.slice(-4);
       }
-      // Jika terima dari kontrak (unstake/klaim)
       if (to === userLower && from !== userLower) {
         contractBalance[from] = (contractBalance[from] || 0) - value;
       }
     });
 
-    // Filter hanya yang masih ada saldo positif (masih terkunci)
     const locked = Object.entries(contractBalance)
-      .filter(([addr, bal]) => bal > 1) // minimal 1 INDC
-      .sort((a, b) => b[1] - a[1]);     // sort terbesar dulu
+      .filter(([addr, bal]) => bal > 1)
+      .sort((a, b) => b[1] - a[1]);
 
     if (locked.length === 0) {
       el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">Tidak ada token terkunci di staking</div>`;
@@ -730,6 +728,8 @@ async function renderLocked(indc) {
     console.warn("renderLocked error:", e);
   }
 }
+  }
+}
 
 /* ═══ TARGET ALERT ═══ */
 document.getElementById("setTargetBtn").addEventListener("click", () => {
@@ -755,54 +755,53 @@ async function renderTX() {
   el.innerHTML = `<div style="padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Memuat transaksi...</div>`;
 
   try {
-    // Ambil transaksi BNB & token INDC secara paralel
+    // Moralis: ambil transaksi native BNB & token INDC secara paralel
     const [resBNB, resINDC] = await Promise.all([
-      fetch(`${ESCAN_API}?module=account&action=txlist&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`),
-      fetch(`${ESCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CONTRACT}&address=${userAddress}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${ESCAN_KEY}&chainid=${CHAIN_ID}`)
+      fetch(`${MORALIS_API}/${userAddress}?chain=${CHAIN_ID}&limit=10`, {
+        headers: { "X-API-Key": MORALIS_KEY }
+      }),
+      fetch(`${MORALIS_API}/${userAddress}/erc20/transfers?chain=${CHAIN_ID}&contract_addresses=${INDC_CONTRACT}&limit=10`, {
+        headers: { "X-API-Key": MORALIS_KEY }
+      })
     ]);
 
     const dataBNB  = await resBNB.json();
     const dataINDC = await resINDC.json();
-
-    // Gabungkan & sort by timestamp terbaru
     let txList = [];
 
     // Proses transaksi BNB
-    if (dataBNB.status === "1" && dataBNB.result) {
+    if (dataBNB.result && dataBNB.result.length > 0) {
       dataBNB.result.slice(0, 5).forEach(tx => {
-        const isIn   = tx.to.toLowerCase() === userAddress.toLowerCase();
-        const value  = parseFloat(ethers.formatEther(tx.value));
-        if (value === 0) return; // skip contract calls tanpa nilai
+        const isIn  = tx.to_address?.toLowerCase() === userAddress.toLowerCase();
+        const value = parseFloat(tx.value) / 1e18;
+        if (value === 0) return;
         txList.push({
-          type   : isIn ? "Terima BNB" : "Kirim BNB",
-          icon   : isIn ? "💚" : "🔵",
-          color  : isIn ? "var(--green)" : "var(--cyan)",
-          from   : tx.from.slice(0,6)+"..."+tx.from.slice(-4),
-          to     : tx.to.slice(0,6)+"..."+tx.to.slice(-4),
-          amount : value.toFixed(4) + " BNB",
-          time   : tx.timeStamp,
-          hash   : tx.hash,
-          isIn,
+          type  : isIn ? "Terima BNB" : "Kirim BNB",
+          icon  : isIn ? "💚" : "🔵",
+          color : isIn ? "var(--green)" : "var(--cyan)",
+          from  : (tx.from_address||"").slice(0,6)+"..."+(tx.from_address||"").slice(-4),
+          to    : (tx.to_address||"").slice(0,6)+"..."+(tx.to_address||"").slice(-4),
+          amount: value.toFixed(4) + " BNB",
+          time  : new Date(tx.block_timestamp).getTime() / 1000,
+          hash  : tx.hash,
         });
       });
     }
 
     // Proses transaksi INDC
-    if (dataINDC.status === "1" && dataINDC.result) {
+    if (dataINDC.result && dataINDC.result.length > 0) {
       dataINDC.result.slice(0, 5).forEach(tx => {
-        const isIn   = tx.to.toLowerCase() === userAddress.toLowerCase();
-        const dec    = parseInt(tx.tokenDecimal) || 9;
-        const value  = parseFloat(tx.value) / Math.pow(10, dec);
+        const isIn  = tx.to_address?.toLowerCase() === userAddress.toLowerCase();
+        const value = parseFloat(tx.value_decimal || 0);
         txList.push({
-          type   : isIn ? "Terima INDC" : "Kirim INDC",
-          icon   : isIn ? "💛" : "🔴",
-          color  : isIn ? "var(--gold)" : "var(--red)",
-          from   : tx.from.slice(0,6)+"..."+tx.from.slice(-4),
-          to     : tx.to.slice(0,6)+"..."+tx.to.slice(-4),
-          amount : Math.floor(value).toLocaleString("id") + " INDC",
-          time   : tx.timeStamp,
-          hash   : tx.hash,
-          isIn,
+          type  : isIn ? "Terima INDC" : "Kirim INDC",
+          icon  : isIn ? "💛" : "🔴",
+          color : isIn ? "var(--gold)" : "var(--red)",
+          from  : (tx.from_address||"").slice(0,6)+"..."+(tx.from_address||"").slice(-4),
+          to    : (tx.to_address||"").slice(0,6)+"..."+(tx.to_address||"").slice(-4),
+          amount: Math.floor(value).toLocaleString("id") + " INDC",
+          time  : new Date(tx.block_timestamp).getTime() / 1000,
+          hash  : tx.transaction_hash,
         });
       });
     }
@@ -815,10 +814,9 @@ async function renderTX() {
       return;
     }
 
-    // Render
     el.innerHTML = txList.map(tx => {
-      const now   = Math.floor(Date.now() / 1000);
-      const diff  = now - tx.time;
+      const now     = Math.floor(Date.now() / 1000);
+      const diff    = now - tx.time;
       const timeStr = diff < 60 ? "Baru saja" :
                       diff < 3600 ? Math.floor(diff/60) + " mnt lalu" :
                       diff < 86400 ? Math.floor(diff/3600) + " jam lalu" :
