@@ -1144,21 +1144,16 @@ function checkConfirmReady() {
 async function confirmAndOpenBox() {
   if (!selectedPredict || !selectedDuration) return;
   if (selBox===null || !selToken) return;
-  // Stop refresh harga entry
   if (window._entryPriceInterval) clearInterval(window._entryPriceInterval);
   const btn = document.getElementById("btnConfirm");
   btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA FINAL...';
-  // Fetch harga terbaru tepat saat konfirmasi
+  btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA ENTRY...';
+  // Fetch harga entry final
   await fetchEntryPrice();
-  btn.innerHTML = '<span class="spin"></span> MEMPROSES TRANSAKSI...';
-  try {
-    await openBox();
-    startCountdown();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = `🎁 BUKA KOTAK — ${DURATION_LABELS[selectedDuration]} (${MULTIPLIERS[selectedDuration]}x)`;
-  }
+  // Sembunyikan timer section
+  document.getElementById("timerSection").classList.remove("show");
+  // Mulai countdown DULU — transaksi setelah waktu habis
+  startCountdown();
 }
 
 function startCountdown() {
@@ -1233,34 +1228,70 @@ async function showClaimButton() {
     const final = parseFloat(d.price);
     const isUp  = final>=entryPrice;
     const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
-    const btn   = document.getElementById("btnClaim");
+    const multi   = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
+
+    // Estimasi reward untuk ditampilkan
+    const baseReward  = 50; // estimasi base reward
+    const estReward   = Math.round(baseReward * multi);
+
+    const btn = document.getElementById("btnClaim");
     btn.classList.add("show");
     btn.className    = "btn-claim show "+(correct?"win":"lose");
-    btn.textContent  = correct?"🏆 PREDIKSI BENAR — KLAIM HADIAH!":"😔 PREDIKSI SALAH — KLAIM SISA";
+    btn.textContent  = correct
+      ? `🏆 PREDIKSI BENAR! KLAIM ~${estReward} INDC`
+      : `😔 PREDIKSI SALAH — KLAIM SISA`;
+
     document.getElementById("cdStatus").textContent = correct
-      ? `🎉 BENAR! ${sym} ${isUp?"naik":"turun"} sesuai prediksimu!`
-      : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, prediksimu ${selectedPredict==="up"?"naik":"turun"}.`;
-    const multi  = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
-    pendingReward = Math.round(pendingReward*multi);
-    localStorage.removeItem("pbt_active");
-  } catch(e) { console.warn(e); }
+      ? `🎉 BENAR! ${sym} ${isUp?"naik":"turun"} sesuai prediksimu! Multiplier ${multi}x!`
+      : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, prediksimu ${selectedPredict==="up"?"naik":"turun"}. Multiplier ${multi.toFixed(2)}x`;
+
+  } catch(e) {
+    // Kalau API gagal tetap tampilkan tombol klaim
+    const btn = document.getElementById("btnClaim");
+    btn.classList.add("show");
+    btn.className   = "btn-claim show win";
+    btn.textContent = "🏆 KLAIM HADIAH";
+    document.getElementById("cdStatus").textContent = "Waktu habis! Klaim hadiahmu.";
+  }
 }
 
 async function claimReward() {
+  const btn = document.getElementById("btnClaim");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> MEMPROSES TRANSAKSI...';
+
   try {
     const sym   = (selToken?.symbol||"BNB").toUpperCase();
     const pair  = sym==="INDC"?"BNBUSDT":sym+"USDT";
     const r     = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
     const d     = await r.json();
     const final = parseFloat(d.price);
-    const isUp  = final>=entryPrice;
+    const isUp  = final >= entryPrice;
     const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
+
+    // Sekarang baru transaksi ke smart contract
+    await openBox();
+
+    // Hitung multiplier berdasarkan prediksi
+    const multi   = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
+    pendingReward = Math.round(pendingReward * multi);
+
     document.getElementById("countdownWrap").classList.remove("show");
-    showResult(pendingReward, correct, pendingReward>400);
+    showResult(pendingReward, correct, pendingReward > 400);
+
+    localStorage.removeItem("pbt_active");
+
+    // Reset state
     selectedPredict=null; selectedDuration=null;
     entryPrice=0; pendingReward=0;
     selBox=null; selToken=null;
-  } catch(e) { console.warn(e); }
+
+  } catch(e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = "🏆 KLAIM HADIAH";
+    showToast("Transaksi gagal, coba lagi!", "#f87171");
+  }
 }
 
 function checkActiveSesi() {
