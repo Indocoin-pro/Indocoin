@@ -8,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INDOCOIN — PHANTOM BOX TRADE</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
   --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
@@ -464,11 +465,18 @@ function setWallet(addr) {
   checkBalance();
 }
 window.addEventListener("load", async () => {
+  // Tunggu ethers siap
+  await sleep(300);
   if (window.ethereum) {
     try {
       const a = await window.ethereum.request({method:"eth_accounts"});
-      if (a.length) setWallet(a[0]);
-    } catch(e) {}
+      if (a.length) {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        setWallet(a[0]);
+      }
+    } catch(e) { console.warn(e); }
+    window.ethereum.on("accountsChanged", ()=>location.reload());
+    window.ethereum.on("chainChanged", ()=>location.reload());
   }
   buildBoxes();
   fetchTokens();
