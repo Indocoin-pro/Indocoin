@@ -573,6 +573,7 @@ let userAddr    = null;
 let selToken    = null;
 let selBox      = null;
 let lockedBox   = null; // box yang dikunci saat countdown berjalan
+let lockedToken = null; // token yang dikunci saat countdown berjalan
 let hasSwapped  = false;
 let streakLose  = 0;
 let jpPool      = 247;
@@ -822,10 +823,17 @@ function pickBox(i) {
 
 /* ═══ OPEN BOX — REAL SMART CONTRACT ═══ */
 async function openBox() {
-  // Pakai lockedBox kalau selBox sudah null (saat klaim setelah countdown)
-  const boxToOpen = selBox !== null ? selBox : lockedBox;
-  if (boxToOpen === null || !selToken) return;
+  // Pakai lockedBox/lockedToken kalau selBox/selToken sudah null (saat klaim)
+  const boxToOpen   = selBox !== null ? selBox : lockedBox;
+  const tokenToUse  = selToken || lockedToken;
+  if (boxToOpen === null || !tokenToUse) {
+    showToast("❌ Data kotak hilang, refresh halaman!", "#f87171");
+    return;
+  }
   if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+
+  // Pastikan selToken terisi untuk fungsi lain yang butuh
+  if (!selToken) selToken = tokenToUse;
 
   const btn = document.getElementById("btnOpen");
   btn.disabled = true;
@@ -1289,8 +1297,9 @@ async function confirmAndOpenBox() {
   btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA ENTRY...';
   // Fetch harga entry final
   await fetchEntryPrice();
-  // KUNCI box index sebelum countdown — ini yang dipakai saat klaim
-  lockedBox = selBox;
+  // KUNCI box index dan token sebelum countdown
+  lockedBox   = selBox;
+  lockedToken = selToken;
   // Sembunyikan timer section
   document.getElementById("timerSection").classList.remove("show");
   // Mulai countdown DULU — transaksi setelah waktu habis
@@ -1312,6 +1321,7 @@ function startCountdown() {
     predict:selectedPredict, duration:selectedDuration,
     entryPrice, endTime:countdownEndTime,
     token:selToken.symbol, reward:pendingReward,
+    boxIndex: lockedBox,
   }));
   countdownInterval = setInterval(updateCountdown, 1000);
   priceInterval     = setInterval(updateLivePrice, 10000);
@@ -1388,43 +1398,65 @@ async function claimReward() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spin"></span> MEMPROSES TRANSAKSI...';
 
+  // Pastikan lockedBox dan lockedToken ada
+  if (lockedBox === null) {
+    // Coba recover dari localStorage
+    const raw = localStorage.getItem("pbt_active");
+    if (raw) {
+      const sesi = JSON.parse(raw);
+      lockedBox   = sesi.boxIndex || 0;
+      lockedToken = { symbol: sesi.token };
+      selectedPredict  = sesi.predict;
+      selectedDuration = sesi.duration;
+      entryPrice       = sesi.entryPrice;
+    } else {
+      showToast("❌ Data klaim hilang, refresh halaman!", "#f87171");
+      btn.disabled = false;
+      btn.textContent = "🏆 KLAIM HADIAH";
+      return;
+    }
+  }
+
   try {
     // Cek harga akhir untuk tentukan menang/kalah
     let isUp = true;
+    const sym = (lockedToken?.symbol || selToken?.symbol || "BNB").toUpperCase();
     try {
-      const sym  = (selToken?.symbol||"BNB").toUpperCase();
       const pair = sym==="INDC"?"BNBUSDT":sym+"USDT";
-      const r    = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
+      const ctrl = new AbortController();
+      const t    = setTimeout(()=>ctrl.abort(), 5000);
+      const r    = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`,{signal:ctrl.signal});
+      clearTimeout(t);
       const d    = await r.json();
       const final = parseFloat(d.price);
       isUp = final >= entryPrice;
     } catch(e) {
-      // Kalau API gagal pakai data WebSocket terakhir
-      const sym = (selToken?.symbol||"BNB").toUpperCase();
-      const wp  = latestPrices[sym];
+      // Fallback WebSocket data
+      const wp = latestPrices[sym];
       if (wp) isUp = wp >= entryPrice;
     }
 
     const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
     const multi   = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
 
-    // Transaksi ke smart contract — pakai lockedBox
+    // Transaksi ke smart contract
     await openBox();
 
-    // openBox sudah handle showResult, kita hanya perlu cleanup
+    // Cleanup setelah berhasil
     document.getElementById("countdownWrap").classList.remove("show");
     localStorage.removeItem("pbt_active");
 
-    // Reset state
+    // Reset semua state
     selectedPredict=null; selectedDuration=null;
     entryPrice=0; pendingReward=0;
-    lockedBox=null;
+    lockedBox=null; lockedToken=null;
+    selBox=null; selToken=null;
 
   } catch(e) {
     console.error(e);
     btn.disabled = false;
     btn.textContent = "🏆 KLAIM HADIAH";
-    showToast("Transaksi gagal, coba lagi!", "#f87171");
+    showToast("❌ Transaksi gagal, coba lagi!", "#f87171");
   }
 }
 
