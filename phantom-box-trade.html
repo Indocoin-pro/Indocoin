@@ -445,13 +445,13 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div class="timer-section" id="timerSection">
 
     <!-- PREDIKSI -->
-    <div class="timer-title">🎯 PREDIKSI ARAH HARGA</div>
+    <div class="timer-title">🎯 POSISI TRADING</div>
     <div class="predict-wrap">
       <button class="predict-btn up" id="btnUp" onclick="selectPredict('up')">
-        ▲ NAIK
+        🟢 LONG
       </button>
       <button class="predict-btn down" id="btnDown" onclick="selectPredict('down')">
-        ▼ TURUN
+        🔴 SHORT
       </button>
     </div>
 
@@ -491,7 +491,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <!-- COUNTDOWN ACTIVE -->
   <div class="countdown-wrap" id="countdownWrap">
     <div class="cd-token" id="cdToken">Memantau —</div>
-    <div class="cd-predict up" id="cdPredict">▲ PREDIKSI NAIK</div>
+    <div class="cd-predict up" id="cdPredict">🟢 LONG — PREDIKSI NAIK</div>
     <div class="cd-timer" id="cdTimer">--:--:--</div>
     <div class="cd-price-row">
       <span>Entry: <span id="cdEntryPrice" style="color:var(--cyan)">$—</span></span>
@@ -1065,7 +1065,7 @@ function showTimerSection() {
   document.getElementById("btnDown").classList.remove("selected");
   [15,60,240].forEach(m => document.getElementById("dur"+m).classList.remove("selected"));
   document.getElementById("btnConfirm").disabled = true;
-  document.getElementById("btnConfirm").textContent = "🎁 PILIH PREDIKSI & DURASI DULU";
+  document.getElementById("btnConfirm").textContent = "🎁 PILIH POSISI & DURASI DULU";
   // Tampilkan section
   document.getElementById("timerSection").classList.add("show");
   document.getElementById("timerSection").scrollIntoView({behavior:"smooth",block:"center"});
@@ -1164,7 +1164,7 @@ function startCountdown() {
   countdownEndTime  = Date.now()+durationMs;
   const sym = (selToken.symbol||"BNB").toUpperCase();
   document.getElementById("cdToken").textContent    = `Memantau ${sym}/USDT`;
-  document.getElementById("cdPredict").textContent  = selectedPredict==="up"?"▲ PREDIKSI NAIK":"▼ PREDIKSI TURUN";
+  document.getElementById("cdPredict").textContent  = selectedPredict==="up"?"🟢 LONG — PREDIKSI NAIK":"🔴 SHORT — PREDIKSI TURUN";
   document.getElementById("cdPredict").className    = "cd-predict "+selectedPredict;
   document.getElementById("cdEntryPrice").textContent = "$"+entryPrice.toFixed(4);
   localStorage.setItem("pbt_active", JSON.stringify({
@@ -1180,24 +1180,52 @@ function startCountdown() {
 
 async function updateLivePrice() {
   try {
-    const sym   = (selToken?.symbol||"BNB").toUpperCase();
-    const pair  = sym==="INDC"?"BNBUSDT":sym+"USDT";
-    const r     = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
-    const d     = await r.json();
-    const cur   = parseFloat(d.price);
-    const diff  = cur - entryPrice;
-    const pct   = ((diff/entryPrice)*100).toFixed(2);
-    const isUp  = diff>=0;
-    document.getElementById("cdCurrentPrice").textContent    = "$"+cur.toFixed(4);
-    document.getElementById("cdCurrentPrice").style.color    = isUp?"var(--green)":"var(--red)";
+    const sym  = (selToken?.symbol||"BNB").toUpperCase();
+    const pair = sym==="INDC"?"BNBUSDT":sym+"USDT";
+    let cur = 0;
+
+    // Coba Binance dulu
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 4000);
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`,{signal:ctrl.signal});
+      clearTimeout(t);
+      const d = await r.json();
+      cur = parseFloat(d.price);
+    } catch(e2) {
+      // Fallback CoinGecko
+      const ids = {BNB:"binancecoin",ETH:"ethereum",CAKE:"pancakeswap-token",BTC:"bitcoin",USDT:"tether"};
+      const id  = ids[sym]||"binancecoin";
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 6000);
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`,{signal:ctrl.signal});
+      clearTimeout(t);
+      const d = await r.json();
+      cur = d[id]?.usd || entryPrice;
+    }
+
+    if (!cur) return;
+    const diff = cur - entryPrice;
+    const pct  = entryPrice>0 ? ((diff/entryPrice)*100).toFixed(2) : "0.00";
+    const isUp = diff>=0;
+
+    document.getElementById("cdCurrentPrice").textContent = "$"+cur.toFixed(4);
+    document.getElementById("cdCurrentPrice").style.color = isUp?"var(--green)":"var(--red)";
+    document.getElementById("cdEntryPrice").textContent   = "$"+entryPrice.toFixed(4);
+
     const diffEl = document.getElementById("cdDiff");
-    diffEl.textContent  = (isUp?"+":"")+pct+"%";
-    diffEl.className    = "cd-diff "+(isUp?"positive":"negative");
+    diffEl.textContent = (isUp?"+":"")+pct+"%";
+    diffEl.className   = "cd-diff "+(isUp?"positive":"negative");
+
     const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
     document.getElementById("cdStatus").textContent = correct
-      ? "✅ Prediksimu BENAR sejauh ini! Pertahankan..."
-      : "⚠️ Prediksimu belum tepat. Masih ada waktu...";
-  } catch(e) { console.warn(e); }
+      ? "✅ Posisimu BENAR sejauh ini! Pertahankan..."
+      : "⚠️ Posisimu belum tepat. Masih ada waktu...";
+
+  } catch(e) {
+    document.getElementById("cdCurrentPrice").textContent = "—";
+    console.warn("updateLivePrice:", e);
+  }
 }
 
 function updateCountdown() {
@@ -1238,12 +1266,12 @@ async function showClaimButton() {
     btn.classList.add("show");
     btn.className    = "btn-claim show "+(correct?"win":"lose");
     btn.textContent  = correct
-      ? `🏆 PREDIKSI BENAR! KLAIM ~${estReward} INDC`
-      : `😔 PREDIKSI SALAH — KLAIM SISA`;
+      ? `🏆 POSISI BENAR! KLAIM ~${estReward} INDC`
+      : `😔 POSISI SALAH — KLAIM SISA`;
 
     document.getElementById("cdStatus").textContent = correct
       ? `🎉 BENAR! ${sym} ${isUp?"naik":"turun"} sesuai prediksimu! Multiplier ${multi}x!`
-      : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, prediksimu ${selectedPredict==="up"?"naik":"turun"}. Multiplier ${multi.toFixed(2)}x`;
+      : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, posisimu ${selectedPredict==="up"?"LONG":"SHORT"}. Multiplier ${multi.toFixed(2)}x`;
 
   } catch(e) {
     // Kalau API gagal tetap tampilkan tombol klaim
