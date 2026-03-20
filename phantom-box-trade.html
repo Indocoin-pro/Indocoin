@@ -1078,15 +1078,42 @@ function showTimerSection() {
 }
 
 async function fetchEntryPrice() {
+  const sym = (selToken?.symbol||"BNB").toUpperCase();
+  document.getElementById("epToken").textContent = sym;
+
+  // Coba Binance dulu dengan timeout 5 detik
   try {
-    const sym  = (selToken.symbol||"BNB").toUpperCase();
-    const pair = sym==="INDC" ? "BNBUSDT" : sym+"USDT";
-    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
+    const pair = sym==="INDC"?"BNBUSDT":sym+"USDT";
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 5000);
+    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`,
+      {signal: controller.signal});
+    clearTimeout(timeout);
     const d = await r.json();
     entryPrice = parseFloat(d.price);
-    document.getElementById("epToken").textContent = sym;
     document.getElementById("epPrice").textContent = "$"+entryPrice.toFixed(4);
-  } catch(e) { console.warn("fetchEntryPrice:",e); }
+    return;
+  } catch(e) { console.warn("Binance timeout, coba CoinGecko..."); }
+
+  // Fallback CoinGecko
+  try {
+    const ids = {BNB:"binancecoin",ETH:"ethereum",CAKE:"pancakeswap-token",BTC:"bitcoin",USDT:"tether"};
+    const id  = ids[sym] || "binancecoin";
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 8000);
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`,
+      {signal: controller.signal});
+    clearTimeout(timeout);
+    const d = await r.json();
+    entryPrice = d[id]?.usd || 0;
+    document.getElementById("epPrice").textContent = "$"+entryPrice.toFixed(4);
+    return;
+  } catch(e) { console.warn("CoinGecko timeout..."); }
+
+  // Fallback harga static kalau semua API gagal
+  const staticPrices = {BNB:612,ETH:3241,CAKE:2.3,BTC:65000,USDT:1};
+  entryPrice = staticPrices[sym] || 1;
+  document.getElementById("epPrice").textContent = "$"+entryPrice.toFixed(2)+" (estimasi)";
 }
 
 function selectPredict(dir) {
