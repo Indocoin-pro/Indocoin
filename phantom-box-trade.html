@@ -572,6 +572,7 @@ const INDC_ABI = [
 let userAddr    = null;
 let selToken    = null;
 let selBox      = null;
+let lockedBox   = null; // box yang dikunci saat countdown berjalan
 let hasSwapped  = false;
 let streakLose  = 0;
 let jpPool      = 247;
@@ -821,7 +822,9 @@ function pickBox(i) {
 
 /* ═══ OPEN BOX — REAL SMART CONTRACT ═══ */
 async function openBox() {
-  if (selBox===null || !selToken) return;
+  // Pakai lockedBox kalau selBox sudah null (saat klaim setelah countdown)
+  const boxToOpen = selBox !== null ? selBox : lockedBox;
+  if (boxToOpen === null || !selToken) return;
   if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
 
   const btn = document.getElementById("btnOpen");
@@ -858,7 +861,7 @@ async function openBox() {
 
     // Buka kotak
     btn.innerHTML = '<span class="spin"></span> KONFIRMASI DI WALLET...';
-    const tx = await phantomSigned.openBox(selBox);
+    const tx = await phantomSigned.openBox(boxToOpen);
 
     btn.innerHTML = '<span class="spin"></span> MENUNGGU BLOCKCHAIN...';
     const receipt = await tx.wait();
@@ -884,13 +887,13 @@ async function openBox() {
     updateStreak();
 
     // Mark box
-    boxOpened[selBox] = true;
-    const box = document.getElementById("bx"+selBox);
+    boxOpened[boxToOpen] = true;
+    const box = document.getElementById("bx"+boxToOpen);
     if (box) {
       box.classList.add("opened-box");
       box.classList.remove("selected-box","jackpot-box");
       box.style.animation = "none";
-      box.innerHTML = `<span class="box-emoji" style="font-size:16px">${isJP?"⚡":isWin?"✅":"❌"}</span><span class="box-num">#${selBox+1}</span>`;
+      box.innerHTML = `<span class="box-emoji" style="font-size:16px">${isJP?"⚡":isWin?"✅":"❌"}</span><span class="box-num">#${boxToOpen+1}</span>`;
     }
 
     // Update pool dari contract
@@ -911,6 +914,7 @@ async function openBox() {
     showToast("❌ " + msg.slice(0,50), "#f87171");
   } finally {
     selBox = null;
+    lockedBox = null; // reset lockedBox setelah klaim
     btn.textContent = "🎁 PILIH KOTAK DULU";
     btn.disabled = true;
   }
@@ -1285,6 +1289,8 @@ async function confirmAndOpenBox() {
   btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA ENTRY...';
   // Fetch harga entry final
   await fetchEntryPrice();
+  // KUNCI box index sebelum countdown — ini yang dipakai saat klaim
+  lockedBox = selBox;
   // Sembunyikan timer section
   document.getElementById("timerSection").classList.remove("show");
   // Mulai countdown DULU — transaksi setelah waktu habis
@@ -1383,30 +1389,36 @@ async function claimReward() {
   btn.innerHTML = '<span class="spin"></span> MEMPROSES TRANSAKSI...';
 
   try {
-    const sym   = (selToken?.symbol||"BNB").toUpperCase();
-    const pair  = sym==="INDC"?"BNBUSDT":sym+"USDT";
-    const r     = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
-    const d     = await r.json();
-    const final = parseFloat(d.price);
-    const isUp  = final >= entryPrice;
-    const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
+    // Cek harga akhir untuk tentukan menang/kalah
+    let isUp = true;
+    try {
+      const sym  = (selToken?.symbol||"BNB").toUpperCase();
+      const pair = sym==="INDC"?"BNBUSDT":sym+"USDT";
+      const r    = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
+      const d    = await r.json();
+      const final = parseFloat(d.price);
+      isUp = final >= entryPrice;
+    } catch(e) {
+      // Kalau API gagal pakai data WebSocket terakhir
+      const sym = (selToken?.symbol||"BNB").toUpperCase();
+      const wp  = latestPrices[sym];
+      if (wp) isUp = wp >= entryPrice;
+    }
 
-    // Sekarang baru transaksi ke smart contract
+    const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
+    const multi   = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
+
+    // Transaksi ke smart contract — pakai lockedBox
     await openBox();
 
-    // Hitung multiplier berdasarkan prediksi
-    const multi   = correct ? MULTIPLIERS[selectedDuration] : (1/MULTIPLIERS[selectedDuration]);
-    pendingReward = Math.round(pendingReward * multi);
-
+    // openBox sudah handle showResult, kita hanya perlu cleanup
     document.getElementById("countdownWrap").classList.remove("show");
-    showResult(pendingReward, correct, pendingReward > 400);
-
     localStorage.removeItem("pbt_active");
 
     // Reset state
     selectedPredict=null; selectedDuration=null;
     entryPrice=0; pendingReward=0;
-    selBox=null; selToken=null;
+    lockedBox=null;
 
   } catch(e) {
     console.error(e);
