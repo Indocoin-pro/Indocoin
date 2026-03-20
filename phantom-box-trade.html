@@ -367,10 +367,10 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     </div>
   </div>
 
-  <!-- TIMER -->
+  <!-- REALTIME STATUS -->
   <div class="reset-timer">
-    <span class="rt-label">🗓️ TOKEN RESET DALAM</span>
-    <span class="rt-time" id="resetTimer">--:--:--</span>
+    <span class="rt-label">🔄 HARGA</span>
+    <span class="rt-time" style="color:var(--green);font-size:9px" id="realtimeStatus">● MEMUAT...</span>
   </div>
 
   <!-- TOKEN CARDS -->
@@ -719,6 +719,8 @@ function buildTokens(data) {
   const ids = new Set();
   tokens = tokens.filter(t=>{ if(!t||ids.has(t.id)) return false; ids.add(t.id); return true; });
   renderTokens();
+  // Start WebSocket setelah token load
+  setTimeout(startAllWebSockets, 500);
 }
 
 function renderTokens() {
@@ -1016,16 +1018,140 @@ function addFeedRow(addr, tok, amt, w, j) {
 }
 
 /* ═══ TIMER ═══ */
+/* ═══ WEBSOCKET REAL-TIME PRICE ═══ */
+let wsConnections = {}; // symbol → WebSocket
+let latestPrices  = {}; // symbol → price
+
 function startTimer() {
-  const tick=()=>{
-    const now=new Date(), next=new Date(); next.setHours(24,0,0,0);
-    const d=next-now;
-    const h=String(~~(d/3600000)).padStart(2,"0");
-    const m=String(~~((d%3600000)/60000)).padStart(2,"0");
-    const s=String(~~((d%60000)/1000)).padStart(2,"0");
-    document.getElementById("resetTimer").textContent=h+":"+m+":"+s;
-  };
-  tick(); setInterval(tick,1000);
+  // Tidak perlu timer reset lagi
+  // Langsung start WebSocket untuk token yang aktif
+}
+
+function connectWebSocket(symbol) {
+  const sym  = symbol.toUpperCase();
+  const pair = (sym==="INDC"?"BNB":sym).toLowerCase()+"usdt";
+
+  // Tutup koneksi lama kalau ada
+  if (wsConnections[sym]) {
+    wsConnections[sym].close();
+    delete wsConnections[sym];
+  }
+
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@trade`);
+
+    ws.onopen = () => {
+      document.getElementById("realtimeStatus").textContent = "● LIVE";
+      document.getElementById("realtimeStatus").style.color = "var(--green)";
+      console.log("WebSocket connected:", sym);
+    };
+
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      const price = parseFloat(d.p);
+      latestPrices[sym] = price;
+      // Update token card harga real-time
+      updateTokenCardPrice(sym, price);
+      // Update countdown kalau sedang aktif
+      if (countdownEndTime && selToken?.symbol?.toUpperCase()===sym) {
+        updateCountdownPrice(price);
+      }
+    };
+
+    ws.onerror = () => {
+      document.getElementById("realtimeStatus").textContent = "● DELAYED";
+      document.getElementById("realtimeStatus").style.color = "var(--gold)";
+      fallbackHTTPPrice(sym);
+    };
+
+    ws.onclose = () => {
+      // Auto reconnect setelah 5 detik
+      setTimeout(()=>connectWebSocket(sym), 5000);
+    };
+
+    wsConnections[sym] = ws;
+
+  } catch(e) {
+    console.warn("WebSocket failed:", e);
+    fallbackHTTPPrice(sym);
+  }
+}
+
+function updateTokenCardPrice(sym, price) {
+  // Cari token card yang sesuai dan update harganya
+  tokens.forEach((t, i) => {
+    if ((t.symbol||"").toUpperCase() === sym) {
+      const card = document.getElementById("tc"+i);
+      if (!card) return;
+      const priceEl = card.querySelector(".tc-price");
+      if (priceEl) {
+        const fmt = price > 100
+          ? "$"+price.toLocaleString("en",{maximumFractionDigits:2})
+          : "$"+price.toFixed(4);
+        priceEl.textContent = fmt;
+        // Flash effect
+        priceEl.style.transition = "color 0.3s";
+        priceEl.style.color = "var(--cyan)";
+        setTimeout(()=>priceEl.style.color="var(--muted)", 500);
+      }
+    }
+  });
+}
+
+function updateCountdownPrice(currentPrice) {
+  if (!entryPrice || !currentPrice) return;
+  const diff = currentPrice - entryPrice;
+  const pct  = ((diff/entryPrice)*100).toFixed(3);
+  const isUp = diff >= 0;
+
+  const curEl  = document.getElementById("cdCurrentPrice");
+  const diffEl = document.getElementById("cdDiff");
+  if (!curEl || !diffEl) return;
+
+  const fmt = currentPrice > 100
+    ? "$"+currentPrice.toLocaleString("en",{maximumFractionDigits:2})
+    : "$"+currentPrice.toFixed(4);
+
+  curEl.textContent = fmt;
+  curEl.style.color = isUp ? "var(--green)" : "var(--red)";
+  diffEl.textContent = (isUp?"+":"")+pct+"%";
+  diffEl.className   = "cd-diff "+(isUp?"positive":"negative");
+
+  const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
+  const statusEl = document.getElementById("cdStatus");
+  if (statusEl) statusEl.textContent = correct
+    ? "✅ Posisimu BENAR sejauh ini! Pertahankan..."
+    : "⚠️ Posisimu belum tepat. Masih ada waktu...";
+}
+
+async function fallbackHTTPPrice(sym) {
+  // Fallback kalau WebSocket gagal
+  setInterval(async () => {
+    try {
+      const pair = (sym==="INDC"?"BNB":sym).toLowerCase()+"usdt";
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair.toUpperCase()}`);
+      const d = await r.json();
+      const price = parseFloat(d.price);
+      latestPrices[sym] = price;
+      updateTokenCardPrice(sym, price);
+      if (countdownEndTime && selToken?.symbol?.toUpperCase()===sym) {
+        updateCountdownPrice(price);
+      }
+      document.getElementById("realtimeStatus").textContent = "● DELAYED";
+      document.getElementById("realtimeStatus").style.color = "var(--gold)";
+    } catch(e) {}
+  }, 5000);
+}
+
+function startAllWebSockets() {
+  // Connect WebSocket untuk semua token yang tampil
+  if (tokens.length) {
+    tokens.forEach(t => {
+      if (t.symbol && t.symbol !== "INDC") {
+        connectWebSocket(t.symbol);
+      }
+    });
+  }
 }
 
 /* ═══ GUIDE ═══ */
@@ -1080,6 +1206,15 @@ function showTimerSection() {
 async function fetchEntryPrice() {
   const sym = (selToken?.symbol||"BNB").toUpperCase();
   document.getElementById("epToken").textContent = sym;
+  // Pakai harga WebSocket kalau sudah tersedia
+  if (latestPrices[sym]) {
+    entryPrice = latestPrices[sym];
+    const fmt = entryPrice > 100
+      ? "$"+entryPrice.toLocaleString("en",{maximumFractionDigits:2})
+      : "$"+entryPrice.toFixed(4);
+    document.getElementById("epPrice").textContent = fmt;
+    return;
+  }
 
   // Coba Binance dulu dengan timeout 5 detik
   try {
@@ -1179,52 +1314,11 @@ function startCountdown() {
 }
 
 async function updateLivePrice() {
-  try {
-    const sym  = (selToken?.symbol||"BNB").toUpperCase();
-    const pair = sym==="INDC"?"BNBUSDT":sym+"USDT";
-    let cur = 0;
-
-    // Coba Binance dulu
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(()=>ctrl.abort(), 4000);
-      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`,{signal:ctrl.signal});
-      clearTimeout(t);
-      const d = await r.json();
-      cur = parseFloat(d.price);
-    } catch(e2) {
-      // Fallback CoinGecko
-      const ids = {BNB:"binancecoin",ETH:"ethereum",CAKE:"pancakeswap-token",BTC:"bitcoin",USDT:"tether"};
-      const id  = ids[sym]||"binancecoin";
-      const ctrl = new AbortController();
-      const t = setTimeout(()=>ctrl.abort(), 6000);
-      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`,{signal:ctrl.signal});
-      clearTimeout(t);
-      const d = await r.json();
-      cur = d[id]?.usd || entryPrice;
-    }
-
-    if (!cur) return;
-    const diff = cur - entryPrice;
-    const pct  = entryPrice>0 ? ((diff/entryPrice)*100).toFixed(2) : "0.00";
-    const isUp = diff>=0;
-
-    document.getElementById("cdCurrentPrice").textContent = "$"+cur.toFixed(4);
-    document.getElementById("cdCurrentPrice").style.color = isUp?"var(--green)":"var(--red)";
-    document.getElementById("cdEntryPrice").textContent   = "$"+entryPrice.toFixed(4);
-
-    const diffEl = document.getElementById("cdDiff");
-    diffEl.textContent = (isUp?"+":"")+pct+"%";
-    diffEl.className   = "cd-diff "+(isUp?"positive":"negative");
-
-    const correct = (selectedPredict==="up"&&isUp)||(selectedPredict==="down"&&!isUp);
-    document.getElementById("cdStatus").textContent = correct
-      ? "✅ Posisimu BENAR sejauh ini! Pertahankan..."
-      : "⚠️ Posisimu belum tepat. Masih ada waktu...";
-
-  } catch(e) {
-    document.getElementById("cdCurrentPrice").textContent = "—";
-    console.warn("updateLivePrice:", e);
+  const sym = (selToken?.symbol||"BNB").toUpperCase();
+  // Pakai data WebSocket kalau ada
+  const cur = latestPrices[sym] || 0;
+  if (cur) {
+    updateCountdownPrice(cur);
   }
 }
 
