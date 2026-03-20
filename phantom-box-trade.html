@@ -1058,9 +1058,23 @@ const DURATION_LABELS = { 15:"15 Menit", 60:"1 Jam", 240:"4 Jam" };
 function showTimerSection() {
   if (!selToken) return;
   if (!hasSwapped) { showToast("Saldo INDC kurang!", "#f87171"); return; }
-  fetchEntryPrice();
+  // Reset pilihan sebelumnya
+  selectedPredict  = null;
+  selectedDuration = null;
+  document.getElementById("btnUp").classList.remove("selected");
+  document.getElementById("btnDown").classList.remove("selected");
+  [15,60,240].forEach(m => document.getElementById("dur"+m).classList.remove("selected"));
+  document.getElementById("btnConfirm").disabled = true;
+  document.getElementById("btnConfirm").textContent = "🎁 PILIH PREDIKSI & DURASI DULU";
+  // Tampilkan section
   document.getElementById("timerSection").classList.add("show");
   document.getElementById("timerSection").scrollIntoView({behavior:"smooth",block:"center"});
+  // Fetch harga entry LANGSUNG — user perlu lihat sebelum pilih
+  document.getElementById("epPrice").textContent = "⏳ Memuat...";
+  fetchEntryPrice();
+  // Refresh harga setiap 15 detik selama section terbuka
+  if (window._entryPriceInterval) clearInterval(window._entryPriceInterval);
+  window._entryPriceInterval = setInterval(fetchEntryPrice, 15000);
 }
 
 async function fetchEntryPrice() {
@@ -1092,7 +1106,7 @@ function selectDuration(minutes) {
 
 function checkConfirmReady() {
   const btn   = document.getElementById("btnConfirm");
-  const ready = selectedPredict && selectedDuration && entryPrice>0;
+  const ready = selectedPredict && selectedDuration;
   btn.disabled = !ready;
   if (ready) {
     const multi = MULTIPLIERS[selectedDuration];
@@ -1101,17 +1115,22 @@ function checkConfirmReady() {
 }
 
 async function confirmAndOpenBox() {
-  if (!selectedPredict || !selectedDuration || !entryPrice) return;
+  if (!selectedPredict || !selectedDuration) return;
   if (selBox===null || !selToken) return;
+  // Stop refresh harga entry
+  if (window._entryPriceInterval) clearInterval(window._entryPriceInterval);
   const btn = document.getElementById("btnConfirm");
   btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span> MEMPROSES...';
+  btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA FINAL...';
+  // Fetch harga terbaru tepat saat konfirmasi
+  await fetchEntryPrice();
+  btn.innerHTML = '<span class="spin"></span> MEMPROSES TRANSAKSI...';
   try {
     await openBox();
     startCountdown();
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = "🎁 KONFIRMASI & BUKA KOTAK";
+    btn.textContent = `🎁 BUKA KOTAK — ${DURATION_LABELS[selectedDuration]} (${MULTIPLIERS[selectedDuration]}x)`;
   }
 }
 
