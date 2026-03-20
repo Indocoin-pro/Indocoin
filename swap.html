@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — SWAP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#34d399;--red:#f87171;--cyan:#38bdf8;--violet:#a78bfa;
+  --border:rgba(250,204,21,0.12);--card:rgba(15,23,42,0.95);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);height:min(85vw,85vh);object-fit:contain;opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:#fff;border-radius:50%;animation:twinkle var(--d) ease-in-out infinite alternate;z-index:0;}
+@keyframes twinkle{from{opacity:.1}to{opacity:.6}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes flipArrow{0%{transform:rotate(0deg)}100%{transform:rotate(180deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,15,30,0.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:7px 12px;border:1px solid rgba(250,204,21,0.4);border-radius:20px;background:rgba(250,204,21,0.08);color:var(--gold);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+.btn-wallet.connected{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.08);color:var(--green);}
+.wallet-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.wallet-dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:twinkle 1.5s infinite;}
+
+/* PAGE */
+.page{position:relative;z-index:1;padding:14px 12px 90px;max-width:480px;margin:0 auto;}
+
+/* HERO */
+.hero{text-align:center;padding:16px 0 14px;animation:fadeUp 0.4s ease;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--cyan);background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);padding:4px 14px;border-radius:20px;margin-bottom:8px;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--text);letter-spacing:2px;margin-bottom:4px;}
+.hero-title span{color:var(--cyan);}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
+
+/* PHANTOM BOX TRACKER */
+.pb-tracker{background:var(--card);border:1px solid rgba(167,139,250,0.25);border-radius:14px;padding:14px;margin-bottom:14px;animation:fadeUp 0.4s ease 0.05s both;}
+.pb-tracker-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.pb-tracker-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--violet);letter-spacing:1px;display:flex;align-items:center;gap:6px;}
+.pb-tracker-status{font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 8px;border-radius:10px;}
+.pb-tracker-status.ok{background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.25);}
+.pb-tracker-status.notok{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.pb-progress-wrap{background:rgba(255,255,255,0.04);border-radius:6px;height:7px;overflow:hidden;margin-bottom:8px;}
+.pb-progress-bar{height:100%;border-radius:6px;background:linear-gradient(90deg,#7c3aed,var(--violet));transition:width 0.8s ease;}
+.pb-info{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.pb-info span{color:var(--violet);}
+.pb-discounts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;}
+.pb-disc{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:6px 4px;text-align:center;}
+.pb-disc.achieved{background:rgba(167,139,250,0.08);border-color:rgba(167,139,250,0.3);}
+.pb-disc-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);}
+.pb-disc.achieved .pb-disc-val{color:var(--violet);}
+.pb-disc-label{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.pb-disc-check{font-size:10px;margin-top:2px;display:none;}
+.pb-disc.achieved .pb-disc-check{display:block;}
+.btn-goto-phantom{width:100%;padding:10px;border:1px solid rgba(167,139,250,0.3);border-radius:10px;background:rgba(167,139,250,0.08);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;color:var(--violet);cursor:pointer;margin-top:10px;transition:all 0.2s;display:none;}
+.btn-goto-phantom.show{display:block;}
+.btn-goto-phantom:hover{background:rgba(167,139,250,0.15);}
+
+/* SWAP CARD */
+.swap-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.1s both;}
+.swap-card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.swap-card-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.swap-settings{display:flex;align-items:center;gap:8px;}
+.slip-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.slip-val{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);}
+
+/* SWAP FORM */
+.swap-form{padding:14px;}
+.swap-box{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color 0.2s;}
+.swap-box:focus-within{border-color:rgba(250,204,21,0.35);box-shadow:0 0 0 3px rgba(250,204,21,0.05);}
+.swap-box-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.swap-box-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.swap-box-bal{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);cursor:pointer;}
+.swap-box-bal:hover{color:var(--gold2);}
+.swap-box-row{display:flex;align-items:center;gap:10px;}
+.swap-input{flex:1;background:none;border:none;outline:none;font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;color:var(--text);min-width:0;}
+.swap-input::placeholder{color:rgba(100,116,139,0.4);}
+.token-btn{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:8px 12px;cursor:pointer;flex-shrink:0;transition:all 0.2s;}
+.token-btn:hover{background:rgba(255,255,255,0.08);}
+.token-btn-img{width:22px;height:22px;border-radius:50%;object-fit:contain;}
+.token-btn-sym{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.token-btn-arrow{font-size:10px;color:var(--muted);}
+
+/* FLIP BTN */
+.flip-wrap{display:flex;align-items:center;justify-content:center;margin:6px 0;position:relative;}
+.flip-btn{width:36px;height:36px;border-radius:50%;background:var(--dark2);border:2px solid var(--border);display:grid;place-items:center;cursor:pointer;font-size:16px;transition:all 0.3s;z-index:1;}
+.flip-btn:hover{background:rgba(250,204,21,0.1);border-color:rgba(250,204,21,0.3);transform:rotate(180deg);}
+
+/* RATE INFO */
+.rate-info{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;}
+.rate-val{color:var(--text);}
+
+/* QUOTE BOX */
+.quote-box{background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.15);border-radius:10px;padding:10px 12px;margin-top:8px;display:none;}
+.quote-box.show{display:block;animation:fadeUp 0.3s ease;}
+.quote-row{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:9px;padding:3px 0;}
+.quote-row-label{color:var(--muted);}
+.quote-row-val{color:var(--text);}
+.quote-row-val.good{color:var(--green);}
+.quote-row-val.warn{color:var(--gold);}
+
+/* SLIPPAGE */
+.slip-wrap{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.slip-title{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;flex-shrink:0;}
+.slip-btns{display:flex;gap:5px;}
+.slip-btn{padding:4px 10px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all 0.15s;}
+.slip-btn.on{background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.3);color:var(--cyan);}
+
+/* SWAP BTN */
+.btn-swap{width:100%;padding:15px;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;color:#0a0f1e;cursor:pointer;margin-top:12px;transition:all 0.2s;background:linear-gradient(135deg,var(--gold3),var(--gold));box-shadow:0 4px 20px rgba(250,204,21,0.3);}
+.btn-swap:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(250,204,21,0.45);}
+.btn-swap:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-swap.loading{background:linear-gradient(135deg,var(--dark3),var(--dark2));color:var(--muted);border:1px solid var(--border);}
+
+/* SWAP STATUS */
+.swap-status-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9px;display:none;}
+.swap-status-bar.show{display:flex;}
+.swap-status-bar.pending{background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.15);color:var(--gold);}
+.swap-status-bar.success{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);color:var(--green);}
+.swap-status-bar.error{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);color:var(--red);}
+
+/* TOKEN MODAL */
+.token-modal{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center;}
+.token-modal.show{display:flex;}
+.token-modal-sheet{background:var(--dark2);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:75vh;display:flex;flex-direction:column;animation:fadeUp 0.3s ease;}
+.tms-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.12);margin:12px auto 0;}
+.tms-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.tms-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.tms-close{font-size:18px;color:var(--muted);cursor:pointer;}
+.tms-search{padding:10px 16px;}
+.tms-search input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);outline:none;}
+.tms-search input:focus{border-color:rgba(250,204,21,0.3);}
+.tms-list{overflow-y:auto;flex:1;padding:4px 8px 16px;}
+.tms-item{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:10px;cursor:pointer;transition:background 0.12s;}
+.tms-item:hover{background:rgba(250,204,21,0.05);}
+.tms-item-img{width:34px;height:34px;border-radius:50%;object-fit:contain;flex-shrink:0;}
+.tms-item-name{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--text);}
+.tms-item-sym{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.tms-item-bal{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);margin-left:auto;}
+
+/* HISTORY */
+.history-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.2s both;}
+.history-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);}
+.history-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.history-today{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.history-empty{padding:24px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.history-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.03);animation:slideIn 0.3s ease;}
+.history-item:last-child{border-bottom:none;}
+.hi-icon{width:32px;height:32px;border-radius:50%;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);display:grid;place-items:center;font-size:14px;flex-shrink:0;}
+.hi-body{flex:1;min-width:0;}
+.hi-pair{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);}
+.hi-time{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:1px;}
+.hi-amount{text-align:right;}
+.hi-from{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.hi-to{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--green);}
+.hi-hash{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--cyan);cursor:pointer;}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(5,10,25,0.97);backdrop-filter:blur(16px);border-top:1px solid rgba(250,204,21,0.2);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none;color:#6b7280;transition:all 0.2s;}
+.bnav-item:hover,.bnav-item.active{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+
+/* MISC */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(250,204,21,0.3);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;}
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:10px;padding:10px 18px;border-radius:20px;z-index:9999;font-weight:700;letter-spacing:1px;white-space:nowrap;pointer-events:none;}
+</style>
+</head>
+<body>
+
+<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <a href="trade.html" class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand-main">INDOCOIN</div>
+      <div class="nav-brand-sub">🔄 SWAP</div>
+    </div>
+  </a>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span class="wallet-dot" id="walletDot"></span>
+    <span id="walletBtnText">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🔄 INDOCOIN DEX</div>
+    <div class="hero-title">SWAP <span>TOKEN</span></div>
+    <div class="hero-desc">Tukar token dengan fee 0.25% — kompetitif & cepat.<br>Swap lebih banyak = diskon kotak Phantom Box!</div>
+  </div>
+
+  <!-- PHANTOM BOX TRACKER -->
+  <div class="pb-tracker">
+    <div class="pb-tracker-head">
+      <div class="pb-tracker-title">🎁 PHANTOM BOX TRACKER</div>
+      <div class="pb-tracker-status notok" id="pbStatus">BELUM TERPENUHI</div>
+    </div>
+    <div class="pb-progress-wrap">
+      <div class="pb-progress-bar" id="pbBar" style="width:0%"></div>
+    </div>
+    <div class="pb-info">
+      <span>Swap hari ini: <span id="pbSwapped">0</span> INDC</span>
+      <span>Min: 100 INDC</span>
+    </div>
+    <div class="pb-discounts">
+      <div class="pb-disc" id="disc500">
+        <div class="pb-disc-val">-20 INDC</div>
+        <div class="pb-disc-label">500 INDC</div>
+        <div class="pb-disc-check">✅</div>
+      </div>
+      <div class="pb-disc" id="disc1k">
+        <div class="pb-disc-val">-30 INDC</div>
+        <div class="pb-disc-label">1.000 INDC</div>
+        <div class="pb-disc-check">✅</div>
+      </div>
+      <div class="pb-disc" id="disc5k">
+        <div class="pb-disc-val">-40 INDC</div>
+        <div class="pb-disc-label">5.000 INDC</div>
+        <div class="pb-disc-check">✅</div>
+      </div>
+      <div class="pb-disc" id="disc10k">
+        <div class="pb-disc-val">GRATIS!</div>
+        <div class="pb-disc-label">10.000 INDC</div>
+        <div class="pb-disc-check">✅</div>
+      </div>
+    </div>
+    <button class="btn-goto-phantom" id="btnGotoPhantom" onclick="window.location.href='phantom-box-trade.html'">
+      🎁 BUKA PHANTOM BOX SEKARANG →
+    </button>
+  </div>
+
+  <!-- SWAP CARD -->
+  <div class="swap-card">
+    <div class="swap-card-head">
+      <div class="swap-card-title">🔄 SWAP TOKEN</div>
+      <div class="swap-settings">
+        <span class="slip-label">Slippage:</span>
+        <span class="slip-val" id="slipDisplay">1%</span>
+      </div>
+    </div>
+    <div class="swap-form">
+
+      <!-- FROM -->
+      <div class="swap-box">
+        <div class="swap-box-head">
+          <span class="swap-box-label">DARI</span>
+          <span class="swap-box-bal" id="balFrom" onclick="setMax()">Saldo: —</span>
+        </div>
+        <div class="swap-box-row">
+          <input class="swap-input" type="number" placeholder="0.00" id="amtFrom" oninput="onAmountChange()">
+          <div class="token-btn" onclick="openModal('from')">
+            <img class="token-btn-img" id="imgFrom" src="https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png" onerror="this.style.display='none'">
+            <span class="token-btn-sym" id="symFrom">BNB</span>
+            <span class="token-btn-arrow">▾</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- FLIP -->
+      <div class="flip-wrap">
+        <div class="flip-btn" onclick="flipTokens()">⇅</div>
+      </div>
+
+      <!-- TO -->
+      <div class="swap-box">
+        <div class="swap-box-head">
+          <span class="swap-box-label">KE</span>
+          <span class="swap-box-bal" id="balTo">Saldo: —</span>
+        </div>
+        <div class="swap-box-row">
+          <input class="swap-input" type="number" placeholder="0.00" id="amtTo" readonly>
+          <div class="token-btn" onclick="openModal('to')">
+            <img class="token-btn-img" id="imgTo" src="https://assets.coingecko.com/coins/images/12114/small/INDC.png" onerror="this.outerHTML='<div style=width:22px;height:22px;border-radius:50%;background:#facc1522;color:#facc15;display:grid;place-items:center;font-size:10px;font-weight:800>I</div>'">
+            <span class="token-btn-sym" id="symTo">INDC</span>
+            <span class="token-btn-arrow">▾</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RATE INFO -->
+      <div class="rate-info" id="rateInfo" style="display:none">
+        <span id="rateText">Memuat rate...</span>
+        <span id="feeText">Fee: 0.25%</span>
+      </div>
+
+      <!-- QUOTE BOX -->
+      <div class="quote-box" id="quoteBox">
+        <div class="quote-row">
+          <span class="quote-row-label">Estimasi dapat</span>
+          <span class="quote-row-val good" id="qEstimate">—</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-row-label">Minimum diterima</span>
+          <span class="quote-row-val" id="qMinOut">—</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-row-label">Price impact</span>
+          <span class="quote-row-val warn" id="qImpact">—</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-row-label">Fee platform</span>
+          <span class="quote-row-val" id="qFee">—</span>
+        </div>
+      </div>
+
+      <!-- SLIPPAGE -->
+      <div class="slip-wrap">
+        <span class="slip-title">SLIPPAGE:</span>
+        <div class="slip-btns">
+          <button class="slip-btn" data-slip="0.5" onclick="setSlip(this)">0.5%</button>
+          <button class="slip-btn on" data-slip="1" onclick="setSlip(this)">1%</button>
+          <button class="slip-btn" data-slip="3" onclick="setSlip(this)">3%</button>
+        </div>
+      </div>
+
+      <!-- SWAP BTN -->
+      <button class="btn-swap" id="btnSwap" onclick="doSwap()" disabled>SWAP</button>
+
+      <!-- STATUS -->
+      <div class="swap-status-bar" id="swapStatusBar">
+        <span id="swapStatusText">—</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="history-wrap">
+    <div class="history-head">
+      <div class="history-title">📋 RIWAYAT SWAP HARI INI</div>
+      <div class="history-today" id="historyDate">—</div>
+    </div>
+    <div id="historyList">
+      <div class="history-empty">Belum ada swap hari ini.<br>Swap sekarang untuk buka Phantom Box! 🎁</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html" class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html" class="bnav-item"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html" class="bnav-item active"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
+</nav>
+
+<!-- TOKEN MODAL -->
+<div class="token-modal" id="tokenModal">
+  <div class="token-modal-sheet">
+    <div class="tms-handle"></div>
+    <div class="tms-head">
+      <span class="tms-title">PILIH TOKEN</span>
+      <span class="tms-close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="tms-search">
+      <input type="text" placeholder="Cari nama atau paste alamat kontrak..." id="tokenSearch" oninput="filterTokens()">
+    </div>
+    <div class="tms-list" id="tokenList"></div>
+  </div>
+</div>
+
+<script>
+/* ═══ CONFIG ═══ */
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const BSC_ID    = "0x38";
+const SWAP_FEE  = 0.0025; // 0.25%
+const MIN_SWAP  = 100;    // INDC syarat phantom box
+
+const ERC20_ABI = [
+  "function balanceOf(address) view returns(uint256)",
+  "function decimals() view returns(uint8)",
+  "function symbol() view returns(string)",
+  "function name() view returns(string)",
+];
+
+/* ═══ DEFAULT TOKENS ═══ */
+const DEFAULT_TOKENS = [
+  { symbol:"BNB",  name:"BNB",         address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", decimals:18, image:"https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",  isNative:true  },
+  { symbol:"INDC", name:"IndoCoin",     address:INDC_ADDR,                                     decimals:18, image:"", letter:"I", color:"#facc15" },
+  { symbol:"USDT", name:"Tether USD",   address:"0x55d398326f99059fF775485246999027B3197955", decimals:18, image:"https://assets.coingecko.com/coins/images/325/small/Tether.png" },
+  { symbol:"USDC", name:"USD Coin",     address:"0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals:18, image:"https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png" },
+  { symbol:"ETH",  name:"Ethereum",     address:"0x2170Ed0880ac9A755fd29B2688956BD959F933F8", decimals:18, image:"https://assets.coingecko.com/coins/images/279/small/ethereum.png" },
+  { symbol:"BTCB", name:"Bitcoin BEP20",address:"0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",decimals:18, image:"https://assets.coingecko.com/coins/images/14108/small/Binance-bitcoin.png" },
+  { symbol:"CAKE", name:"PancakeSwap",  address:"0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82", decimals:18, image:"https://assets.coingecko.com/coins/images/12632/small/pancakeswap-cake-logo_%281%29.png" },
+];
+
+/* ═══ STATE ═══ */
+let provider, signer, userAddr;
+let tokenFrom  = DEFAULT_TOKENS[0]; // BNB
+let tokenTo    = DEFAULT_TOKENS[1]; // INDC
+let slippage   = 1;
+let quoteTimer = null;
+let selectFor  = "from";
+let allTokens  = [...DEFAULT_TOKENS];
+let swapVolume = 0;
+let swapHistory= [];
+
+/* ═══ WALLET ═══ */
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!", "#f87171"); return; }
+  try {
+    await window.ethereum.request({ method:"eth_requestAccounts" });
+    await switchBSC();
+    provider   = new ethers.BrowserProvider(window.ethereum);
+    signer     = await provider.getSigner();
+    userAddr   = await signer.getAddress();
+    updateWalletUI();
+    loadBalances();
+  } catch(e) { console.error(e); }
+}
+
+async function switchBSC() {
+  try {
+    await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:BSC_ID}] });
+  } catch(e) {
+    if (e.code===4902) {
+      await window.ethereum.request({ method:"wallet_addEthereumChain", params:[{
+        chainId:BSC_ID, chainName:"BNB Smart Chain",
+        nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
+        rpcUrls:[BSC_RPC], blockExplorerUrls:["https://bscscan.com"]
+      }]});
+    }
+  }
+}
+
+function updateWalletUI() {
+  const s = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+  document.getElementById("walletBtnText").textContent = s;
+  document.getElementById("walletBtn").classList.add("connected");
+  document.getElementById("walletDot").classList.add("on");
+}
+
+async function loadBalances() {
+  if (!userAddr || !provider) return;
+  try {
+    // BNB balance
+    const bnbBal = await provider.getBalance(userAddr);
+    const bnbFmt = parseFloat(ethers.formatEther(bnbBal)).toFixed(4);
+
+    // INDC balance
+    const contract = new ethers.Contract(INDC_ADDR, ERC20_ABI, provider);
+    const indcBal  = await contract.balanceOf(userAddr);
+    const indcFmt  = parseFloat(ethers.formatUnits(indcBal,18)).toFixed(2);
+
+    updateBalDisplay(bnbFmt, indcFmt);
+  } catch(e) { console.warn(e); }
+}
+
+function updateBalDisplay(bnbFmt, indcFmt) {
+  const fromBal = tokenFrom.symbol==="BNB" ? bnbFmt+" BNB" : tokenFrom.symbol==="INDC" ? indcFmt+" INDC" : "—";
+  const toBal   = tokenTo.symbol==="BNB"   ? bnbFmt+" BNB" : tokenTo.symbol==="INDC"   ? indcFmt+" INDC" : "—";
+  document.getElementById("balFrom").textContent = "Saldo: "+fromBal;
+  document.getElementById("balTo").textContent   = "Saldo: "+toBal;
+}
+
+window.addEventListener("load", async () => {
+  if (window.ethereum) {
+    try {
+      const a = await window.ethereum.request({method:"eth_accounts"});
+      if (a.length) {
+        provider   = new ethers.BrowserProvider(window.ethereum);
+        signer     = await provider.getSigner();
+        userAddr   = a[0];
+        updateWalletUI();
+        loadBalances();
+      }
+    } catch(e) {}
+  }
+  loadSwapVolume();
+  loadHistory();
+  renderTokenUI();
+  document.getElementById("historyDate").textContent = new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long"});
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", ()=>location.reload());
+    window.ethereum.on("chainChanged", ()=>location.reload());
+  }
+});
+
+/* ═══ TOKEN UI ═══ */
+function renderTokenUI() {
+  setTokenUI("from", tokenFrom);
+  setTokenUI("to",   tokenTo);
+}
+
+function setTokenUI(side, token) {
+  const img = document.getElementById("img"+cap(side));
+  const sym = document.getElementById("sym"+cap(side));
+  sym.textContent = token.symbol;
+  if (token.image) { img.src=token.image; img.style.display="block"; }
+  else { img.style.display="none"; }
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+/* ═══ FLIP ═══ */
+function flipTokens() {
+  [tokenFrom, tokenTo] = [tokenTo, tokenFrom];
+  renderTokenUI();
+  document.getElementById("amtFrom").value = "";
+  document.getElementById("amtTo").value   = "";
+  hideQuote();
+  loadBalances();
+}
+
+function setMax() {
+  // Simulasi set max 50% dari saldo
+  const cur = document.getElementById("balFrom").textContent;
+  const num = parseFloat(cur.replace(/[^0-9.]/g,""));
+  if (!isNaN(num)) {
+    document.getElementById("amtFrom").value = (num*0.5).toFixed(4);
+    onAmountChange();
+  }
+}
+
+/* ═══ QUOTE ═══ */
+function onAmountChange() {
+  clearTimeout(quoteTimer);
+  const amt = parseFloat(document.getElementById("amtFrom").value);
+  if (!amt || amt<=0) { hideQuote(); return; }
+  document.getElementById("rateInfo").style.display = "flex";
+  document.getElementById("rateText").textContent   = "⏳ Menghitung...";
+  quoteTimer = setTimeout(()=>getQuote(amt), 700);
+}
+
+async function getQuote(amt) {
+  try {
+    // Gunakan CoinGecko untuk dapat harga
+    const fromId = coinGeckoId(tokenFrom.symbol);
+    const toId   = coinGeckoId(tokenTo.symbol);
+    let rate = 1;
+    if (fromId && toId) {
+      const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${fromId},${toId}&vs_currencies=usd`);
+      const d = await r.json();
+      const fp = d[fromId]?.usd || 1;
+      const tp = d[toId]?.usd   || 1;
+      rate = fp / tp;
+    }
+    const fee      = amt * SWAP_FEE;
+    const netAmt   = amt - fee;
+    const estOut   = netAmt * rate;
+    const minOut   = estOut * (1 - slippage/100);
+    const impact   = ((fee/amt)*100).toFixed(2);
+
+    document.getElementById("amtTo").value       = estOut.toFixed(6);
+    document.getElementById("rateText").textContent = `1 ${tokenFrom.symbol} ≈ ${rate.toFixed(6)} ${tokenTo.symbol}`;
+    document.getElementById("feeText").textContent  = `Fee: ${fee.toFixed(4)} ${tokenFrom.symbol}`;
+    document.getElementById("qEstimate").textContent = estOut.toFixed(6)+" "+tokenTo.symbol;
+    document.getElementById("qMinOut").textContent   = minOut.toFixed(6)+" "+tokenTo.symbol;
+    document.getElementById("qImpact").textContent   = impact+"%";
+    document.getElementById("qFee").textContent      = fee.toFixed(4)+" "+tokenFrom.symbol;
+    document.getElementById("quoteBox").classList.add("show");
+    document.getElementById("btnSwap").disabled = !userAddr;
+  } catch(e) {
+    document.getElementById("rateText").textContent = "⚠️ Gagal ambil harga";
+    hideQuote();
+    console.warn(e);
+  }
+}
+
+function coinGeckoId(sym) {
+  const map = { BNB:"binancecoin", ETH:"ethereum", BTCB:"bitcoin", USDT:"tether", USDC:"usd-coin", CAKE:"pancakeswap-token", INDC:"" };
+  return map[sym] || "";
+}
+
+function hideQuote() {
+  document.getElementById("amtTo").value = "";
+  document.getElementById("rateInfo").style.display = "none";
+  document.getElementById("quoteBox").classList.remove("show");
+  document.getElementById("btnSwap").disabled = true;
+}
+
+function setSlip(btn) {
+  document.querySelectorAll(".slip-btn").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  slippage = parseFloat(btn.dataset.slip);
+  document.getElementById("slipDisplay").textContent = slippage+"%";
+  onAmountChange();
+}
+
+/* ═══ DO SWAP ═══ */
+async function doSwap() {
+  if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+  const amt = parseFloat(document.getElementById("amtFrom").value);
+  if (!amt || amt<=0) return;
+
+  setSwapStatus("pending", "⏳ Konfirmasi di wallet kamu...");
+  document.getElementById("btnSwap").disabled = true;
+
+  try {
+    // Simulasi swap untuk demo (tanpa smart contract nyata)
+    await sleep(2000);
+
+    // Hitung output
+    const outAmt = parseFloat(document.getElementById("amtTo").value);
+
+    // Rekam volume jika melibatkan INDC
+    const indcAmt = tokenFrom.symbol==="INDC" ? amt : tokenTo.symbol==="INDC" ? outAmt : 0;
+    if (indcAmt > 0) {
+      swapVolume += indcAmt;
+      saveSwapVolume();
+      updatePBTracker();
+    }
+
+    // Tambah ke history
+    const histItem = {
+      pair: tokenFrom.symbol+"/"+tokenTo.symbol,
+      fromAmt: amt, fromSym: tokenFrom.symbol,
+      toAmt: outAmt, toSym: tokenTo.symbol,
+      time: new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}),
+      hash: "0x"+Math.random().toString(16).slice(2,18)+"...",
+    };
+    swapHistory.unshift(histItem);
+    saveHistory();
+    renderHistory();
+
+    setSwapStatus("success", "✅ Swap berhasil! "+outAmt.toFixed(4)+" "+tokenTo.symbol+" diterima.");
+    document.getElementById("amtFrom").value = "";
+    document.getElementById("amtTo").value   = "";
+    hideQuote();
+    loadBalances();
+    showToast("Swap berhasil! 🎉", "#34d399");
+
+  } catch(e) {
+    setSwapStatus("error", "❌ Swap gagal: "+(e.message||"Terjadi kesalahan"));
+    console.error(e);
+  } finally {
+    document.getElementById("btnSwap").disabled = false;
+  }
+}
+
+function setSwapStatus(type, msg) {
+  const el = document.getElementById("swapStatusBar");
+  const tx = document.getElementById("swapStatusText");
+  el.className = "swap-status-bar show "+type;
+  tx.textContent = msg;
+}
+
+/* ═══ PHANTOM BOX TRACKER ═══ */
+function loadSwapVolume() {
+  swapVolume = parseFloat(localStorage.getItem("pbt_vol_"+today())||"0");
+  updatePBTracker();
+}
+
+function saveSwapVolume() {
+  localStorage.setItem("pbt_vol_"+today(), swapVolume.toString());
+  localStorage.setItem("pbt_swapped_"+today(), swapVolume>=MIN_SWAP?"1":"0");
+}
+
+function updatePBTracker() {
+  const pct = Math.min(100,(swapVolume/MIN_SWAP)*100);
+  const ok  = swapVolume>=MIN_SWAP;
+  document.getElementById("pbBar").style.width = pct+"%";
+  document.getElementById("pbSwapped").textContent = swapVolume.toLocaleString("id");
+  document.getElementById("pbStatus").className = "pb-tracker-status "+(ok?"ok":"notok");
+  document.getElementById("pbStatus").textContent = ok?"✅ TERPENUHI":"BELUM TERPENUHI";
+
+  // Diskon milestones
+  const milestones = [{id:"disc500",vol:500},{id:"disc1k",vol:1000},{id:"disc5k",vol:5000},{id:"disc10k",vol:10000}];
+  milestones.forEach(m => {
+    const el = document.getElementById(m.id);
+    if (el) el.classList.toggle("achieved", swapVolume>=m.vol);
+  });
+
+  // Tombol goto phantom
+  const btn = document.getElementById("btnGotoPhantom");
+  if (ok) btn.classList.add("show"); else btn.classList.remove("show");
+}
+
+/* ═══ HISTORY ═══ */
+function loadHistory() {
+  const raw = localStorage.getItem("swap_history_"+today());
+  swapHistory = raw ? JSON.parse(raw) : [];
+  renderHistory();
+}
+
+function saveHistory() {
+  localStorage.setItem("swap_history_"+today(), JSON.stringify(swapHistory.slice(0,20)));
+}
+
+function renderHistory() {
+  const el = document.getElementById("historyList");
+  if (!swapHistory.length) {
+    el.innerHTML = `<div class="history-empty">Belum ada swap hari ini.<br>Swap sekarang untuk buka Phantom Box! 🎁</div>`;
+    return;
+  }
+  el.innerHTML = swapHistory.map(h => `
+    <div class="history-item">
+      <div class="hi-icon">🔄</div>
+      <div class="hi-body">
+        <div class="hi-pair">${h.pair}</div>
+        <div class="hi-time">${h.time} · <span class="hi-hash" onclick="window.open('https://bscscan.com/tx/${h.hash}','_blank')">${h.hash}</span></div>
+      </div>
+      <div class="hi-amount">
+        <div class="hi-from">-${h.fromAmt} ${h.fromSym}</div>
+        <div class="hi-to">+${h.toAmt.toFixed(4)} ${h.toSym}</div>
+      </div>
+    </div>`).join("");
+}
+
+/* ═══ TOKEN MODAL ═══ */
+function openModal(side) {
+  selectFor = side;
+  document.getElementById("tokenSearch").value = "";
+  renderModalList(allTokens);
+  document.getElementById("tokenModal").classList.add("show");
+  setTimeout(()=>document.getElementById("tokenSearch").focus(),100);
+}
+
+function closeModal() {
+  document.getElementById("tokenModal").classList.remove("show");
+}
+
+function renderModalList(list) {
+  document.getElementById("tokenList").innerHTML = list.map((t,i)=>`
+    <div class="tms-item" onclick="selectToken(${i})">
+      ${t.image ? `<img class="tms-item-img" src="${t.image}" onerror="this.style.display='none'">` : `<div class="tms-item-img" style="background:${t.color||"#888"}22;color:${t.color||"#888"};display:grid;place-items:center;font-weight:800">${t.letter||t.symbol[0]}</div>`}
+      <div>
+        <div class="tms-item-name">${t.name}</div>
+        <div class="tms-item-sym">${t.symbol}</div>
+      </div>
+      <div class="tms-item-bal">—</div>
+    </div>`).join("");
+}
+
+function selectToken(idx) {
+  const t = allTokens[idx];
+  if (selectFor==="from") tokenFrom=t; else tokenTo=t;
+  renderTokenUI();
+  closeModal();
+  hideQuote();
+  loadBalances();
+}
+
+async function filterTokens() {
+  const q = document.getElementById("tokenSearch").value.trim().toLowerCase();
+  if (!q) { renderModalList(allTokens); return; }
+  const local = allTokens.filter(t=>t.symbol.toLowerCase().includes(q)||t.name.toLowerCase().includes(q)||t.address.toLowerCase()===q);
+  if (local.length) { renderModalList(local); return; }
+  if (q.startsWith("0x") && q.length===42) {
+    document.getElementById("tokenList").innerHTML=`<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)">⏳ Mencari token...</div>`;
+    try {
+      const c = new ethers.Contract(q, ERC20_ABI, provider||new ethers.JsonRpcProvider(BSC_RPC));
+      const [sym,name,dec] = await Promise.all([c.symbol(),c.name(),c.decimals()]);
+      const found = [{symbol:sym,name,address:q,decimals:Number(dec),image:"",letter:sym[0],color:"#a78bfa"}];
+      renderModalList(found);
+    } catch(e) {
+      document.getElementById("tokenList").innerHTML=`<div style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--red)">Token tidak ditemukan</div>`;
+    }
+  } else renderModalList([]);
+}
+
+document.getElementById("tokenModal").addEventListener("click", e=>{
+  if (e.target===document.getElementById("tokenModal")) closeModal();
+});
+
+/* ═══ UTILS ═══ */
+function today(){ return new Date().toISOString().slice(0,10); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function showToast(msg, color) {
+  const t=document.createElement("div"); t.className="toast";
+  t.style.cssText=`background:${color||"#64748b"};color:#0a0f1e;font-weight:700;animation:fadeUp 0.3s ease;`;
+  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2500);
+}
+
+/* STARS */
+for(let i=0;i<18;i++){
+  const s=document.createElement("div");s.className="star";
+  const z=Math.random()*1.5+0.5;
+  s.style.cssText=`width:${z}px;height:${z}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s;`;
+  document.body.appendChild(s);
+}
+</script>
+</body>
+</html>
