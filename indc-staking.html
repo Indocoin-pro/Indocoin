@@ -612,16 +612,40 @@ async function doRequest(){
     await tx.wait();
 
     // Simpan ke Firebase dengan data matching profit
+    // Coba via window._fbSaveRequest (dari module), atau langsung via Firebase SDK
+    const fbData = {
+      user: _wallet,
+      indcAmount: val,
+      usdtAmount: val * INDC_PRICE,
+      matchingTotal,
+      uplines,
+      ts: Date.now(),
+      status: 'pending'
+    };
+
+    let fbSaved = false;
     if (typeof window._fbSaveRequest === 'function') {
-      await window._fbSaveRequest({
-        user: _wallet,
-        indcAmount: val,
-        usdtAmount: val * INDC_PRICE,
-        matchingTotal,
-        uplines,
-        ts: Date.now(),
-        status: 'pending'
-      });
+      try {
+        await window._fbSaveRequest(fbData);
+        fbSaved = true;
+      } catch(eFb) {
+        console.warn('FB save via window gagal:', eFb);
+      }
+    }
+
+    if (!fbSaved) {
+      // Fallback: simpan langsung via fetch ke Firebase REST API
+      try {
+        const fbUrl = 'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json';
+        await fetch(fbUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fbData)
+        });
+        fbSaved = true;
+      } catch(eFb2) {
+        console.warn('FB REST fallback gagal:', eFb2);
+      }
     }
 
     setMsg('Req','✅ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--green)');
