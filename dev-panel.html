@@ -615,9 +615,19 @@ const SC = {
   INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   MASTER:   '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
   DEV:      '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
+  USDT:     '0x55d398326f99059fF775485246999027B3197955', // BSC-USD USDT
   CHAIN_ID: 56,
   INDC_DEC: 9,
 };
+
+// USDT ABI — hanya fungsi transfer dan decimals
+const USDT_ABI = [
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)",
+];
+
+let _usdt; // USDT contract instance
 
 const MASTER_ABI = [
   {"inputs":[{"name":"_user","type":"address"},{"name":"_rewardAmount","type":"uint256"},{"name":"_programId","type":"uint8"},{"name":"_token","type":"uint8"}],"name":"distributeRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -664,6 +674,7 @@ async function connectWallet(){
     _signer   = _provider.getSigner();
     _staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
     _master   = new ethers.Contract(SC.MASTER, MASTER_ABI, _signer);
+    _usdt     = new ethers.Contract(SC.USDT, USDT_ABI, _signer);
 
     document.getElementById('walletBtn').textContent = shortAddr(_wallet);
 
@@ -916,38 +927,50 @@ function buildCard(r){
 async function approveOne(user, idx, k){
   const btn = document.getElementById('btn_'+k);
   if(btn){ btn.textContent='⏳ Proses...'; btn.disabled=true; }
-  setStatus('Menunggu konfirmasi transaksi approve USDT...','var(--gold)');
+  setStatus('Menunggu konfirmasi transaksi approve...','var(--gold)');
   try{
-    // 1. Approve request USDT di staking contract
+    const r  = _allRequests.find(x=>key(x)===k);
+    const fb = getFbData(r || { user, idx, indc: 0 });
+
+    // 1. Approve request di staking contract
     const tx = await _staking.approveRequest(user, idx);
-    setStatus('Transaksi dikirim, menunggu konfirmasi...','var(--gold)');
+    setStatus('Transaksi approve dikirim, menunggu konfirmasi...','var(--gold)');
     await tx.wait();
 
-    // 2. Distribute matching profit ke upline via Referral Master
-    const r   = _allRequests.find(x=>key(x)===k);
-    const fb  = getFbData(r || { user, idx, indc: 0 });
-
-    if (fb && fb.uplines && fb.uplines.length > 0 && _master) {
-      setStatus('✅ USDT approved! Mendistribusi matching profit ke upline...','var(--gold)');
-      try {
-        const rewardWei = ethers.utils.parseUnits(
-          (fb.indcAmount || 0).toString(), 18
-        );
-        const txM = await _master.distributeRefBonus(user, rewardWei, 10, 1);
-        await txM.wait();
-        setStatus('✅ Approve + Matching Profit berhasil didistribusi!','var(--green)');
-      } catch(em) {
-        setStatus('✅ USDT approved! Tapi matching profit gagal: '+(em.reason||em.message),'var(--red)');
+    // 2. Otomatis kirim USDT ke wallet user
+    const usdtAmt = r?.usdt || 0;
+    if(usdtAmt > 0 && _usdt){
+      setStatus(`✅ Approved! Mengirim $${usdtAmt.toFixed(2)} USDT ke wallet user...`,'var(--gold)');
+      try{
+        // USDT BSC decimal 18
+        const usdtWei = ethers.utils.parseUnits(usdtAmt.toFixed(6), 18);
+        const txUsdt  = await _usdt.transfer(user, usdtWei);
+        setStatus('Transaksi USDT dikirim, menunggu konfirmasi...','var(--gold)');
+        await txUsdt.wait();
+        setStatus(`✅ USDT $${usdtAmt.toFixed(2)} berhasil dikirim ke ${user.slice(0,8)}...!`,'var(--green)');
+      }catch(eu){
+        setStatus(`✅ Approved! Tapi kirim USDT gagal: ${eu.reason||eu.message} — kirim manual!`,'var(--red)');
       }
-      // Update Firebase status
-      if (typeof window._fbUpdateRequest === 'function') {
-        await window._fbUpdateRequest(fb.fbKey, { status: 'done', approvedAt: Date.now() });
-      }
-    } else {
-      setStatus(`✅ Approve berhasil! Kirim $${r?.usdt?.toFixed(2)||'—'} USDT ke wallet user.`,'var(--green)');
     }
 
-    // Update local state
+    // 3. Distribute matching profit ke upline
+    if(fb && fb.uplines && fb.uplines.length > 0 && _master){
+      try{
+        const rewardWei = ethers.utils.parseUnits((fb.indcAmount||0).toString(), 18);
+        const txM = await _master.distributeRefBonus(user, rewardWei, 10, 1);
+        await txM.wait();
+        setStatus('✅ Approve + USDT + Matching Profit berhasil!','var(--green)');
+      }catch(em){
+        setStatus('✅ Approve + USDT berhasil! Matching profit gagal: '+(em.reason||em.message),'var(--red)');
+      }
+    }
+
+    // 4. Update Firebase status
+    if(typeof window._fbUpdateRequest === 'function' && fb?.fbKey){
+      await window._fbUpdateRequest(fb.fbKey, { status: 'done', approvedAt: Date.now() });
+    }
+
+    // 5. Update local state
     if(r) r.approved = true;
     _selected.delete(k);
     document.getElementById('statPending').textContent =
@@ -986,7 +1009,29 @@ async function batchApprove(){
     document.getElementById('statPending').textContent = pending;
 
     const totalUsdt = toApprove.reduce((s,r)=>s+r.usdt,0).toFixed(2);
-    setStatus(`✅ Batch approve berhasil! Total $${totalUsdt} USDT perlu dikirim ke ${toApprove.length} wallet.`,'var(--green)');
+    setStatus(`✅ Batch approved! Mengirim USDT ke ${toApprove.length} wallet...`,'var(--gold)');
+
+    // Kirim USDT ke masing-masing user otomatis
+    let berhasil = 0, gagal = 0;
+    for(const r of toApprove){
+      if(r.usdt > 0 && _usdt){
+        try{
+          const usdtWei = ethers.utils.parseUnits(r.usdt.toFixed(6), 18);
+          const txU = await _usdt.transfer(r.user, usdtWei);
+          await txU.wait();
+          berhasil++;
+          // Update Firebase
+          const fb = getFbData(r);
+          if(typeof window._fbUpdateRequest === 'function' && fb?.fbKey){
+            await window._fbUpdateRequest(fb.fbKey, { status: 'done', approvedAt: Date.now() });
+          }
+        }catch(eu){
+          gagal++;
+          console.warn('Kirim USDT gagal ke', r.user, eu.message);
+        }
+      }
+    }
+    setStatus(`✅ Batch selesai! USDT terkirim: ${berhasil} berhasil, ${gagal} gagal. Total $${totalUsdt} USDT.`,'var(--green)');
     renderList();
   }catch(e){
     setStatus('Batch gagal: '+(e.reason||e.message||''),'var(--red)');
