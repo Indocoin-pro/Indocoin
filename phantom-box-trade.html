@@ -238,10 +238,10 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div class="swap-status not-swapped" id="swapStatus">
     <div class="ss-icon">⚠️</div>
     <div class="ss-body">
-      <div class="ss-title" style="color:var(--red)">BELUM SWAP HARI INI</div>
-      <div class="ss-desc">Swap minimal 100 INDC dulu untuk<br>bisa membuka kotak hari ini.</div>
+      <div class="ss-title" style="color:var(--red)">SALDO INDC KURANG</div>
+      <div class="ss-desc">Butuh minimal 100 INDC untuk<br>bisa membuka kotak misteri.</div>
     </div>
-    <button class="btn-swap-now" onclick="goSwap()">SWAP →</button>
+    <button class="btn-swap-now" onclick="window.location.href='swap.html'">BELI INDC →</button>
   </div>
 
   <!-- PANDUAN -->
@@ -258,8 +258,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="guide-step">
         <div class="gs-num" style="background:rgba(56,189,248,0.12);color:var(--cyan)">1</div>
         <div>
-          <div class="gs-title" style="color:var(--cyan)">SWAP DULU MINIMAL 100 INDC</div>
-          <div class="gs-desc">Ini syarat wajib. Swap di platform INDOCOIN dan kamu otomatis dapat akses buka kotak. Makin banyak swap = makin besar diskon harga kotak!</div>
+          <div class="gs-title" style="color:var(--cyan)">PUNYA MIN 100 INDC</div>
+          <div class="gs-desc">Ini syarat wajib. Beli INDC dulu di halaman Presale resmi INDOCOIN. Saldo INDC minimal 100 sudah cukup untuk mulai buka kotak!</div>
         </div>
       </div>
 
@@ -302,9 +302,9 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
           <div class="gi-sub">Per 1 kotak</div>
         </div>
         <div class="gi-card">
-          <div class="gi-label">Syarat Swap</div>
+          <div class="gi-label">Min Saldo</div>
           <div class="gi-value">100 INDC</div>
-          <div class="gi-sub">Minimal per hari</div>
+          <div class="gi-sub">Syarat buka kotak</div>
         </div>
         <div class="gi-card">
           <div class="gi-label">Streak Aman</div>
@@ -314,7 +314,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <div class="gi-card">
           <div class="gi-label">Reset Harian</div>
           <div class="gi-value">00.00 WIB</div>
-          <div class="gi-sub">Token & syarat baru</div>
+          <div class="gi-sub">Token baru setiap hari</div>
         </div>
       </div>
 
@@ -461,7 +461,7 @@ function setWallet(addr) {
   document.getElementById("walletBtnText").textContent = s;
   document.getElementById("walletBtn").classList.add("connected");
   document.getElementById("walletDot").classList.add("on");
-  checkSwap();
+  checkBalance();
 }
 window.addEventListener("load", async () => {
   if (window.ethereum) {
@@ -477,21 +477,22 @@ window.addEventListener("load", async () => {
   updateStreak();
 });
 
-/* ═══ SWAP CHECK ═══ */
-function checkSwap() {
-  const key = "pbt_swapped_" + today();
-  hasSwapped = localStorage.getItem(key) === "1";
-  const el = document.getElementById("swapStatus");
-  if (hasSwapped) {
-    el.className = "swap-status swapped";
-    el.innerHTML = `<div class="ss-icon">✅</div><div class="ss-body"><div class="ss-title" style="color:var(--green)">SWAP TERPENUHI ✓</div><div class="ss-desc">Kamu sudah swap hari ini. Kotak siap dibuka!</div></div>`;
-  }
-}
-function goSwap() {
-  // Simulasi swap untuk testing
-  localStorage.setItem("pbt_swapped_" + today(), "1");
-  checkSwap();
-  showToast("Swap berhasil! Kotak terbuka.", "#34d399");
+/* ═══ BALANCE CHECK ═══ */
+async function checkBalance() {
+  if (!userAddr) return;
+  try {
+    const ERC20 = ["function balanceOf(address) view returns(uint256)","function decimals() view returns(uint8)"];
+    const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+    const contract = new ethers.Contract("0xD772c96e1beFd2ea9C9a83182c71f4d32f306571", ERC20, prov);
+    const [bal, dec] = await Promise.all([contract.balanceOf(userAddr), contract.decimals()]);
+    const fmt = parseFloat(ethers.formatUnits(bal, dec));
+    hasSwapped = fmt >= 100;
+    const el = document.getElementById("swapStatus");
+    if (hasSwapped) {
+      el.className = "swap-status swapped";
+      el.innerHTML = `<div class="ss-icon">✅</div><div class="ss-body"><div class="ss-title" style="color:var(--green)">SALDO INDC CUKUP ✓</div><div class="ss-desc">Saldo kamu: ${fmt.toLocaleString("id",{maximumFractionDigits:2})} INDC. Kotak siap dibuka!</div></div>`;
+    }
+  } catch(e) { console.warn(e); }
 }
 function today() { return new Date().toISOString().slice(0,10); }
 
