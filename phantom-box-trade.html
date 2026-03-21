@@ -618,6 +618,9 @@ activeSession = {
 let tokens      = [];
 let boxOpened   = Array(10).fill(false);
 let jpBoxIdx    = Math.floor(Math.random()*10);
+let streakLose  = 0;  // Fix Bug #6: streak kalah berturut-turut
+// Fix Bug #5: BOX_PRICE dinamis mengikuti betAmount (bukan nilai statis)
+Object.defineProperty(window, 'BOX_PRICE', { get: () => betAmount });
 
 /* ═══ WALLET ═══ */
 async function connectWallet() {
@@ -905,12 +908,14 @@ function pickBox(i) {
 /* openBox() sudah digabung ke confirmAndOpenBox() */
 
 function calcReward(isJP) {
-  if (streakLose>=3) return BOX_PRICE;
+  // Fix Bug #5 & #6: pakai betAmount dinamis, bukan BOX_PRICE statis
+  const bet = activeSession?.betAmount || betAmount;
+  if (streakLose >= 3) return bet;
   const t=selToken, r=Math.random();
   let v;
   if (isJP && jpActive) v = t.jpMax*0.8 + Math.random()*t.jpMax*0.2;
   else if (r<0.40) v = t.rMin + Math.random()*(t.rMax*0.25-t.rMin);
-  else if (r<0.75) v = BOX_PRICE*0.7 + Math.random()*(t.rMax*0.4-BOX_PRICE*0.7);
+  else if (r<0.75) v = bet*0.7 + Math.random()*(t.rMax*0.4-bet*0.7);
   else if (r<0.95) v = t.rMax*0.4 + Math.random()*(t.rMax*0.7-t.rMax*0.4);
   else v = t.rMax*0.75 + Math.random()*t.rMax*0.25;
   return Math.round(Math.max(t.rMin, v));
@@ -920,13 +925,17 @@ function showResult(reward, isWin, isJP) {
   const type = isJP?"jackpot":isWin?"win":"lose";
   const icons = { win:"🎉", lose:"😔", jackpot:"⚡" };
   const tags  = { win:"✨ KAMU MENANG!", lose:"LEBIH BERUNTUNG LAGI", jackpot:"⚡ JACKPOT!" };
+  // Fix Bug #5: pakai activeSession.betAmount atau betAmount, bukan BOX_PRICE statis
+  const modal = (activeSession?.betAmount || betAmount);
   const descs = {
-    win:    "Selamat! Kamu mendapat "+reward+" INDC dari modal "+BOX_PRICE+" INDC. Profit "+( reward-BOX_PRICE)+" INDC! Swap lagi untuk lebih banyak kotak.",
-    lose:   "Kamu mendapat "+reward+" INDC dari modal "+BOX_PRICE+" INDC. Jangan menyerah — jackpot bisa ada di kotak berikutnya!",
+    win:    "Selamat! Kamu mendapat "+reward+" INDC dari modal "+modal+" INDC. Profit "+(reward-modal)+" INDC! Swap lagi untuk lebih banyak kotak.",
+    lose:   "Kamu mendapat "+reward+" INDC dari modal "+modal+" INDC. Jangan menyerah — jackpot bisa ada di kotak berikutnya!",
     jackpot:"LUAR BIASA! Kamu mendapatkan MEGA JACKPOT sebesar "+reward+" INDC! Reward langsung masuk ke wallet kamu.",
   };
-  document.getElementById("rIcon").textContent = icons[type];
-  document.getElementById("rTag").className = "result-tag "+type;
+  // Fix Bug #6: update streakLose
+  if (type === "lose") streakLose++;
+  else streakLose = 0;
+  document.getElementById("rIcon").textContent = icons[type];  document.getElementById("rTag").className = "result-tag "+type;
   document.getElementById("rTag").textContent = tags[type];
   document.getElementById("rAmt").className = "result-amount "+type;
   document.getElementById("rAmt").textContent = reward+" INDC";
