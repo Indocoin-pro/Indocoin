@@ -1308,67 +1308,112 @@ function checkConfirmReady() {
 async function confirmAndOpenBox() {
   if (!selectedPredict || !selectedDuration) return;
   if (selBox === null || !selToken) return;
-  if (!userAddr) { showToast("❌ Connect wallet dulu!", "#f87171"); return; }
-  if (!provider) { showToast("❌ Wallet tidak terhubung!", "#f87171"); return; }
-  if (window._entryPriceInterval) clearInterval(window._entryPriceInterval);
 
+  // Cek wallet
+  if (!userAddr) { showToast("❌ Connect wallet dulu!", "#f87171"); return; }
+  if (!provider) {
+    try {
+      provider = new ethers.BrowserProvider(window.ethereum);
+    } catch(e) {
+      showToast("❌ Wallet tidak terhubung!", "#f87171"); return;
+    }
+  }
+
+  if (window._entryPriceInterval) clearInterval(window._entryPriceInterval);
   const btn = document.getElementById("btnConfirm");
   btn.disabled = true;
 
   try {
+    // ── PRE-FLIGHT: Cek semua syarat contract SEBELUM kirim TX ──
+    btn.innerHTML = '<span class="spin"></span> MEMERIKSA SYARAT...';
+    const prov     = provider || new ethers.JsonRpcProvider(BSC_RPC);
+    const phantom  = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
+    const indcCon  = new ethers.Contract(INDC_CONTRACT, INDC_ABI, prov);
+
+    // Cek 1: sesi aktif sebelumnya
+    const existSid = await phantom.activeSession(userAddr);
+    if (existSid !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+      showToast("⚠️ Ada sesi aktif! Klaim dulu sebelum buka kotak baru.", "#fbbf24");
+      btn.disabled = false;
+      btn.textContent = "🎁 KONFIRMASI & BUKA KOTAK";
+      // Tampilkan tombol klaim
+      document.getElementById("countdownWrap").classList.add("show");
+      showClaimButton();
+      return;
+    }
+
+    // Cek 2: saldo INDC
+    const tierMap  = { bullish: 0, bearish: 1, neutral: 2 };
+    const durMap   = { 15: 0, 60: 1, 240: 2 };
+    const tier     = tierMap[selToken.role] ?? 0;
+    const duration = durMap[selectedDuration] ?? 0;
+    const betWei   = BigInt(Math.round(betAmount)) * BigInt(10**9);
+    const minBal   = BigInt(100) * BigInt(10**9);
+
+    const indcBal = await indcCon.balanceOf(userAddr);
+    if (indcBal < minBal) {
+      showToast("❌ Saldo INDC kurang dari 100. Swap INDC dulu!", "#f87171");
+      btn.disabled = false;
+      btn.textContent = "🎁 KONFIRMASI & BUKA KOTAK";
+      return;
+    }
+
+    // Cek 3: pool reward cukup
+    const poolInfo = await phantom.getPoolInfo();
+    const poolNow  = poolInfo[0]; // rewardPool dalam wei
+    const minMult  = tier === 0 ? 50n : tier === 1 ? 20n : 30n;
+    const minReward = (betWei * minMult) / 100n;
+    if (poolNow < minReward) {
+      showToast("⚠️ Pool hadiah belum cukup. Tunggu sebentar!", "#fbbf24");
+      btn.disabled = false;
+      btn.textContent = "🎁 KONFIRMASI & BUKA KOTAK";
+      return;
+    }
+
     // ── STEP 1: Fetch harga entry ──
     btn.innerHTML = '<span class="spin"></span> MENGAMBIL HARGA ENTRY...';
     await fetchEntryPrice();
 
-    // ── STEP 2: Siapkan parameter contract ──
-    const tierMap = { bullish: 0, bearish: 1, neutral: 2 };
-    const durMap  = { 15: 0, 60: 1, 240: 2 };
-    const tier     = tierMap[selToken.role] ?? 0;
-    const duration = durMap[selectedDuration] ?? 0;
-    const betWei   = BigInt(Math.round(betAmount)) * BigInt(10**9);
-
-    const phantomContract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, provider);
-    const indcContract    = new ethers.Contract(INDC_CONTRACT, INDC_ABI, provider);
-    const signer          = await provider.getSigner();
-    const phantomSigned   = phantomContract.connect(signer);
-    const indcSigned      = indcContract.connect(signer);
-
-    // ── STEP 3: Cek & approve INDC jika perlu ──
+    // ── STEP 2: Approve INDC jika perlu ──
     btn.innerHTML = '<span class="spin"></span> CEK ALLOWANCE...';
-    const allowance = await indcContract.allowance(userAddr, PHANTOM_CONTRACT);
+    const signer       = await provider.getSigner();
+    const phantomSigned = phantom.connect(signer);
+    const indcSigned    = indcCon.connect(signer);
+
+    const allowance = await indcCon.allowance(userAddr, PHANTOM_CONTRACT);
     if (allowance < betWei) {
-      btn.innerHTML = '<span class="spin"></span> APPROVE INDC DI WALLET...';
-      showToast("⚠️ Approve INDC dulu di wallet kamu!", "#fbbf24");
+      btn.innerHTML = '<span class="spin"></span> APPROVE DI WALLET...';
+      showToast("📲 Approve INDC di wallet kamu!", "#fbbf24");
       const approveTx = await indcSigned.approve(
         PHANTOM_CONTRACT,
-        betWei * BigInt(100)  // approve 100x supaya tidak perlu approve lagi
+        betWei * 100n  // approve banyak sekaligus supaya tidak repeat
       );
       btn.innerHTML = '<span class="spin"></span> TUNGGU APPROVE...';
       await approveTx.wait();
       showToast("✅ Approve berhasil!", "#34d399");
     }
 
-    // ── STEP 4: Kirim TX openBox ke blockchain ──
+    // ── STEP 3: Kirim TX openBox ──
     btn.innerHTML = '<span class="spin"></span> KONFIRMASI DI WALLET...';
-    showToast("📲 Cek wallet kamu untuk konfirmasi!", "#38bdf8");
+    showToast("📲 Cek wallet — konfirmasi transaksi!", "#38bdf8");
     const tx = await phantomSigned.openBox(betWei, tier, duration);
 
     btn.innerHTML = '<span class="spin"></span> MENUNGGU BLOCKCHAIN...';
-    showToast("⏳ TX dikirim, menunggu konfirmasi...", "#a78bfa");
+    showToast("⏳ Transaksi dikirim...", "#a78bfa");
     const receipt = await tx.wait();
-    console.log("TX Hash:", `https://bscscan.com/tx/${tx.hash}`);
+    console.log("TX:", `https://bscscan.com/tx/${tx.hash}`);
 
-    // ── STEP 5: Parse event BoxOpened dari receipt ──
+    // ── STEP 4: Parse event BoxOpened ──
     const iface = new ethers.Interface(PHANTOM_ABI);
     let sessionId     = null;
-    let confirmedEnd  = Date.now() + (selectedDuration * 60 * 1000); // fallback
     let confirmedEntry = entryPrice;
+    let confirmedEnd   = Date.now() + (selectedDuration * 60 * 1000);
 
     for (const log of receipt.logs) {
       try {
         const parsed = iface.parseLog(log);
         if (parsed.name === "BoxOpened") {
-          sessionId      = parsed.args.sessionId;
+          sessionId      = parsed.args.sessionId?.toString() || null;
           confirmedEntry = Number(parsed.args.entryPrice) / 10**8;
           confirmedEnd   = Number(parsed.args.endTime) * 1000; // detik → ms
           break;
@@ -1376,7 +1421,7 @@ async function confirmAndOpenBox() {
       } catch(e) {}
     }
 
-    // ── STEP 6: Buat activeSession dengan data confirmed dari blockchain ──
+    // ── STEP 5: Buat activeSession dari data blockchain ──
     activeSession = {
       box:        selBox,
       token:      selToken,
@@ -1385,10 +1430,10 @@ async function confirmAndOpenBox() {
       betAmount:  betAmount,
       entryPrice: confirmedEntry,
       endTime:    confirmedEnd,
-      sessionId:  sessionId ? sessionId.toString() : null,
+      sessionId:  sessionId,
     };
 
-    // ── STEP 7: Simpan ke localStorage (keduanya) ──
+    // ── STEP 6: Simpan localStorage ──
     const saveData = {
       box:        activeSession.box,
       token:      activeSession.token.symbol,
@@ -1400,25 +1445,37 @@ async function confirmAndOpenBox() {
       endTime:    activeSession.endTime,
       sessionId:  activeSession.sessionId,
     };
-    localStorage.setItem("pbt_active", JSON.stringify(saveData));
+    localStorage.setItem("pbt_active",    JSON.stringify(saveData));
     localStorage.setItem("activeSession", JSON.stringify(saveData));
 
-    // ── STEP 8: Update UI ──
+    // ── STEP 7: Update pool & jackpot bar ──
     document.getElementById("timerSection").classList.remove("show");
-    await loadContractInfo(); // update pool & jackpot bar dari contract
+    await loadContractInfo();
+    showToast(`✅ Berhasil! Pool +${Math.round(betAmount*0.85)} | JP +${Math.round(betAmount*0.10)} INDC`, "#34d399");
 
-    showToast(`✅ Kotak dibuka! Pool +${Math.round(betAmount*0.85)} | JP +${Math.round(betAmount*0.10)} INDC`, "#34d399");
-
-    // ── STEP 9: Mulai countdown ──
+    // ── STEP 8: Mulai countdown ──
     startCountdown();
 
   } catch(e) {
-    console.error("confirmAndOpenBox error:", e);
-    const msg = e?.reason || e?.shortMessage || e?.message || "Transaksi gagal";
-    showToast("❌ " + msg.slice(0, 60), "#f87171");
+    console.error("confirmAndOpenBox:", e);
+    // Decode error message yang informatif
+    let msg = "Transaksi gagal";
+    if (e?.reason)       msg = e.reason;
+    else if (e?.shortMessage) msg = e.shortMessage;
+    else if (e?.message) {
+      // Tangkap revert reason dari estimateGas
+      const m = e.message;
+      if (m.includes("Klaim sesi aktif"))   msg = "⚠️ Ada sesi aktif! Klaim dulu.";
+      else if (m.includes("Pool tidak cukup")) msg = "⚠️ Pool belum cukup.";
+      else if (m.includes("Saldo tidak"))   msg = "❌ Saldo INDC tidak cukup.";
+      else if (m.includes("Treasury"))      msg = "⚠️ Treasury kurang untuk free ticket.";
+      else if (m.includes("user rejected")) msg = "❌ Transaksi dibatalkan.";
+      else if (m.includes("estimateGas"))   msg = "❌ Contract revert. Cek saldo & sesi aktif.";
+      else msg = m.slice(0, 80);
+    }
+    showToast(msg, "#f87171");
     btn.disabled = false;
     btn.textContent = "🎁 KONFIRMASI & BUKA KOTAK";
-    // Hapus sesi yang belum confirmed
     activeSession = null;
     localStorage.removeItem("pbt_active");
     localStorage.removeItem("activeSession");
@@ -1628,7 +1685,6 @@ async function checkActiveSesi() {
   let raw = localStorage.getItem("pbt_active");
   if (!raw) raw = localStorage.getItem("activeSession");
   if (!raw) return;
-
   try {
     const s = JSON.parse(raw);
     if (!s.predict || !s.endTime) {
@@ -1636,10 +1692,9 @@ async function checkActiveSesi() {
       localStorage.removeItem("activeSession");
       return;
     }
-
     const tokenSym = typeof s.token === "string" ? s.token : (s.token?.symbol || "BNB");
 
-    // Restore activeSession dari localStorage dulu
+    // Restore dulu dari localStorage
     activeSession = {
       box:        s.box,
       token:      { symbol: tokenSym, role: s.tokenRole || "bullish" },
@@ -1654,46 +1709,40 @@ async function checkActiveSesi() {
     selectedDuration = s.duration;
     entryPrice       = s.entryPrice || 0;
 
-    // Verifikasi ke contract untuk endTime akurat
+    // Verifikasi ke contract — ambil endTime akurat
     try {
       const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
       const contract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
       const addr = userAddr ||
         (window.ethereum ? (await window.ethereum.request({method:"eth_accounts"}))[0] : null);
-
       if (addr) {
         const timing = await contract.getSessionTiming(addr);
-        const contractEndTime = Number(timing[1]); // dalam detik
-        if (contractEndTime > 0) {
-          // Pakai endTime dari contract (paling akurat)
-          activeSession.endTime  = contractEndTime * 1000; // konversi ke ms
+        const contractEnd = Number(timing[1]); // detik
+        if (contractEnd > 0) {
+          activeSession.endTime    = contractEnd * 1000; // → ms
           activeSession.entryPrice = Number(timing[0]) / 10**8;
           entryPrice = activeSession.entryPrice;
-          // Update localStorage
           const upd = {...s, endTime: activeSession.endTime, entryPrice: activeSession.entryPrice};
-          localStorage.setItem("pbt_active", JSON.stringify(upd));
+          localStorage.setItem("pbt_active",    JSON.stringify(upd));
           localStorage.setItem("activeSession", JSON.stringify(upd));
         } else {
-          // Contract tidak ada sesi aktif
+          // Contract tidak ada sesi — hapus localStorage
           localStorage.removeItem("pbt_active");
           localStorage.removeItem("activeSession");
           activeSession = null;
           return;
         }
       }
-    } catch(contractErr) {
-      console.warn("checkActiveSesi contract:", contractErr);
-      // Tetap lanjut dengan localStorage
-    }
+    } catch(ce) { console.warn("checkActiveSesi contract:", ce); }
 
     if (!activeSession) return;
 
-    // Tampilkan UI countdown
+    // Tampilkan UI
     document.getElementById("countdownWrap").classList.add("show");
-    document.getElementById("cdEntryPrice").textContent = "$" + (activeSession.entryPrice||0).toFixed(4);
-    document.getElementById("cdPredict").textContent    = s.predict === "up"
+    document.getElementById("cdEntryPrice").textContent = "$"+(activeSession.entryPrice||0).toFixed(4);
+    document.getElementById("cdPredict").textContent    = s.predict==="up"
       ? "🟢 LONG — PREDIKSI NAIK" : "🔴 SHORT — PREDIKSI TURUN";
-    document.getElementById("cdPredict").className      = "cd-predict " + s.predict;
+    document.getElementById("cdPredict").className      = "cd-predict "+s.predict;
     document.getElementById("cdToken").textContent      = `Memantau ${tokenSym}/USDT`;
 
     if (activeSession.endTime > Date.now()) {
