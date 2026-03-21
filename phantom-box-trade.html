@@ -583,6 +583,7 @@ const PHANTOM_ABI = [
   "function getSessionTiming(address) external view returns (int256,uint256,bool)",
   "function getPrice(uint8) external view returns (int256)",
   "function estimateReward(uint256,uint8) external view returns (uint256,uint256,uint256)",
+  "function activeSession(address) external view returns (bytes32)",
   "event BoxOpened(address indexed user, bytes32 indexed sessionId, uint256 betAmount, uint8 tier, uint8 duration, int256 entryPrice, uint256 endTime)",
   "event RewardClaimed(address indexed user, bytes32 indexed sessionId, uint256 betAmount, uint256 finalReward, int256 entryPrice, int256 exitPrice)",
   "event JackpotTriggered(address indexed winner, uint256 amount)"
@@ -1495,6 +1496,9 @@ function startCountdown() {
   const s   = activeSession;
   const sym = (s.token.symbol||"BNB").toUpperCase();
 
+  // Fix Bug #8: set countdownEndTime supaya WebSocket bisa update harga real-time
+  countdownEndTime = s.endTime;
+
   // Tampilkan countdown section
   document.getElementById("countdownWrap").classList.add("show");
   document.getElementById("cdToken").textContent      = `Memantau ${sym}/USDT`;
@@ -1658,7 +1662,12 @@ async function claimReward() {
 
     // Simpan info sebelum cleanup untuk live feed
     const feedToken = selToken ? selToken.symbol : (activeSession?.token?.symbol || "—");
-    const isWin = exitP >= entryP;
+    // Fix Bug #10: isWin harus cocokkan prediksi user, bukan hanya cek harga naik
+    const priceWentUp = exitP >= entryP;
+    const predict = activeSession?.predict || null;
+    const isWin = predict
+      ? (predict === "up" ? priceWentUp : !priceWentUp)
+      : priceWentUp; // fallback kalau predict tidak ada
 
     // Cleanup sesi
     document.getElementById("countdownWrap").classList.remove("show");
