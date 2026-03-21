@@ -1372,21 +1372,27 @@ async function _doApprove() {
     }
 
     // Cek saldo INDC
-    const betWei = BigInt(Math.round(betAmount)) * BigInt(10**9);
-    const minBal = BigInt(100) * BigInt(10**9);
+    const betWei  = BigInt(Math.round(betAmount)) * BigInt(10**9);
+    const minBal  = BigInt(100) * BigInt(10**9);
     const indcBal = await indcCon.balanceOf(userAddr);
-    if (indcBal < minBal) {
+    if (BigInt(indcBal) < minBal) {
       showToast("❌ Saldo INDC kurang dari 100. Swap INDC dulu!", "#f87171");
+      btn.disabled = false;
+      btn.textContent = "🔓 APPROVE INDC";
+      return;
+    }
+    if (BigInt(indcBal) < betWei) {
+      showToast("❌ Saldo INDC tidak cukup untuk taruhan ini!", "#f87171");
       btn.disabled = false;
       btn.textContent = "🔓 APPROVE INDC";
       return;
     }
 
     // Cek pool cukup
-    const tier     = selToken.tier ?? 0;
-    const poolInfo = await phantom.getPoolInfo();
-    const poolNow  = poolInfo[0];
-    const minMult  = tier === 0 ? 50n : tier === 1 ? 20n : 30n;
+    const tier      = selToken.tier ?? 0;
+    const poolInfo  = await phantom.getPoolInfo();
+    const poolNow   = BigInt(poolInfo[0]);
+    const minMult   = tier === 0 ? 50n : tier === 1 ? 20n : 30n;
     const minReward = (betWei * minMult) / 100n;
     if (poolNow < minReward) {
       showToast("⚠️ Pool hadiah belum cukup. Tunggu sebentar!", "#fbbf24");
@@ -1397,45 +1403,48 @@ async function _doApprove() {
 
     // ── CEK ALLOWANCE ──
     btn.innerHTML = '<span class="spin"></span> CEK ALLOWANCE...';
-    const signer      = await provider.getSigner();
-    const indcSigned  = indcCon.connect(signer);
-    const allowance   = await indcCon.allowance(userAddr, PHANTOM_CONTRACT);
+    const signer     = await provider.getSigner();
+    const indcSigned = indcCon.connect(signer);
+    const allowance  = BigInt(await indcCon.allowance(userAddr, PHANTOM_CONTRACT));
 
     if (allowance >= betWei) {
-      // Sudah cukup approve — langsung ke MULAI TRADING
+      // Sudah cukup allowance — skip approve, langsung MULAI TRADING
       showToast("✅ Allowance sudah cukup!", "#34d399");
       _approveReady = true;
       btn.disabled  = false;
-      btn.className = "btn-open";
       btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
       btn.textContent = "🚀 MULAI TRADING";
       return;
     }
 
-    // ── APPROVE ──
+    // ── KIRIM APPROVE ──
     btn.innerHTML = '<span class="spin"></span> KONFIRMASI APPROVE DI WALLET...';
     showToast("📲 Approve INDC di wallet kamu!", "#fbbf24");
     const approveTx = await indcSigned.approve(
       PHANTOM_CONTRACT,
-      betWei * 100n  // approve besar sekaligus supaya tidak repeat
+      betWei * 100n  // approve besar sekaligus supaya tidak perlu approve lagi
     );
-    btn.innerHTML = '<span class="spin"></span> MENUNGGU APPROVE...';
+    btn.innerHTML = '<span class="spin"></span> MENUNGGU KONFIRMASI...';
     await approveTx.wait();
 
-    // ── APPROVE SUKSES → ganti jadi MULAI TRADING ──
+    // ── APPROVE SUKSES ──
     showToast("✅ Approve berhasil! Klik MULAI TRADING.", "#34d399");
     _approveReady = true;
     btn.disabled  = false;
-    btn.className = "btn-open";
     btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
     btn.textContent = "🚀 MULAI TRADING";
 
   } catch(e) {
-    console.error("_doApprove:", e);
-    const msg = e?.reason || e?.shortMessage ||
-      (e?.message?.includes("user rejected") ? "❌ Dibatalkan." : e?.message?.slice(0,80)) || "Approve gagal";
+    console.error("_doApprove error:", e);
+    // Pesan error yang informatif
+    let msg = "Approve gagal";
+    if (e?.reason)                              msg = e.reason;
+    else if (e?.shortMessage)                   msg = e.shortMessage;
+    else if (e?.message?.includes("user rejected")) msg = "Transaksi dibatalkan";
+    else if (e?.message?.includes("insufficient")) msg = "Saldo BNB tidak cukup untuk gas fee";
+    else if (e?.message)                        msg = e.message.slice(0, 100);
+
     showToast("❌ " + msg, "#f87171");
-    const btn = document.getElementById("btnConfirm");
     btn.disabled = false;
     btn.textContent = "🔓 APPROVE INDC";
     _approveReady = false;
