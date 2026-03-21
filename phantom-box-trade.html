@@ -817,11 +817,8 @@ function pickToken(i) {
 }
 
 function discount() {
-  const vol = parseInt(localStorage.getItem("pbt_vol_"+today())||"0");
-  if (vol>=10000) return 50;
-  if (vol>=5000)  return 40;
-  if (vol>=1000)  return 30;
-  if (vol>=500)   return 20;
+  // V2: tidak ada diskon berdasarkan volume
+  // Diskon diganti sistem free ticket
   return 0;
 }
 
@@ -842,23 +839,43 @@ function buildBoxes() {
 }
 
 function pickBox(i) {
-  if (boxOpened[i]) return;
-  if (!selToken) { showToast("Pilih token dulu!", "#fbbf24"); document.getElementById("tokenCards").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  if (!selToken) {
+    showToast("Pilih token dulu!", "#fbbf24");
+    document.getElementById("tokenCards").scrollIntoView({behavior:"smooth",block:"center"});
+    return;
+  }
+
   selBox = i;
+
+  // Hapus selected dari semua kotak
   for (let j=0; j<10; j++) {
     const b = document.getElementById("bx"+j);
-    if (b && !boxOpened[j]) b.classList.remove("selected-box");
+    if (b) b.classList.remove("selected-box");
   }
+
+  // Tandai kotak terpilih
   const box = document.getElementById("bx"+i);
   if (box) box.classList.add("selected-box");
+
   const isJP = i===jpBoxIdx && jpActive;
-  const disc  = discount();
-  const fp    = Math.max(10, BOX_PRICE - disc);
-  const btn   = document.getElementById("btnOpen");
-  btn.textContent = "🎁 BUKA KOTAK #" + (i+1) + " — " + fp + " INDC";
+
+  // Update tombol
+  const btn = document.getElementById("btnOpen");
+  btn.textContent = "🎁 BUKA KOTAK #" + (i+1);
   btn.disabled = false;
   if (isJP) btn.classList.add("jackpot-mode");
   else btn.classList.remove("jackpot-mode");
+
+  // Tampilkan panel selected
+  document.getElementById("selPanel").classList.add("show");
+
+  // Update estimasi hadiah
+  updateEstimate();
+
+  // Scroll ke panel
+  setTimeout(() => {
+    document.getElementById("selPanel").scrollIntoView({behavior:"smooth", block:"center"});
+  }, 100);
 }
 
 /* ═══ OPEN BOX — V2 SMART CONTRACT ═══ */
