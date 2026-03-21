@@ -1425,6 +1425,7 @@ async function confirmAndOpenBox() {
   localStorage.setItem("pbt_active", JSON.stringify({
     box:        activeSession.box,
     token:      activeSession.token.symbol,
+    tokenRole:  activeSession.token.role || "bullish",  // Bug C Fix: simpan role untuk multiplier
     predict:    activeSession.predict,
     duration:   activeSession.duration,
     betAmount:  activeSession.betAmount,
@@ -1604,6 +1605,10 @@ async function claimReward() {
       } catch(e) {}
     }
 
+    // Simpan info sebelum cleanup untuk live feed
+    const feedToken = selToken ? selToken.symbol : (activeSession?.token?.symbol || "—");
+    const isWin = exitP >= entryP;
+
     // Cleanup sesi
     document.getElementById("countdownWrap").classList.remove("show");
     localStorage.removeItem("activeSession");
@@ -1617,9 +1622,8 @@ async function claimReward() {
     // Update pool
     await loadContractInfo();
 
-    // Live feed
-    const isWin = exitP >= entryP;
-    if (selToken) addFeedRow(userAddr, selToken.symbol, finalReward, isWin, isJP);
+    // Bug B Fix: pakai feedToken (sudah disimpan sebelum selToken di-null)
+    addFeedRow(userAddr, feedToken, finalReward, isWin, isJP);
 
     // Show result
     showResult(finalReward, isWin, isJP);
@@ -1642,9 +1646,13 @@ function checkActiveSesi() {
     const s = JSON.parse(raw);
     activeSession = {
       box:        s.box,
-      token:      { symbol: typeof s.token === "string" ? s.token : s.token.symbol },
+      token:      {
+        symbol: typeof s.token === "string" ? s.token : s.token.symbol,
+        role:   s.tokenRole || "bullish",  // Bug A Fix: restore role dari localStorage
+      },
       predict:    s.predict,
       duration:   s.duration,
+      betAmount:  s.betAmount || 50,       // Bug A Fix: restore betAmount
       entryPrice: s.entryPrice,
       endTime:    s.endTime,
     };
