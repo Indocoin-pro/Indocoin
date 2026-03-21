@@ -1437,15 +1437,38 @@ function startCountdown() {
   updateCountdown();
 }
 
-function updateCountdown() {
+async function updateCountdown() {
   if (!activeSession) return;
-  const left = activeSession.endTime - Date.now();
+
+  // Prioritas: ambil endTime dari contract (paling akurat)
+  let endTime = activeSession.endTime;
+  try {
+    if (provider || window.ethereum) {
+      const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+      const contract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
+      const addr = userAddr || (await prov.listAccounts())[0]?.address;
+      if (addr) {
+        const timing = await contract.getSessionTiming(addr);
+        const contractEnd = Number(timing[1]) * 1000; // convert detik ke ms
+        if (contractEnd > 0) {
+          endTime = contractEnd;
+          activeSession.endTime = contractEnd; // update local
+        }
+      }
+    }
+  } catch(e) {
+    // Fallback ke localStorage endTime
+  }
+
+  const left = endTime - Date.now();
 
   if (left <= 0) {
     clearInterval(countdownInterval);
     document.getElementById("cdTimer").textContent   = "00:00:00";
     document.getElementById("cdBarFill").style.width = "0%";
-    showClaimButton();
+    // Tunggu 3 detik sebelum tampil tombol klaim
+    // Beri waktu blockchain konfirmasi
+    setTimeout(() => showClaimButton(), 3000);
     return;
   }
 
@@ -1455,7 +1478,7 @@ function updateCountdown() {
   document.getElementById("cdTimer").textContent   = `${h}:${m}:${s}`;
 
   const total = activeSession.duration * 60 * 1000;
-  document.getElementById("cdBarFill").style.width = ((left/total)*100)+"%";
+  document.getElementById("cdBarFill").style.width = Math.max(0,(left/total)*100)+"%";
 }
 
 async function updateLivePrice() {
@@ -1508,15 +1531,31 @@ async function claimReward() {
   btn.innerHTML = '<span class="spin"></span> MEMPROSES...';
 
   try {
+    // Pastikan provider aktif
+    if (!provider && window.ethereum) {
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    if (!provider) {
+      showToast("❌ Wallet tidak terhubung!", "#f87171");
+      btn.disabled = false;
+      btn.textContent = "🏆 KLAIM HADIAH";
+      return;
+    }
+
     const phantomContract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, provider);
     const signer          = await provider.getSigner();
     const phantomSigned   = phantomContract.connect(signer);
 
     // Cek timing dari contract
+    btn.innerHTML = '<span class="spin"></span> CEK TIMER...';
     const timing = await phantomContract.getSessionTiming(userAddr);
-    const canClaim = timing[2];
+    const contractEndTime = Number(timing[1]); // dalam detik
+    const nowSeconds      = Math.floor(Date.now() / 1000);
+    const canClaim        = timing[2] || nowSeconds >= contractEndTime;
+
     if (!canClaim) {
-      showToast("❌ Timer belum habis!", "#f87171");
+      const sisaDetik = contractEndTime - nowSeconds;
+      showToast(`⏳ Tunggu ${sisaDetik} detik lagi!`, "#fbbf24");
       btn.disabled = false;
       btn.textContent = "🏆 KLAIM HADIAH";
       return;
