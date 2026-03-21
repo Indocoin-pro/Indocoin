@@ -770,7 +770,7 @@ function renderTokens() {
   const cfg = {
     bullish: { badge:"BULLISH", badgeBg:"rgba(52,211,153,0.2)",  badgeColor:"#34d399", bar:"#34d399" },
     bearish: { badge:"BEARISH", badgeBg:"rgba(248,113,113,0.2)", badgeColor:"#f87171", bar:"#f87171" },
-    neutral: { badge:"NEUTRAL", badgeBg:"rgba(250,204,21,0.2)",  badgeColor:"#facc15", bar:"#facc15" },
+    neutral: { badge:"NEUTRAL", badgeBg:"rgba(100,116,139,0.2)", badgeColor:"#64748b", bar:"#64748b" },
   };
   document.getElementById("tokenCards").innerHTML = tokens.map((t,i) => {
     const c  = cfg[t.role];
@@ -778,6 +778,24 @@ function renderTokens() {
     const chStr = (ch>0?"▲ +":"▼ ") + Math.abs(ch).toFixed(2) + "%";
     const chCol = ch>0?"#34d399":ch<0?"#f87171":"#facc15";
     const px = t.current_price > 100 ? "$"+t.current_price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+t.current_price.toFixed(4);
+
+    // Bug #5: NEUTRAL grey out — Coming Soon, tidak bisa diklik
+    if (t.role === "neutral") {
+      return `
+      <div class="token-card neutral" id="tc${i}" style="opacity:0.4;cursor:not-allowed;position:relative;overflow:hidden;" title="Coming Soon">
+        <div class="tc-dot" style="background:#64748b"></div>
+        <img class="tc-img" src="${t.image}" onerror="this.style.display='none'" style="filter:grayscale(1)">
+        <div class="tc-sym" style="color:#64748b">${(t.symbol||"").toUpperCase()}</div>
+        <div class="tc-price" style="color:#64748b">—</div>
+        <div class="tc-change" style="color:#64748b">—</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#64748b;margin-top:6px;line-height:1.6;">— INDC</div>
+        <div class="tc-bar" style="background:rgba(100,116,139,0.2)"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,15,30,0.6);border-radius:12px;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:#64748b;letter-spacing:1px;text-align:center;">🔒 COMING<br>SOON</span>
+        </div>
+      </div>`;
+    }
+
     return `
     <div class="token-card ${t.role}" id="tc${i}" onclick="pickToken(${i})">
       <div class="tc-dot" style="background:${c.bar};box-shadow:0 0 8px ${c.bar}"></div>
@@ -793,6 +811,11 @@ function renderTokens() {
 }
 
 function pickToken(i) {
+  // Bug #5 Fix: Jangan izinkan pilih token NEUTRAL (Coming Soon)
+  if (tokens[i] && tokens[i].role === "neutral") {
+    showToast("🔒 NEUTRAL Coming Soon!", "#64748b");
+    return;
+  }
   selToken = tokens[i];
   selBox   = null;
   tokens.forEach((_,j) => {
@@ -1491,9 +1514,20 @@ async function showClaimButton() {
     // Kalau kedua sumber gagal, tetap tampilkan tombol
   }
 
-  const correct   = (activeSession.predict==="up"&&isUp)||(activeSession.predict==="down"&&!isUp);
-  const multi     = correct ? MULTIPLIERS[activeSession.duration] : (1/MULTIPLIERS[activeSession.duration]);
-  const estReward = Math.round(50 * multi);
+  const correct = (activeSession.predict==="up"&&isUp)||(activeSession.predict==="down"&&!isUp);
+
+  // Bug #3 Fix: Multiplier berdasarkan TIER dari contract (bukan durasi)
+  // BULLISH: 0.5x–3x, BEARISH: 0.2x–5x, NEUTRAL: 0.3x–4x
+  const role = activeSession.token?.role || "bullish";
+  const tierMultMap = { bullish:[0.5,3.0], bearish:[0.2,5.0], neutral:[0.3,4.0] };
+  const [minM, maxM] = tierMultMap[role] || [0.5, 3.0];
+  const avgM = ((minM + maxM) / 2);
+
+  // Bug #4 Fix: Pakai betAmount dari activeSession, bukan hardcoded 50
+  const bet = activeSession.betAmount || 50;
+  const estReward = correct
+    ? Math.round(bet * avgM)
+    : Math.round(bet * minM);
 
   const btn = document.getElementById("btnClaim");
   btn.className   = "btn-claim show "+(correct?"win":"lose");
@@ -1502,8 +1536,8 @@ async function showClaimButton() {
     : `😔 POSISI SALAH — KLAIM SISA`;
 
   document.getElementById("cdStatus").textContent = correct
-    ? `🎉 BENAR! ${sym} ${isUp?"naik":"turun"} sesuai posisimu! Multiplier ${multi}x!`
-    : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, posisimu ${activeSession.predict==="up"?"LONG":"SHORT"}. Multiplier ${multi.toFixed(2)}x`;
+    ? `🎉 BENAR! ${sym} ${isUp?"naik":"turun"} sesuai posisimu! Est. reward ~${estReward} INDC`
+    : `❌ Salah. ${sym} ${isUp?"naik":"turun"}, posisimu ${activeSession.predict==="up"?"LONG":"SHORT"}. Est. sisa ~${estReward} INDC`;
 }
 
 async function claimReward() {
