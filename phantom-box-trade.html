@@ -1360,9 +1360,9 @@ async function _doApprove() {
     const phantom = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
     const indcCon = new ethers.Contract(INDC_CONTRACT, INDC_ABI, prov);
 
-    // Cek sesi aktif
-    const existSid = await phantom.activeSession(userAddr);
-    if (existSid !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+    // Cek sesi aktif — pakai getActiveSession lebih reliable dari bytes32 comparison
+    const activeSess = await phantom.getActiveSession(userAddr);
+    if (activeSess[0] === true) {
       showToast("⚠️ Ada sesi aktif! Klaim dulu sebelum buka kotak baru.", "#fbbf24");
       btn.disabled = false;
       btn.textContent = "🔓 APPROVE INDC";
@@ -1372,27 +1372,21 @@ async function _doApprove() {
     }
 
     // Cek saldo INDC
-    const betWei  = BigInt(Math.round(betAmount)) * BigInt(10**9);
-    const minBal  = BigInt(100) * BigInt(10**9);
+    const betWei = BigInt(Math.round(betAmount)) * BigInt(10**9);
+    const minBal = BigInt(100) * BigInt(10**9);
     const indcBal = await indcCon.balanceOf(userAddr);
-    if (BigInt(indcBal) < minBal) {
+    if (indcBal < minBal) {
       showToast("❌ Saldo INDC kurang dari 100. Swap INDC dulu!", "#f87171");
-      btn.disabled = false;
-      btn.textContent = "🔓 APPROVE INDC";
-      return;
-    }
-    if (BigInt(indcBal) < betWei) {
-      showToast("❌ Saldo INDC tidak cukup untuk taruhan ini!", "#f87171");
       btn.disabled = false;
       btn.textContent = "🔓 APPROVE INDC";
       return;
     }
 
     // Cek pool cukup
-    const tier      = selToken.tier ?? 0;
-    const poolInfo  = await phantom.getPoolInfo();
-    const poolNow   = BigInt(poolInfo[0]);
-    const minMult   = tier === 0 ? 50n : tier === 1 ? 20n : 30n;
+    const tier     = selToken.tier ?? 0;
+    const poolInfo = await phantom.getPoolInfo();
+    const poolNow  = poolInfo[0];
+    const minMult  = tier === 0 ? 50n : tier === 1 ? 20n : 30n;
     const minReward = (betWei * minMult) / 100n;
     if (poolNow < minReward) {
       showToast("⚠️ Pool hadiah belum cukup. Tunggu sebentar!", "#fbbf24");
@@ -1403,48 +1397,45 @@ async function _doApprove() {
 
     // ── CEK ALLOWANCE ──
     btn.innerHTML = '<span class="spin"></span> CEK ALLOWANCE...';
-    const signer     = await provider.getSigner();
-    const indcSigned = indcCon.connect(signer);
-    const allowance  = BigInt(await indcCon.allowance(userAddr, PHANTOM_CONTRACT));
+    const signer      = await provider.getSigner();
+    const indcSigned  = indcCon.connect(signer);
+    const allowance   = await indcCon.allowance(userAddr, PHANTOM_CONTRACT);
 
     if (allowance >= betWei) {
-      // Sudah cukup allowance — skip approve, langsung MULAI TRADING
+      // Sudah cukup approve — langsung ke MULAI TRADING
       showToast("✅ Allowance sudah cukup!", "#34d399");
       _approveReady = true;
       btn.disabled  = false;
+      btn.className = "btn-open";
       btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
       btn.textContent = "🚀 MULAI TRADING";
       return;
     }
 
-    // ── KIRIM APPROVE ──
+    // ── APPROVE ──
     btn.innerHTML = '<span class="spin"></span> KONFIRMASI APPROVE DI WALLET...';
     showToast("📲 Approve INDC di wallet kamu!", "#fbbf24");
     const approveTx = await indcSigned.approve(
       PHANTOM_CONTRACT,
-      betWei * 100n  // approve besar sekaligus supaya tidak perlu approve lagi
+      betWei * 100n  // approve besar sekaligus supaya tidak repeat
     );
-    btn.innerHTML = '<span class="spin"></span> MENUNGGU KONFIRMASI...';
+    btn.innerHTML = '<span class="spin"></span> MENUNGGU APPROVE...';
     await approveTx.wait();
 
-    // ── APPROVE SUKSES ──
+    // ── APPROVE SUKSES → ganti jadi MULAI TRADING ──
     showToast("✅ Approve berhasil! Klik MULAI TRADING.", "#34d399");
     _approveReady = true;
     btn.disabled  = false;
+    btn.className = "btn-open";
     btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
     btn.textContent = "🚀 MULAI TRADING";
 
   } catch(e) {
-    console.error("_doApprove error:", e);
-    // Pesan error yang informatif
-    let msg = "Approve gagal";
-    if (e?.reason)                              msg = e.reason;
-    else if (e?.shortMessage)                   msg = e.shortMessage;
-    else if (e?.message?.includes("user rejected")) msg = "Transaksi dibatalkan";
-    else if (e?.message?.includes("insufficient")) msg = "Saldo BNB tidak cukup untuk gas fee";
-    else if (e?.message)                        msg = e.message.slice(0, 100);
-
+    console.error("_doApprove:", e);
+    const msg = e?.reason || e?.shortMessage ||
+      (e?.message?.includes("user rejected") ? "❌ Dibatalkan." : e?.message?.slice(0,80)) || "Approve gagal";
     showToast("❌ " + msg, "#f87171");
+    const btn = document.getElementById("btnConfirm");
     btn.disabled = false;
     btn.textContent = "🔓 APPROVE INDC";
     _approveReady = false;
@@ -1467,14 +1458,36 @@ async function _doOpenBox() {
     const duration = durMap[selectedDuration] ?? 0;
     const betWei   = BigInt(Math.round(betAmount)) * BigInt(10**9);
 
-    // Verifikasi ulang allowance sebelum openBox
-    const allowance = await indcCon.allowance(userAddr, PHANTOM_CONTRACT);
-    if (allowance < betWei) {
-      showToast("⚠️ Allowance kurang, approve ulang!", "#fbbf24");
+    // Verifikasi ulang saldo & allowance sebelum openBox
+    btn.innerHTML = '<span class="spin"></span> VERIFIKASI ULANG...';
+    const indcBal   = BigInt(await indcCon.balanceOf(userAddr));
+    const allowance = BigInt(await indcCon.allowance(userAddr, PHANTOM_CONTRACT));
+
+    if (indcBal < betWei) {
+      showToast("❌ Saldo INDC tidak cukup untuk taruhan ini!", "#f87171");
       _approveReady = false;
       btn.disabled  = false;
       btn.style.background = "";
       btn.textContent = "🔓 APPROVE INDC";
+      return;
+    }
+    if (allowance < betWei) {
+      showToast("⚠️ Allowance kurang, klik APPROVE INDC dulu!", "#fbbf24");
+      _approveReady = false;
+      btn.disabled  = false;
+      btn.style.background = "";
+      btn.textContent = "🔓 APPROVE INDC";
+      return;
+    }
+
+    // Cek sesi aktif pakai getActiveSession (lebih reliable)
+    const activeSess = await phantom.getActiveSession(userAddr);
+    if (activeSess[0] === true) {
+      showToast("⚠️ Ada sesi aktif! Klaim dulu.", "#fbbf24");
+      btn.disabled = false;
+      btn.textContent = "🚀 MULAI TRADING";
+      document.getElementById("countdownWrap").classList.add("show");
+      showClaimButton();
       return;
     }
 
@@ -1552,21 +1565,23 @@ async function _doOpenBox() {
     startCountdown();
 
   } catch(e) {
-    console.error("_doOpenBox:", e);
+    console.error("_doOpenBox error:", e);
     let msg = "Transaksi gagal";
-    if (e?.reason)           msg = e.reason;
-    else if (e?.shortMessage) msg = e.shortMessage;
+    // Coba ambil revert reason yang sebenarnya dari contract
+    if (e?.reason)                                  msg = e.reason;
+    else if (e?.shortMessage)                       msg = e.shortMessage;
+    else if (e?.error?.message)                     msg = e.error.message;
     else if (e?.message) {
       const m = e.message;
-      if (m.includes("Klaim sesi aktif"))      msg = "⚠️ Ada sesi aktif! Klaim dulu.";
-      else if (m.includes("Pool tidak cukup")) msg = "⚠️ Pool belum cukup.";
-      else if (m.includes("Saldo tidak"))      msg = "❌ Saldo INDC tidak cukup.";
-      else if (m.includes("user rejected"))    msg = "❌ Transaksi dibatalkan.";
-      else if (m.includes("estimateGas"))      msg = "❌ Contract revert. Cek saldo & sesi aktif.";
-      else msg = m.slice(0, 80);
+      if (m.includes("Klaim sesi aktif"))           msg = "Ada sesi aktif! Klaim dulu.";
+      else if (m.includes("Pool tidak cukup"))      msg = "Pool belum cukup.";
+      else if (m.includes("Saldo tidak"))           msg = "Saldo INDC tidak cukup.";
+      else if (m.includes("Harga tidak tersedia"))  msg = "Harga Chainlink tidak tersedia.";
+      else if (m.includes("user rejected"))         msg = "Transaksi dibatalkan.";
+      else if (m.includes("insufficient funds"))    msg = "BNB tidak cukup untuk gas fee.";
+      else                                          msg = m.slice(0, 100);
     }
-    showToast(msg, "#f87171");
-    // Kembalikan ke MULAI TRADING supaya bisa coba lagi
+    showToast("❌ " + msg, "#f87171");
     btn.disabled = false;
     btn.textContent = "🚀 MULAI TRADING";
     activeSession = null;
