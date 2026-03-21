@@ -595,15 +595,18 @@ const INDC_ABI = [
 ];
 
 /* ═══ STATE ═══ */
+let provider    = null;   // Fix: deklarasi provider agar tidak undefined
 let userAddr    = null;
 let selToken    = null;
 let selBox      = null;
 let hasSwapped  = false;
-let betAmount   = 50;   // default 50 INDC
+let betAmount   = 50;     // default 50 INDC
 let jpPool      = 0;
 let jpActive    = false;
 let rewardPool  = 0;
 let freeTickets = 0;
+let streakLose  = 0;      // Fix: deklarasi streakLose agar tidak undefined
+const BOX_PRICE = 50;     // Fix: BOX_PRICE default untuk pesan result (nilai estimasi)
 
 // Satu objek untuk semua data sesi aktif
 // Tidak pernah null sampai klaim selesai
@@ -972,6 +975,8 @@ async function openBox() {
       token: selToken.symbol
     }));
 
+    // Fix: Cek apakah free ticket berhasil dipakai (dari event)
+    // Jika treasury kurang, contract akan revert dengan pesan jelas
     // Kotak langsung tertutup kembali (konsep V2)
     const box = document.getElementById("bx"+selBox);
     if (box) {
@@ -979,8 +984,9 @@ async function openBox() {
       box.innerHTML = `<span class="box-emoji">🎁</span><span class="box-num">#${selBox+1}</span>`;
     }
 
-    // Update pool
+    // Update pool & jackpot bar dari contract (realtime setelah bet masuk)
     await loadContractInfo();
+    updateJP(); // Fix: pastikan jackpot bar langsung update setelah taruhan masuk
 
     // TX link
     console.log("TX:", `https://bscscan.com/tx/${tx.hash}`);
@@ -1014,8 +1020,8 @@ function showResult(reward, isWin, isJP) {
   const icons = { win:"🎉", lose:"😔", jackpot:"⚡" };
   const tags  = { win:"✨ KAMU MENANG!", lose:"LEBIH BERUNTUNG LAGI", jackpot:"⚡ JACKPOT!" };
   const descs = {
-    win:    "Selamat! Kamu mendapat "+reward+" INDC dari modal "+BOX_PRICE+" INDC. Profit "+( reward-BOX_PRICE)+" INDC! Swap lagi untuk lebih banyak kotak.",
-    lose:   "Kamu mendapat "+reward+" INDC dari modal "+BOX_PRICE+" INDC. Jangan menyerah — jackpot bisa ada di kotak berikutnya!",
+    win:    "Selamat! Kamu mendapat "+reward+" INDC. Profit "+ Math.max(0,(reward - (activeSession?.betAmount||BOX_PRICE))).toFixed(1)+" INDC! Swap lagi untuk lebih banyak kotak.",
+    lose:   "Kamu mendapat "+reward+" INDC. Jangan menyerah — jackpot bisa ada di kotak berikutnya!",
     jackpot:"LUAR BIASA! Kamu mendapatkan MEGA JACKPOT sebesar "+reward+" INDC! Reward langsung masuk ke wallet kamu.",
   };
   document.getElementById("rIcon").textContent = icons[type];
@@ -1639,20 +1645,39 @@ async function claimReward() {
   }
 }
 
-function checkActiveSesi() {
+async function checkActiveSesi() {
   const raw = localStorage.getItem("pbt_active");
   if (!raw) return;
   try {
     const s = JSON.parse(raw);
+
+    // Fix: Verifikasi dulu ke contract — apakah sesi masih aktif di blockchain
+    // Ini mencegah localStorage tidak sinkron dengan contract
+    if (userAddr) {
+      try {
+        const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+        const contract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
+        const onChain = await contract.getActiveSession(userAddr);
+        // Kalau contract bilang tidak ada sesi aktif, hapus localStorage
+        if (!onChain[0]) {
+          localStorage.removeItem("pbt_active");
+          localStorage.removeItem("activeSession");
+          return;
+        }
+        // Ambil betAmount & duration dari contract sebagai sumber kebenaran
+        if (onChain[2]) s.betAmount = Number(onChain[2]) / 10**9;
+      } catch(e) { console.warn("checkActiveSesi contract check:", e); }
+    }
+
     activeSession = {
       box:        s.box,
       token:      {
         symbol: typeof s.token === "string" ? s.token : s.token.symbol,
-        role:   s.tokenRole || "bullish",  // Bug A Fix: restore role dari localStorage
+        role:   s.tokenRole || "bullish",
       },
       predict:    s.predict,
       duration:   s.duration,
-      betAmount:  s.betAmount || 50,       // Bug A Fix: restore betAmount
+      betAmount:  s.betAmount || 50,
       entryPrice: s.entryPrice,
       endTime:    s.endTime,
     };
