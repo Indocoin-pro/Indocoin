@@ -880,7 +880,7 @@ function pickBox(i) {
 
 /* ═══ OPEN BOX — V2 SMART CONTRACT ═══ */
 async function openBox() {
-  if (!selBox === null || !selToken) {
+  if (selBox === null || !selToken) {
     showToast("❌ Pilih kotak dan token dulu!", "#f87171");
     return;
   }
@@ -1437,29 +1437,12 @@ function startCountdown() {
   updateCountdown();
 }
 
-async function updateCountdown() {
+function updateCountdown() {
   if (!activeSession) return;
 
-  // Prioritas: ambil endTime dari contract (paling akurat)
-  let endTime = activeSession.endTime;
-  try {
-    if (provider || window.ethereum) {
-      const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
-      const contract = new ethers.Contract(PHANTOM_CONTRACT, PHANTOM_ABI, prov);
-      const addr = userAddr || (await prov.listAccounts())[0]?.address;
-      if (addr) {
-        const timing = await contract.getSessionTiming(addr);
-        const contractEnd = Number(timing[1]) * 1000; // convert detik ke ms
-        if (contractEnd > 0) {
-          endTime = contractEnd;
-          activeSession.endTime = contractEnd; // update local
-        }
-      }
-    }
-  } catch(e) {
-    // Fallback ke localStorage endTime
-  }
-
+  // Pakai endTime dari activeSession (disimpan saat box dibuka)
+  // Tidak poll contract setiap detik — itu yang menyebabkan timer tidak habis
+  const endTime = activeSession.endTime;
   const left = endTime - Date.now();
 
   if (left <= 0) {
