@@ -338,8 +338,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="guide-step">
         <div class="gs-num" style="background:rgba(248,113,113,0.12);color:var(--red)">5</div>
         <div>
-          <div class="gs-title" style="color:var(--red)">TIKET GRATIS</div>
-          <div class="gs-desc">User baru dapat 1x tiket gratis! Setiap belanja 10.000 INDC dapat 1x tiket gratis lagi. Kotak selalu tertutup dan terisi ulang otomatis setelah dibuka.</div>
+          <div class="gs-title" style="color:var(--red)">REWARD POOL</div>
+          <div class="gs-desc">Reward pool selalu terisi otomatis dari setiap taruhan. Kotak selalu tertutup dan terisi ulang otomatis setelah dibuka.</div>
         </div>
       </div>
 
@@ -405,8 +405,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--green)" id="poolAmount">— INDC</div>
     </div>
     <div style="text-align:center">
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">TIKET GRATIS</div>
-      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold)" id="freeTicketCount">—</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">TOTAL DIBUKA</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--violet)" id="totalBoxCount">—</div>
     </div>
   </div>
 
@@ -465,8 +465,9 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <!-- TIMER & PREDIKSI SECTION -->
   <div class="timer-section" id="timerSection">
 
-    <!-- PREDIKSI -->
+    <!-- ARAH MARKET -->
     <div class="timer-title">🎯 POSISI TRADING</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ARAH MARKET</div>
     <div class="predict-wrap">
       <button class="predict-btn up" id="btnUp" onclick="selectPredict('up')">
         🟢 LONG
@@ -477,23 +478,26 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     </div>
 
     <!-- DURASI -->
-    <div class="duration-title">PILIH DURASI PREDIKSI</div>
+    <div class="duration-title">PILIH DURASI</div>
     <div class="duration-wrap">
       <div class="dur-btn" id="dur15" onclick="selectDuration(15)">
         <span class="dur-btn-time">15M</span>
         <span>15 Menit</span>
-        <div class="dur-btn-multi">1.5x hadiah</div>
+        <div class="dur-btn-multi">⚡ Cepat & ringkas</div>
       </div>
       <div class="dur-btn" id="dur60" onclick="selectDuration(60)">
         <span class="dur-btn-time">1H</span>
         <span>1 Jam</span>
-        <div class="dur-btn-multi">2.5x hadiah</div>
+        <div class="dur-btn-multi">🎯 Peluang lebih baik</div>
       </div>
       <div class="dur-btn" id="dur240" onclick="selectDuration(240)">
         <span class="dur-btn-time">4H</span>
         <span>4 Jam</span>
-        <div class="dur-btn-multi">4x hadiah</div>
+        <div class="dur-btn-multi">💎 Potensi maksimal</div>
       </div>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:0.5px;text-align:center;margin-bottom:12px;line-height:1.6;">
+      Semakin lama durasi, semakin tinggi potensi — tapi analisa dulu arah marketmu
     </div>
 
     <!-- HARGA ENTRY -->
@@ -607,7 +611,7 @@ let betAmount   = 50;   // default 50 INDC
 let jpPool      = 0;
 let jpActive    = false;
 let rewardPool  = 0;
-let freeTickets = 0;
+let totalBoxOpened = 0;
 
 // Satu objek untuk semua data sesi aktif
 // Tidak pernah null sampai klaim selesai
@@ -693,6 +697,11 @@ async function loadContractInfo() {
 
     updateJP();
 
+    // getStats: feeAccumulated, totalBox, totalReward, totalJackpot
+    const stats = await contract.getStats();
+    totalBoxOpened = Number(stats[1]);
+    updatePoolInfo();
+
   } catch(e) { console.warn("loadContractInfo:", e); }
 }
 
@@ -705,7 +714,6 @@ async function loadUserInfo() {
     // getUserInfo2: balance, activeSession, canOpen, freeTickets
     const info2 = await contract.getUserInfo2(userAddr);
     const indcBal  = Number(info2[0]) / 10**9;
-    freeTickets    = Number(info2[3]);
     updatePoolInfo();
     hasSwapped = indcBal >= MIN_INDC;
 
@@ -956,10 +964,10 @@ function updateJP() {
 
 /* ═══ POOL & FREE TICKET INFO ═══ */
 function updatePoolInfo() {
-  const poolEl = document.getElementById("poolAmount");
-  const tickEl = document.getElementById("freeTicketCount");
-  if (poolEl) poolEl.textContent = rewardPool.toLocaleString("id", {maximumFractionDigits:0}) + " INDC";
-  if (tickEl) tickEl.textContent = freeTickets > 0 ? "🎟️ " + freeTickets + "x Gratis" : "—";
+  const poolEl  = document.getElementById("poolAmount");
+  const totalEl = document.getElementById("totalBoxCount");
+  if (poolEl)  poolEl.textContent  = rewardPool.toLocaleString("id", {maximumFractionDigits:0}) + " INDC";
+  if (totalEl) totalEl.textContent = totalBoxOpened > 0 ? totalBoxOpened + "x" : "—";
 }
 function updateStreak() { updatePoolInfo(); }
 
@@ -1472,7 +1480,6 @@ async function confirmAndOpenBox() {
       if (m.includes("Klaim sesi aktif"))   msg = "⚠️ Ada sesi aktif! Klaim dulu.";
       else if (m.includes("Pool tidak cukup")) msg = "⚠️ Pool belum cukup.";
       else if (m.includes("Saldo tidak"))   msg = "❌ Saldo INDC tidak cukup.";
-      else if (m.includes("Treasury"))      msg = "⚠️ Treasury kurang untuk free ticket.";
       else if (m.includes("user rejected")) msg = "❌ Transaksi dibatalkan.";
       else if (m.includes("estimateGas"))   msg = "❌ Contract revert. Cek saldo & sesi aktif.";
       else msg = m.slice(0, 80);
