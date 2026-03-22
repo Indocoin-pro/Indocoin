@@ -882,15 +882,31 @@ function chartSelectToken(idx) {
   ["ctTab0","ctTab1","ctTab2"].forEach((id,i) => document.getElementById(id).classList.toggle("active",i===idx));
   chartCandles = []; chartCurCandle = null; chartTick = 0;
   const sym = ["BNB","BTC","ETH"][idx];
-  chartBasePrice = latestPrices[sym] || 0;
-  if (chartBasePrice) { updateChartDisplay(chartBasePrice); buildChartCandle(chartBasePrice); }
+  const price = latestPrices[sym] || 0;
+  if (price > 0) {
+    chartBasePrice = price;
+    updateChartDisplay(price);
+    buildChartCandle(price);
+  } else {
+    chartBasePrice = 0;
+    document.getElementById("chartPrice").textContent = "Memuat...";
+    // Retry setiap 500ms sampai harga tersedia
+    const retry = setInterval(() => {
+      const p = latestPrices[sym] || 0;
+      if (p > 0) {
+        clearInterval(retry);
+        chartBasePrice = p;
+        updateChartDisplay(p);
+        buildChartCandle(p);
+      }
+    }, 500);
+  }
 }
 function updateChartDisplay(price) {
-  if (!chartBasePrice) { chartBasePrice = price; return; }
+  if (!chartBasePrice || chartBasePrice === 0) { chartBasePrice = price; }
   const diff = price - chartBasePrice;
   const pct  = ((diff/chartBasePrice)*100);
   const isUp = diff >= 0;
-  const syms  = ["BNB","BTC","ETH"];
   const fmts  = [2,0,2];
   const fmt   = "$"+price.toLocaleString("en",{maximumFractionDigits:fmts[chartTokenIdx]});
   const el    = document.getElementById("chartPrice");
@@ -1486,7 +1502,9 @@ window.addEventListener("load",async()=>{
   await loadPoolInfo();
   updateBet(200);
   renderHistory();
-  chartSelectToken(0);
+
+  // Init chart setelah harga tersedia
+  setTimeout(() => chartSelectToken(0), 600);
 
   // Form terbuka default
   document.getElementById("formBody").classList.add("open");
