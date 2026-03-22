@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>INDOCOIN — Live Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --green:#34d399;--red:#f87171;--cyan:#38bdf8;
+  --muted:#64748b;--text:#e2e8f0;
+  --border:rgba(250,204,21,0.1);
+  --card:rgba(15,23,42,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;overflow:hidden;}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;height:52px;
+  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:relative;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--green);letter-spacing:1px;}
+.nav-back{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--muted);
+  padding:6px 14px;border:1px solid var(--border);border-radius:20px;
+  text-decoration:none;display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,0.03);transition:all 0.2s;}
+.nav-back:hover{color:var(--gold);border-color:rgba(250,204,21,0.3);}
+
+/* TOKEN TABS */
+.token-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;height:48px;
+  background:rgba(10,15,30,0.95);border-bottom:1px solid var(--border);
+  overflow-x:auto;position:relative;z-index:99;}
+.token-bar::-webkit-scrollbar{display:none;}
+.tok-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;
+  border-radius:20px;border:1px solid var(--border);background:transparent;
+  cursor:pointer;transition:all 0.2s;white-space:nowrap;flex-shrink:0;}
+.tok-btn.active{border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.08);}
+.tok-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);}
+.tok-price{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.tok-chg{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;}
+.tok-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+
+/* TIMEFRAME BAR */
+.tf-bar{display:flex;align-items:center;gap:4px;padding:6px 12px;height:38px;
+  background:rgba(10,15,30,0.9);border-bottom:1px solid rgba(255,255,255,0.04);}
+.tf-btn{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:4px 10px;border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;}
+.tf-btn.active{border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.08);color:var(--gold);}
+.tf-btn:hover:not(.active){color:var(--text);}
+.tf-sep{width:1px;height:16px;background:rgba(255,255,255,0.06);margin:0 2px;}
+
+/* CHART CONTAINER */
+.chart-container{position:relative;
+  height:calc(100vh - 52px - 48px - 38px - 62px);
+  min-height:200px;}
+.chart-container iframe{width:100%;height:100%;border:none;display:block;}
+.chart-loading{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  background:var(--dark2);z-index:10;}
+.chart-loading.hide{display:none;}
+.loading-spin{width:32px;height:32px;border:2px solid rgba(250,204,21,0.15);
+  border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(5,10,25,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#6b7280;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">📊 LIVE CHART</div>
+    </div>
+  </div>
+  <a href="javascript:history.back()" class="nav-back">← KEMBALI</a>
+</nav>
+
+<!-- TOKEN TABS -->
+<div class="token-bar" id="tokenBar">
+  <button class="tok-btn active" id="tb0" onclick="selectToken('BNB',0)">
+    <div class="tok-dot" id="td0" style="background:#34d399"></div>
+    <span class="tok-sym">BNB</span>
+    <span class="tok-price" id="tp0">$—</span>
+    <span class="tok-chg" id="tc0" style="color:#34d399">—</span>
+  </button>
+  <button class="tok-btn" id="tb1" onclick="selectToken('BTC',1)">
+    <div class="tok-dot" id="td1" style="background:#34d399"></div>
+    <span class="tok-sym">BTC</span>
+    <span class="tok-price" id="tp1">$—</span>
+    <span class="tok-chg" id="tc1" style="color:#34d399">—</span>
+  </button>
+  <button class="tok-btn" id="tb2" onclick="selectToken('ETH',2)">
+    <div class="tok-dot" id="td2" style="background:#34d399"></div>
+    <span class="tok-sym">ETH</span>
+    <span class="tok-price" id="tp2">$—</span>
+    <span class="tok-chg" id="tc2" style="color:#34d399">—</span>
+  </button>
+</div>
+
+<!-- TIMEFRAME BAR -->
+<div class="tf-bar">
+  <button class="tf-btn" id="tf5"  onclick="selectTF('5')">5M</button>
+  <button class="tf-btn active" id="tf15" onclick="selectTF('15')">15M</button>
+  <button class="tf-btn" id="tf30" onclick="selectTF('30')">30M</button>
+  <div class="tf-sep"></div>
+  <button class="tf-btn" id="tf60"  onclick="selectTF('60')">1H</button>
+  <button class="tf-btn" id="tf240" onclick="selectTF('240')">4H</button>
+  <button class="tf-btn" id="tfD"   onclick="selectTF('D')">1D</button>
+</div>
+
+<!-- CHART -->
+<div class="chart-container">
+  <div class="chart-loading" id="chartLoading">
+    <div class="loading-spin"></div>
+    <div class="loading-txt">MEMUAT CHART...</div>
+  </div>
+  <div id="tvContainer" style="width:100%;height:100%;"></div>
+</div>
+
+<!-- BOTTOMNAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="chart.html"     class="bnav-item active"><span class="bnav-icon">📊</span><span class="bnav-label">CHART</span></a>
+</nav>
+
+<script>
+/* ═══ STATE ═══ */
+let curSym  = "BNB";
+let curTF   = "15";
+let wsConns = {};
+let latestPrices = {};
+
+/* ═══ TRADINGVIEW WIDGET ═══ */
+function loadChart() {
+  document.getElementById("chartLoading").classList.remove("hide");
+  const container = document.getElementById("tvContainer");
+  container.innerHTML = "";
+
+  const symbol = `BINANCE:${curSym}USDT`;
+
+  // TradingView Advanced Chart Widget
+  const script = document.createElement("script");
+  script.src   = "https://s3.tradingview.com/tv.js";
+  script.async = true;
+  script.onload = () => {
+    new TradingView.widget({
+      container_id:   "tvContainer",
+      symbol:         symbol,
+      interval:       curTF,
+      timezone:       "Asia/Jakarta",
+      theme:          "dark",
+      style:          "1",        // candlestick
+      locale:         "id",
+      toolbar_bg:     "#0f172a",
+      enable_publishing: false,
+      hide_top_toolbar:  false,
+      hide_legend:       false,
+      save_image:        false,
+      withdateranges:    true,
+      allow_symbol_change: false,
+      studies: [
+        "MASimple@tv-basicstudies",
+        "RSI@tv-basicstudies",
+        "MACD@tv-basicstudies",
+      ],
+      overrides: {
+        "paneProperties.background":            "#0a0f1e",
+        "paneProperties.backgroundType":        "solid",
+        "paneProperties.vertGridProperties.color": "rgba(255,255,255,0.03)",
+        "paneProperties.horzGridProperties.color": "rgba(255,255,255,0.03)",
+        "scalesProperties.textColor":           "#64748b",
+        "mainSeriesProperties.candleStyle.upColor":        "#34d399",
+        "mainSeriesProperties.candleStyle.downColor":      "#f87171",
+        "mainSeriesProperties.candleStyle.borderUpColor":  "#34d399",
+        "mainSeriesProperties.candleStyle.borderDownColor":"#f87171",
+        "mainSeriesProperties.candleStyle.wickUpColor":    "#34d399",
+        "mainSeriesProperties.candleStyle.wickDownColor":  "#f87171",
+      },
+      width:  "100%",
+      height: "100%",
+      autosize: true,
+    });
+    document.getElementById("chartLoading").classList.add("hide");
+  };
+  script.onerror = () => {
+    document.getElementById("chartLoading").innerHTML = `
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:30px;margin-bottom:10px;">⚠️</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#64748b;letter-spacing:1px;margin-bottom:8px;">GAGAL MEMUAT CHART</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#475569;">Periksa koneksi internet</div>
+      </div>`;
+  };
+  document.head.appendChild(script);
+}
+
+/* ═══ SELECT TOKEN ═══ */
+function selectToken(sym, idx) {
+  curSym = sym;
+  [0,1,2].forEach(i => document.getElementById("tb"+i).classList.toggle("active", i===idx));
+  loadChart();
+  connectWS(sym);
+}
+
+/* ═══ SELECT TIMEFRAME ═══ */
+function selectTF(tf) {
+  curTF = tf;
+  ["5","15","30","60","240","D"].forEach(t => {
+    const el = document.getElementById("tf"+t);
+    if(el) el.classList.toggle("active", t===tf);
+  });
+  loadChart();
+}
+
+/* ═══ WEBSOCKET TICKER — update harga tab ═══ */
+function connectWS(sym) {
+  // Tutup semua WS lama
+  Object.values(wsConns).forEach(ws => ws.close());
+  wsConns = {};
+
+  const syms = ["BNB","BTC","ETH"];
+  syms.forEach((s,i) => {
+    const pair = s.toLowerCase()+"usdt";
+    try {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+      ws.onmessage = e => {
+        const d    = JSON.parse(e.data);
+        const price= parseFloat(d.c);
+        const pct  = parseFloat(d.P);
+        const isUp = pct >= 0;
+        const color= isUp ? "#34d399" : "#f87171";
+        const dec  = s==="BTC" ? 0 : 2;
+        const fmt  = price>100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:dec}) : "$"+price.toFixed(4);
+
+        latestPrices[s] = price;
+
+        const tpEl = document.getElementById("tp"+i);
+        const tcEl = document.getElementById("tc"+i);
+        const tdEl = document.getElementById("td"+i);
+        if(tpEl){ tpEl.textContent=fmt; tpEl.style.color="var(--cyan)"; setTimeout(()=>tpEl.style.color="var(--muted)",400); }
+        if(tcEl){ tcEl.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%"; tcEl.style.color=color; }
+        if(tdEl){ tdEl.style.background=color; }
+      };
+      ws.onclose = () => { delete wsConns[s]; setTimeout(()=>connectWS(sym),5000); };
+      wsConns[s] = ws;
+    } catch(e){}
+  });
+}
+
+/* ═══ INIT HARGA AWAL dari REST ═══ */
+async function initPrices() {
+  const syms = ["BNB","BTC","ETH"];
+  for(let i=0;i<syms.length;i++){
+    const s = syms[i];
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}USDT`);
+      const d = await r.json();
+      const price = parseFloat(d.lastPrice);
+      const pct   = parseFloat(d.priceChangePercent);
+      const isUp  = pct>=0;
+      const color = isUp?"#34d399":"#f87171";
+      const dec   = s==="BTC"?0:2;
+      const fmt   = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:dec}):"$"+price.toFixed(4);
+      const tpEl=document.getElementById("tp"+i);
+      const tcEl=document.getElementById("tc"+i);
+      const tdEl=document.getElementById("td"+i);
+      if(tpEl) tpEl.textContent=fmt;
+      if(tcEl){ tcEl.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%"; tcEl.style.color=color; }
+      if(tdEl) tdEl.style.background=color;
+      latestPrices[s] = price;
+    }catch(e){}
+  }
+}
+
+/* ═══ CEK TOKEN DARI URL PARAM ═══ */
+function checkUrlParam() {
+  const params = new URLSearchParams(window.location.search);
+  const sym    = (params.get("sym")||"BNB").toUpperCase();
+  const tf     = params.get("tf")||"15";
+  const idx    = ["BNB","BTC","ETH"].indexOf(sym);
+  if(idx>=0) {
+    curSym = sym;
+    curTF  = tf;
+    [0,1,2].forEach(i=>document.getElementById("tb"+i).classList.toggle("active",i===idx));
+    ["5","15","30","60","240","D"].forEach(t=>{
+      const el=document.getElementById("tf"+t);
+      if(el) el.classList.toggle("active",t===tf);
+    });
+  }
+}
+
+/* ═══ INIT ═══ */
+window.addEventListener("load", async () => {
+  checkUrlParam();
+  initPrices();
+  loadChart();
+  connectWS(curSym);
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+});
+</script>
+</body>
+</html>
