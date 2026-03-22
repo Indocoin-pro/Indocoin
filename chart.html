@@ -353,22 +353,45 @@ function selectTF(tf) {
 /* ═══ LOAD KLINES dari Binance REST ═══ */
 async function loadKlines() {
   document.getElementById("chartLoading").classList.remove("hide");
-  try {
-    const interval = TF_MAP[curTF];
-    const limit    = TF_LIMIT[curTF];
-    const url = `https://api.binance.com/api/v3/klines?symbol=${curSym}USDT&interval=${interval}&limit=${limit}`;
-    const r   = await fetch(url);
-    const d   = await r.json();
-    candles = d.map(k => ({
-      t: k[0], o: parseFloat(k[1]), h: parseFloat(k[2]),
-      l: parseFloat(k[3]), c: parseFloat(k[4]),
-      v: parseFloat(k[5])
-    }));
-    renderChart();
-    document.getElementById("chartLoading").classList.add("hide");
-  } catch(e) {
-    document.getElementById("chartLoading").textContent = "⚠️ Gagal memuat data";
+  document.getElementById("chartLoading").textContent = "⏳ MEMUAT DATA...";
+
+  const interval = TF_MAP[curTF];
+  const limit    = TF_LIMIT[curTF];
+  const sym      = curSym+"USDT";
+
+  // Coba beberapa endpoint
+  const endpoints = [
+    `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+    `https://api1.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+    `https://api2.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+    `https://api3.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeout    = setTimeout(()=>controller.abort(), 8000);
+      const r = await fetch(url, {signal: controller.signal});
+      clearTimeout(timeout);
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!Array.isArray(d) || !d.length) continue;
+      candles = d.map(k => ({
+        t: k[0], o: parseFloat(k[1]), h: parseFloat(k[2]),
+        l: parseFloat(k[3]), c: parseFloat(k[4]),
+        v: parseFloat(k[5])
+      }));
+      // Tunggu DOM render sempurna
+      await new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));
+      renderChart();
+      document.getElementById("chartLoading").classList.add("hide");
+      return; // sukses
+    } catch(e) {
+      continue; // coba endpoint berikutnya
+    }
   }
+  // Semua endpoint gagal
+  document.getElementById("chartLoading").textContent = "⚠️ Koneksi gagal — coba refresh halaman";
 }
 
 /* ═══ RENDER CHART ═══ */
@@ -699,11 +722,20 @@ function renderOrderBook(asks, bids) {
 async function initAllTickers() {
   for (let i=0; i<SYMS.length; i++) {
     const sym = SYMS[i];
-    try {
-      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`);
-      const d = await r.json();
-      updateTokenTab(i, sym, parseFloat(d.lastPrice), parseFloat(d.priceChangePercent));
-    } catch(e){}
+    const endpoints = [
+      `https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`,
+      `https://api1.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`,
+      `https://api2.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`,
+    ];
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) continue;
+        const d = await r.json();
+        updateTokenTab(i, sym, parseFloat(d.lastPrice), parseFloat(d.priceChangePercent));
+        break;
+      } catch(e) { continue; }
+    }
   }
 }
 
