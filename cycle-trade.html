@@ -112,12 +112,24 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .sec-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;margin-top:12px;}
 
 /* TOKEN GRID */
-.token-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
-.token-btn{padding:10px 6px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.02);cursor:pointer;transition:all 0.2s;text-align:center;}
-.token-btn:hover,.token-btn.selected{border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);}
-.token-btn.selected{border-color:var(--cy1);}
-.token-btn-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--cy1);}
-.token-btn-price{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;}
+.token-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.token-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 6px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.token-card.up{border-color:rgba(52,211,153,0.35);background:rgba(52,211,153,0.04);}
+.token-card.down{border-color:rgba(248,113,113,0.35);background:rgba(248,113,113,0.04);}
+.token-card.selected.up{border:2px solid var(--green);background:rgba(52,211,153,0.12);box-shadow:0 0 18px rgba(52,211,153,0.25);}
+.token-card.selected.down{border:2px solid var(--red);background:rgba(248,113,113,0.12);box-shadow:0 0 18px rgba(248,113,113,0.25);}
+.token-card.selected{border:2px solid var(--cy1);background:rgba(245,158,11,0.08);box-shadow:0 0 18px rgba(245,158,11,0.2);}
+.token-card:not(.selected):hover{transform:translateY(-2px);}
+.tc-dot{width:7px;height:7px;border-radius:50%;margin-bottom:5px;flex-shrink:0;}
+.tc-img{width:26px;height:26px;border-radius:50%;object-fit:contain;margin-bottom:4px;}
+.tc-body{flex:1;min-width:0;width:100%;}
+.tc-sym{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;margin-bottom:1px;}
+.tc-price{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:2px;}
+.tc-change{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+.tc-range{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);margin-top:3px;line-height:1.5;}
+.tc-bar{height:2px;border-radius:2px;margin-top:5px;width:100%;}
+.tc-selected-check{position:absolute;top:4px;right:5px;font-size:10px;display:none;}
+.token-card.selected .tc-selected-check{display:block;}
 
 /* BET SLIDER */
 .bet-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
@@ -341,32 +353,9 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <div class="bal-ok" id="balStatus">Memuat...</div>
   </div>
 
-  <!-- TOKEN CARDS — persis Phantom -->
+  <!-- TOKEN CARDS — copy persis Phantom -->
   <div class="token-cards" id="tokenCards">
-    <div class="token-card" id="tc0" onclick="pickToken(0)">
-      <div class="tc-dot" id="tcd0"></div>
-      <div class="tc-sym">BNB</div>
-      <div class="tc-price" id="tcp0">$—</div>
-      <div class="tc-change" id="tcc0">—</div>
-      <div class="tc-bar" id="tcb0"></div>
-      <div class="tc-check">✓</div>
-    </div>
-    <div class="token-card" id="tc1" onclick="pickToken(1)">
-      <div class="tc-dot" id="tcd1"></div>
-      <div class="tc-sym">BTC</div>
-      <div class="tc-price" id="tcp1">$—</div>
-      <div class="tc-change" id="tcc1">—</div>
-      <div class="tc-bar" id="tcb1"></div>
-      <div class="tc-check">✓</div>
-    </div>
-    <div class="token-card" id="tc2" onclick="pickToken(2)">
-      <div class="tc-dot" id="tcd2"></div>
-      <div class="tc-sym">ETH</div>
-      <div class="tc-price" id="tcp2">$—</div>
-      <div class="tc-change" id="tcc2">—</div>
-      <div class="tc-bar" id="tcb2"></div>
-      <div class="tc-check">✓</div>
-    </div>
+    <div style="grid-column:1/-1;text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);padding:20px;">Memuat harga...</div>
   </div>
 
   <!-- FORM MULAI CYCLE -->
@@ -377,7 +366,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     </div>
     <div class="form-body" id="formBody">
 
-      <div class="sec-label">✓ TOKEN DIPILIH: <span id="selTokenNote" style="color:var(--cy1);font-family:'Orbitron',sans-serif;">— Klik kartu token di atas</span></div>
+      <div class="sec-label">TOKEN DIPILIH: <span id="selTokenNote" style="color:var(--cy1);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;">— Klik kartu token di atas</span></div>
 
       <div class="sec-label">JUMLAH TARUHAN (100 — <span id="maxBetLabel">1.000</span> INDC)</div>
       <div class="bet-row">
@@ -752,11 +741,7 @@ let activeSession = null;
 let countdownInterval = null;
 let earlyStopInterval = null;
 let wsConns = {}, latestPrices = {};
-let tokenData = [
-  {sym:"BNB", dec:2, openPrice:0},
-  {sym:"BTC", dec:0, openPrice:0},
-  {sym:"ETH", dec:2, openPrice:0}
-];
+let tokens = [];
 let histItems = [];
 
 /* ═══ WALLET ═══ */
@@ -823,93 +808,105 @@ async function loadPoolInfo() {
 }
 
 /* ═══ HARGA TOKEN ═══ */
-/* ══ TOKEN CARDS — persis Phantom ══ */
-async function fetchAndBuildTokens() {
+/* ══ TOKEN CARDS — copy persis Phantom ══ */
+async function fetchTokens() {
   try {
-    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=binancecoin,bitcoin,ethereum&sparkline=false&price_change_percentage_24h";
+    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=binancecoin,bitcoin,ethereum&sparkline=false&price_change_percentage=24h";
     const r = await fetch(url);
     const d = await r.json();
-    const map = {binancecoin:0, bitcoin:1, ethereum:2};
-    d.forEach(item => {
-      const idx = map[item.id];
-      if (idx === undefined) return;
-      const price = item.current_price || 0;
-      const ch    = item.price_change_percentage_24h || 0;
-      tokenData[idx].openPrice = price;
-      latestPrices[tokenData[idx].sym] = price;
-      renderTokenCard(idx, price, ch);
-    });
+    buildTokens(d);
   } catch(e) {
-    // Fallback — langsung pakai WS saja
-    console.warn("CoinGecko gagal, fallback WS");
-  }
-  // Start WS setelah dapat data awal
-  startAllWS();
-}
-
-function renderTokenCard(idx, price, chPct) {
-  const t     = tokenData[idx];
-  const isUp  = chPct >= 0;
-  const color = isUp ? "#34d399" : "#f87171";
-  const fmt   = price > 100
-    ? "$"+price.toLocaleString("en",{maximumFractionDigits:t.dec})
-    : "$"+price.toFixed(4);
-  const chStr = (isUp?"▲ +":"▼ ")+Math.abs(chPct).toFixed(2)+"%";
-
-  const card = document.getElementById("tc"+idx);
-  if (card) {
-    card.classList.remove("up","down");
-    if (!card.classList.contains("selected")) card.classList.add(isUp?"up":"down");
-  }
-  const dot = document.getElementById("tcd"+idx);
-  if (dot) { dot.style.background=color; dot.style.boxShadow="0 0 6px "+color; }
-  const priceEl = document.getElementById("tcp"+idx);
-  if (priceEl) priceEl.textContent = fmt;
-  const chEl = document.getElementById("tcc"+idx);
-  if (chEl) { chEl.textContent=chStr; chEl.style.color=color; }
-  const bar = document.getElementById("tcb"+idx);
-  if (bar) bar.style.background = "linear-gradient(90deg,"+color+"33,"+color+")";
-}
-
-function updateTokenCardLive(sym, price) {
-  const idx = tokenData.findIndex(t=>t.sym===sym);
-  if (idx<0) return;
-  const t     = tokenData[idx];
-  const open  = t.openPrice || price;
-  const ch    = ((price-open)/open)*100;
-  const isUp  = ch >= 0;
-  const color = isUp ? "#34d399" : "#f87171";
-  const fmt   = price > 100
-    ? "$"+price.toLocaleString("en",{maximumFractionDigits:t.dec})
-    : "$"+price.toFixed(4);
-  const chStr = (isUp?"▲ +":"▼ ")+Math.abs(ch).toFixed(2)+"%";
-
-  const card = document.getElementById("tc"+idx);
-  if (card && !card.classList.contains("selected")) {
-    card.classList.remove("up","down");
-    card.classList.add(isUp?"up":"down");
-  }
-  const dot = document.getElementById("tcd"+idx);
-  if (dot) { dot.style.background=color; dot.style.boxShadow="0 0 6px "+color; }
-  const priceEl = document.getElementById("tcp"+idx);
-  if (priceEl) {
-    priceEl.textContent = fmt;
-    priceEl.style.color = "var(--cy2)";
-    setTimeout(()=>priceEl.style.color="var(--muted)", 400);
-  }
-  const chEl = document.getElementById("tcc"+idx);
-  if (chEl) { chEl.textContent=chStr; chEl.style.color=color; }
-  const bar = document.getElementById("tcb"+idx);
-  if (bar) bar.style.background = "linear-gradient(90deg,"+color+"33,"+color+")";
-  // Update session aktif
-  if (activeSession && activeSession.tokenSym===sym) {
-    const fmt2 = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:t.dec}) : "$"+price.toFixed(4);
-    const el = document.getElementById("riCurrent");
-    if (el) { el.textContent=fmt2; el.style.color=price>=(activeSession.entryPrice||0)?"var(--green)":"var(--red)"; }
+    buildTokens([
+      { id:"binancecoin", symbol:"BNB", name:"BNB",     current_price:600,   price_change_percentage_24h:0, image:"https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png" },
+      { id:"bitcoin",     symbol:"BTC", name:"Bitcoin",  current_price:65000, price_change_percentage_24h:0, image:"https://assets.coingecko.com/coins/images/1/small/bitcoin.png" },
+      { id:"ethereum",    symbol:"ETH", name:"Ethereum", current_price:3000,  price_change_percentage_24h:0, image:"https://assets.coingecko.com/coins/images/279/small/ethereum.png" },
+    ]);
   }
 }
 
-function connectWS(sym) {
+function buildTokens(data) {
+  const find = (id, sym) => data.find(d => d.id===id || (d.symbol||"").toUpperCase()===sym);
+  const bnb = find("binancecoin","BNB") || data[0];
+  const btc = find("bitcoin","BTC")     || data[1];
+  const eth = find("ethereum","ETH")    || data[2];
+  tokens = [
+    { ...bnb, open_price: bnb?.current_price||0 },
+    { ...btc, open_price: btc?.current_price||0 },
+    { ...eth, open_price: eth?.current_price||0 },
+  ];
+  latestPrices["BNB"] = tokens[0].current_price||0;
+  latestPrices["BTC"] = tokens[1].current_price||0;
+  latestPrices["ETH"] = tokens[2].current_price||0;
+  renderTokens();
+  setTimeout(startAllWS, 500);
+}
+
+function renderTokens() {
+  document.getElementById("tokenCards").innerHTML = tokens.map((t,i) => {
+    const ch    = t.price_change_percentage_24h || 0;
+    const isUp  = ch >= 0;
+    const color = isUp ? "#34d399" : "#f87171";
+    const dir   = isUp ? "up" : "down";
+    const chStr = (isUp ? "▲ +" : "▼ ") + Math.abs(ch).toFixed(2) + "%";
+    const px    = (t.current_price||0) > 100
+      ? "$"+(t.current_price).toLocaleString("en",{maximumFractionDigits:2})
+      : "$"+(t.current_price||0).toFixed(4);
+    const arrow = isUp ? "🟢" : "🔴";
+    return `
+    <div class="token-card ${dir}" id="tc${i}" onclick="pickToken(${i})">
+      <div class="tc-dot" style="background:${color};box-shadow:0 0 6px ${color}"></div>
+      <img class="tc-img" src="${t.image||""}" onerror="this.style.display='none'">
+      <div class="tc-body">
+        <div class="tc-sym">${(t.symbol||"").toUpperCase()}</div>
+        <div class="tc-price" id="tcp${i}">${px}</div>
+        <div class="tc-change" style="color:${color}">${chStr}</div>
+      </div>
+      <div class="tc-bar" style="background:linear-gradient(90deg,${color}33,${color})"></div>
+      <div class="tc-selected-check" style="color:${color}">${arrow}</div>
+    </div>`;
+  }).join("");
+}
+
+function updateTokenCardPrice(sym, price) {
+  tokens.forEach((t, i) => {
+    if ((t.symbol||"").toUpperCase() === sym) {
+      const priceEl = document.getElementById("tcp"+i);
+      if (priceEl) {
+        const fmt = price > 100
+          ? "$"+price.toLocaleString("en",{maximumFractionDigits:2})
+          : "$"+price.toFixed(4);
+        priceEl.textContent = fmt;
+        priceEl.style.transition = "color 0.3s";
+        priceEl.style.color = "var(--cy2)";
+        setTimeout(()=>priceEl.style.color="var(--muted)", 500);
+      }
+      const card = document.getElementById("tc"+i);
+      if (card && t.open_price) {
+        const ch    = ((price - t.open_price) / t.open_price) * 100;
+        const isUp  = ch >= 0;
+        const color = isUp ? "#34d399" : "#f87171";
+        if (!card.classList.contains("selected")) {
+          card.classList.remove("up","down");
+          card.classList.add(isUp?"up":"down");
+        }
+        const dot = card.querySelector(".tc-dot");
+        if (dot) { dot.style.background=color; dot.style.boxShadow="0 0 6px "+color; }
+        const chEl = card.querySelector(".tc-change");
+        if (chEl) { chEl.textContent=(isUp?"▲ +":"▼ ")+Math.abs(ch).toFixed(2)+"%"; chEl.style.color=color; }
+        t.current_price = price;
+        latestPrices[sym] = price;
+      }
+      if (activeSession && activeSession.tokenSym===sym) {
+        const fmt2 = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+        const el = document.getElementById("riCurrent");
+        if (el) { el.textContent=fmt2; el.style.color=price>=(activeSession.entryPrice||0)?"var(--green)":"var(--red)"; }
+      }
+    }
+  });
+}
+
+/* ═══ WEBSOCKET — persis Phantom ═══ */
+function connectWebSocket(sym) {
   if (wsConns[sym]) { wsConns[sym].close(); delete wsConns[sym]; }
   const pair = sym.toLowerCase()+"usdt";
   try {
@@ -917,12 +914,11 @@ function connectWS(sym) {
     ws.onmessage = e => {
       const d = JSON.parse(e.data);
       const price = parseFloat(d.p);
-      if (!price || price<=0) return;
-      latestPrices[sym] = price;
-      updateTokenCardLive(sym, price);
+      if (!price||price<=0) return;
+      updateTokenCardPrice(sym, price);
     };
     ws.onerror = () => fallbackHTTP(sym);
-    ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>connectWS(sym),5000); };
+    ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>connectWebSocket(sym),5000); };
     wsConns[sym] = ws;
   } catch(e) { fallbackHTTP(sym); }
 }
@@ -932,20 +928,14 @@ async function fallbackHTTP(sym) {
     const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
     const d = await r.json();
     const price = parseFloat(d.price);
-    if (!price||price<=0) return;
-    latestPrices[sym] = price;
-    updateTokenCardLive(sym, price);
+    if (price>0) updateTokenCardPrice(sym, price);
   } catch(e) {}
-  setTimeout(()=>connectWS(sym), 5000);
+  setTimeout(()=>connectWebSocket(sym), 8000);
 }
 
 function startAllWS() {
-  ["BNB","BTC","ETH"].forEach(connectWS);
+  ["BNB","BTC","ETH"].forEach(connectWebSocket);
 }
-
-/* ═══ CHART ═══ */
-
-
 
 
 /* ═══ FORM ═══ */
@@ -955,24 +945,15 @@ function toggleForm() {
 }
 function pickToken(idx) { selectToken(idx); }
 function selectToken(idx) {
-  selToken = idx;
+  selToken=idx;
   ["tc0","tc1","tc2"].forEach((id,i)=>{
-    const card = document.getElementById(id);
-    if (!card) return;
-    card.classList.toggle("selected", i===idx);
-    if (i!==idx) {
-      const sym  = tokenData[i].sym;
-      const p    = latestPrices[sym]||0;
-      const open = tokenData[i].openPrice||p;
-      if (p && open) {
-        card.classList.remove("up","down");
-        card.classList.add(p>=open?"up":"down");
-      }
-    }
+    const card=document.getElementById(id);
+    if(!card) return;
+    card.classList.toggle("selected",i===idx);
   });
-  const note = document.getElementById("selTokenNote");
-  if (note) note.textContent = tokenData[idx].sym+" / USDT";
-  approveReady = false;
+  const note=document.getElementById("selTokenNote");
+  if(note) note.textContent=["BNB","BTC","ETH"][idx]+" / USDT";
+  approveReady=false;
   updateConfirmBtn();
 }
 function updateBet(v) {
@@ -1365,7 +1346,7 @@ function showActiveSession() {
     document.getElementById("cdTimer").textContent="SIAP";
   }
 
-  connectWS(activeSession.tokenSym);
+  connectWebSocket(activeSession.tokenSym);
 }
 
 /* ═══ COUNTDOWN ═══ */
@@ -1507,13 +1488,12 @@ window.addEventListener("load",async()=>{
     window.ethereum.on("chainChanged",()=>location.reload());
   }
 
-  // Fetch CoinGecko dulu (dapat harga langsung) lalu start WS — persis Phantom
-  fetchAndBuildTokens();
+  // Fetch token — persis Phantom (CoinGecko → harga langsung muncul → WS update real-time)
+  fetchTokens();
 
   await loadPoolInfo();
   updateBet(200);
   renderHistory();
-
 
   // Form terbuka default
   document.getElementById("formBody").classList.add("open");
