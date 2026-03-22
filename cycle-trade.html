@@ -1026,6 +1026,20 @@ async function fallbackHTTP(sym) {
 
 function startAllWS() {
   ["BNB","BTC","ETH"].forEach(connectWebSocket);
+  // Polling HTTP tiap 2 detik sebagai backup real-time
+  // supaya chart selalu bergerak walau WS lambat
+  setInterval(async()=>{
+    const sym = cpSym;
+    if (!sym) return;
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+      const d = await r.json();
+      const price = parseFloat(d.price);
+      if (price>0) {
+        updateTokenCardPrice(sym, price);
+      }
+    } catch(e){}
+  }, 2000);
 }
 
 /* ══ CHART PREVIEW REAL-TIME ══ */
@@ -1039,13 +1053,13 @@ function showChartPreview(sym) {
   document.getElementById("cpToken").textContent = names[sym]||sym;
   document.getElementById("chartPreview").classList.add("show");
 
-  // Reset candle data
+  // Reset SEMUA — penting saat ganti token
   cpCandles = []; cpCurCandle = null; cpTick = 0;
+  cpBasePrice = 0; // reset agar diset ulang dari harga baru
 
-  // Pakai harga yang sudah ada dari token card
   const price = latestPrices[sym]||0;
   if (price > 0) {
-    cpBasePrice = price;
+    cpBasePrice = price; // base = harga saat ini saat klik
     // Buat candle awal dari harga real supaya chart langsung terisi
     let p = price;
     for (let i=0; i<14; i++) {
@@ -1084,12 +1098,20 @@ function cpUpdateUI(price) {
   const pct  = (diff/cpBasePrice)*100;
   const isUp = diff >= 0;
 
-  // Harga besar
+  // Format harga
+  const sym  = cpSym||"BNB";
+  const dec  = sym==="BTC" ? 0 : 2;
+  const fmt  = "$"+price.toLocaleString("en",{maximumFractionDigits:dec});
+
+  // Harga besar — flash warna saat update
   const priceEl = document.getElementById("cpPrice");
   const changeEl = document.getElementById("cpChange");
   if (priceEl) {
-    priceEl.textContent = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+price.toFixed(4);
+    priceEl.textContent = fmt;
     priceEl.className = "cp-price"+(isUp?"":" down");
+    priceEl.style.transition = "color 0.2s";
+    priceEl.style.color = isUp ? "var(--green)" : "var(--red)";
+    setTimeout(()=>{ if(priceEl) priceEl.style.color=""; }, 300);
   }
   if (changeEl) {
     changeEl.textContent = (isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(3)+"%";
@@ -1102,16 +1124,16 @@ function cpUpdateUI(price) {
   const rw  = isUp ? (50+amp) : (50-amp);
   const dp  = isUp ? (50+amp) : (50-amp);
   const col = isUp ? "var(--green)" : "var(--red)";
-  const el_tl = document.getElementById("cpTLeft");
-  const el_tr = document.getElementById("cpTRight");
-  const el_td = document.getElementById("cpTDot");
-  const el_tp = document.getElementById("cpTensionPct");
-  const el_tpr= document.getElementById("cpTPrice");
-  if (el_tl) el_tl.style.width = Math.max(2,lw)+"%";
-  if (el_tr) el_tr.style.width = Math.max(2,rw)+"%";
-  if (el_td) { el_td.style.left=dp+"%"; el_td.style.background=col; el_td.style.boxShadow="0 0 8px "+col; }
-  if (el_tp) { el_tp.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(3)+"%"; el_tp.style.color=col; }
-  if (el_tpr) el_tpr.textContent = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+price.toFixed(4);
+  const el_tl  = document.getElementById("cpTLeft");
+  const el_tr  = document.getElementById("cpTRight");
+  const el_td  = document.getElementById("cpTDot");
+  const el_tp  = document.getElementById("cpTensionPct");
+  const el_tpr = document.getElementById("cpTPrice");
+  if (el_tl)  el_tl.style.width  = Math.max(2,lw)+"%";
+  if (el_tr)  el_tr.style.width  = Math.max(2,rw)+"%";
+  if (el_td)  { el_td.style.left=dp+"%"; el_td.style.background=col; el_td.style.boxShadow="0 0 8px "+col; }
+  if (el_tp)  { el_tp.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(3)+"%"; el_tp.style.color=col; }
+  if (el_tpr) el_tpr.textContent = fmt;
 
   // Render candle
   cpRenderCandles(price);
