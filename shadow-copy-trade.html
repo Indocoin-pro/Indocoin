@@ -2,89 +2,1155 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>INDOCOIN — SHADOW COPY TRADE</title>
+<title>INDOCOIN — Shadow Copy Trade</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
-:root {
-  --gold: #facc15; --gold2: #fbbf24; --gold3: #f59e0b;
-  --dark: #0a0f1e; --dark2: #0f172a; --dark3: #1e293b;
-  --text: #e2e8f0; --muted: #64748b;
-  --accent: #a78bfa; --accentbg: rgba(167,139,250,0.08);
+:root{
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --sc1:#8b5cf6;--sc2:#a78bfa;--sc3:#ede9fe;--sc4:#2e1065;
+  --gold:#facc15;--green:#34d399;--red:#f87171;--cyan:#38bdf8;
+  --muted:#64748b;--text:#e2e8f0;--border:rgba(139,92,246,0.15);
+  --card:rgba(15,23,42,0.97);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--dark); color: var(--text); font-family: 'Rajdhani', sans-serif; min-height: 100vh; overflow-x: hidden; display: flex; flex-direction: column; }
-#bgLogo { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-#bgLogo img { width: min(85vw,85vh); height: min(85vw,85vh); object-fit: contain; opacity: 0.03; filter: blur(2px); }
-.star { position: fixed; background: #fff; border-radius: 50%; animation: twinkle var(--d) ease-in-out infinite alternate; z-index:0; }
-@keyframes twinkle { from{opacity:.1} to{opacity:.7} }
-.topnav { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(10,15,30,0.9); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(250,204,21,0.15); position: sticky; top: 0; z-index: 100; }
-.nav-left { display: flex; align-items: center; gap: 10px; }
-.nav-logo { width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.85); box-shadow: 0 0 10px rgba(255,255,255,0.3); object-fit: cover; }
-.nav-brand { display: flex; flex-direction: column; }
-.nav-brand-main { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 900; color: var(--gold); letter-spacing: 2px; }
-.nav-brand-sub { font-family: 'Share Tech Mono', monospace; font-size: 8px; color: var(--muted); letter-spacing: 1px; }
-.btn-back { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--gold); text-decoration: none; letter-spacing: 1px; padding: 6px 12px; border: 1px solid rgba(250,204,21,0.3); border-radius: 20px; background: rgba(250,204,21,0.05); transition: all 0.2s; }
-.btn-back:hover { background: rgba(250,204,21,0.12); }
-.main { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px 100px; text-align: center; }
-.cs-icon { font-size: 72px; margin-bottom: 24px; animation: float 3s ease-in-out infinite; }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-.cs-badge { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px; color: var(--accent); background: var(--accentbg); border: 1px solid var(--accent); opacity: 0.85; padding: 5px 16px; border-radius: 20px; margin-bottom: 20px; display: inline-block; }
-.cs-title { font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900; color: var(--accent); letter-spacing: 3px; margin-bottom: 8px; line-height: 1.2; }
-.cs-sub { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; margin-bottom: 16px; }
-.cs-desc { font-size: 15px; color: var(--muted); max-width: 320px; line-height: 1.7; margin-bottom: 36px; }
-.cs-bar { width: 240px; height: 4px; background: var(--accentbg); border-radius: 2px; overflow: hidden; margin-bottom: 16px; }
-.cs-bar-fill { height: 100%; width: 40%; background: linear-gradient(90deg, var(--accent), var(--gold)); border-radius: 2px; animation: progress 2.5s ease-in-out infinite alternate; }
-@keyframes progress { from{width:20%} to{width:75%} }
-.cs-notify { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 32px; }
-.btn-home { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #0a0f1e; background: linear-gradient(135deg, var(--gold3), var(--gold)); border: none; border-radius: 25px; padding: 14px 32px; cursor: pointer; text-decoration: none; display: inline-block; box-shadow: 0 4px 20px rgba(250,204,21,0.3); transition: all 0.2s; }
-.btn-home:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(250,204,21,0.45); }
-.bottomnav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: rgba(5,10,25,0.97); backdrop-filter: blur(16px); border-top: 1px solid rgba(250,204,21,0.2); display: flex; height: 62px; }
-.bnav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: #6b7280; transition: all 0.2s; }
-.bnav-item.active, .bnav-item:hover { color: var(--gold); }
-.bnav-icon { font-size: 18px; }
-.bnav-label { font-size: 7.5px; font-weight: 700; letter-spacing: 0.8px; font-family: 'Orbitron', sans-serif; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(139,92,246,0.3)}50%{box-shadow:0 0 20px rgba(139,92,246,0.6)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--sc2);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:7px 12px;
+  border:1px solid rgba(139,92,246,0.4);border-radius:20px;background:rgba(139,92,246,0.08);
+  color:var(--sc2);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+
+/* PAGE */
+.page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* HERO */
+.hero{text-align:center;padding:16px 0 12px;animation:fadeUp 0.4s ease;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;
+  font-size:8px;letter-spacing:2px;color:var(--sc2);background:rgba(139,92,246,0.08);
+  border:1px solid rgba(139,92,246,0.25);padding:4px 14px;border-radius:20px;margin-bottom:10px;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;
+  letter-spacing:2px;line-height:1.2;margin-bottom:6px;}
+.hero-title span{color:var(--sc2);}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.8;}
+
+/* TABS */
+.main-tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;padding:5px;}
+.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:8px 4px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;}
+.tab-btn.active{background:rgba(139,92,246,0.15);color:var(--sc2);
+  border:1px solid rgba(139,92,246,0.3);}
+
+/* SECTION */
+.section{animation:fadeUp 0.3s ease;}
+
+/* MASTER LIST */
+.filter-bar{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.filt-btn{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
+  padding:5px 10px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.2s;}
+.filt-btn.active{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.1);color:var(--sc2);}
+
+/* MASTER CARD */
+.master-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;}
+.master-card:hover{border-color:rgba(139,92,246,0.3);transform:translateY(-1px);}
+.mc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.mc-avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;flex-shrink:0;
+  background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);}
+.mc-info{flex:1;}
+.mc-addr{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);font-weight:600;}
+.mc-tier{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--sc2);
+  display:flex;align-items:center;gap:4px;margin-top:2px;}
+.mc-stars{color:var(--gold);font-size:8px;letter-spacing:1px;}
+.mc-status{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:3px 8px;border-radius:8px;display:flex;align-items:center;gap:3px;}
+.mc-status.open{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.mc-status.trading{background:rgba(139,92,246,0.1);color:var(--sc2);border:1px solid rgba(139,92,246,0.2);}
+.mc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.mc-stat-box{background:rgba(255,255,255,0.03);border-radius:8px;padding:7px 6px;text-align:center;}
+.mc-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px;}
+.mc-stat-val{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);}
+.mc-stat-val.green{color:var(--green);}
+.mc-stat-val.violet{color:var(--sc2);}
+.mc-bottom{display:flex;justify-content:space-between;align-items:center;}
+.mc-token{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.mc-pot{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);}
+.mc-timer{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-join{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:7px 14px;border-radius:8px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--sc1),var(--sc2));color:white;
+  transition:all 0.2s;letter-spacing:0.5px;}
+.btn-join:hover{opacity:0.9;transform:scale(1.02);}
+
+/* DETAIL SESI */
+.sess-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:10px;}
+.sess-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--sc2);}
+.sess-badge{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:3px 8px;border-radius:8px;}
+.badge-reg{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.badge-trade{background:rgba(139,92,246,0.1);color:var(--sc2);border:1px solid rgba(139,92,246,0.2);}
+.badge-done{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
+
+/* PRICE ROW */
+.price-row{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;}
+.pr-left{}
+.pr-sym{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
+.pr-price{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;transition:color 0.3s;}
+.pr-price.up{color:var(--green);}
+.pr-price.down{color:var(--red);}
+.pr-chg{font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 8px;border-radius:8px;display:inline-block;}
+.pr-chg.up{background:rgba(52,211,153,0.1);color:var(--green);}
+.pr-chg.down{background:rgba(248,113,113,0.1);color:var(--red);}
+.pr-right{text-align:right;}
+.pr-dir{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  padding:6px 12px;border-radius:8px;}
+.pr-dir.long{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.pr-dir.short{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.pr-dir.hidden{background:rgba(139,92,246,0.1);color:var(--sc2);border:1px solid rgba(139,92,246,0.2);}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1s infinite;display:inline-block;margin-right:4px;}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.stat-box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);
+  border-radius:10px;padding:10px 8px;text-align:center;}
+.stat-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.stat-val.up{color:var(--green);}
+.stat-val.down{color:var(--red);}
+
+/* POSITION CARD */
+.pos-card{background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);
+  border-radius:12px;padding:12px;margin-bottom:10px;}
+.pos-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--sc2);letter-spacing:1px;margin-bottom:8px;}
+.pos-row{display:flex;justify-content:space-between;align-items:center;
+  font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.pos-row:last-child{border:none;}
+.pos-key{color:var(--muted);}
+.pos-val{color:var(--text);font-weight:600;}
+.pos-val.green{color:var(--green);}
+.pos-val.red{color:var(--red);}
+
+/* FORM MASTER */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:10px;animation:fadeUp 0.3s ease;}
+.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--sc2);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.sec-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:1px;margin-bottom:8px;margin-top:12px;}
+.opt-row{display:flex;gap:6px;flex-wrap:wrap;}
+.opt-btn{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:7px 12px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;flex-shrink:0;}
+.opt-btn.sel{border-color:rgba(139,92,246,0.5);background:rgba(139,92,246,0.12);color:var(--sc2);}
+.tier-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:4px;}
+.tier-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;
+  padding:10px;cursor:pointer;transition:all 0.2s;text-align:center;}
+.tier-card.sel{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.08);}
+.tier-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--sc2);margin-bottom:2px;}
+.tier-lock{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.tier-max{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold);margin-top:2px;}
+.input-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;}
+.input-field{flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text);}
+.input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.time-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;padding:10px 12px;font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--text);outline:none;}
+
+/* LIVE CHART BUTTON */
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:11px;
+  margin-bottom:10px;border-radius:12px;text-decoration:none;
+  background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.2);
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--sc2);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+
+/* BUTTONS */
+.btn-main{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
+  transition:all 0.2s;margin-bottom:8px;}
+.btn-violet{background:linear-gradient(135deg,var(--sc1),var(--sc2));color:white;}
+.btn-green{background:linear-gradient(135deg,#059669,#34d399);color:white;}
+.btn-red{background:linear-gradient(135deg,#dc2626,#f87171);color:white;}
+.btn-outline{background:transparent;border:1px solid rgba(139,92,246,0.3);color:var(--sc2);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:40px 20px;}
+.empty-icon{font-size:40px;margin-bottom:10px;}
+.empty-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:10px 18px;
+  border-radius:20px;color:white;z-index:999;opacity:0;transition:all 0.3s;
+  white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* LOADING */
+.spin{width:16px;height:16px;border:2px solid rgba(139,92,246,0.2);
+  border-top-color:var(--sc2);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,25,0.97);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#6b7280;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
 </style>
 </head>
 <body>
-<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+
+<div class="toast" id="toast"></div>
+
+<!-- TOPNAV -->
 <nav class="topnav">
   <div class="nav-left">
-    <a href="trade.html" class="btn-back">← BACK</a>
-    <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN" onerror="this.style.display='none'">
-    <div class="nav-brand">
-      <span class="nav-brand-main">INDOCOIN</span>
-      <span class="nav-brand-sub">👁️ SHADOW COPY TRADE</span>
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">👁️ SHADOW COPY TRADE</div>
     </div>
   </div>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span id="walletIcon">⚡</span>
+    <span id="walletTxt">CONNECT</span>
+  </button>
 </nav>
-<div class="main">
-  <div class="cs-icon">👁️</div>
-  <div class="cs-badge">⏳ COMING SOON</div>
-  <div class="cs-title">SHADOW COPY TRADE</div>
-  <div class="cs-sub">Mirror Trade</div>
-  <div class="cs-desc">Ikuti gerakan trader terbaik — profit otomatis mengikuti setiap gerakannya</div>
-  <div class="cs-bar"><div class="cs-bar-fill"></div></div>
-  <div class="cs-notify">Fitur ini sedang dalam pengembangan</div>
-  <a href="trade.html" class="btn-home">← KEMBALI KE TRADE</a>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">👁️ COPY TRADING · TRUSTLESS · ON-CHAIN</div>
+    <div class="hero-title">SHADOW<br><span>COPY TRADE</span></div>
+    <div class="hero-desc">Ikuti master trader terbaik · Asset tetap di wallet kamu<br>Profit bersama · Tanpa trusted pihak ketiga</div>
+  </div>
+
+  <!-- MAIN TABS -->
+  <div class="main-tabs">
+    <button class="tab-btn active" onclick="switchTab('list')"   id="tab-list">👁️ IKUTI MASTER</button>
+    <button class="tab-btn"        onclick="switchTab('my')"     id="tab-my">📊 POSISIKU</button>
+    <button class="tab-btn"        onclick="switchTab('master')" id="tab-master">🎖️ JADI MASTER</button>
+  </div>
+
+  <!-- ════ TAB 1: LIST MASTER ════ -->
+  <div id="sec-list" class="section">
+
+    <!-- Filter -->
+    <div class="filter-bar">
+      <button class="filt-btn active" onclick="filterMaster('all',this)">SEMUA</button>
+      <button class="filt-btn" onclick="filterMaster('reg',this)">🟢 BUKA DAFTAR</button>
+      <button class="filt-btn" onclick="filterMaster('trade',this)">🔵 TRADING</button>
+      <button class="filt-btn" onclick="filterMaster('t3',this)">🥇 JENDERAL+</button>
+    </div>
+
+    <!-- Live Chart Button -->
+    <a href="chart.html" class="btn-chart">
+      <span style="font-size:14px;">📊</span>
+      <div style="text-align:left;">
+        <div>LIHAT LIVE CHART</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);font-weight:400;letter-spacing:0;margin-top:1px;">Analisa harga sebelum ikut master</div>
+      </div>
+      <span style="margin-left:auto;font-size:14px;">›</span>
+    </a>
+
+    <!-- Master List -->
+    <div id="masterList">
+      <div class="empty">
+        <div class="empty-icon">👁️</div>
+        <div class="empty-txt">MEMUAT DATA MASTER...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ TAB 2: POSISIKU ════ -->
+  <div id="sec-my" class="section" style="display:none;">
+
+    <div id="myPosition">
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-txt">CONNECT WALLET UNTUK LIHAT POSISI</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ TAB 3: JADI MASTER ════ -->
+  <div id="sec-master" class="section" style="display:none;">
+
+    <div id="masterSection">
+      <div class="empty">
+        <div class="empty-icon">🎖️</div>
+        <div class="empty-txt">CONNECT WALLET UNTUK LANJUT</div>
+      </div>
+    </div>
+
+  </div>
+
 </div>
+
+<!-- BOTTOMNAV -->
 <nav class="bottomnav">
   <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
-  <a href="earn.html" class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
-  <a href="referral.html" class="bnav-item"><span class="bnav-icon">🌐</span><span class="bnav-label">REFERRAL</span></a>
-  <a href="presale.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
-  <a href="community.html" class="bnav-item"><span class="bnav-icon">💬</span><span class="bnav-label">COMMUNITY</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item active"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html"      class="bnav-item"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
 </nav>
+
 <script>
-for(let i=0;i<20;i++){
-  const s=document.createElement("div"); s.className="star";
-  const sz=Math.random()*1.5+0.5;
-  s.style.cssText="width:"+sz+"px;height:"+sz+"px;left:"+Math.random()*100+"%;top:"+Math.random()*100+"%;--d:"+(Math.random()*3+2)+"s;animation-delay:"+(Math.random()*3)+"s;";
-  document.body.appendChild(s);
+// ═══ CONFIG ═════════════════════════════════════════════════════
+const CONTRACT  = "0x9EdeA4C7CC9FC896388Dd24084D9c40059F12Fb1";
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const INDC_DEC  = 9;
+const TIER_NAMES= ["LETNAN","KOLONEL","JENDERAL","PANGLIMA"];
+const TIER_EMOJI= ["🥉","🥈","🥇","👑"];
+const TIER_LOCK = [5000,20000,50000,100000];
+const TIER_MAX  = ["Max 50","Max 200","Max 500","Unlimited"];
+const DUR_NAMES = ["7 Hari","15 Hari","1 Bulan"];
+const DUR_SEC   = [7*86400,15*86400,30*86400];
+const TOK_NAMES = ["BNB","BTC","ETH","CAKE","SOL","XRP","ADA","DOT","LINK","MATIC"];
+
+const ABI = [
+  "function isMaster(address) view returns (bool)",
+  "function mTier(address) view returns (uint8)",
+  "function mLock(address) view returns (uint256)",
+  "function mSessions(address) view returns (uint256)",
+  "function mWins(address) view returns (uint256)",
+  "function mStreak(address) view returns (uint256)",
+  "function mBestStreak(address) view returns (uint256)",
+  "function mShadows(address) view returns (uint256)",
+  "function mActive(address) view returns (bool)",
+  "function mCancels(address) view returns (uint256)",
+  "function mJoined(address) view returns (uint256)",
+  "function sidCount() view returns (uint256)",
+  "function sMaster(uint256) view returns (address)",
+  "function sToken(uint256) view returns (uint8)",
+  "function sDir(uint256) view returns (uint8)",
+  "function sDur(uint256) view returns (uint8)",
+  "function sRegStart(uint256) view returns (uint256)",
+  "function sRegEnd(uint256) view returns (uint256)",
+  "function sTradeEnd(uint256) view returns (uint256)",
+  "function sEntry(uint256) view returns (int256)",
+  "function sExit(uint256) view returns (int256)",
+  "function sMasterLock(uint256) view returns (uint256)",
+  "function sPot(uint256) view returns (uint256)",
+  "function sShadowCount(uint256) view returns (uint256)",
+  "function sStatus(uint256) view returns (uint8)",
+  "function sRevealed(uint256) view returns (bool)",
+  "function pAmt(uint256,address) view returns (uint256)",
+  "function pJoin(uint256,address) view returns (uint256)",
+  "function pExited(uint256,address) view returns (bool)",
+  "function pClaimed(uint256,address) view returns (bool)",
+  "function pPenalty(uint256,address) view returns (uint256)",
+  "function pActive(address) view returns (uint256)",
+  "function tokenSym(uint8) view returns (string)",
+  "function tokenCount() view returns (uint8)",
+  "function registerMaster(uint8) external",
+  "function upgradeTier(uint8) external",
+  "function createSession(uint8,uint8,uint8,uint256) external",
+  "function startTrading(uint256) external",
+  "function finalizeSession(uint256) external",
+  "function cancelSession(uint256) external",
+  "function joinSession(uint256,uint256) external",
+  "function earlyExit(uint256) external",
+  "function claimMaster(uint256) external",
+  "function claimShadow(uint256) external",
+  "function getExitInfo(uint256) view returns (uint256,uint256,bool)",
+];
+
+const INDC_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) external returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+];
+
+// ═══ STATE ══════════════════════════════════════════════════════
+let provider, signer, userAddr, contract, indcContract;
+let currentFilter = "all";
+let allSessions   = [];
+let wsConns       = {};
+let latestPrices  = {};
+
+// ═══ WALLET ═════════════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!", "#f87171"); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) {
+      await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer       = await provider.getSigner();
+    userAddr     = await signer.getAddress();
+    contract     = new ethers.Contract(CONTRACT, ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
+    document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletIcon").textContent = "✅";
+    showToast("Wallet terhubung!", "#34d399");
+    loadAllData();
+    window.ethereum.on("accountsChanged", ()=>location.reload());
+    window.ethereum.on("chainChanged",   ()=>location.reload());
+  } catch(e) { showToast("Gagal connect: "+e.message, "#f87171"); }
 }
+
+async function getReadContract() {
+  const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+  return new ethers.Contract(CONTRACT, ABI, prov);
+}
+
+// ═══ LOAD DATA ══════════════════════════════════════════════════
+async function loadAllData() {
+  loadMasterList();
+  if (userAddr) {
+    loadMyPosition();
+    loadMasterSection();
+  }
+}
+
+async function loadMasterList() {
+  const c = await getReadContract();
+  try {
+    const total = Number(await c.sidCount());
+    allSessions = [];
+    for (let i = Math.max(1, total-50); i <= total; i++) {
+      const st = Number(await c.sStatus(i));
+      if (st === 1 || st === 2) { // REGISTRATION or TRADING
+        allSessions.push(await loadSession(c, i));
+      }
+    }
+    renderMasterList();
+  } catch(e) {
+    document.getElementById("masterList").innerHTML = `
+      <div class="empty"><div class="empty-icon">⚠️</div>
+      <div class="empty-txt">GAGAL MEMUAT DATA</div></div>`;
+  }
+}
+
+async function loadSession(c, sid) {
+  const [master,token,dir,dur,status,revealed] = await Promise.all([
+    c.sMaster(sid), c.sToken(sid), c.sDir(sid), c.sDur(sid),
+    c.sStatus(sid), c.sRevealed(sid)
+  ]);
+  const [regStart,regEnd,tradeEnd,entry,exit_,pot,cnt] = await Promise.all([
+    c.sRegStart(sid), c.sRegEnd(sid), c.sTradeEnd(sid),
+    c.sEntry(sid), c.sExit(sid), c.sPot(sid), c.sShadowCount(sid)
+  ]);
+  const [mTier,mSess,mWins,mStreak,mBest,mShads] = await Promise.all([
+    c.mTier(master), c.mSessions(master), c.mWins(master),
+    c.mStreak(master), c.mBestStreak(master), c.mShadows(master)
+  ]);
+  const winRate = Number(mSess) > 0 ? Math.round(Number(mWins)*100/Number(mSess)) : 0;
+  const stars   = winRate>=76?4:winRate>=61?3:winRate>=41?2:1;
+  return {
+    sid, master, token:Number(token), dir:Number(dir),
+    dur:Number(dur), status:Number(status), revealed,
+    regStart:Number(regStart), regEnd:Number(regEnd), tradeEnd:Number(tradeEnd),
+    entry:entry, exit:exit_, pot:pot, cnt:Number(cnt),
+    mTier:Number(mTier), winRate, stars, mSess:Number(mSess),
+    mWins:Number(mWins), mStreak:Number(mStreak), mBest:Number(mBest),
+    mShads:Number(mShads)
+  };
+}
+
+function renderMasterList() {
+  const now  = Math.floor(Date.now()/1000);
+  let list   = allSessions;
+
+  if (currentFilter === "reg")   list = list.filter(s=>s.status===1);
+  if (currentFilter === "trade") list = list.filter(s=>s.status===2);
+  if (currentFilter === "t3")    list = list.filter(s=>s.mTier>=2);
+
+  const el = document.getElementById("masterList");
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👁️</div>
+      <div class="empty-txt">BELUM ADA SESI AKTIF</div></div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(s => {
+    const stars   = "⭐".repeat(s.stars);
+    const tierLbl = `${TIER_EMOJI[s.mTier]} ${TIER_NAMES[s.mTier]}`;
+    const pot     = formatINDC(s.pot);
+    const cnt     = s.cnt;
+    const tokNm   = TOK_NAMES[s.token]||"???";
+    const durNm   = DUR_NAMES[s.dur];
+    const isReg   = s.status===1;
+    const sttLbl  = isReg ? "🟢 BUKA DAFTAR" : "🔵 TRADING";
+    const sttCls  = isReg ? "open" : "trading";
+    const timeLeft= isReg
+      ? fmtTime(s.regEnd - now)
+      : fmtTime(s.tradeEnd - now);
+    const timeHint= isReg ? "Tutup dalam" : "Selesai dalam";
+    const dirShow = s.revealed
+      ? (s.dir===0?"📈 LONG":"📉 SHORT")
+      : "🔒 TERSEMBUNYI";
+
+    return `<div class="master-card" onclick="openSess(${s.sid})">
+      <div class="mc-top">
+        <div class="mc-avatar">${TIER_EMOJI[s.mTier]}</div>
+        <div class="mc-info">
+          <div class="mc-addr">${s.master.slice(0,6)}...${s.master.slice(-4)}</div>
+          <div class="mc-tier">${tierLbl} <span class="mc-stars">${stars}</span></div>
+        </div>
+        <div class="mc-status ${sttCls}">${sttLbl}</div>
+      </div>
+      <div class="mc-stats">
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">WIN RATE</div>
+          <div class="mc-stat-val ${s.winRate>=60?'green':'violet'}">${s.winRate}%</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">TOTAL SESI</div>
+          <div class="mc-stat-val">${s.mSess}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">STREAK</div>
+          <div class="mc-stat-val violet">${s.mStreak}🔥</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">SHADOW</div>
+          <div class="mc-stat-val">${cnt}</div>
+        </div>
+      </div>
+      <div class="mc-bottom">
+        <div>
+          <div class="mc-token">Token: ${tokNm} · ${durNm} · ${dirShow}</div>
+          <div class="mc-timer">${timeHint}: ${timeLeft}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="mc-pot">${pot} INDC</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">Total Pot</div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ═══ OPEN SESSION DETAIL ════════════════════════════════════════
+async function openSess(sid) {
+  const s   = allSessions.find(x=>x.sid===sid);
+  if (!s) return;
+  const now = Math.floor(Date.now()/1000);
+  const isReg  = s.status===1;
+  const isTrade= s.status===2;
+  const tokNm  = TOK_NAMES[s.token]||"???";
+  const dirShow= s.revealed
+    ? (s.dir===0?"📈 LONG":"📉 SHORT")
+    : "🔒 ARAH TERSEMBUNYI";
+  const dirCls = s.revealed
+    ? (s.dir===0?"long":"short")
+    : "hidden";
+  const badgeCls  = isReg?"badge-reg":isTrade?"badge-trade":"badge-done";
+  const badgeLbl  = isReg?"🟢 BUKA DAFTAR":isTrade?"🔵 SEDANG TRADING":"✅ SELESAI";
+  const pot     = formatINDC(s.pot);
+  const stars   = "⭐".repeat(s.stars);
+  const curPrice= latestPrices[tokNm]||0;
+
+  // Cek posisi user
+  let myPos = null;
+  if (userAddr) {
+    const c = await getReadContract();
+    const amt = await c.pAmt(sid, userAddr);
+    if (Number(amt) > 0) {
+      const [join,exited,claimed,pen] = await Promise.all([
+        c.pJoin(sid,userAddr), c.pExited(sid,userAddr),
+        c.pClaimed(sid,userAddr), c.pPenalty(sid,userAddr)
+      ]);
+      myPos = {amt, join:Number(join), exited, claimed, pen};
+    }
+  }
+
+  // Render detail
+  const html = `
+    <div class="sess-card">
+      <div class="sess-head">
+        <div class="sess-title">👁️ DETAIL SESI #${sid}</div>
+        <div class="sess-badge ${badgeCls}">${badgeLbl}</div>
+      </div>
+
+      <!-- Harga real-time -->
+      <div class="price-row">
+        <div class="pr-left">
+          <div class="pr-sym"><span class="live-dot"></span>${tokNm}/USDT</div>
+          <div class="pr-price up" id="dp-price">$${curPrice>0?curPrice.toLocaleString("en",{maximumFractionDigits:2}):"—"}</div>
+          <div class="pr-chg up" id="dp-chg">—</div>
+        </div>
+        <div class="pr-right">
+          <div class="pr-dir ${dirCls}">${dirShow}</div>
+          ${isTrade&&s.entry?`<div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:4px;">Entry: $${Number(s.entry)/1e8>1000?Math.round(Number(s.entry)/1e8).toLocaleString():(Number(s.entry)/1e8).toFixed(2)}</div>`:""}
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-lbl">TOTAL POT</div>
+          <div class="stat-val">${pot}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">SHADOW</div>
+          <div class="stat-val">${s.cnt}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">${isReg?"REG TUTUP":"SELESAI"}</div>
+          <div class="stat-val violet">${isReg?fmtTime(s.regEnd-now):fmtTime(s.tradeEnd-now)}</div>
+        </div>
+      </div>
+
+      <!-- Info Master -->
+      <div style="background:rgba(139,92,246,0.05);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:10px;margin-bottom:10px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--sc2);letter-spacing:1px;margin-bottom:6px;">INFO MASTER</div>
+        <div class="pos-row"><span class="pos-key">Alamat</span><span class="pos-val">${s.master.slice(0,8)}...${s.master.slice(-6)}</span></div>
+        <div class="pos-row"><span class="pos-key">Tier</span><span class="pos-val">${TIER_EMOJI[s.mTier]} ${TIER_NAMES[s.mTier]} ${stars}</span></div>
+        <div class="pos-row"><span class="pos-key">Win Rate</span><span class="pos-val ${s.winRate>=60?"green":""}">${s.winRate}% (${s.mWins}/${s.mSess})</span></div>
+        <div class="pos-row"><span class="pos-key">Streak Sekarang</span><span class="pos-val violet">${s.mStreak} 🔥</span></div>
+        <div class="pos-row"><span class="pos-key">Durasi Trading</span><span class="pos-val">${DUR_NAMES[s.dur]}</span></div>
+        <div class="pos-row"><span class="pos-key">Token</span><span class="pos-val">${tokNm}</span></div>
+      </div>
+
+      <!-- Fee Info -->
+      <div style="background:rgba(250,204,21,0.04);border:1px solid rgba(250,204,21,0.1);border-radius:10px;padding:10px;margin-bottom:10px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--gold);letter-spacing:1px;margin-bottom:6px;">STRUKTUR FEE (HANYA SAAT MENANG ≥1%)</div>
+        <div class="pos-row"><span class="pos-key">Fee ke Master</span><span class="pos-val">3% dari total taruhan shadow</span></div>
+        <div class="pos-row"><span class="pos-key">Fee ke Platform</span><span class="pos-val">2% dari total taruhan shadow</span></div>
+        <div class="pos-row"><span class="pos-key">Jika Kalah</span><span class="pos-val green">Tidak dipotong apapun ✅</span></div>
+      </div>
+
+      ${myPos && !myPos.exited && !myPos.claimed ? `
+      <!-- Posisi Saya -->
+      <div class="pos-card">
+        <div class="pos-title">📊 POSISIKU</div>
+        <div class="pos-row"><span class="pos-key">Taruhan</span><span class="pos-val">${formatINDC(myPos.amt)} INDC</span></div>
+        <div class="pos-row"><span class="pos-key">Bergabung</span><span class="pos-val">${new Date(myPos.join*1000).toLocaleDateString("id")}</span></div>
+        ${isTrade?`<div class="pos-row"><span class="pos-key">P&L Saat Ini</span><span class="pos-val" id="my-pnl">Menghitung...</span></div>`:""}
+      </div>
+      ` : ""}
+
+      <!-- Tombol -->
+      <a href="chart.html?sym=${tokNm}&tf=1d" class="btn-chart" style="margin-bottom:10px;">
+        <span style="font-size:14px;">📊</span>
+        <div><div>LIHAT LIVE CHART ${tokNm}</div></div>
+        <span style="margin-left:auto;">›</span>
+      </a>
+
+      ${isReg && !myPos ? `
+        <div class="sec-label">JUMLAH TARUHAN (MIN 2.000 INDC)</div>
+        <div class="input-row" style="margin-bottom:10px;">
+          <input class="input-field" id="joinAmt" type="number" placeholder="2000" min="2000">
+          <span class="input-unit">INDC</span>
+        </div>
+        <button class="btn-main btn-violet" onclick="joinSess(${sid})">👁️ IKUTI MASTER INI</button>
+      ` : ""}
+
+      ${isTrade && myPos && !myPos.exited && !myPos.claimed ? `
+        <button class="btn-main btn-red" onclick="exitSess(${sid})">🚪 EARLY EXIT</button>
+      ` : ""}
+
+      ${s.status===3 && myPos && !myPos.claimed && !myPos.exited ? `
+        <button class="btn-main btn-green" onclick="claimShadowReward(${sid})">💰 KLAIM REWARD</button>
+      ` : ""}
+
+      <button class="btn-main btn-outline" onclick="backToList()" style="margin-top:4px;">← KEMBALI</button>
+    </div>`;
+
+  document.getElementById("sec-list").innerHTML = html;
+  // Start WS untuk token ini
+  startPriceWS(tokNm, sid);
+}
+
+function backToList() {
+  Object.values(wsConns).forEach(ws=>{ try{ws.close();}catch(e){} });
+  wsConns = {};
+  renderMasterList();
+  // Restore filter bar
+  document.getElementById("sec-list").innerHTML = `
+    <div class="filter-bar">
+      <button class="filt-btn active" onclick="filterMaster('all',this)">SEMUA</button>
+      <button class="filt-btn" onclick="filterMaster('reg',this)">🟢 BUKA DAFTAR</button>
+      <button class="filt-btn" onclick="filterMaster('trade',this)">🔵 TRADING</button>
+      <button class="filt-btn" onclick="filterMaster('t3',this)">🥇 JENDERAL+</button>
+    </div>
+    <a href="chart.html" class="btn-chart">
+      <span style="font-size:14px;">📊</span>
+      <div style="text-align:left;">
+        <div>LIHAT LIVE CHART</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">Analisa harga sebelum ikut master</div>
+      </div>
+      <span style="margin-left:auto;">›</span>
+    </a>
+    <div id="masterList"></div>`;
+  renderMasterList();
+}
+
+// ═══ PRICE WS ═══════════════════════════════════════════════════
+function startPriceWS(sym, sid) {
+  const pair = sym.toLowerCase()+"usdt";
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+    ws.onmessage = e => {
+      const d     = JSON.parse(e.data);
+      const price = parseFloat(d.c);
+      const pct   = parseFloat(d.P);
+      const isUp  = pct >= 0;
+      latestPrices[sym] = price;
+      const el  = document.getElementById("dp-price");
+      const chg = document.getElementById("dp-chg");
+      if (el) {
+        const fmt = price>1000
+          ? "$"+Math.round(price).toLocaleString()
+          : "$"+price.toFixed(price<10?4:2);
+        el.textContent = fmt;
+        el.className   = "pr-price "+(isUp?"up":"down");
+      }
+      if (chg) {
+        chg.textContent = (isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%";
+        chg.className   = "pr-chg "+(isUp?"up":"down");
+      }
+    };
+    ws.onclose = ()=>{ delete wsConns[sym]; };
+    wsConns[sym] = ws;
+  } catch(e) {}
+}
+
+// ═══ JOIN SESSION ════════════════════════════════════════════════
+async function joinSess(sid) {
+  if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+  const amtEl = document.getElementById("joinAmt");
+  const amt   = parseFloat(amtEl?.value||"0");
+  if (amt < 2000) { showToast("Min 2.000 INDC!", "#f87171"); return; }
+  try {
+    const amtWei = ethers.parseUnits(amt.toString(), INDC_DEC);
+    showToast("Approve INDC...", "#a78bfa");
+    const allow = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < amtWei) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    showToast("Join sesi...", "#a78bfa");
+    const tx2 = await contract.joinSession(sid, amtWei);
+    await tx2.wait();
+    showToast("Berhasil join sesi! 👁️", "#34d399");
+    loadMasterList();
+  } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+}
+
+// ═══ EARLY EXIT ══════════════════════════════════════════════════
+async function exitSess(sid) {
+  if (!userAddr) return;
+  try {
+    showToast("Proses early exit...", "#f87171");
+    const tx = await contract.earlyExit(sid);
+    await tx.wait();
+    showToast("Early exit berhasil!", "#34d399");
+    loadMyPosition();
+  } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+}
+
+// ═══ CLAIM SHADOW ════════════════════════════════════════════════
+async function claimShadowReward(sid) {
+  if (!userAddr) return;
+  try {
+    showToast("Klaim reward...", "#a78bfa");
+    const tx = await contract.claimShadow(sid);
+    await tx.wait();
+    showToast("Reward berhasil diklaim! 💰", "#34d399");
+    loadMyPosition();
+  } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+}
+
+// ═══ MY POSITION ════════════════════════════════════════════════
+async function loadMyPosition() {
+  if (!userAddr) return;
+  const c   = await getReadContract();
+  const sid = Number(await c.pActive(userAddr));
+  const el  = document.getElementById("myPosition");
+
+  if (sid === 0) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-txt">TIDAK ADA POSISI AKTIF</div>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <button class="btn-main btn-violet" style="width:auto;padding:10px 20px;" onclick="switchTab('list')">
+          👁️ CARI MASTER
+        </button>
+      </div>`;
+    return;
+  }
+
+  // Ada posisi aktif
+  const s = await loadSession(c, sid);
+  const [amt,join,exited,claimed,pen] = await Promise.all([
+    c.pAmt(sid,userAddr), c.pJoin(sid,userAddr), c.pExited(sid,userAddr),
+    c.pClaimed(sid,userAddr), c.pPenalty(sid,userAddr)
+  ]);
+  const tokNm  = TOK_NAMES[s.token]||"???";
+  const now    = Math.floor(Date.now()/1000);
+  const isTrade= s.status===2;
+  const isDone = s.status===3;
+
+  el.innerHTML = `
+    <div class="sess-card">
+      <div class="sess-head">
+        <div class="sess-title">📊 POSISI AKTIFKU</div>
+        <div class="sess-badge ${isTrade?"badge-trade":isDone?"badge-done":"badge-reg"}">
+          ${isTrade?"🔵 TRADING":isDone?"✅ SELESAI":"🟢 MENUNGGU"}
+        </div>
+      </div>
+
+      <div class="pos-card" style="margin-bottom:10px;">
+        <div class="pos-title">💼 DETAIL POSISI</div>
+        <div class="pos-row"><span class="pos-key">Sesi #</span><span class="pos-val">${sid}</span></div>
+        <div class="pos-row"><span class="pos-key">Taruhan</span><span class="pos-val">${formatINDC(amt)} INDC</span></div>
+        <div class="pos-row"><span class="pos-key">Master</span><span class="pos-val">${s.master.slice(0,8)}...${s.master.slice(-4)}</span></div>
+        <div class="pos-row"><span class="pos-key">Token</span><span class="pos-val">${tokNm}</span></div>
+        <div class="pos-row"><span class="pos-key">Arah</span><span class="pos-val">${s.revealed?(s.dir===0?"📈 LONG":"📉 SHORT"):"🔒 Belum terungkap"}</span></div>
+        <div class="pos-row"><span class="pos-key">Bergabung</span><span class="pos-val">${new Date(Number(join)*1000).toLocaleDateString("id")}</span></div>
+        ${isTrade?`<div class="pos-row"><span class="pos-key">Selesai</span><span class="pos-val violet">${fmtTime(s.tradeEnd-now)}</span></div>`:""}
+      </div>
+
+      <a href="chart.html?sym=${tokNm}&tf=1d" class="btn-chart" style="margin-bottom:10px;">
+        <span style="font-size:14px;">📊</span>
+        <div><div>PANTAU LIVE CHART ${tokNm}</div></div>
+        <span style="margin-left:auto;">›</span>
+      </a>
+
+      ${isTrade && !exited ? `
+        <button class="btn-main btn-red" onclick="exitSess(${sid})">🚪 EARLY EXIT (Ada Penalti Jika Profit)</button>
+      ` : ""}
+      ${isDone && !claimed && !exited ? `
+        <button class="btn-main btn-green" onclick="claimShadowReward(${sid})">💰 KLAIM REWARD SEKARANG</button>
+      ` : ""}
+      ${exited || claimed ? `
+        <div class="empty" style="padding:20px;">
+          <div class="empty-icon">✅</div>
+          <div class="empty-txt">${exited?"SUDAH EARLY EXIT":"SUDAH DIKLAIM"}</div>
+        </div>
+      ` : ""}
+    </div>`;
+}
+
+// ═══ MASTER SECTION ══════════════════════════════════════════════
+async function loadMasterSection() {
+  if (!userAddr) return;
+  const c   = await getReadContract();
+  const isM = await c.isMaster(userAddr);
+  const el  = document.getElementById("masterSection");
+
+  if (!isM) {
+    // Form daftar master
+    el.innerHTML = `
+      <div class="form-card">
+        <div class="form-title">🎖️ DAFTAR JADI MASTER</div>
+
+        <div class="sec-label">PILIH TIER — LOCK JAMINAN (DIKEMBALIKAN SETELAH SESI)</div>
+        <div class="tier-grid" id="tierGrid">
+          ${[0,1,2,3].map(i=>`
+            <div class="tier-card ${i===0?"sel":""}" id="tc${i}" onclick="selTier(${i})">
+              <div class="tier-name">${TIER_EMOJI[i]} ${TIER_NAMES[i]}</div>
+              <div class="tier-lock">${TIER_LOCK[i].toLocaleString()} INDC</div>
+              <div class="tier-max">${TIER_MAX[i]}</div>
+            </div>`).join("")}
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+          margin-top:6px;padding:8px;background:rgba(250,204,21,0.04);border-radius:8px;">
+          💡 Jaminan di-lock selama sesi aktif dan kembali 100% setelah sesi selesai beserta profit.
+        </div>
+
+        <button class="btn-main btn-violet" style="margin-top:14px;" onclick="doRegMaster()">
+          ✅ DAFTAR SEBAGAI MASTER
+        </button>
+      </div>`;
+    return;
+  }
+
+  // Sudah master — tampilkan profil + form buat sesi
+  const [tier,lock,sess,wins,streak,best,shads,active] = await Promise.all([
+    c.mTier(userAddr), c.mLock(userAddr), c.mSessions(userAddr),
+    c.mWins(userAddr), c.mStreak(userAddr), c.mBestStreak(userAddr),
+    c.mShadows(userAddr), c.mActive(userAddr)
+  ]);
+  const wr = Number(sess)>0 ? Math.round(Number(wins)*100/Number(sess)) : 0;
+  const stars = wr>=76?4:wr>=61?3:wr>=41?2:1;
+
+  el.innerHTML = `
+    <!-- Profil Master -->
+    <div class="form-card">
+      <div class="form-title">🎖️ PROFIL MASTERKU</div>
+      <div class="mc-stats" style="margin-bottom:0;">
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">TIER</div>
+          <div class="mc-stat-val violet">${TIER_EMOJI[Number(tier)]} ${TIER_NAMES[Number(tier)]}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">BINTANG</div>
+          <div class="mc-stat-val">${"⭐".repeat(stars)}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">WIN RATE</div>
+          <div class="mc-stat-val ${wr>=60?'green':''}">${wr}%</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">STREAK</div>
+          <div class="mc-stat-val violet">${streak}🔥</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">TOTAL SESI</div>
+          <div class="mc-stat-val">${sess}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">TOTAL SHADOW</div>
+          <div class="mc-stat-val">${shads}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">JAMINAN</div>
+          <div class="mc-stat-val">${formatINDC(lock)}</div>
+        </div>
+        <div class="mc-stat-box">
+          <div class="mc-stat-lbl">BEST STREAK</div>
+          <div class="mc-stat-val">${best}🏆</div>
+        </div>
+      </div>
+    </div>
+
+    ${active ? `
+    <!-- Ada sesi aktif -->
+    <div class="sess-card">
+      <div class="sess-head">
+        <div class="sess-title">⚡ SESI AKTIF</div>
+        <div class="sess-badge badge-trade">🔵 BERJALAN</div>
+      </div>
+      <div class="empty" style="padding:20px;">
+        <div class="empty-txt">Kamu sudah punya sesi aktif.<br>Selesaikan sesi dulu sebelum buat yang baru.</div>
+      </div>
+      <button class="btn-main btn-green" onclick="masterClaim()">💰 KLAIM / FINALISASI SESI</button>
+    </div>
+    ` : `
+    <!-- Form buat sesi baru -->
+    <div class="form-card">
+      <div class="form-title">➕ BUAT SESI BARU</div>
+
+      <div class="sec-label">PILIH TOKEN</div>
+      <div class="opt-row" id="tokGrid">
+        ${TOK_NAMES.map((t,i)=>`
+          <button class="opt-btn ${i===0?"sel":""}" id="tok${i}" onclick="selTok(${i})">${t}</button>
+        `).join("")}
+      </div>
+
+      <div class="sec-label">ARAH PREDIKSI (TERSEMBUNYI SAMPAI TRADING MULAI)</div>
+      <div class="opt-row">
+        <button class="opt-btn sel" id="dir0" onclick="selDir(0)">📈 LONG (NAIK)</button>
+        <button class="opt-btn" id="dir1" onclick="selDir(1)">📉 SHORT (TURUN)</button>
+      </div>
+
+      <div class="sec-label">DURASI TRADING</div>
+      <div class="opt-row">
+        <button class="opt-btn sel" id="dur0" onclick="selDur(0)">7 HARI</button>
+        <button class="opt-btn" id="dur1" onclick="selDur(1)">15 HARI</button>
+        <button class="opt-btn" id="dur2" onclick="selDur(2)">1 BULAN</button>
+      </div>
+
+      <div class="sec-label">WAKTU BUKA PENDAFTARAN</div>
+      <input class="time-input" type="datetime-local" id="regStartInput">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+        margin-top:4px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">
+        ⏱️ Pendaftaran buka 24 jam · Minimum pot 50.000 INDC sebelum trading mulai
+      </div>
+
+      <button class="btn-main btn-violet" style="margin-top:14px;" onclick="doCreateSess()">
+        🚀 BUAT SESI TRADING
+      </button>
+    </div>
+    `}`;
+}
+
+// ═══ FORM STATE ══════════════════════════════════════════════════
+let selTierVal = 0, selTokVal = 0, selDirVal = 0, selDurVal = 0;
+
+function selTier(i) {
+  selTierVal = i;
+  [0,1,2,3].forEach(j => document.getElementById("tc"+j)?.classList.toggle("sel",j===i));
+}
+function selTok(i) {
+  selTokVal = i;
+  TOK_NAMES.forEach((_,j) => document.getElementById("tok"+j)?.classList.toggle("sel",j===i));
+}
+function selDir(i) {
+  selDirVal = i;
+  [0,1].forEach(j => document.getElementById("dir"+j)?.classList.toggle("sel",j===i));
+}
+function selDur(i) {
+  selDurVal = i;
+  [0,1,2].forEach(j => document.getElementById("dur"+j)?.classList.toggle("sel",j===i));
+}
+
+// ═══ REGISTER MASTER ════════════════════════════════════════════
+async function doRegMaster() {
+  if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+  try {
+    const lockAmt = ethers.parseUnits(TIER_LOCK[selTierVal].toString(), INDC_DEC);
+    showToast("Approve INDC...", "#a78bfa");
+    const allow = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < lockAmt) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    showToast("Daftar master...", "#a78bfa");
+    const tx = await contract.registerMaster(selTierVal);
+    await tx.wait();
+    showToast("Berhasil daftar jadi Master! 🎖️", "#34d399");
+    loadMasterSection();
+  } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+}
+
+// ═══ CREATE SESSION ══════════════════════════════════════════════
+async function doCreateSess() {
+  if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+  const regStartEl = document.getElementById("regStartInput");
+  if (!regStartEl?.value) { showToast("Set waktu buka pendaftaran!", "#f87171"); return; }
+  const regStart = Math.floor(new Date(regStartEl.value).getTime()/1000);
+  if (regStart < Math.floor(Date.now()/1000)) { showToast("Waktu harus di masa depan!", "#f87171"); return; }
+  try {
+    showToast("Membuat sesi...", "#a78bfa");
+    const tx = await contract.createSession(selTokVal, selDirVal, selDurVal, regStart);
+    await tx.wait();
+    showToast("Sesi berhasil dibuat! 🚀", "#34d399");
+    loadMasterSection();
+    loadMasterList();
+  } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+}
+
+// ═══ MASTER FINALIZE ════════════════════════════════════════════
+async function masterClaim() {
+  if (!userAddr) return;
+  const c   = await getReadContract();
+  const total = Number(await c.sidCount());
+  // Cari sesi master yang bisa di-finalize atau claim
+  for (let i = total; i >= Math.max(1,total-20); i--) {
+    const master = await c.sMaster(i);
+    if (master.toLowerCase() !== userAddr.toLowerCase()) continue;
+    const st = Number(await c.sStatus(i));
+    const now = Math.floor(Date.now()/1000);
+    const tradeEnd = Number(await c.sTradeEnd(i));
+    try {
+      if (st === 2 && now >= tradeEnd) {
+        showToast("Finalisasi sesi...", "#a78bfa");
+        const tx = await contract.finalizeSession(i);
+        await tx.wait();
+        showToast("Sesi difinalisasi!", "#34d399");
+        await contract.claimMaster(i);
+      } else if (st === 3) {
+        showToast("Klaim reward master...", "#a78bfa");
+        const tx = await contract.claimMaster(i);
+        await tx.wait();
+        showToast("Reward diklaim! 💰", "#34d399");
+      }
+      loadMasterSection();
+      return;
+    } catch(e) { showToast("Gagal: "+e.message, "#f87171"); }
+  }
+}
+
+// ═══ HELPERS ════════════════════════════════════════════════════
+function filterMaster(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll(".filt-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  renderMasterList();
+}
+
+function switchTab(tab) {
+  ["list","my","master"].forEach(t => {
+    document.getElementById("sec-"+t).style.display = t===tab?"block":"none";
+    document.getElementById("tab-"+t).classList.toggle("active", t===tab);
+  });
+  if (tab==="my"     && userAddr) loadMyPosition();
+  if (tab==="master" && userAddr) loadMasterSection();
+  if (tab==="list")  renderMasterList();
+}
+
+function formatINDC(raw) {
+  const v = Number(raw) / 1e9;
+  if (v >= 1000000) return (v/1000000).toFixed(2)+"M";
+  if (v >= 1000)    return (v/1000).toFixed(1)+"K";
+  return v.toFixed(0);
+}
+
+function fmtTime(secs) {
+  if (secs <= 0) return "SELESAI";
+  const d = Math.floor(secs/86400);
+  const h = Math.floor((secs%86400)/3600);
+  const m = Math.floor((secs%3600)/60);
+  if (d > 0) return `${d}H ${h}J`;
+  if (h > 0) return `${h}J ${m}M`;
+  return `${m}M`;
+}
+
+function showToast(msg, color="#34d399") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = color;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 3000);
+}
+
+// ═══ INIT ════════════════════════════════════════════════════════
+window.addEventListener("load", async () => {
+  // Set default datetime ke sekarang + 1 jam
+  const now   = new Date(Date.now() + 3600000);
+  const local = now.toISOString().slice(0,16);
+  const inp   = document.getElementById("regStartInput");
+  if (inp) inp.value = local;
+
+  // Load data tanpa wallet dulu
+  loadMasterList();
+
+  // SW
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener("updatefound", () => {
+        const newSW = reg.installing;
+        newSW.addEventListener("statechange", () => {
+          if (newSW.state === "activated") window.location.reload();
+        });
+      });
+    }).catch(e => console.warn(e));
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
+  }
+});
 </script>
 </body>
 </html>
