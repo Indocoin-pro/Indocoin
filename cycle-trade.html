@@ -851,27 +851,54 @@ function connectWS(sym) {
   if (wsConns[sym]) return;
   const pair = sym.toLowerCase()+"usdt";
   const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@trade`);
+  ws.onopen = () => {
+    console.log("WS connected:", sym);
+  };
   ws.onmessage = e => {
     const d = JSON.parse(e.data);
     const price = parseFloat(d.p);
+    const wasEmpty = !latestPrices[sym];
     latestPrices[sym] = price;
     updateTokenPrices();
-    // Update chart kalau token ini yang dipilih
+    // Kalau ini token chart aktif — update langsung
     if (chartTokenIdx === ["BNB","BTC","ETH"].indexOf(sym)) {
+      // Set basePrice kalau pertama kali dapat harga
+      if (!chartBasePrice || chartBasePrice === 0) {
+        chartBasePrice = price;
+      }
       updateChartDisplay(price);
       buildChartCandle(price);
     }
     // Update harga current di session aktif
     if (activeSession && activeSession.tokenSym === sym) {
       const fmt = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+price.toFixed(4);
-      document.getElementById("riCurrent").textContent = fmt;
-      document.getElementById("riCurrent").style.color = price >= activeSession.entryPrice ? "var(--green)" : "var(--red)";
+      const el = document.getElementById("riCurrent");
+      if (el) {
+        el.textContent = fmt;
+        el.style.color = price >= (activeSession.entryPrice||0) ? "var(--green)" : "var(--red)";
+      }
     }
   };
+  ws.onerror = () => { fallbackHTTP(sym); };
   ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>connectWS(sym),5000); };
-  ws.onerror = () => ws.close();
   wsConns[sym] = ws;
 }
+
+async function fallbackHTTP(sym) {
+  try {
+    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+    const d = await r.json();
+    const price = parseFloat(d.price);
+    latestPrices[sym] = price;
+    updateTokenPrices();
+    if (chartTokenIdx === ["BNB","BTC","ETH"].indexOf(sym)) {
+      if (!chartBasePrice) chartBasePrice = price;
+      updateChartDisplay(price);
+      buildChartCandle(price);
+    }
+  } catch(e) {}
+}
+
 function startAllWS() {
   ["BNB","BTC","ETH"].forEach(connectWS);
 }
@@ -1496,15 +1523,18 @@ window.addEventListener("load",async()=>{
     window.ethereum.on("chainChanged",()=>location.reload());
   }
 
-  // Load data
-  await fetchPrices();
+  // Konek WebSocket DULU — ini sumber harga utama (cepat seperti Phantom)
   startAllWS();
+
+  // fetchPrices sebagai backup kalau WS belum dapat harga
+  fetchPrices();
+
   await loadPoolInfo();
   updateBet(200);
   renderHistory();
 
-  // Init chart setelah harga tersedia
-  setTimeout(() => chartSelectToken(0), 600);
+  // Init chart setelah WS terhubung (1 detik)
+  setTimeout(() => chartSelectToken(0), 1000);
 
   // Form terbuka default
   document.getElementById("formBody").classList.add("open");

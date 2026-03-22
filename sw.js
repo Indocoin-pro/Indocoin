@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "21.0";
+const VERSION = "20.1";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -42,7 +42,7 @@ const CACHE_FILES = [
   "/kolaborasi.html",
   "/kontribusi.html",
   "/solidaritas.html",
-  "/order.html",
+  "/dokumen.html",
   "/prediksi.html",
   "/presale.html",
   "/profile.html",
