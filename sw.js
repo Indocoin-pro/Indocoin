@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "21.5";
+const VERSION = "21.6";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -53,6 +53,7 @@ const CACHE_FILES = [
   "/clash-trade.html",
   "/battle-arena-trade.html",
   "/cycle-trade.html",
+  "/chart.html",
   "/shadow-copy-trade.html",
   "/oracle-trade.html",
   "/blitz-trade.html",
