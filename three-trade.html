@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Three Trade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --teal:#14b8a6;--teal2:#99f6e4;--teal3:#0d9488;
+  --gold:#facc15;--green:#34d399;--red:#f87171;
+  --muted:#64748b;--text:#e2e8f0;--border:rgba(20,184,166,0.15);
+  --card:rgba(15,23,42,0.97);
+  --ga:#38bdf8;--gb:#f97316;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(20,184,166,0.3)}50%{box-shadow:0 0 20px rgba(20,184,166,0.6)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes electric{0%,100%{text-shadow:0 0 10px #14b8a6,0 0 20px #14b8a6}50%{text-shadow:0 0 5px #14b8a6}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--teal);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;padding:7px 12px;
+  border:1px solid rgba(20,184,166,0.4);border-radius:20px;
+  background:rgba(20,184,166,0.08);color:var(--teal);cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all 0.2s;}
+
+.page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* HERO */
+.hero{text-align:center;padding:18px 0 14px;animation:fadeUp 0.4s ease;}
+.hero-badge{display:inline-flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;
+  font-size:8px;letter-spacing:2px;color:var(--teal);background:rgba(20,184,166,0.08);
+  border:1px solid rgba(20,184,166,0.25);padding:4px 14px;border-radius:20px;margin-bottom:12px;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;
+  letter-spacing:4px;line-height:1.1;margin-bottom:6px;
+  color:var(--teal);animation:electric 2s ease-in-out infinite;}
+.hero-title span{color:var(--gold);}
+.hero-sub{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--text);letter-spacing:2px;margin-bottom:6px;}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;font-style:italic;}
+
+/* STATS */
+.live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
+.ls-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;}
+.ls-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--teal);}
+
+/* POOL INFO */
+.pool-card{background:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.2);
+  border-radius:12px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.pc-item{text-align:center;}
+.pc-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;}
+.pc-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--teal);}
+
+/* TABS */
+.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;padding:5px;}
+.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  padding:8px 3px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;}
+.tab-btn.active{background:rgba(20,184,166,0.12);color:var(--teal);border:1px solid rgba(20,184,166,0.3);}
+
+/* PANDUAN */
+.guide-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;}
+.guide-head-left{display:flex;align-items:center;gap:8px;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
+.guide-arrow.open{transform:rotate(180deg);}
+.guide-body{display:none;padding:4px 16px 16px;}
+.guide-body.open{display:block;}
+.guide-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.guide-step:last-of-type{border-bottom:none;}
+.gs-num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;flex-shrink:0;margin-top:2px;}
+.gs-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+.gs-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
+
+/* TOKEN SELECTION */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
+.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--teal);letter-spacing:1px;margin-bottom:14px;}
+.sec-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;margin-top:12px;}
+
+/* GROUP TABS */
+.grp-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.grp-tab{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
+.grp-tab.sel-a{border-color:rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);}
+.grp-tab.sel-b{border-color:rgba(249,115,22,0.5);background:rgba(249,115,22,0.08);}
+.grp-tab-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+.grp-tab-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* TOKEN GRID */
+.token-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.tok-btn{padding:8px 4px;border-radius:8px;border:1px solid var(--border);
+  background:rgba(255,255,255,0.02);cursor:pointer;text-align:center;transition:all 0.2s;}
+.tok-btn.sel-a{border-color:rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);}
+.tok-btn.sel-b{border-color:rgba(249,115,22,0.5);background:rgba(249,115,22,0.1);}
+.tok-btn.disabled{opacity:0.3;cursor:not-allowed;}
+.tok-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;margin-bottom:2px;}
+.tok-price{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
+
+/* SELECTED TOKENS */
+.sel-row{display:flex;gap:6px;margin-bottom:10px;}
+.sel-tok{flex:1;background:rgba(20,184,166,0.06);border:1px solid rgba(20,184,166,0.2);
+  border-radius:8px;padding:8px;text-align:center;}
+.sel-tok-sym{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--teal);}
+.sel-tok-price{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.sel-tok.empty{border-style:dashed;opacity:0.4;}
+
+/* DIRECTION */
+.dir-row{display:flex;gap:8px;margin-bottom:10px;}
+.dir-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
+.dir-btn.sel-long{border-color:rgba(52,211,153,0.5);background:rgba(52,211,153,0.08);}
+.dir-btn.sel-short{border-color:rgba(248,113,113,0.5);background:rgba(248,113,113,0.08);}
+.dir-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+.dir-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* DURATION */
+.dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
+.dur-btn{padding:8px 4px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
+.dur-btn.sel{border-color:rgba(20,184,166,0.5);background:rgba(20,184,166,0.08);}
+.dur-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--teal);}
+.dur-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* BET INPUT */
+.input-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;margin-bottom:4px;}
+.input-field{flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text);}
+.input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.max-bet-info{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  padding:5px 8px;background:rgba(20,184,166,0.04);border-radius:6px;margin-bottom:8px;}
+
+/* MACHINE PREVIEW */
+.machine-preview{background:rgba(249,115,22,0.05);border:1px solid rgba(249,115,22,0.15);
+  border-radius:10px;padding:10px;margin-bottom:10px;}
+.mp-title{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gb);
+  letter-spacing:1px;margin-bottom:6px;}
+.mp-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.6;}
+
+/* BUTTONS */
+.btn-main{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
+  transition:all 0.2s;margin-bottom:8px;}
+.btn-teal{background:linear-gradient(135deg,var(--teal3),var(--teal));color:white;}
+.btn-outline{background:transparent;border:1px solid rgba(20,184,166,0.3);color:var(--teal);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* ACTIVE SESSION */
+.sess-card{background:var(--card);border:1px solid rgba(20,184,166,0.2);
+  border-radius:14px;padding:14px;margin-bottom:10px;}
+.sess-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--teal);}
+.sess-badge{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:3px 8px;border-radius:8px;background:rgba(20,184,166,0.1);
+  color:var(--teal);border:1px solid rgba(20,184,166,0.2);}
+
+/* VS SECTION */
+.vs-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:12px;}
+.vs-side{background:rgba(255,255,255,0.03);border-radius:10px;padding:10px;}
+.vs-label{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;margin-bottom:6px;}
+.vs-tokens{display:flex;flex-direction:column;gap:4px;}
+.vs-tok-row{display:flex;justify-content:space-between;align-items:center;}
+.vs-tok-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+.vs-tok-pct{font-family:'Share Tech Mono',monospace;font-size:8px;}
+.vs-mid{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold);text-align:center;}
+.vs-accum{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;margin-top:6px;}
+
+/* SCORE BAR */
+.score-wrap{margin-bottom:10px;}
+.score-lbl{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;
+  font-size:7px;margin-bottom:4px;}
+.score-track{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;display:flex;}
+.score-trader{height:100%;background:var(--teal);border-radius:4px 0 0 4px;transition:width 0.5s ease;}
+.score-machine{height:100%;background:var(--gb);border-radius:0 4px 4px 0;transition:width 0.5s ease;}
+
+/* TIMER */
+.timer-wrap{text-align:center;background:rgba(255,255,255,0.03);border-radius:10px;padding:10px;margin-bottom:10px;}
+.timer-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.timer-val{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--text);}
+.timer-val.urgent{color:var(--red);animation:pulse 1s infinite;}
+
+/* RESULT POPUP */
+.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:16px;}
+.popup-overlay.hide{display:none;}
+.popup-box{background:var(--dark2);border-radius:20px;width:100%;max-width:420px;
+  padding:20px;border:1px solid rgba(20,184,166,0.3);animation:fadeUp 0.3s ease;max-height:90vh;overflow-y:auto;}
+.popup-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+  text-align:center;margin-bottom:16px;letter-spacing:2px;}
+.popup-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;margin-bottom:14px;}
+.popup-side{background:rgba(255,255,255,0.03);border-radius:10px;padding:10px;}
+.popup-side-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;margin-bottom:6px;}
+.popup-tok-row{display:flex;justify-content:space-between;padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-family:'Share Tech Mono',monospace;font-size:8px;}
+.popup-tok-row:last-child{border:none;}
+.popup-accum{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;margin-top:6px;text-align:center;}
+.popup-result{background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;margin-bottom:12px;}
+.popup-result-row{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.popup-result-row:last-child{border:none;}
+.popup-key{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.popup-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+
+/* HISTORY CARD */
+.hist-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px;margin-bottom:8px;}
+.hist-head{display:flex;justify-content:space-between;margin-bottom:8px;}
+.hist-id{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.hist-badge{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:2px 8px;border-radius:6px;}
+.badge-win{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.badge-lose{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.badge-draw{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
+.badge-active{background:rgba(20,184,166,0.1);color:var(--teal);border:1px solid rgba(20,184,166,0.2);}
+.hist-tokens{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.hist-tok{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.04);}
+.hist-bottom{display:flex;justify-content:space-between;}
+.hist-bet{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.hist-reward{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+
+/* LIVE CHART BTN */
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:10px;
+  margin-bottom:10px;border-radius:10px;text-decoration:none;
+  background:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.2);
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--teal);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:10px 18px;
+  border-radius:20px;color:white;z-index:999;opacity:0;transition:all 0.3s;
+  white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;}
+.empty-icon{font-size:40px;margin-bottom:10px;}
+.empty-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,25,0.97);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;text-decoration:none;color:#6b7280;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- RESULT POPUP -->
+<div class="popup-overlay hide" id="resultPopup">
+  <div class="popup-box" id="resultBox"></div>
+</div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">🔺 THREE TRADE</div>
+    </div>
+  </div>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span id="walletIcon">⚡</span>
+    <span id="walletTxt">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🔺 TRADER VS MESIN · 3 TOKEN · TRANSPARAN</div>
+    <div class="hero-title">THREE<span>⚡</span>TRADE</div>
+    <div class="hero-sub">PILIH 3 TOKEN — LAWAN MESIN PLATFORM!</div>
+    <div class="hero-desc">"Akumulasi % terbesar 3 token kamu vs 3 token mesin — siapa unggul dia menang!"</div>
+  </div>
+
+  <!-- POOL INFO -->
+  <div class="pool-card">
+    <div class="pc-item">
+      <div class="pc-lbl">POOL PLATFORM</div>
+      <div class="pc-val" id="poolAmt">—</div>
+    </div>
+    <div class="pc-item">
+      <div class="pc-lbl">MAX BET</div>
+      <div class="pc-val" id="maxBet">—</div>
+    </div>
+    <div class="pc-item">
+      <div class="pc-lbl">TOTAL SESI</div>
+      <div class="pc-val" id="totalSess">—</div>
+    </div>
+  </div>
+
+  <!-- MAIN TABS -->
+  <div class="main-tabs">
+    <button class="tab-btn active" onclick="switchTab('trade')"   id="tab-trade">🔺 TRADE</button>
+    <button class="tab-btn"        onclick="switchTab('active')"  id="tab-active">📊 AKTIF</button>
+    <button class="tab-btn"        onclick="switchTab('history')" id="tab-history">📋 RIWAYAT</button>
+    <button class="tab-btn"        onclick="switchTab('guide')"   id="tab-guide">📖 PANDUAN</button>
+  </div>
+
+  <!-- ══ TAB TRADE ══ -->
+  <div id="sec-trade">
+
+    <!-- Form Trading -->
+    <div class="form-card">
+      <div class="form-title">🔺 BUAT SESI TRADING</div>
+
+      <!-- Pilih Grup -->
+      <div class="sec-lbl">PILIH GRUP TOKEN (HARUS DARI 1 GRUP)</div>
+      <div class="grp-tabs">
+        <div class="grp-tab" id="grpA" onclick="selectGroup(0)">
+          <div class="grp-tab-name" style="color:var(--ga)">⬡ GRUP A</div>
+          <div class="grp-tab-desc">BTC · ETH · SOL · ADA · DOT · AVAX · UNI</div>
+        </div>
+        <div class="grp-tab" id="grpB" onclick="selectGroup(1)">
+          <div class="grp-tab-name" style="color:var(--gb)">⬡ GRUP B</div>
+          <div class="grp-tab-desc">BNB · XRP · CAKE · LINK · MATIC · DOGE · AAVE</div>
+        </div>
+      </div>
+
+      <!-- Token Grid -->
+      <div class="sec-lbl">PILIH 3 TOKEN (MAX 3)</div>
+      <div class="token-grid" id="tokenGrid">
+        <!-- Diisi JS -->
+      </div>
+
+      <!-- Token yang dipilih -->
+      <div class="sec-lbl">TOKEN PILIHANMU</div>
+      <div class="sel-row" id="selRow">
+        <div class="sel-tok empty"><div class="sel-tok-sym">—</div></div>
+        <div class="sel-tok empty"><div class="sel-tok-sym">—</div></div>
+        <div class="sel-tok empty"><div class="sel-tok-sym">—</div></div>
+      </div>
+
+      <!-- Machine Preview -->
+      <div class="machine-preview">
+        <div class="mp-title">🤖 TOKEN MESIN (DIACAK BLOCKCHAIN)</div>
+        <div class="mp-info" id="machineInfo">
+          Mesin akan pilih 3 token dari Grup berlawanan secara acak oleh blockchain.
+          Token mesin baru terungkap saat sesi dimulai!
+        </div>
+      </div>
+
+      <!-- Arah -->
+      <div class="sec-lbl">ARAH PREDIKSI</div>
+      <div class="dir-row">
+        <div class="dir-btn" id="dirLong" onclick="selDir(0)">
+          <div class="dir-name" style="color:var(--green)">📈 LONG</div>
+          <div class="dir-desc">Prediksi total % naik</div>
+        </div>
+        <div class="dir-btn" id="dirShort" onclick="selDir(1)">
+          <div class="dir-name" style="color:var(--red)">📉 SHORT</div>
+          <div class="dir-desc">Prediksi total % turun</div>
+        </div>
+      </div>
+
+      <!-- Durasi -->
+      <div class="sec-lbl">DURASI SESI</div>
+      <div class="dur-grid">
+        <div class="dur-btn" id="dur0" onclick="selDur(0)">
+          <div class="dur-name">QUICK</div>
+          <div class="dur-time">15 Menit</div>
+        </div>
+        <div class="dur-btn" id="dur1" onclick="selDur(1)">
+          <div class="dur-name">STANDARD</div>
+          <div class="dur-time">1 Jam</div>
+        </div>
+        <div class="dur-btn" id="dur2" onclick="selDur(2)">
+          <div class="dur-name">EXTENDED</div>
+          <div class="dur-time">4 Jam</div>
+        </div>
+        <div class="dur-btn" id="dur3" onclick="selDur(3)">
+          <div class="dur-name">MARATHON</div>
+          <div class="dur-time">24 Jam</div>
+        </div>
+      </div>
+
+      <!-- Bet -->
+      <div class="sec-lbl">JUMLAH TARUHAN</div>
+      <div class="input-wrap">
+        <input class="input-field" id="betInput" type="number" placeholder="1000" min="1000">
+        <span class="input-unit">INDC</span>
+      </div>
+      <div class="max-bet-info" id="maxBetInfo">⚡ Max bet: — INDC · Min: 1.000 INDC</div>
+
+      <!-- Estimasi reward -->
+      <div style="background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.1);
+        border-radius:8px;padding:8px;margin-bottom:10px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:4px;">
+          💡 ESTIMASI REWARD (jika akumulasi +5%)
+        </div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--teal);" id="estReward">
+          — INDC
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;">
+          Fee platform 10% sudah dipotong
+        </div>
+      </div>
+
+      <button class="btn-main btn-teal" onclick="createSession()" id="btnCreate" disabled>
+        🔺 MULAI THREE TRADE
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB AKTIF ══ -->
+  <div id="sec-active" style="display:none;">
+    <div id="activeSection">
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-txt">CONNECT WALLET UNTUK LIHAT SESI AKTIF</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB RIWAYAT ══ -->
+  <div id="sec-history" style="display:none;">
+    <div id="historySection">
+      <div class="empty">
+        <div class="empty-icon">📋</div>
+        <div class="empty-txt">CONNECT WALLET UNTUK LIHAT RIWAYAT</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PANDUAN ══ -->
+  <div id="sec-guide" style="display:none;">
+    <div class="guide-wrap">
+      <div class="guide-head" onclick="toggleGuide()">
+        <div class="guide-head-left">
+          <span style="font-size:15px">📖</span>
+          <span class="guide-head-title">PANDUAN CARA BERMAIN</span>
+        </div>
+        <span class="guide-arrow" id="guideArrow">▼</span>
+      </div>
+      <div class="guide-body open" id="guideBody">
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(20,184,166,0.12);color:var(--teal)">1</div>
+          <div>
+            <div class="gs-title" style="color:var(--teal)">PILIH GRUP TOKEN</div>
+            <div class="gs-desc">Pilih <b style="color:var(--ga)">Grup A</b> (BTC correlated: BTC,ETH,SOL,ADA,DOT,AVAX,UNI) atau <b style="color:var(--gb)">Grup B</b> (Independent: BNB,XRP,CAKE,LINK,MATIC,DOGE,AAVE). <b style="color:var(--text)">Tidak boleh campur!</b></div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(56,189,248,0.12);color:var(--ga)">2</div>
+          <div>
+            <div class="gs-title" style="color:var(--ga)">PILIH 3 TOKEN</div>
+            <div class="gs-desc">Pilih tepat 3 token dari grup yang kamu pilih. Mesin akan otomatis pilih 3 token dari grup berlawanan secara acak oleh blockchain — transparan dan tidak bisa dimanipulasi!</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(52,211,153,0.12);color:var(--green)">3</div>
+          <div>
+            <div class="gs-title" style="color:var(--green)">PILIH ARAH & DURASI</div>
+            <div class="gs-desc">Pilih <b style="color:var(--green)">LONG</b> jika yakin akumulasi 3 tokenmu akan lebih besar dari mesin, atau <b style="color:var(--red)">SHORT</b> jika yakin akan lebih rendah. Pilih durasi: 15 menit, 1 jam, 4 jam, atau 24 jam.</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(250,204,21,0.12);color:var(--gold)">4</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold)">TARUHAN & MULAI</div>
+            <div class="gs-desc">Masukkan jumlah taruhan (min 1.000 INDC, max sesuai pool). Saat sesi mulai, <b style="color:var(--text)">harga entry semua 6 token dicatat dari Chainlink Oracle.</b> Token mesin langsung terungkap!</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(20,184,166,0.12);color:var(--teal)">5</div>
+          <div>
+            <div class="gs-title" style="color:var(--teal)">PANTAU P&L REALTIME</div>
+            <div class="gs-desc">Klik tombol <b style="color:var(--text)">LIHAT LIVE CHART</b> untuk pantau pergerakan 3 token kamu sekaligus lengkap dengan timer dan P&L realtime. Lihat juga token mesin untuk perbandingan!</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(52,211,153,0.12);color:var(--green)">6</div>
+          <div>
+            <div class="gs-title" style="color:var(--green)">FINALISASI & KLAIM</div>
+            <div class="gs-desc">Setelah durasi habis, klik <b style="color:var(--text)">Finalisasi Sesi</b>. Harga exit diambil dari Chainlink. Popup hasil muncul dengan detail lengkap — entry, exit, akumulasi semua 6 token — sebelum kamu klaim reward!</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(248,113,113,0.12);color:var(--red)">7</div>
+          <div>
+            <div class="gs-title" style="color:var(--red)">SISTEM REWARD</div>
+            <div class="gs-desc"><b style="color:var(--green)">Menang:</b> Dapat taruhan + (profit × 90%). Fee platform 10% dari profit. <b style="color:var(--red)">Kalah:</b> Taruhan masuk pool platform. <b style="color:var(--gold)">Draw:</b> Refund 100% tanpa fee.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Info Grup -->
+    <div class="form-card">
+      <div class="form-title" style="color:var(--ga);">⬡ GRUP A — BTC CORRELATED</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;">
+        Token yang cenderung bergerak mengikuti BTC. Cocok saat market sedang bullish/bearish bersamaan.
+        <br><br>
+        <b style="color:var(--text)">BTC · ETH · SOL · ADA · DOT · AVAX · UNI</b>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-title" style="color:var(--gb);">⬡ GRUP B — INDEPENDENT</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;">
+        Token yang punya tren lebih mandiri dari BTC. Lebih dipengaruhi faktor ekosistem dan berita spesifik.
+        <br><br>
+        <b style="color:var(--text)">BNB · XRP · CAKE · LINK · MATIC · DOGE · AAVE</b>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOMNAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item active"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html"      class="bnav-item"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
+</nav>
+
+<script>
+// ═══ CONFIG ════════════════════════════════════════════════
+const CONTRACT  = "0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const INDC_DEC  = 9;
+
+// 14 token — index 0-6 Grup A, 7-13 Grup B
+const TOKENS = [
+  {sym:"BTC", grp:0},{sym:"ETH", grp:0},{sym:"SOL", grp:0},{sym:"ADA",  grp:0},
+  {sym:"DOT", grp:0},{sym:"AVAX",grp:0},{sym:"UNI", grp:0},
+  {sym:"BNB", grp:1},{sym:"XRP", grp:1},{sym:"CAKE",grp:1},{sym:"LINK", grp:1},
+  {sym:"MATIC",grp:1},{sym:"DOGE",grp:1},{sym:"AAVE",grp:1}
+];
+const DUR_NAMES = ["15 Menit","1 Jam","4 Jam","24 Jam"];
+const STATUS    = ["AKTIF","MENANG","KALAH","DRAW","BATAL"];
+
+const ABI = [
+  "function sessionCount() view returns (uint256)",
+  "function getSession1(uint256) view returns (address,uint8,uint256,uint8)",
+  "function getSession2(uint256) view returns (uint256,uint256,uint8,int256,int256)",
+  "function getSessionTokens(uint256) view returns (uint8[3],uint8[3])",
+  "function getSessionPrices(uint256) view returns (int256[3],int256[3],int256[3],int256[3])",
+  "function getReward(uint256) view returns (uint256,bool)",
+  "function getPoolInfo() view returns (uint256,uint256,uint256)",
+  "function getMaxBet() view returns (uint256)",
+  "function getPrice(uint8) view returns (int256)",
+  "function getCurrentAccum(uint256) view returns (int256,int256,bool)",
+  "function estimateReward(uint256,int256) view returns (uint256)",
+  "function createSession(uint8[3],uint8,uint256) external",
+  "function finalizeSession(uint256) external",
+  "function claimReward(uint256) external",
+];
+const INDC_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) external returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+];
+
+// ═══ STATE ════════════════════════════════════════════════
+let provider, signer, userAddr, contract, indcContract;
+let selGroup  = -1;
+let selTokens = [];
+let selDirVal = -1;
+let selDurVal = -1;
+let latestPrices = {};
+let wsConns = {};
+let activeSid = null;
+let countdownTimer = null;
+
+// ═══ WALLET ═══════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!","#f87171"); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) {
+      await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer       = await provider.getSigner();
+    userAddr     = await signer.getAddress();
+    contract     = new ethers.Contract(CONTRACT, ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
+    document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletIcon").textContent = "✅";
+    showToast("Wallet terhubung!","#34d399");
+    loadPoolInfo();
+    loadActiveSession();
+    loadHistory();
+    startPriceWS();
+    window.ethereum.on("accountsChanged",()=>location.reload());
+    window.ethereum.on("chainChanged",()=>location.reload());
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+async function getRC() {
+  const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+  return new ethers.Contract(CONTRACT, ABI, prov);
+}
+
+// ═══ LOAD DATA ════════════════════════════════════════════
+async function loadPoolInfo() {
+  try {
+    const c = await getRC();
+    const [pool,fees,maxBet] = await c.getPoolInfo();
+    const cnt = await c.sessionCount();
+    document.getElementById("poolAmt").textContent  = fmtK(Number(pool)/1e9);
+    document.getElementById("maxBet").textContent   = fmtK(Number(maxBet)/1e9);
+    document.getElementById("totalSess").textContent= Number(cnt).toString();
+    document.getElementById("maxBetInfo").textContent =
+      `⚡ Max bet: ${fmtK(Number(maxBet)/1e9)} INDC · Min: 1.000 INDC`;
+  } catch(e) {}
+}
+
+// ═══ GROUP & TOKEN SELECTION ══════════════════════════════
+function selectGroup(grp) {
+  selGroup  = grp;
+  selTokens = [];
+  document.getElementById("grpA").className = "grp-tab"+(grp===0?" sel-a":"");
+  document.getElementById("grpB").className = "grp-tab"+(grp===1?" sel-b":"");
+  renderTokenGrid();
+  updateMachineInfo();
+  updateSelRow();
+  checkCanCreate();
+}
+
+function renderTokenGrid() {
+  const el = document.getElementById("tokenGrid");
+  if (selGroup < 0) { el.innerHTML=""; return; }
+  const filtered = TOKENS.filter(t => t.grp === selGroup);
+  el.innerHTML = filtered.map((t,i) => {
+    const globalIdx = TOKENS.findIndex(x=>x.sym===t.sym);
+    const isSel = selTokens.includes(globalIdx);
+    const price = latestPrices[t.sym]||0;
+    const pFmt  = price>100 ? "$"+Math.round(price).toLocaleString() : price>0?"$"+price.toFixed(3):"—";
+    const cls   = isSel ? (selGroup===0?"sel-a":"sel-b") : "";
+    return `<div class="tok-btn ${cls}" id="tok-${globalIdx}" onclick="toggleToken(${globalIdx})">
+      <div class="tok-sym" style="color:${selGroup===0?"var(--ga)":"var(--gb)"}">${t.sym}</div>
+      <div class="tok-price">${pFmt}</div>
+    </div>`;
+  }).join("");
+}
+
+function toggleToken(idx) {
+  if (selGroup < 0) return;
+  if (TOKENS[idx].grp !== selGroup) return;
+  const pos = selTokens.indexOf(idx);
+  if (pos >= 0) {
+    selTokens.splice(pos,1);
+  } else {
+    if (selTokens.length >= 3) { showToast("Max 3 token!","#f87171"); return; }
+    selTokens.push(idx);
+  }
+  renderTokenGrid();
+  updateSelRow();
+  updateMachineInfo();
+  checkCanCreate();
+}
+
+function updateSelRow() {
+  const el = document.getElementById("selRow");
+  const slots = [0,1,2].map(i => {
+    if (i < selTokens.length) {
+      const idx = selTokens[i];
+      const sym = TOKENS[idx].sym;
+      const price = latestPrices[sym]||0;
+      const pFmt = price>100?"$"+Math.round(price).toLocaleString():price>0?"$"+price.toFixed(3):"—";
+      return `<div class="sel-tok">
+        <div class="sel-tok-sym" style="color:${selGroup===0?"var(--ga)":"var(--gb)"}">${sym}</div>
+        <div class="sel-tok-price">${pFmt}</div>
+      </div>`;
+    }
+    return `<div class="sel-tok empty"><div class="sel-tok-sym">—</div></div>`;
+  });
+  el.innerHTML = slots.join("");
+}
+
+function updateMachineInfo() {
+  const el = document.getElementById("machineInfo");
+  if (selGroup < 0) {
+    el.textContent = "Pilih grup token terlebih dahulu.";
+    return;
+  }
+  const oppGrp = selGroup===0 ? "B" : "A";
+  const oppTokens = TOKENS.filter(t=>t.grp!==(selGroup)).map(t=>t.sym).join(", ");
+  el.innerHTML = `Mesin akan pilih 3 token secara acak dari <b style="color:${selGroup===0?"var(--gb)":"var(--ga)"}">Grup ${oppGrp}</b>:<br>
+    <span style="color:var(--muted)">${oppTokens}</span><br><br>
+    <span style="color:var(--teal)">🔒 Token mesin terungkap saat sesi dimulai!</span>`;
+}
+
+// ═══ DIRECTION & DURATION ════════════════════════════════
+function selDir(v) {
+  selDirVal = v;
+  document.getElementById("dirLong").className  = "dir-btn"+(v===0?" sel-long":"");
+  document.getElementById("dirShort").className = "dir-btn"+(v===1?" sel-short":"");
+  checkCanCreate();
+}
+
+function selDur(v) {
+  selDurVal = v;
+  [0,1,2,3].forEach(i => document.getElementById("dur"+i).classList.toggle("sel",i===v));
+  checkCanCreate();
+}
+
+function checkCanCreate() {
+  const ok = selGroup>=0 && selTokens.length===3 && selDirVal>=0 && selDurVal>=0;
+  document.getElementById("btnCreate").disabled = !ok;
+  // Update estimasi reward
+  if (ok) updateEstimate();
+}
+
+async function updateEstimate() {
+  try {
+    const bet = parseFloat(document.getElementById("betInput").value||"0");
+    if (bet < 1000) return;
+    const c = await getRC();
+    const est = await c.estimateReward(
+      ethers.parseUnits(bet.toString(), INDC_DEC),
+      500 // estimasi +5% = 500 bps
+    );
+    document.getElementById("estReward").textContent =
+      fmtK(Number(est)/1e9) + " INDC (jika +5%)";
+  } catch(e) {}
+}
+
+// ═══ CREATE SESSION ═══════════════════════════════════════
+async function createSession() {
+  if (!userAddr) { showToast("Connect wallet!","#f87171"); return; }
+  if (selTokens.length !== 3) { showToast("Pilih 3 token!","#f87171"); return; }
+  if (selDirVal < 0) { showToast("Pilih arah!","#f87171"); return; }
+  if (selDurVal < 0) { showToast("Pilih durasi!","#f87171"); return; }
+
+  const bet = parseFloat(document.getElementById("betInput").value||"0");
+  if (bet < 1000) { showToast("Min 1.000 INDC!","#f87171"); return; }
+
+  try {
+    const betWei = ethers.parseUnits(bet.toString(), INDC_DEC);
+    showToast("Approve INDC...","#14b8a6");
+    const allow = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < betWei) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    showToast("Memulai sesi...","#14b8a6");
+    const tokens = [selTokens[0], selTokens[1], selTokens[2]];
+    const tx = await contract.createSession(tokens, selDurVal, betWei);
+    await tx.wait();
+    showToast("Sesi berhasil dimulai! 🔺","#34d399");
+    loadPoolInfo();
+    loadActiveSession();
+    switchTab("active");
+  } catch(e) {
+    // Tangkap pesan oracle maintenance
+    if (e.message.includes("Oracle") || e.message.includes("sinkronisasi")) {
+      showToast("⚙️ Oracle sedang sinkronisasi. Coba lagi!","#f97316");
+    } else {
+      showToast("Gagal: "+e.message,"#f87171");
+    }
+  }
+}
+
+// ═══ ACTIVE SESSION ═══════════════════════════════════════
+async function loadActiveSession() {
+  if (!userAddr) return;
+  const el = document.getElementById("activeSection");
+  try {
+    const c = await getRC();
+    const total = Number(await c.sessionCount());
+    // Cari sesi aktif user dari belakang
+    for (let i = total; i >= Math.max(1,total-50); i--) {
+      const [trader,,, status] = await c.getSession1(i);
+      if (trader.toLowerCase() === userAddr.toLowerCase() && Number(status) === 0) {
+        activeSid = i;
+        renderActiveSession(i, c);
+        return;
+      }
+    }
+    // Cek sesi yang sudah selesai tapi belum diklaim
+    for (let i = total; i >= Math.max(1,total-50); i--) {
+      const [trader,,,status] = await c.getSession1(i);
+      if (trader.toLowerCase() === userAddr.toLowerCase() &&
+          (Number(status) === 1 || Number(status) === 3)) {
+        const [,claimed] = await c.getReward(i);
+        if (!claimed) { renderClaimSession(i, c); return; }
+      }
+    }
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📊</div>
+      <div class="empty-txt">TIDAK ADA SESI AKTIF</div></div>
+      <div style="text-align:center;margin-top:10px;">
+        <button class="btn-main btn-teal" style="width:auto;padding:10px 20px;" onclick="switchTab('trade')">
+          🔺 MULAI TRADING
+        </button>
+      </div>`;
+  } catch(e) { console.warn(e); }
+}
+
+async function renderActiveSession(sid, c) {
+  const el = document.getElementById("activeSection");
+  const [,dur, bet, status] = await c.getSession1(sid);
+  const [startTime, endTime,,, ] = await c.getSession2(sid);
+  const [tTokens, mTokens] = await c.getSessionTokens(sid);
+  const [tAccum, mAccum, tWin] = await c.getCurrentAccum(sid);
+
+  const now = Math.floor(Date.now()/1000);
+  const timeLeft = Number(endTime) - now;
+
+  // Token names
+  const tSyms = tTokens.map(i => TOKENS[Number(i)]?.sym||"?");
+  const mSyms = mTokens.map(i => TOKENS[Number(i)]?.sym||"?");
+
+  // Score bar
+  const tPct = Math.max(0, Math.min(100, 50 + Number(tAccum)/100));
+  const mPct = 100 - tPct;
+
+  // Chart URL
+  const chartUrl = `three-chart.html?t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}&sid=${sid}`;
+
+  el.innerHTML = `
+    <div class="sess-card">
+      <div class="sess-head">
+        <div class="sess-title">🔺 SESI #${sid} AKTIF</div>
+        <div class="sess-badge">${DUR_NAMES[Number(dur)]}</div>
+      </div>
+
+      <!-- Timer -->
+      <div class="timer-wrap">
+        <div class="timer-lbl">⏱️ SISA WAKTU</div>
+        <div class="timer-val ${timeLeft<300?"urgent":""}" id="activeTimer">${fmtTime(timeLeft)}</div>
+        <div style="margin-top:6px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;background:var(--teal);border-radius:2px;
+            width:${Math.max(0,Math.min(100,(Number(endTime)-now)/(Number(endTime)-Number(startTime))*100))}%;
+            transition:width 1s linear;"></div>
+        </div>
+      </div>
+
+      <!-- VS -->
+      <div class="vs-wrap">
+        <div class="vs-side" style="border:1px solid rgba(56,189,248,0.2);">
+          <div class="vs-label" style="color:var(--ga)">👤 TOKEN KAMU</div>
+          <div class="vs-tokens">
+            ${tSyms.map((s,i) => `
+              <div class="vs-tok-row">
+                <span class="vs-tok-sym" style="color:var(--ga)">${s}</span>
+                <span class="vs-tok-pct" id="tp${i}" style="color:var(--muted)">—</span>
+              </div>`).join("")}
+          </div>
+          <div class="vs-accum ${tWin?"":""}">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">AKUMULASI</span><br>
+            <span style="color:${Number(tAccum)>=0?"var(--green)":"var(--red)"}" id="tAccumVal">
+              ${(Number(tAccum)/100).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+        <div class="vs-mid">VS</div>
+        <div class="vs-side" style="border:1px solid rgba(249,115,22,0.2);">
+          <div class="vs-label" style="color:var(--gb)">🤖 TOKEN MESIN</div>
+          <div class="vs-tokens">
+            ${mSyms.map((s,i) => `
+              <div class="vs-tok-row">
+                <span class="vs-tok-sym" style="color:var(--gb)">${s}</span>
+                <span class="vs-tok-pct" id="mp${i}" style="color:var(--muted)">—</span>
+              </div>`).join("")}
+          </div>
+          <div class="vs-accum">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">AKUMULASI</span><br>
+            <span style="color:${Number(mAccum)>=0?"var(--green)":"var(--red)"}" id="mAccumVal">
+              ${(Number(mAccum)/100).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Score Bar -->
+      <div class="score-wrap">
+        <div class="score-lbl">
+          <span style="color:var(--ga)">KAMU ${tWin?"🏆":""}</span>
+          <span style="color:${tWin?"var(--green)":"var(--red)"};">${tWin?"UNGGUL":"TERTINGGAL"}</span>
+          <span style="color:var(--gb)">MESIN ${!tWin?"🏆":""}</span>
+        </div>
+        <div class="score-track">
+          <div class="score-trader" style="width:${tPct}%"></div>
+          <div class="score-machine" style="width:${mPct}%"></div>
+        </div>
+      </div>
+
+      <!-- Taruhan -->
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;margin-bottom:10px;
+        display:flex;justify-content:space-between;">
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">TARUHAN</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);">
+            ${fmtK(Number(bet)/1e9)} INDC
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">STATUS</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+            color:${tWin?"var(--green)":"var(--red)"};">
+            ${tWin?"UNGGUL 🟢":"TERTINGGAL 🔴"}
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Chart Button -->
+      <a href="${chartUrl}" class="btn-chart">
+        <span style="font-size:14px;">📊</span>
+        <div>
+          <div>PANTAU 3 TOKEN + TIMER</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);font-weight:400;">
+            ${tSyms.join(" · ")} vs ${mSyms.join(" · ")}
+          </div>
+        </div>
+        <span style="margin-left:auto;">›</span>
+      </a>
+
+      <!-- Finalisasi -->
+      ${timeLeft <= 0 ? `
+        <button class="btn-main btn-teal" onclick="finalizeSession(${sid})">
+          ✅ FINALISASI SESI — LIHAT HASIL
+        </button>
+      ` : `
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+          text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;">
+          ⏳ Sesi selesai dalam ${fmtTime(timeLeft)} — Finalisasi akan muncul otomatis
+        </div>
+      `}
+    </div>`;
+
+  // Start realtime updates
+  startActiveUpdates(sid, tTokens, mTokens, tSyms, mSyms, endTime);
+}
+
+async function renderClaimSession(sid, c) {
+  const el = document.getElementById("activeSection");
+  const [,dur, bet, status] = await c.getSession1(sid);
+  const [,,,tAccum,mAccum] = await c.getSession2(sid);
+  const [reward,] = await c.getReward(sid);
+
+  const isWin  = Number(status)===1;
+  const isDraw = Number(status)===3;
+
+  el.innerHTML = `
+    <div class="sess-card">
+      <div class="sess-head">
+        <div class="sess-title">🔺 SESI #${sid}</div>
+        <div class="sess-badge" style="${isWin?"background:rgba(52,211,153,0.1);color:var(--green);border-color:rgba(52,211,153,0.2)":isDraw?"background:rgba(250,204,21,0.1);color:var(--gold)":"background:rgba(248,113,113,0.1);color:var(--red);"}">
+          ${isWin?"🏆 MENANG":isDraw?"🤝 DRAW":"❌ KALAH"}
+        </div>
+      </div>
+      <div style="text-align:center;padding:16px 0;margin-bottom:10px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">REWARD</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;
+          color:${isWin?"var(--green)":isDraw?"var(--gold)":"var(--red)"};">
+          ${isWin||isDraw ? "+"+fmtK(Number(reward)/1e9)+" INDC" : "-"+fmtK(Number(bet)/1e9)+" INDC"}
+        </div>
+      </div>
+      ${isWin||isDraw?`
+        <button class="btn-main btn-teal" onclick="showResultPopup(${sid})">
+          💰 LIHAT DETAIL & KLAIM REWARD
+        </button>
+      `:`
+        <button class="btn-main btn-outline" onclick="showResultPopup(${sid})">
+          📋 LIHAT DETAIL HASIL
+        </button>
+      `}
+    </div>`;
+}
+
+// ═══ REALTIME UPDATES ═════════════════════════════════════
+function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) {
+  // WS untuk semua 6 token
+  const allSyms = [...tSyms, ...mSyms];
+  allSyms.forEach(sym => {
+    if (!wsConns[sym]) startPriceWSFor(sym);
+  });
+
+  // Update P&L setiap 5 detik
+  if (window._activeInterval) clearInterval(window._activeInterval);
+  window._activeInterval = setInterval(async () => {
+    try {
+      const c = await getRC();
+      const [tA, mA, tW] = await c.getCurrentAccum(sid);
+      const ta = document.getElementById("tAccumVal");
+      const ma = document.getElementById("mAccumVal");
+      if (ta) { ta.textContent = (Number(tA)/100).toFixed(2)+"%"; ta.style.color = Number(tA)>=0?"var(--green)":"var(--red)"; }
+      if (ma) { ma.textContent = (Number(mA)/100).toFixed(2)+"%"; ma.style.color = Number(mA)>=0?"var(--green)":"var(--red)"; }
+    } catch(e) {}
+  }, 5000);
+
+  // Countdown timer
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    const now  = Math.floor(Date.now()/1000);
+    const left = Number(endTime) - now;
+    const el   = document.getElementById("activeTimer");
+    if (el) {
+      el.textContent = fmtTime(left);
+      el.className   = "timer-val "+(left<300?"urgent":"");
+    }
+    if (left <= 0) {
+      clearInterval(countdownTimer);
+      // Tampilkan tombol finalisasi
+      loadActiveSession();
+    }
+  }, 1000);
+}
+
+// ═══ FINALIZE ════════════════════════════════════════════
+async function finalizeSession(sid) {
+  if (!userAddr) return;
+  try {
+    showToast("Finalisasi sesi...","#14b8a6");
+    const tx = await contract.finalizeSession(sid);
+    await tx.wait();
+    showToast("Sesi difinalisasi!","#34d399");
+    showResultPopup(sid);
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+// ═══ RESULT POPUP ════════════════════════════════════════
+async function showResultPopup(sid) {
+  const c = await getRC();
+  const [,dur, bet, status] = await c.getSession1(sid);
+  const [,,,tAccum,mAccum]  = await c.getSession2(sid);
+  const [tTokens, mTokens]  = await c.getSessionTokens(sid);
+  const [tEntry,mEntry,tExit,mExit] = await c.getSessionPrices(sid);
+  const [reward, claimed]   = await c.getReward(sid);
+
+  const tSyms = tTokens.map(i=>TOKENS[Number(i)]?.sym||"?");
+  const mSyms = mTokens.map(i=>TOKENS[Number(i)]?.sym||"?");
+  const isWin  = Number(status)===1;
+  const isDraw = Number(status)===3;
+  const isLose = Number(status)===2;
+
+  const fmtPrice = (p) => {
+    const v = Number(p)/1e8;
+    return v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);
+  };
+  const fmtPct = (e,x) => {
+    if (!Number(e)) return "—";
+    const pct = (Number(x)-Number(e))/Number(e)*100;
+    return (pct>=0?"+":"")+pct.toFixed(2)+"%";
+  };
+
+  document.getElementById("resultBox").innerHTML = `
+    <div class="popup-title" style="color:${isWin?"var(--green)":isDraw?"var(--gold)":"var(--red)"}">
+      ${isWin?"🏆 KAMU MENANG!":isDraw?"🤝 DRAW!":"❌ KAMU KALAH"}
+    </div>
+
+    <div class="popup-vs">
+      <div class="popup-side" style="border:1px solid rgba(56,189,248,0.2);">
+        <div class="popup-side-lbl" style="color:var(--ga)">👤 TOKEN KAMU</div>
+        ${tSyms.map((s,i)=>`
+          <div class="popup-tok-row">
+            <span style="color:var(--ga);font-weight:700;">${s}</span>
+            <span>${fmtPrice(tEntry[i])} → ${fmtPrice(tExit[i])}</span>
+            <span style="color:${Number(tExit[i])>=Number(tEntry[i])?"var(--green)":"var(--red)"};font-weight:700;">
+              ${fmtPct(tEntry[i],tExit[i])}
+            </span>
+          </div>`).join("")}
+        <div class="popup-accum" style="color:${Number(tAccum)>=0?"var(--green)":"var(--red)"};">
+          Total: ${(Number(tAccum)/100).toFixed(2)}%
+        </div>
+      </div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+        color:var(--gold);display:flex;align-items:center;">VS</div>
+      <div class="popup-side" style="border:1px solid rgba(249,115,22,0.2);">
+        <div class="popup-side-lbl" style="color:var(--gb)">🤖 TOKEN MESIN</div>
+        ${mSyms.map((s,i)=>`
+          <div class="popup-tok-row">
+            <span style="color:var(--gb);font-weight:700;">${s}</span>
+            <span>${fmtPrice(mEntry[i])} → ${fmtPrice(mExit[i])}</span>
+            <span style="color:${Number(mExit[i])>=Number(mEntry[i])?"var(--green)":"var(--red)"};font-weight:700;">
+              ${fmtPct(mEntry[i],mExit[i])}
+            </span>
+          </div>`).join("")}
+        <div class="popup-accum" style="color:${Number(mAccum)>=0?"var(--green)":"var(--red)"};">
+          Total: ${(Number(mAccum)/100).toFixed(2)}%
+        </div>
+      </div>
+    </div>
+
+    <div class="popup-result">
+      <div class="popup-result-row">
+        <span class="popup-key">Selisih Akumulasi</span>
+        <span class="popup-val" style="color:${isWin?"var(--green)":"var(--red)"};">
+          ${((Number(tAccum)-Number(mAccum))/100).toFixed(2)}%
+        </span>
+      </div>
+      <div class="popup-result-row">
+        <span class="popup-key">Taruhan</span>
+        <span class="popup-val">${fmtK(Number(bet)/1e9)} INDC</span>
+      </div>
+      ${isWin ? `
+      <div class="popup-result-row">
+        <span class="popup-key">Profit Kotor</span>
+        <span class="popup-val" style="color:var(--green);">+${fmtK((Number(reward)*10/9)/1e9)} INDC</span>
+      </div>
+      <div class="popup-result-row">
+        <span class="popup-key">Fee Platform (10%)</span>
+        <span class="popup-val" style="color:var(--muted);">-${fmtK((Number(reward)/9)/1e9)} INDC</span>
+      </div>
+      <div class="popup-result-row">
+        <span class="popup-key">Kamu Terima</span>
+        <span class="popup-val" style="color:var(--green);font-size:12px;">
+          ${fmtK(Number(bet)/1e9)} + ${fmtK(Number(reward)/1e9)} = ${fmtK((Number(bet)+Number(reward))/1e9)} INDC
+        </span>
+      </div>` : isDraw ? `
+      <div class="popup-result-row">
+        <span class="popup-key">Refund</span>
+        <span class="popup-val" style="color:var(--gold);">${fmtK(Number(bet)/1e9)} INDC (100%)</span>
+      </div>` : `
+      <div class="popup-result-row">
+        <span class="popup-key">Taruhan Hilang</span>
+        <span class="popup-val" style="color:var(--red);">-${fmtK(Number(bet)/1e9)} INDC</span>
+      </div>`}
+    </div>
+
+    ${(isWin||isDraw) && !claimed ? `
+      <button class="btn-main btn-teal" onclick="claimReward(${sid})">
+        💰 KLAIM ${fmtK((Number(bet)+Number(reward))/1e9)} INDC
+      </button>
+    ` : claimed ? `
+      <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);padding:10px;">
+        ✅ SUDAH DIKLAIM
+      </div>
+    ` : ""}
+    <button class="btn-main btn-outline" onclick="closePopup()">✕ TUTUP</button>
+  `;
+  document.getElementById("resultPopup").classList.remove("hide");
+}
+
+function closePopup() {
+  document.getElementById("resultPopup").classList.add("hide");
+}
+
+async function claimReward(sid) {
+  try {
+    showToast("Klaim reward...","#14b8a6");
+    const tx = await contract.claimReward(sid);
+    await tx.wait();
+    showToast("Reward diklaim! 💰","#34d399");
+    closePopup();
+    loadActiveSession();
+    loadHistory();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+// ═══ HISTORY ═════════════════════════════════════════════
+async function loadHistory() {
+  if (!userAddr) return;
+  const el = document.getElementById("historySection");
+  try {
+    const c = await getRC();
+    const total = Number(await c.sessionCount());
+    let html = "";
+    let count = 0;
+    for (let i = total; i >= Math.max(1,total-100) && count < 10; i--) {
+      const [trader,,bet,status] = await c.getSession1(i);
+      if (trader.toLowerCase() !== userAddr.toLowerCase()) continue;
+      const st = Number(status);
+      if (st === 0) continue; // skip aktif
+      const [tTokens,mTokens] = await c.getSessionTokens(i);
+      const [,claimed] = await c.getReward(i);
+      const tSyms = tTokens.map(j=>TOKENS[Number(j)]?.sym||"?");
+      const mSyms = mTokens.map(j=>TOKENS[Number(j)]?.sym||"?");
+      const [,,, tA, mA] = await c.getSession2(i);
+      const badge = st===1?"badge-win":st===2?"badge-lose":st===3?"badge-draw":"";
+      const lbl   = st===1?"🏆 MENANG":st===2?"❌ KALAH":st===3?"🤝 DRAW":"—";
+      html += `<div class="hist-card" onclick="showResultPopup(${i})">
+        <div class="hist-head">
+          <span class="hist-id">SESI #${i}</span>
+          <span class="hist-badge ${badge}">${lbl}</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;font-family:'Share Tech Mono',monospace;font-size:7px;">
+          <span style="color:var(--ga)">👤 ${tSyms.join("·")}</span>
+          <span style="color:var(--muted)">vs</span>
+          <span style="color:var(--gb)">🤖 ${mSyms.join("·")}</span>
+        </div>
+        <div class="hist-bottom">
+          <span class="hist-bet">Taruhan: ${fmtK(Number(bet)/1e9)} INDC</span>
+          <span class="hist-reward" style="color:${st===1?"var(--green)":st===2?"var(--red)":"var(--gold)"};">
+            ${(Number(tA)/100).toFixed(1)}% vs ${(Number(mA)/100).toFixed(1)}%
+          </span>
+        </div>
+      </div>`;
+      count++;
+    }
+    el.innerHTML = count > 0 ? html : `<div class="empty"><div class="empty-icon">📋</div>
+      <div class="empty-txt">BELUM ADA RIWAYAT TRADING</div></div>`;
+  } catch(e) { console.warn(e); }
+}
+
+// ═══ PRICE WEBSOCKET ════════════════════════════════════
+function startPriceWS() {
+  TOKENS.forEach(t => startPriceWSFor(t.sym));
+}
+
+function startPriceWSFor(sym) {
+  if (wsConns[sym]) return;
+  const pair = sym.toLowerCase()+"usdt";
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+    ws.onmessage = e => {
+      const d = JSON.parse(e.data);
+      latestPrices[sym] = parseFloat(d.c);
+      // Update token grid kalau tampil
+      const idx = TOKENS.findIndex(t=>t.sym===sym);
+      const el  = document.getElementById("tok-"+idx);
+      if (el) {
+        const price = latestPrices[sym];
+        el.querySelector(".tok-price").textContent =
+          price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
+      }
+      updateSelRow();
+    };
+    ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startPriceWSFor(sym),3000); };
+    wsConns[sym] = ws;
+  } catch(e) {}
+}
+
+// ═══ HELPERS ════════════════════════════════════════════
+function toggleGuide() {
+  document.getElementById("guideBody").classList.toggle("open");
+  document.getElementById("guideArrow").classList.toggle("open");
+}
+
+function switchTab(tab) {
+  ["trade","active","history","guide"].forEach(t => {
+    document.getElementById("sec-"+t).style.display = t===tab?"block":"none";
+    document.getElementById("tab-"+t).classList.toggle("active",t===tab);
+  });
+  if (tab==="active"  && userAddr) loadActiveSession();
+  if (tab==="history" && userAddr) loadHistory();
+}
+
+function fmtK(v) {
+  if(v>=1000000) return (v/1000000).toFixed(1)+"M";
+  if(v>=1000)    return (v/1000).toFixed(1)+"K";
+  return Math.round(v).toString();
+}
+
+function fmtTime(secs) {
+  if(secs<=0) return "00:00:00";
+  const h=Math.floor(secs/3600);
+  const m=Math.floor((secs%3600)/60);
+  const s=secs%60;
+  return `${h.toString().padStart(2,"0")}:${m.toString().padStart(2,"0")}:${s.toString().padStart(2,"0")}`;
+}
+
+function showToast(msg,color="#34d399") {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.background=color;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3000);
+}
+
+// ═══ INIT ═══════════════════════════════════════════════
+window.addEventListener("load", async () => {
+  loadPoolInfo();
+  startPriceWS();
+  setInterval(loadPoolInfo, 30000);
+
+  // SW
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener("updatefound", () => {
+        const n = reg.installing;
+        n.addEventListener("statechange", () => {
+          if (n.state === "activated") window.location.reload();
+        });
+      });
+    }).catch(e => console.warn(e));
+    navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload());
+  }
+});
+</script>
+</body>
+</html>
