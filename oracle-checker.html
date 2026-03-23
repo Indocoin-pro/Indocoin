@@ -9,7 +9,10 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#0a0f1e;color:#e2e8f0;font-family:'Segoe UI',sans-serif;padding:16px;}
 h1{font-size:15px;color:#facc15;text-align:center;margin-bottom:4px;letter-spacing:2px;}
-.sub{font-size:10px;color:#64748b;text-align:center;margin-bottom:16px;}
+.sub{font-size:10px;color:#64748b;text-align:center;margin-bottom:8px;}
+.rpc-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.rpc-btn{flex:1;min-width:80px;padding:8px 4px;border-radius:8px;border:1px solid rgba(20,184,166,0.3);background:rgba(20,184,166,0.06);color:#14b8a6;font-size:9px;font-weight:700;cursor:pointer;text-align:center;}
+.rpc-btn.active{background:rgba(20,184,166,0.2);border-color:#14b8a6;}
 .btn{display:block;width:100%;padding:14px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;letter-spacing:1px;}
 .btn:disabled{opacity:0.5;cursor:not-allowed;}
 .section-title{font-size:9px;color:#64748b;letter-spacing:2px;margin:14px 0 8px;}
@@ -36,37 +39,61 @@ h1{font-size:15px;color:#facc15;text-align:center;margin-bottom:4px;letter-spaci
 .tag{font-size:8px;padding:2px 7px;border-radius:4px;}
 .tag-ok{background:rgba(52,211,153,0.12);color:#34d399;}
 .tag-err{background:rgba(248,113,113,0.12);color:#f87171;}
+.rpc-status{font-size:9px;color:#64748b;text-align:center;margin-bottom:8px;}
 .note{font-size:9px;color:#64748b;text-align:center;margin-top:14px;line-height:1.8;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;}
 </style>
 </head>
 <body>
 <h1>🔍 ORACLE STATUS CHECKER</h1>
-<div class="sub">Chainlink Price Feed — Dari Kontrak Three Trade</div>
-<button class="btn" id="btnCheck" onclick="startCheck()">⚡ CEK SEMUA ORACLE SEKARANG</button>
+<div class="sub">Pilih RPC jika error semua, coba satu per satu</div>
+
+<div class="rpc-row">
+  <div class="rpc-btn active" id="rpc0" onclick="selectRPC(0)">BSC #1</div>
+  <div class="rpc-btn" id="rpc1" onclick="selectRPC(1)">BSC #2</div>
+  <div class="rpc-btn" id="rpc2" onclick="selectRPC(2)">BSC #3</div>
+  <div class="rpc-btn" id="rpc3" onclick="selectRPC(3)">BSC #4</div>
+</div>
+<div class="rpc-status" id="rpcStatus">RPC: bsc-dataseed.binance.org</div>
+
+<button class="btn" id="btnCheck" onclick="startCheck()">⚡ CEK SEMUA ORACLE</button>
 <div class="progress"><div class="progress-bar" id="bar"></div></div>
-<div class="section-title">GRUP A — BTC CORRELATED (Index 0-6)</div>
+
+<div class="section-title">GRUP A — BTC CORRELATED</div>
 <div class="grid" id="gridA"></div>
-<div class="section-title">GRUP B — ALT INDEPENDENT (Index 7-13)</div>
+<div class="section-title">GRUP B — ALT INDEPENDENT</div>
 <div class="grid" id="gridB"></div>
+
 <div class="summary" id="summary" style="display:none">
   <div class="sum-title">📊 RINGKASAN HASIL</div>
   <div id="sumContent"></div>
 </div>
 <div class="note">
-  ✅ OK = Oracle aktif, harga fresh<br>
-  ⚠️ STALE = Data lama lebih 24 jam, berisiko<br>
-  ❌ ERROR = Feed tidak response
+  ✅ OK = Oracle aktif | ⚠️ STALE = Data lama | ❌ ERROR = Tidak response<br>
+  Jika semua error, coba ganti RPC di atas
 </div>
+
 <script>
-const RPC = "https://bsc-dataseed.binance.org/";
+const RPCS = [
+  "https://bsc-dataseed.binance.org/",
+  "https://bsc-dataseed1.binance.org/",
+  "https://bsc-dataseed2.binance.org/",
+  "https://bsc-dataseed3.binance.org/",
+];
+const RPC_NAMES = ["BSC #1","BSC #2","BSC #3","BSC #4"];
+let selectedRPC = 0;
+
+function selectRPC(i) {
+  selectedRPC = i;
+  document.querySelectorAll(".rpc-btn").forEach((b,j) => b.className = "rpc-btn"+(j===i?" active":""));
+  document.getElementById("rpcStatus").textContent = "RPC: "+RPCS[i].replace("https://","");
+}
+
 const ABI = [
   "function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)",
   "function decimals() view returns (uint8)"
 ];
 
-// Address LANGSUNG dari kontrak Three Trade (index 0-13)
 const TOKENS = [
-  // GRUP A (index 0-6)
   {sym:"BTC",  idx:0,  grp:"A", feed:"0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf"},
   {sym:"ETH",  idx:1,  grp:"A", feed:"0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e"},
   {sym:"SOL",  idx:2,  grp:"A", feed:"0x0E8A53DD9f8AD84B2c2a523cb7E28223E4A4a795"},
@@ -74,7 +101,6 @@ const TOKENS = [
   {sym:"DOT",  idx:4,  grp:"A", feed:"0xEA8731FD0685DB8AeAde9EcAE90C4fdf1d8164ed"},
   {sym:"AVAX", idx:5,  grp:"A", feed:"0x5974855ce31EE8E1fff2e76591CbF83D7110F151"},
   {sym:"UNI",  idx:6,  grp:"A", feed:"0xb57f259E7c24e77763AF97B5e9AB5f2f79Ba959F"},
-  // GRUP B (index 7-13)
   {sym:"BNB",  idx:7,  grp:"B", feed:"0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"},
   {sym:"XRP",  idx:8,  grp:"B", feed:"0x93a67931096032F4B1E7055b16F7DC9f2f024cB5"},
   {sym:"CAKE", idx:9,  grp:"B", feed:"0xb6064Ed41d4F67e353768aA239CA98F9f73F8EFc"},
@@ -86,108 +112,105 @@ const TOKENS = [
 
 function renderCards() {
   ["A","B"].forEach(g => {
-    const col = g==="A" ? "#38bdf8" : "#f97316";
+    const col = g==="A"?"#38bdf8":"#f97316";
     document.getElementById("grid"+g).innerHTML = TOKENS.filter(t=>t.grp===g).map(t=>`
       <div class="card" id="c-${t.sym}">
         <div class="sym" style="color:${col}">${t.sym}</div>
-        <div style="font-size:8px;color:#475569;margin-bottom:4px">idx: ${t.idx}</div>
+        <div style="font-size:8px;color:#475569;margin-bottom:4px">idx:${t.idx}</div>
         <div class="price" id="p-${t.sym}">—</div>
-        <div class="status loading" id="s-${t.sym}">⏳ mengecek...</div>
+        <div class="status loading" id="s-${t.sym}">⏳ cek...</div>
       </div>`).join("");
   });
 }
 
-async function checkOne(t, prov, i, total) {
-  const card = document.getElementById("c-"+t.sym);
-  const pel  = document.getElementById("p-"+t.sym);
-  const sel  = document.getElementById("s-"+t.sym);
+async function checkOne(t, prov, i) {
+  const card=document.getElementById("c-"+t.sym);
+  const pel=document.getElementById("p-"+t.sym);
+  const sel=document.getElementById("s-"+t.sym);
   try {
     const feed = new ethers.Contract(t.feed, ABI, prov);
-    const [,ans,,updAt,] = await feed.latestRoundData();
+    const [,ans,,updAt,] = await Promise.race([
+      feed.latestRoundData(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),8000))
+    ]);
     const dec = await feed.decimals();
-    const val = Number(ans) / Math.pow(10, Number(dec));
-    const age = Math.floor(Date.now()/1000) - Number(updAt);
+    const val = Number(ans)/Math.pow(10,Number(dec));
+    const age = Math.floor(Date.now()/1000)-Number(updAt);
     const ageMin = Math.floor(age/60);
-    const ageHr  = Math.floor(age/3600);
-
-    if (age > 86400) {
-      card.className = "card warn";
-      sel.className  = "status warn";
-      sel.textContent = "⚠️ STALE ("+ageHr+"j)";
-      pel.textContent = val>1000?"$"+Math.round(val).toLocaleString():"$"+val.toFixed(4);
-      return {sym:t.sym, grp:t.grp, ok:false, stale:true};
+    const ageHr = Math.floor(age/3600);
+    if (age>86400) {
+      card.className="card warn"; sel.className="status warn";
+      sel.textContent="⚠️ STALE("+ageHr+"j)";
+      pel.textContent=val>1000?"$"+Math.round(val).toLocaleString():"$"+val.toFixed(4);
+      return {sym:t.sym,grp:t.grp,ok:false,stale:true};
     }
-    card.className = "card ok";
-    sel.className  = "status ok";
-    sel.textContent = "✅ OK — "+(ageMin<60?ageMin+"mnt":ageHr+"j")+" lalu";
-    pel.textContent = val>1000?"$"+Math.round(val).toLocaleString():val>1?"$"+val.toFixed(2):"$"+val.toFixed(5);
-    return {sym:t.sym, grp:t.grp, ok:true};
+    card.className="card ok"; sel.className="status ok";
+    sel.textContent="✅ "+(ageMin<60?ageMin+"mnt":ageHr+"j")+" lalu";
+    pel.textContent=val>1000?"$"+Math.round(val).toLocaleString():val>1?"$"+val.toFixed(2):"$"+val.toFixed(5);
+    return {sym:t.sym,grp:t.grp,ok:true};
   } catch(e) {
-    card.className = "card err";
-    sel.className  = "status err";
-    sel.textContent = "❌ ERROR: "+e.message.substring(0,30);
-    pel.textContent = "Tidak response";
-    return {sym:t.sym, grp:t.grp, ok:false};
+    card.className="card err"; sel.className="status err";
+    sel.textContent="❌ "+(e.message.includes("timeout")?"TIMEOUT":"ERROR");
+    pel.textContent="Tidak response";
+    return {sym:t.sym,grp:t.grp,ok:false,err:e.message};
   } finally {
-    document.getElementById("bar").style.width = ((i+1)/TOKENS.length*100)+"%";
+    document.getElementById("bar").style.width=((i+1)/TOKENS.length*100)+"%";
   }
 }
 
 async function startCheck() {
-  const btn = document.getElementById("btnCheck");
-  btn.disabled = true;
-  btn.textContent = "⏳ Mengecek 14 token...";
-  document.getElementById("bar").style.width = "0%";
-  document.getElementById("summary").style.display = "none";
+  const btn=document.getElementById("btnCheck");
+  btn.disabled=true; btn.textContent="⏳ Mengecek...";
+  document.getElementById("bar").style.width="0%";
+  document.getElementById("summary").style.display="none";
   renderCards();
 
-  const prov = new ethers.JsonRpcProvider(RPC);
-  const results = [];
-  for (let i=0; i<TOKENS.length; i++) {
-    results.push(await checkOne(TOKENS[i], prov, i, TOKENS.length));
-    await new Promise(r => setTimeout(r, 400));
+  const prov = new ethers.JsonRpcProvider(RPCS[selectedRPC]);
+  // Test koneksi RPC dulu
+  try {
+    await Promise.race([
+      prov.getBlockNumber(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),5000))
+    ]);
+    document.getElementById("rpcStatus").textContent = "✅ RPC OK: "+RPCS[selectedRPC].replace("https://","");
+  } catch(e) {
+    document.getElementById("rpcStatus").textContent = "❌ RPC Gagal! Coba RPC lain";
+    btn.disabled=false; btn.textContent="⚡ CEK SEMUA ORACLE";
+    return;
   }
 
-  const okA  = results.filter(r=>r.grp==="A"&&r.ok).map(r=>r.sym);
-  const errA = results.filter(r=>r.grp==="A"&&!r.ok).map(r=>r.sym);
-  const okB  = results.filter(r=>r.grp==="B"&&r.ok).map(r=>r.sym);
-  const errB = results.filter(r=>r.grp==="B"&&!r.ok).map(r=>r.sym);
-  const tags = (arr,cls) => arr.length
-    ? arr.map(s=>`<span class="tag ${cls}">${s}</span>`).join("")
-    : `<span style="color:#64748b;font-size:9px">—</span>`;
+  const results=[];
+  for(let i=0;i<TOKENS.length;i++){
+    results.push(await checkOne(TOKENS[i],prov,i));
+    await new Promise(r=>setTimeout(r,300));
+  }
 
-  document.getElementById("sumContent").innerHTML = `
-    <div class="sum-row">
-      <span class="sum-key" style="color:#34d399">Grup A ✅</span>
-      <div class="tags">${tags(okA,"tag-ok")}</div>
-    </div>
-    <div class="sum-row">
-      <span class="sum-key" style="color:#f87171">Grup A ❌</span>
-      <div class="tags">${tags(errA,"tag-err")}</div>
-    </div>
-    <div class="sum-row">
-      <span class="sum-key" style="color:#34d399">Grup B ✅</span>
-      <div class="tags">${tags(okB,"tag-ok")}</div>
-    </div>
-    <div class="sum-row">
-      <span class="sum-key" style="color:#f87171">Grup B ❌</span>
-      <div class="tags">${tags(errB,"tag-err")}</div>
-    </div>
-    <div class="sum-row" style="padding-top:8px;border-top:1px solid rgba(20,184,166,0.15);">
-      <span class="sum-key" style="color:#facc15;font-weight:700">Token OK Grup A</span>
+  const okA=results.filter(r=>r.grp==="A"&&r.ok).map(r=>r.sym);
+  const errA=results.filter(r=>r.grp==="A"&&!r.ok).map(r=>r.sym);
+  const okB=results.filter(r=>r.grp==="B"&&r.ok).map(r=>r.sym);
+  const errB=results.filter(r=>r.grp==="B"&&!r.ok).map(r=>r.sym);
+  const tags=(arr,cls)=>arr.length?arr.map(s=>`<span class="tag ${cls}">${s}</span>`).join(""):`<span style="color:#64748b;font-size:9px">—</span>`;
+  const total=okA.length+okB.length;
+
+  document.getElementById("sumContent").innerHTML=`
+    <div class="sum-row"><span class="sum-key" style="color:#34d399">Grup A ✅</span><div class="tags">${tags(okA,"tag-ok")}</div></div>
+    <div class="sum-row"><span class="sum-key" style="color:#f87171">Grup A ❌</span><div class="tags">${tags(errA,"tag-err")}</div></div>
+    <div class="sum-row"><span class="sum-key" style="color:#34d399">Grup B ✅</span><div class="tags">${tags(okB,"tag-ok")}</div></div>
+    <div class="sum-row"><span class="sum-key" style="color:#f87171">Grup B ❌</span><div class="tags">${tags(errB,"tag-err")}</div></div>
+    <div class="sum-row" style="padding-top:8px;border-top:1px solid rgba(20,184,166,0.15)">
+      <span class="sum-key" style="color:#facc15;font-weight:700">Grup A OK</span>
       <span style="font-size:10px;color:#e2e8f0;text-align:right">${okA.join(", ")||"Tidak ada"}</span>
     </div>
     <div class="sum-row">
-      <span class="sum-key" style="color:#facc15;font-weight:700">Token OK Grup B</span>
+      <span class="sum-key" style="color:#facc15;font-weight:700">Grup B OK</span>
       <span style="font-size:10px;color:#e2e8f0;text-align:right">${okB.join(", ")||"Tidak ada"}</span>
     </div>
     <div class="sum-row">
-      <span class="sum-key" style="color:#94a3b8">Total OK</span>
-      <span style="font-size:12px;font-weight:700;color:${(okA.length+okB.length)>=6?"#34d399":"#f87171"}">${okA.length+okB.length} / 14</span>
+      <span class="sum-key">Total OK</span>
+      <span style="font-size:14px;font-weight:700;color:${total>=6?"#34d399":"#f87171"}">${total}/14</span>
     </div>`;
-  document.getElementById("summary").style.display = "block";
-  btn.disabled = false;
-  btn.textContent = "🔄 CEK ULANG";
+  document.getElementById("summary").style.display="block";
+  btn.disabled=false; btn.textContent="🔄 CEK ULANG";
 }
 </script>
 </body>
