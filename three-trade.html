@@ -815,6 +815,22 @@ async function createSession() {
 
     showToast("Memulai sesi...","#14b8a6");
     const tokens = selTokens.map(v => Number(v));
+
+    // Simulate dulu untuk tangkap error asli dari kontrak
+    try {
+      await contract.createSession.staticCall(tokens, Number(selDurVal), betWei);
+    } catch(simErr) {
+      const simMsg = simErr?.reason || simErr?.data?.message || simErr?.message || "";
+      console.error("Simulate error:", simErr);
+      // Coba decode revert reason
+      if (simMsg) {
+        showToast("Kontrak: " + simMsg.substring(0,60), "#f87171");
+      } else {
+        showToast("Simulate gagal — cek console untuk detail", "#f87171");
+      }
+      return;
+    }
+
     const tx = await contract.createSession(tokens, Number(selDurVal), betWei);
     await tx.wait();
     showToast("Sesi berhasil dimulai! 🔺","#34d399");
