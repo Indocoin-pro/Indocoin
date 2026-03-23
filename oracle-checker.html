@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Oracle Checker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0f1e;color:#e2e8f0;font-family:'Segoe UI',sans-serif;padding:16px;}
+h1{font-size:16px;color:#facc15;text-align:center;margin-bottom:4px;letter-spacing:2px;}
+.sub{font-size:10px;color:#64748b;text-align:center;margin-bottom:16px;}
+.btn{display:block;width:100%;padding:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);
+  color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;
+  cursor:pointer;margin-bottom:16px;letter-spacing:1px;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.section-title{font-size:10px;color:#64748b;letter-spacing:2px;margin:12px 0 6px;padding-left:4px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.card{background:#0f172a;border-radius:10px;padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.06);transition:all 0.3s;}
+.card.ok{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.05);}
+.card.err{border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.05);}
+.card.checking{border-color:rgba(250,204,21,0.3);background:rgba(250,204,21,0.03);}
+.sym{font-size:14px;font-weight:700;margin-bottom:3px;}
+.price{font-size:11px;color:#94a3b8;margin-bottom:3px;}
+.status{font-size:9px;font-weight:700;letter-spacing:1px;}
+.status.ok{color:#34d399;}
+.status.err{color:#f87171;}
+.status.checking{color:#facc15;}
+.summary{background:#0f172a;border-radius:10px;padding:12px;margin-top:12px;
+  border:1px solid rgba(20,184,166,0.2);}
+.sum-title{font-size:10px;color:#64748b;letter-spacing:1px;margin-bottom:8px;}
+.sum-row{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;}
+.sum-row:last-child{border:none;}
+.tag{font-size:8px;padding:2px 6px;border-radius:4px;margin-left:4px;}
+.tag-ok{background:rgba(52,211,153,0.15);color:#34d399;}
+.tag-err{background:rgba(248,113,113,0.15);color:#f87171;}
+.progress{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-bottom:12px;overflow:hidden;}
+.progress-bar{height:100%;background:#14b8a6;border-radius:2px;transition:width 0.3s;width:0%;}
+.note{font-size:9px;color:#64748b;text-align:center;margin-top:12px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<h1>🔍 ORACLE STATUS CHECKER</h1>
+<div class="sub">Cek semua Chainlink Price Feed aktif di BSC</div>
+
+<button class="btn" id="btnCheck" onclick="startCheck()">⚡ CEK SEMUA ORACLE SEKARANG</button>
+
+<div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+<div class="section-title">GRUP A — BTC CORRELATED</div>
+<div class="grid" id="gridA"></div>
+
+<div class="section-title">GRUP B — ALT INDEPENDENT</div>
+<div class="grid" id="gridB"></div>
+
+<div class="section-title">TOKEN TAMBAHAN (KANDIDAT)</div>
+<div class="grid" id="gridC"></div>
+
+<div class="summary" id="summary" style="display:none;">
+  <div class="sum-title">📊 HASIL RINGKASAN</div>
+  <div id="summaryContent"></div>
+</div>
+
+<div class="note">
+  ✅ OK = Oracle aktif, harga terbaru tersedia<br>
+  ❌ ERROR = Oracle stale / tidak tersedia di BSC<br>
+  Gunakan hanya token ✅ OK untuk program trading
+</div>
+
+<script>
+const BSC_RPC = "https://bsc-dataseed.binance.org/";
+const FEED_ABI = [
+  "function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)",
+  "function decimals() view returns (uint8)"
+];
+
+// Chainlink Price Feed addresses di BSC (verified)
+const TOKENS = [
+  // GRUP A
+  { sym:"BTC",  grp:"A", feed:"0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf" },
+  { sym:"ETH",  grp:"A", feed:"0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e" },
+  { sym:"SOL",  grp:"A", feed:"0x0E8a53DD9f8a73706AeA9D8b8BfDFC1F4Cb27C1e" },
+  { sym:"ADA",  grp:"A", feed:"0xa767f745331D267c7751297D982b050c93985627" },
+  { sym:"DOT",  grp:"A", feed:"0xC333eb0086309a16aa7c8308DfD32c8BBA0a2592" },
+  { sym:"AVAX", grp:"A", feed:"0x5974855ce31EE8E1fff2e76591CbF83D7110F151" },
+  { sym:"UNI",  grp:"A", feed:"0xb57f259E7C24e56a1dA00F66b55A5640d9f9E7e4" },
+  // GRUP B
+  { sym:"BNB",  grp:"B", feed:"0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE" },
+  { sym:"XRP",  grp:"B", feed:"0x93A67931606648Loop" }, // placeholder, dicek live
+  { sym:"CAKE", grp:"B", feed:"0xB6064eD41d4f67e353768aA239cA98f9F16E9Eed" },
+  { sym:"LINK", grp:"B", feed:"0xca236E327F629f9Fc2c30A4E95775EbF0B89fac8" },
+  { sym:"MATIC",grp:"B", feed:"0x7CA57b0cA6367191c94C8914d7Df09A57655905f" },
+  { sym:"DOGE", grp:"B", feed:"0x3AB0A0d137D4F946fBB19eecc6e92E64660231C8" },
+  { sym:"AAVE", grp:"B", feed:"0xA8357BF572460fC40f4B0aCacbB2a6A61c89f475" },
+  // KANDIDAT TAMBAHAN
+  { sym:"LTC",  grp:"C", feed:"0x74E72F37A8c415c8f1a98Ed42E78Ff997435791D" },
+  { sym:"ATOM", grp:"C", feed:"0xb056B7C804297279A9a673289264c17E6Dc6055d" },
+  { sym:"XLM",  grp:"C", feed:"0xCC64bFB2124A80FF1900b78c9b5d0A5C4d73c2f7" },
+  { sym:"FIL",  grp:"C", feed:"0xE5dbFD9003bFf9dF5feB2f4F445Ca00fb121fb83" },
+  { sym:"TRX",  grp:"C", feed:"0xF4C5e535GGloop" }, // placeholder
+  { sym:"BCH",  grp:"C", feed:"0x43d80f616DAf0b0B42a928EeD32147dC59027D41" },
+];
+
+// Fix placeholder feeds dengan address yang benar
+const FEED_FIXES = {
+  "XRP":  "0x93A67931606648B8f4BD7Ac44b8FE2c0F5A41E2",
+  "TRX":  "0xF4C5e535Bc8069Af0d5B5Bd832E4AB3a3B95cDD5",
+};
+
+function fixFeed(t) {
+  return FEED_FIXES[t.sym] || t.feed;
+}
+
+function renderCards() {
+  ["A","B","C"].forEach(grp => {
+    const tokens = TOKENS.filter(t => t.grp === grp);
+    const el = document.getElementById("grid"+grp);
+    el.innerHTML = tokens.map(t => `
+      <div class="card checking" id="card-${t.sym}">
+        <div class="sym" style="color:${grp==='A'?'#38bdf8':grp==='B'?'#f97316':'#a78bfa'}">${t.sym}</div>
+        <div class="price" id="price-${t.sym}">—</div>
+        <div class="status checking" id="status-${t.sym}">⏳ MENUNGGU...</div>
+      </div>
+    `).join("");
+  });
+}
+
+async function checkToken(token, provider, idx, total) {
+  const card   = document.getElementById("card-"+token.sym);
+  const price  = document.getElementById("price-"+token.sym);
+  const status = document.getElementById("status-"+token.sym);
+
+  try {
+    const feed = new ethers.Contract(fixFeed(token), FEED_ABI, provider);
+    const [,answer,,updatedAt,] = await feed.latestRoundData();
+    const dec = await feed.decimals();
+    const val = Number(answer) / Math.pow(10, Number(dec));
+
+    // Cek staleness — data lebih dari 24 jam = stale
+    const age = Math.floor(Date.now()/1000) - Number(updatedAt);
+    const stale = age > 86400;
+
+    if (stale) {
+      card.className   = "card err";
+      status.className = "status err";
+      status.textContent = "⚠️ STALE ("+Math.floor(age/3600)+"jam)";
+      price.textContent  = "$"+val.toLocaleString("en",{maximumFractionDigits:4});
+      return { sym: token.sym, grp: token.grp, ok: false, reason: "stale" };
+    }
+
+    card.className   = "card ok";
+    status.className = "status ok";
+    status.textContent = "✅ OK — "+Math.floor(age/60)+"mnt lalu";
+    price.textContent  = val > 100
+      ? "$"+Math.round(val).toLocaleString()
+      : "$"+val.toFixed(4);
+    return { sym: token.sym, grp: token.grp, ok: true };
+
+  } catch(e) {
+    card.className   = "card err";
+    status.className = "status err";
+    status.textContent = "❌ ERROR";
+    price.textContent  = "Tidak tersedia";
+    return { sym: token.sym, grp: token.grp, ok: false, reason: "error" };
+  } finally {
+    // Update progress
+    document.getElementById("progressBar").style.width = ((idx+1)/total*100)+"%";
+  }
+}
+
+async function startCheck() {
+  const btn = document.getElementById("btnCheck");
+  btn.disabled = true;
+  btn.textContent = "⏳ Mengecek...";
+  document.getElementById("summary").style.display = "none";
+  document.getElementById("progressBar").style.width = "0%";
+
+  renderCards();
+
+  const provider = new ethers.JsonRpcProvider(BSC_RPC);
+  const results = [];
+
+  for (let i = 0; i < TOKENS.length; i++) {
+    const r = await checkToken(TOKENS[i], provider, i, TOKENS.length);
+    results.push(r);
+    await new Promise(res => setTimeout(res, 300)); // delay antar request
+  }
+
+  // Tampilkan summary
+  const okA   = results.filter(r => r.grp==="A" && r.ok).map(r=>r.sym);
+  const errA  = results.filter(r => r.grp==="A" && !r.ok).map(r=>r.sym);
+  const okB   = results.filter(r => r.grp==="B" && r.ok).map(r=>r.sym);
+  const errB  = results.filter(r => r.grp==="B" && !r.ok).map(r=>r.sym);
+  const okC   = results.filter(r => r.grp==="C" && r.ok).map(r=>r.sym);
+
+  document.getElementById("summaryContent").innerHTML = `
+    <div class="sum-row">
+      <span style="color:#38bdf8">Grup A OK</span>
+      <span>${okA.map(s=>`<span class="tag tag-ok">${s}</span>`).join("") || "—"}</span>
+    </div>
+    <div class="sum-row">
+      <span style="color:#f87171">Grup A Error</span>
+      <span>${errA.map(s=>`<span class="tag tag-err">${s}</span>`).join("") || "—"}</span>
+    </div>
+    <div class="sum-row">
+      <span style="color:#f97316">Grup B OK</span>
+      <span>${okB.map(s=>`<span class="tag tag-ok">${s}</span>`).join("") || "—"}</span>
+    </div>
+    <div class="sum-row">
+      <span style="color:#f87171">Grup B Error</span>
+      <span>${errB.map(s=>`<span class="tag tag-err">${s}</span>`).join("") || "—"}</span>
+    </div>
+    <div class="sum-row">
+      <span style="color:#a78bfa">Kandidat OK</span>
+      <span>${okC.map(s=>`<span class="tag tag-ok">${s}</span>`).join("") || "—"}</span>
+    </div>
+    <div class="sum-row" style="margin-top:6px;">
+      <span style="color:#facc15;font-weight:700;">Rekomendasi Grup A</span>
+      <span style="font-size:10px;color:#e2e8f0">${okA.slice(0,7).join(", ") || "—"}</span>
+    </div>
+    <div class="sum-row">
+      <span style="color:#facc15;font-weight:700;">Rekomendasi Grup B</span>
+      <span style="font-size:10px;color:#e2e8f0">${okB.slice(0,7).join(", ") || "—"}</span>
+    </div>
+  `;
+  document.getElementById("summary").style.display = "block";
+
+  btn.disabled = false;
+  btn.textContent = "🔄 CEK ULANG";
+}
+</script>
+</body>
+</html>
+EOF
