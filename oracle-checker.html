@@ -15,11 +15,11 @@ h1{font-size:15px;color:#facc15;text-align:center;margin-bottom:4px;letter-spaci
 .section-title{font-size:9px;color:#64748b;letter-spacing:2px;margin:14px 0 8px;}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
 .card{background:#0f172a;border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.06);transition:all 0.3s;}
-.card.ok{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.04);}
-.card.err{border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.04);}
-.card.warn{border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.04);}
-.sym{font-size:15px;font-weight:700;margin-bottom:3px;}
-.price{font-size:10px;color:#94a3b8;margin-bottom:3px;}
+.card.ok{border-color:rgba(52,211,153,0.5);background:rgba(52,211,153,0.05);}
+.card.err{border-color:rgba(248,113,113,0.5);background:rgba(248,113,113,0.05);}
+.card.warn{border-color:rgba(250,204,21,0.5);background:rgba(250,204,21,0.05);}
+.sym{font-size:16px;font-weight:700;margin-bottom:3px;}
+.price{font-size:11px;color:#94a3b8;margin-bottom:3px;}
 .status{font-size:9px;font-weight:700;}
 .status.ok{color:#34d399;}
 .status.err{color:#f87171;}
@@ -29,132 +29,165 @@ h1{font-size:15px;color:#facc15;text-align:center;margin-bottom:4px;letter-spaci
 .progress-bar{height:100%;background:#14b8a6;border-radius:2px;transition:width 0.4s;width:0%;}
 .summary{background:#0f172a;border-radius:12px;padding:14px;margin-top:14px;border:1px solid rgba(20,184,166,0.2);}
 .sum-title{font-size:9px;color:#64748b;letter-spacing:2px;margin-bottom:10px;}
-.sum-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
 .sum-row:last-child{border:none;}
-.sum-key{font-size:10px;color:#94a3b8;}
+.sum-key{font-size:10px;color:#94a3b8;flex-shrink:0;}
 .tags{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;}
 .tag{font-size:8px;padding:2px 7px;border-radius:4px;}
 .tag-ok{background:rgba(52,211,153,0.12);color:#34d399;}
 .tag-err{background:rgba(248,113,113,0.12);color:#f87171;}
-.note{font-size:9px;color:#64748b;text-align:center;margin-top:14px;line-height:1.8;}
+.note{font-size:9px;color:#64748b;text-align:center;margin-top:14px;line-height:1.8;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;}
 </style>
 </head>
 <body>
-<h1>ORACLE STATUS CHECKER</h1>
-<div class="sub">Chainlink Price Feed — BSC Network</div>
-<button class="btn" id="btnCheck" onclick="startCheck()">CEK SEMUA ORACLE SEKARANG</button>
+<h1>🔍 ORACLE STATUS CHECKER</h1>
+<div class="sub">Chainlink Price Feed — Dari Kontrak Three Trade</div>
+<button class="btn" id="btnCheck" onclick="startCheck()">⚡ CEK SEMUA ORACLE SEKARANG</button>
 <div class="progress"><div class="progress-bar" id="bar"></div></div>
-<div class="section-title">GRUP A — BTC CORRELATED</div>
+<div class="section-title">GRUP A — BTC CORRELATED (Index 0-6)</div>
 <div class="grid" id="gridA"></div>
-<div class="section-title">GRUP B — ALT INDEPENDENT</div>
+<div class="section-title">GRUP B — ALT INDEPENDENT (Index 7-13)</div>
 <div class="grid" id="gridB"></div>
-<div class="section-title">KANDIDAT TAMBAHAN</div>
-<div class="grid" id="gridC"></div>
 <div class="summary" id="summary" style="display:none">
-  <div class="sum-title">RINGKASAN HASIL</div>
+  <div class="sum-title">📊 RINGKASAN HASIL</div>
   <div id="sumContent"></div>
 </div>
-<div class="note">OK = Oracle aktif | STALE = Data lama | ERROR = Tidak tersedia</div>
+<div class="note">
+  ✅ OK = Oracle aktif, harga fresh<br>
+  ⚠️ STALE = Data lama lebih 24 jam, berisiko<br>
+  ❌ ERROR = Feed tidak response
+</div>
 <script>
-const RPC="https://bsc-dataseed.binance.org/";
-const ABI=["function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)","function decimals() view returns (uint8)"];
-const TOKENS=[
-  {sym:"BTC",grp:"A",feed:"0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf"},
-  {sym:"ETH",grp:"A",feed:"0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e"},
-  {sym:"SOL",grp:"A",feed:"0x0E8a53DD9f8a73706AeA9D8b8BfDFC1F4Cb27C1e"},
-  {sym:"ADA",grp:"A",feed:"0xa767f745331D267c7751297D982b050c93985627"},
-  {sym:"DOT",grp:"A",feed:"0xC333eb0086309a16aa7c8308DfD32c8BBA0a2592"},
-  {sym:"AVAX",grp:"A",feed:"0x5974855ce31EE8E1fff2e76591CbF83D7110F151"},
-  {sym:"UNI",grp:"A",feed:"0xb57f259E7C24e56a1dA00F66b55A5640d9f9E7e4"},
-  {sym:"BNB",grp:"B",feed:"0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"},
-  {sym:"XRP",grp:"B",feed:"0x93A67931606648B8f4BD7Ac44b8FE2c0F5A41E2c"},
-  {sym:"CAKE",grp:"B",feed:"0xB6064eD41d4f67e353768aA239cA98f9F16E9Eed"},
-  {sym:"LINK",grp:"B",feed:"0xca236E327F629f9Fc2c30A4E95775EbF0B89fac8"},
-  {sym:"MATIC",grp:"B",feed:"0x7CA57b0cA6367191c94C8914d7Df09A57655905f"},
-  {sym:"DOGE",grp:"B",feed:"0x3AB0A0d137D4F946fBB19eecc6e92E64660231C8"},
-  {sym:"AAVE",grp:"B",feed:"0xA8357BF572460fC40f4B0aCacbB2a6A61c89f475"},
-  {sym:"LTC",grp:"C",feed:"0x74E72F37A8c415c8f1a98Ed42E78Ff997435791D"},
-  {sym:"ATOM",grp:"C",feed:"0xb056B7C804297279A9a673289264c17E6Dc6055d"},
-  {sym:"BCH",grp:"C",feed:"0x43d80f616DAf0b0B42a928EeD32147dC59027D41"},
-  {sym:"FIL",grp:"C",feed:"0xE5dbFD9003bFf9dF5feB2f4F445Ca00fb121fb83"},
-  {sym:"TRX",grp:"C",feed:"0xF4C5e535Bc8069Af0d5B5Bd832E4AB3a3B95cDD5"},
-  {sym:"ETC",grp:"C",feed:"0x5C86f2cDD49bDaFC7d12dd9f9D8B7B1B7438F5A5"}
+const RPC = "https://bsc-dataseed.binance.org/";
+const ABI = [
+  "function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)",
+  "function decimals() view returns (uint8)"
 ];
-function renderCards(){
-  ["A","B","C"].forEach(g=>{
-    const col=g==="A"?"#38bdf8":g==="B"?"#f97316":"#a78bfa";
-    document.getElementById("grid"+g).innerHTML=TOKENS.filter(t=>t.grp===g).map(t=>`
+
+// Address LANGSUNG dari kontrak Three Trade (index 0-13)
+const TOKENS = [
+  // GRUP A (index 0-6)
+  {sym:"BTC",  idx:0,  grp:"A", feed:"0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf"},
+  {sym:"ETH",  idx:1,  grp:"A", feed:"0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e"},
+  {sym:"SOL",  idx:2,  grp:"A", feed:"0x0E8A53DD9f8AD84B2c2a523cb7E28223E4A4a795"},
+  {sym:"ADA",  idx:3,  grp:"A", feed:"0xa767f745331D267c7751297D982b050c93985627"},
+  {sym:"DOT",  idx:4,  grp:"A", feed:"0xEA8731FD0685DB8AeAde9EcAE90C4fdf1d8164ed"},
+  {sym:"AVAX", idx:5,  grp:"A", feed:"0x5974855ce31EE8E1fff2e76591CbF83D7110F151"},
+  {sym:"UNI",  idx:6,  grp:"A", feed:"0xb57f259E7c24e77763AF97B5e9AB5f2f79Ba959F"},
+  // GRUP B (index 7-13)
+  {sym:"BNB",  idx:7,  grp:"B", feed:"0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE"},
+  {sym:"XRP",  idx:8,  grp:"B", feed:"0x93a67931096032F4B1E7055b16F7DC9f2f024cB5"},
+  {sym:"CAKE", idx:9,  grp:"B", feed:"0xb6064Ed41d4F67e353768aA239CA98F9f73F8EFc"},
+  {sym:"LINK", idx:10, grp:"B", feed:"0xca236E327F629f9Fc2c30A4E95775EbF0B89fac8"},
+  {sym:"MATIC",idx:11, grp:"B", feed:"0x7CA57b0cA6367191c94C8914d7Df09A57655905f"},
+  {sym:"DOGE", idx:12, grp:"B", feed:"0x3AB0A0d137D4F946fBB19eecc6e92E64660231C8"},
+  {sym:"AAVE", idx:13, grp:"B", feed:"0xA8357BF572460fC40f4B0aCacbB2a6A61c89f475"},
+];
+
+function renderCards() {
+  ["A","B"].forEach(g => {
+    const col = g==="A" ? "#38bdf8" : "#f97316";
+    document.getElementById("grid"+g).innerHTML = TOKENS.filter(t=>t.grp===g).map(t=>`
       <div class="card" id="c-${t.sym}">
         <div class="sym" style="color:${col}">${t.sym}</div>
+        <div style="font-size:8px;color:#475569;margin-bottom:4px">idx: ${t.idx}</div>
         <div class="price" id="p-${t.sym}">—</div>
-        <div class="status loading" id="s-${t.sym}">menunggu...</div>
+        <div class="status loading" id="s-${t.sym}">⏳ mengecek...</div>
       </div>`).join("");
   });
 }
-async function checkOne(t,prov,i,total){
-  const card=document.getElementById("c-"+t.sym);
-  const pel=document.getElementById("p-"+t.sym);
-  const sel=document.getElementById("s-"+t.sym);
-  try{
-    const feed=new ethers.Contract(t.feed,ABI,prov);
-    const [,ans,,updAt,]=await feed.latestRoundData();
-    const dec=await feed.decimals();
-    const val=Number(ans)/Math.pow(10,Number(dec));
-    const age=Math.floor(Date.now()/1000)-Number(updAt);
-    const ageMin=Math.floor(age/60);
-    const ageHr=Math.floor(age/3600);
-    if(age>86400){
-      card.className="card warn";sel.className="status warn";
-      sel.textContent="STALE ("+ageHr+"jam)";
-      pel.textContent="$"+(val>100?Math.round(val).toLocaleString():val.toFixed(4));
-      return{sym:t.sym,grp:t.grp,ok:false,stale:true};
+
+async function checkOne(t, prov, i, total) {
+  const card = document.getElementById("c-"+t.sym);
+  const pel  = document.getElementById("p-"+t.sym);
+  const sel  = document.getElementById("s-"+t.sym);
+  try {
+    const feed = new ethers.Contract(t.feed, ABI, prov);
+    const [,ans,,updAt,] = await feed.latestRoundData();
+    const dec = await feed.decimals();
+    const val = Number(ans) / Math.pow(10, Number(dec));
+    const age = Math.floor(Date.now()/1000) - Number(updAt);
+    const ageMin = Math.floor(age/60);
+    const ageHr  = Math.floor(age/3600);
+
+    if (age > 86400) {
+      card.className = "card warn";
+      sel.className  = "status warn";
+      sel.textContent = "⚠️ STALE ("+ageHr+"j)";
+      pel.textContent = val>1000?"$"+Math.round(val).toLocaleString():"$"+val.toFixed(4);
+      return {sym:t.sym, grp:t.grp, ok:false, stale:true};
     }
-    card.className="card ok";sel.className="status ok";
-    sel.textContent="OK — "+(ageMin<60?ageMin+"mnt":ageHr+"jam")+" lalu";
-    pel.textContent=val>1000?"$"+Math.round(val).toLocaleString():val>1?"$"+val.toFixed(2):"$"+val.toFixed(5);
-    return{sym:t.sym,grp:t.grp,ok:true};
-  }catch(e){
-    card.className="card err";sel.className="status err";
-    sel.textContent="ERROR";pel.textContent="Tidak tersedia";
-    return{sym:t.sym,grp:t.grp,ok:false};
-  }finally{
-    document.getElementById("bar").style.width=((i+1)/total*100)+"%";
+    card.className = "card ok";
+    sel.className  = "status ok";
+    sel.textContent = "✅ OK — "+(ageMin<60?ageMin+"mnt":ageHr+"j")+" lalu";
+    pel.textContent = val>1000?"$"+Math.round(val).toLocaleString():val>1?"$"+val.toFixed(2):"$"+val.toFixed(5);
+    return {sym:t.sym, grp:t.grp, ok:true};
+  } catch(e) {
+    card.className = "card err";
+    sel.className  = "status err";
+    sel.textContent = "❌ ERROR: "+e.message.substring(0,30);
+    pel.textContent = "Tidak response";
+    return {sym:t.sym, grp:t.grp, ok:false};
+  } finally {
+    document.getElementById("bar").style.width = ((i+1)/TOKENS.length*100)+"%";
   }
 }
-async function startCheck(){
-  const btn=document.getElementById("btnCheck");
-  btn.disabled=true;btn.textContent="Mengecek...";
-  document.getElementById("bar").style.width="0%";
-  document.getElementById("summary").style.display="none";
+
+async function startCheck() {
+  const btn = document.getElementById("btnCheck");
+  btn.disabled = true;
+  btn.textContent = "⏳ Mengecek 14 token...";
+  document.getElementById("bar").style.width = "0%";
+  document.getElementById("summary").style.display = "none";
   renderCards();
-  const prov=new ethers.JsonRpcProvider(RPC);
-  const results=[];
-  for(let i=0;i<TOKENS.length;i++){
-    results.push(await checkOne(TOKENS[i],prov,i,TOKENS.length));
-    await new Promise(r=>setTimeout(r,300));
+
+  const prov = new ethers.JsonRpcProvider(RPC);
+  const results = [];
+  for (let i=0; i<TOKENS.length; i++) {
+    results.push(await checkOne(TOKENS[i], prov, i, TOKENS.length));
+    await new Promise(r => setTimeout(r, 400));
   }
-  const okA=results.filter(r=>r.grp==="A"&&r.ok).map(r=>r.sym);
-  const errA=results.filter(r=>r.grp==="A"&&!r.ok).map(r=>r.sym);
-  const okB=results.filter(r=>r.grp==="B"&&r.ok).map(r=>r.sym);
-  const errB=results.filter(r=>r.grp==="B"&&!r.ok).map(r=>r.sym);
-  const okC=results.filter(r=>r.grp==="C"&&r.ok).map(r=>r.sym);
-  const tags=(arr,cls)=>arr.length?arr.map(s=>`<span class="tag ${cls}">${s}</span>`).join(""):`<span style="color:#64748b;font-size:9px">—</span>`;
-  document.getElementById("sumContent").innerHTML=`
-    <div class="sum-row"><span class="sum-key" style="color:#38bdf8">Grup A OK</span><div class="tags">${tags(okA,"tag-ok")}</div></div>
-    <div class="sum-row"><span class="sum-key" style="color:#f87171">Grup A Error</span><div class="tags">${tags(errA,"tag-err")}</div></div>
-    <div class="sum-row"><span class="sum-key" style="color:#f97316">Grup B OK</span><div class="tags">${tags(okB,"tag-ok")}</div></div>
-    <div class="sum-row"><span class="sum-key" style="color:#f87171">Grup B Error</span><div class="tags">${tags(errB,"tag-err")}</div></div>
-    <div class="sum-row"><span class="sum-key" style="color:#a78bfa">Kandidat OK</span><div class="tags">${tags(okC,"tag-ok")}</div></div>
-    <div class="sum-row" style="padding-top:8px;border-top:1px solid rgba(20,184,166,0.15)">
-      <span class="sum-key" style="color:#facc15;font-weight:700">Rekomendasi A</span>
-      <span style="font-size:10px;color:#e2e8f0;text-align:right;max-width:60%">${okA.slice(0,7).join(", ")||"—"}</span>
+
+  const okA  = results.filter(r=>r.grp==="A"&&r.ok).map(r=>r.sym);
+  const errA = results.filter(r=>r.grp==="A"&&!r.ok).map(r=>r.sym);
+  const okB  = results.filter(r=>r.grp==="B"&&r.ok).map(r=>r.sym);
+  const errB = results.filter(r=>r.grp==="B"&&!r.ok).map(r=>r.sym);
+  const tags = (arr,cls) => arr.length
+    ? arr.map(s=>`<span class="tag ${cls}">${s}</span>`).join("")
+    : `<span style="color:#64748b;font-size:9px">—</span>`;
+
+  document.getElementById("sumContent").innerHTML = `
+    <div class="sum-row">
+      <span class="sum-key" style="color:#34d399">Grup A ✅</span>
+      <div class="tags">${tags(okA,"tag-ok")}</div>
     </div>
     <div class="sum-row">
-      <span class="sum-key" style="color:#facc15;font-weight:700">Rekomendasi B</span>
-      <span style="font-size:10px;color:#e2e8f0;text-align:right;max-width:60%">${okB.slice(0,7).join(", ")||"—"}</span>
+      <span class="sum-key" style="color:#f87171">Grup A ❌</span>
+      <div class="tags">${tags(errA,"tag-err")}</div>
+    </div>
+    <div class="sum-row">
+      <span class="sum-key" style="color:#34d399">Grup B ✅</span>
+      <div class="tags">${tags(okB,"tag-ok")}</div>
+    </div>
+    <div class="sum-row">
+      <span class="sum-key" style="color:#f87171">Grup B ❌</span>
+      <div class="tags">${tags(errB,"tag-err")}</div>
+    </div>
+    <div class="sum-row" style="padding-top:8px;border-top:1px solid rgba(20,184,166,0.15);">
+      <span class="sum-key" style="color:#facc15;font-weight:700">Token OK Grup A</span>
+      <span style="font-size:10px;color:#e2e8f0;text-align:right">${okA.join(", ")||"Tidak ada"}</span>
+    </div>
+    <div class="sum-row">
+      <span class="sum-key" style="color:#facc15;font-weight:700">Token OK Grup B</span>
+      <span style="font-size:10px;color:#e2e8f0;text-align:right">${okB.join(", ")||"Tidak ada"}</span>
+    </div>
+    <div class="sum-row">
+      <span class="sum-key" style="color:#94a3b8">Total OK</span>
+      <span style="font-size:12px;font-weight:700;color:${(okA.length+okB.length)>=6?"#34d399":"#f87171"}">${okA.length+okB.length} / 14</span>
     </div>`;
-  document.getElementById("summary").style.display="block";
-  btn.disabled=false;btn.textContent="CEK ULANG";
+  document.getElementById("summary").style.display = "block";
+  btn.disabled = false;
+  btn.textContent = "🔄 CEK ULANG";
 }
 </script>
 </body>
