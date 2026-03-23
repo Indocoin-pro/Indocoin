@@ -662,10 +662,27 @@ function selectGroup(grp) {
   selTokens = [];
   document.getElementById("grpA").className = "grp-tab"+(grp===0?" sel-a":"");
   document.getElementById("grpB").className = "grp-tab"+(grp===1?" sel-b":"");
-  renderTokenGrid();
+  checkOracleAll(); // cek oracle & render grid
+  // renderTokenGrid dipanggil di dalam checkOracleAll
   updateMachineInfo();
   updateSelRow();
   checkCanCreate();
+}
+
+// Simpan status oracle per token
+let oracleStatus = {}; // {sym: true/false}
+
+async function checkOracleAll() {
+  const c = await getRC();
+  for (let i = 0; i < TOKENS.length; i++) {
+    try {
+      const p = await c.getPrice(i);
+      oracleStatus[TOKENS[i].sym] = (p && Number(p) > 0);
+    } catch(e) {
+      oracleStatus[TOKENS[i].sym] = false;
+    }
+  }
+  renderTokenGrid(); // refresh grid setelah cek
 }
 
 function renderTokenGrid() {
@@ -678,9 +695,14 @@ function renderTokenGrid() {
     const price = latestPrices[t.sym]||0;
     const pFmt  = price>100 ? "$"+Math.round(price).toLocaleString() : price>0?"$"+price.toFixed(3):"—";
     const cls   = isSel ? (selGroup===0?"sel-a":"sel-b") : "";
+    const oracleOk = oracleStatus[t.sym];
+    const oracleBadge = oracleOk === false
+      ? `<div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:#f97316;margin-top:2px;">⚠️ ORACLE</div>`
+      : ``;
     return `<div class="tok-btn ${cls}" id="tok-${globalIdx}" onclick="toggleToken(${globalIdx})">
       <div class="tok-sym" style="color:${selGroup===0?"var(--ga)":"var(--gb)"}">${t.sym}</div>
       <div class="tok-price">${pFmt}</div>
+      ${oracleBadge}
     </div>`;
   }).join("");
 }
@@ -693,6 +715,11 @@ function toggleToken(idx) {
     selTokens.splice(pos,1);
   } else {
     if (selTokens.length >= 3) { showToast("Max 3 token!","#f87171"); return; }
+    // Blok token dengan oracle bermasalah
+    if (oracleStatus[TOKENS[idx].sym] === false) {
+      showToast(`⚠️ Oracle ${TOKENS[idx].sym} sedang bermasalah, pilih token lain!`,"#f97316");
+      return;
+    }
     selTokens.push(idx);
   }
   renderTokenGrid();
