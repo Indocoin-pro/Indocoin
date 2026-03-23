@@ -403,7 +403,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <!-- Bet -->
       <div class="sec-lbl">JUMLAH TARUHAN</div>
       <div class="input-wrap">
-        <input class="input-field" id="betInput" type="number" placeholder="1000" min="1000">
+        <input class="input-field" id="betInput" type="number" placeholder="1000" min="1000" oninput="updateEstimate()">
         <span class="input-unit">INDC</span>
       </div>
       <div class="max-bet-info" id="maxBetInfo">⚡ Max bet: — INDC · Min: 1.000 INDC</div>
@@ -601,6 +601,15 @@ let wsConns = {};
 let activeSid = null;
 let countdownTimer = null;
 
+// ═══ HELPERS ERROR ═══════════════════════════════════════
+function parseErr(e) {
+  // Potong pesan error ethers v6 yang panjang/raw
+  const msg = e?.reason || e?.shortMessage || e?.message || "Error tidak diketahui";
+  // Ambil max 80 karakter pertama yang readable
+  const clean = msg.replace(/\(.*\)/g,"").replace(/0x[0-9a-fA-F]+/g,"[data]").trim();
+  return clean.length > 80 ? clean.substring(0,77)+"..." : clean;
+}
+
 // ═══ WALLET ═══════════════════════════════════════════════
 async function connectWallet() {
   if (!window.ethereum) { showToast("Buka lewat DApps browser!","#f87171"); return; }
@@ -625,7 +634,7 @@ async function connectWallet() {
     startPriceWS();
     window.ethereum.on("accountsChanged",()=>location.reload());
     window.ethereum.on("chainChanged",()=>location.reload());
-  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+  } catch(e) { showToast("Gagal: "+parseErr(e),"#f87171"); }
 }
 
 async function getRC() {
@@ -777,19 +786,19 @@ async function createSession() {
       await tx1.wait();
     }
     showToast("Memulai sesi...","#14b8a6");
-    const tokens = [selTokens[0], selTokens[1], selTokens[2]];
-    const tx = await contract.createSession(tokens, selDurVal, betWei);
+    const tokens = selTokens.map(v => Number(v));
+    const tx = await contract.createSession(tokens, Number(selDurVal), betWei);
     await tx.wait();
     showToast("Sesi berhasil dimulai! 🔺","#34d399");
     loadPoolInfo();
     loadActiveSession();
     switchTab("active");
   } catch(e) {
-    // Tangkap pesan oracle maintenance
-    if (e.message.includes("Oracle") || e.message.includes("sinkronisasi")) {
+    const msg = parseErr(e);
+    if (msg.toLowerCase().includes("oracle") || msg.toLowerCase().includes("stale")) {
       showToast("⚙️ Oracle sedang sinkronisasi. Coba lagi!","#f97316");
     } else {
-      showToast("Gagal: "+e.message,"#f87171");
+      showToast("Gagal: "+msg,"#f87171");
     }
   }
 }
@@ -1049,7 +1058,7 @@ async function finalizeSession(sid) {
     await tx.wait();
     showToast("Sesi difinalisasi!","#34d399");
     showResultPopup(sid);
-  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+  } catch(e) { showToast("Gagal: "+parseErr(e),"#f87171"); }
 }
 
 // ═══ RESULT POPUP ════════════════════════════════════════
@@ -1129,11 +1138,11 @@ async function showResultPopup(sid) {
       ${isWin ? `
       <div class="popup-result-row">
         <span class="popup-key">Profit Kotor</span>
-        <span class="popup-val" style="color:var(--green);">+${fmtK((Number(reward)*10/9)/1e9)} INDC</span>
+        <span class="popup-val" style="color:var(--green);">+${fmtK(Number(BigInt(reward)*10n/9n)/1e9)} INDC</span>
       </div>
       <div class="popup-result-row">
         <span class="popup-key">Fee Platform (10%)</span>
-        <span class="popup-val" style="color:var(--muted);">-${fmtK((Number(reward)/9)/1e9)} INDC</span>
+        <span class="popup-val" style="color:var(--muted);">-${fmtK(Number(BigInt(reward)/9n)/1e9)} INDC</span>
       </div>
       <div class="popup-result-row">
         <span class="popup-key">Kamu Terima</span>
@@ -1178,7 +1187,7 @@ async function claimReward(sid) {
     closePopup();
     loadActiveSession();
     loadHistory();
-  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+  } catch(e) { showToast("Gagal: "+parseErr(e),"#f87171"); }
 }
 
 // ═══ HISTORY ═════════════════════════════════════════════
