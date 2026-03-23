@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>INDOCOIN — Delta Trade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{
+  --dark:#070d1a;--dark2:#0d1525;--dark3:#1a2540;
+  --delta:#f59e0b;--delta2:#fbbf24;--delta3:#fef3c7;
+  --green:#10b981;--green2:#34d399;--red:#ef4444;--red2:#f87171;
+  --blue:#3b82f6;--muted:#64748b;--text:#e2e8f0;
+  --border:rgba(245,158,11,0.15);--card:rgba(13,21,37,0.98);
+  --long:#10b981;--short:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
+  min-height:100vh;overflow-x:hidden;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes flash{0%,100%{background:transparent}50%{background:rgba(245,158,11,0.15)}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+  background:rgba(7,13,26,0.99);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.7);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--delta);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--delta2);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:8px;padding:6px 10px;
+  border:1px solid rgba(245,158,11,0.4);border-radius:16px;
+  background:rgba(245,158,11,0.08);color:var(--delta2);cursor:pointer;
+  display:flex;align-items:center;gap:4px;}
+
+/* TOKEN TABS */
+.token-tabs{display:flex;gap:0;background:var(--dark2);
+  border-bottom:1px solid var(--border);overflow-x:auto;padding:0 12px;}
+.token-tabs::-webkit-scrollbar{display:none;}
+.tok-tab{display:flex;flex-direction:column;align-items:center;padding:8px 16px;
+  cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;flex-shrink:0;}
+.tok-tab.active{border-bottom-color:var(--delta);}
+.tok-tab-sym{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--muted);transition:color 0.2s;}
+.tok-tab.active .tok-tab-sym{color:var(--delta);}
+.tok-tab-price{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:1px;}
+.tok-tab-chg{font-family:'Share Tech Mono',monospace;font-size:7px;margin-top:1px;}
+.tok-tab-chg.up{color:var(--green);}
+.tok-tab-chg.down{color:var(--red);}
+
+/* PRICE HEADER */
+.price-header{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;background:var(--dark2);border-bottom:1px solid var(--border);}
+.ph-left{}
+.ph-sym{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.ph-price{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;
+  color:var(--green);transition:color 0.2s;}
+.ph-price.down{color:var(--red);}
+.ph-chg{font-family:'Share Tech Mono',monospace;font-size:9px;
+  padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;}
+.ph-chg.up{background:rgba(16,185,129,0.1);color:var(--green);}
+.ph-chg.down{background:rgba(239,68,68,0.1);color:var(--red);}
+.ph-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.ph-stat{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);}
+
+/* TIMEFRAME */
+.tf-bar{display:flex;gap:4px;padding:6px 12px;background:var(--dark2);
+  border-bottom:1px solid var(--border);overflow-x:auto;}
+.tf-bar::-webkit-scrollbar{display:none;}
+.tf-btn{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);
+  background:transparent;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all 0.2s;}
+.tf-btn.active{background:rgba(245,158,11,0.15);color:var(--delta);border-color:rgba(245,158,11,0.3);}
+
+/* CHART */
+#chartContainer{position:relative;width:100%;height:280px;background:var(--dark);}
+.chart-overlay{position:absolute;top:6px;left:8px;z-index:10;pointer-events:none;}
+.co-pnl{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  padding:3px 8px;border-radius:4px;backdrop-filter:blur(8px);}
+.co-pnl.profit{background:rgba(16,185,129,0.2);color:var(--green2);border:1px solid rgba(16,185,129,0.3);}
+.co-pnl.loss{background:rgba(239,68,68,0.2);color:var(--red2);border:1px solid rgba(239,68,68,0.3);}
+
+/* TRADING FORM */
+.trade-form{padding:10px 12px;}
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px;margin-bottom:10px;}
+
+/* LONG/SHORT TOGGLE */
+.dir-toggle{display:flex;gap:0;margin-bottom:10px;border-radius:8px;overflow:hidden;
+  border:1px solid rgba(255,255,255,0.08);}
+.dir-long{flex:1;padding:10px;border:none;cursor:pointer;text-align:center;
+  background:rgba(16,185,129,0.08);transition:all 0.2s;}
+.dir-short{flex:1;padding:10px;border:none;cursor:pointer;text-align:center;
+  background:rgba(239,68,68,0.08);transition:all 0.2s;}
+.dir-long.active{background:rgba(16,185,129,0.2);border-bottom:2px solid var(--green);}
+.dir-short.active{background:rgba(239,68,68,0.2);border-bottom:2px solid var(--red);}
+.dir-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+.dir-lev{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* LEVERAGE */
+.sec-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+  letter-spacing:1px;margin-bottom:6px;margin-top:10px;}
+.lev-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:4px;}
+.lev-btn{padding:6px 2px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.02);cursor:pointer;text-align:center;transition:all 0.2s;}
+.lev-btn.sel{border-color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.1);}
+.lev-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--delta);}
+
+/* ROI */
+.roi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.roi-btn{padding:7px 4px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.02);cursor:pointer;text-align:center;transition:all 0.2s;}
+.roi-btn.sel{border-color:rgba(16,185,129,0.5);background:rgba(16,185,129,0.08);}
+.roi-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--green2);}
+
+/* MARGIN INPUT */
+.input-wrap{display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;padding:10px 12px;}
+.input-field{flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text);}
+.input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* POSITION PREVIEW */
+.pos-preview{background:rgba(255,255,255,0.02);border-radius:8px;padding:8px;margin-top:8px;}
+.pp-row{display:flex;justify-content:space-between;padding:3px 0;
+  font-family:'Share Tech Mono',monospace;font-size:8px;}
+.pp-key{color:var(--muted);}
+.pp-val{color:var(--text);font-weight:600;}
+.pp-val.liq{color:var(--red2);}
+.pp-val.tp{color:var(--green2);}
+
+/* SL/TP INPUTS */
+.sltp-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+.sltp-box{background:rgba(255,255,255,0.02);border-radius:8px;padding:8px;}
+.sltp-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;margin-bottom:4px;}
+.sltp-presets{display:flex;gap:3px;margin-bottom:4px;flex-wrap:wrap;}
+.sltp-preset{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:2px 5px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);
+  background:transparent;cursor:pointer;color:var(--muted);transition:all 0.2s;}
+.sltp-preset:hover{color:var(--text);}
+.sltp-input{width:100%;background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);border-radius:6px;
+  padding:6px 8px;font-family:'Share Tech Mono',monospace;
+  font-size:10px;color:var(--text);outline:none;}
+
+/* BUTTONS */
+.btn-long{width:100%;padding:13px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(135deg,#059669,var(--green));color:white;transition:all 0.2s;margin-top:10px;}
+.btn-short{width:100%;padding:13px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(135deg,#dc2626,var(--red));color:white;transition:all 0.2s;margin-top:10px;}
+.btn-close{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  background:rgba(239,68,68,0.15);color:var(--red2);
+  border:1px solid rgba(239,68,68,0.3);transition:all 0.2s;margin-top:8px;}
+.btn-close:hover{background:rgba(239,68,68,0.25);}
+.btn-outline{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--delta);cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;margin-top:6px;}
+
+/* ACTIVE POSITION */
+.pos-card{background:var(--card);border-radius:12px;padding:12px;margin:0 12px 10px;}
+.pos-card.long{border:1px solid rgba(16,185,129,0.3);}
+.pos-card.short{border:1px solid rgba(239,68,68,0.3);}
+.pc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.pc-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+.pc-title.long{color:var(--green);}
+.pc-title.short{color:var(--red);}
+.pc-badge{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:2px 7px;border-radius:4px;}
+.pc-badge.long{background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
+.pc-badge.short{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);}
+.pc-row{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-family:'Share Tech Mono',monospace;font-size:8px;}
+.pc-row:last-of-type{border:none;}
+.pc-key{color:var(--muted);}
+.pc-val{font-weight:600;}
+.pc-pnl{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  text-align:center;padding:8px 0;}
+.pc-pnl.profit{color:var(--green);}
+.pc-pnl.loss{color:var(--red);}
+
+/* PORTFOLIO */
+.portfolio{margin:0 12px 10px;}
+.port-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--delta);letter-spacing:1px;margin-bottom:8px;}
+.port-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.port-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;}
+.port-sym{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--delta);margin-bottom:3px;}
+.port-amt{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.port-usd{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* DEPOSIT/WD */
+.dep-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px;margin:0 12px 10px;}
+.dep-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.dep-tab{flex:1;padding:7px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;text-align:center;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--muted);transition:all 0.2s;}
+.dep-tab.active{background:rgba(245,158,11,0.1);color:var(--delta);border-color:rgba(245,158,11,0.3);}
+
+/* HISTORY */
+.hist-section{margin:0 12px 10px;}
+.hist-card{background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:10px;margin-bottom:6px;}
+.hc-head{display:flex;justify-content:space-between;margin-bottom:4px;}
+.hc-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+.hc-badge{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:4px;}
+.badge-profit{background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);}
+.badge-loss{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);}
+.badge-liq{background:rgba(245,158,11,0.1);color:var(--delta);border:1px solid rgba(245,158,11,0.2);}
+
+/* TOAST */
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(20px);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:10px 18px;
+  border-radius:20px;color:white;z-index:999;opacity:0;transition:all 0.3s;
+  white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ADMIN */
+.admin-panel{background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);
+  border-radius:12px;padding:12px;margin:0 12px 10px;display:none;}
+.admin-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--red2);letter-spacing:1px;margin-bottom:10px;}
+.admin-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;}
+.btn-admin{padding:9px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;transition:all 0.2s;}
+.btn-adm-pause {background:rgba(239,68,68,0.15);color:var(--red2);border:1px solid rgba(239,68,68,0.3);}
+.btn-adm-resume{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.btn-adm-fee   {background:rgba(245,158,11,0.15);color:var(--delta);border:1px solid rgba(245,158,11,0.3);}
+.btn-adm-pool  {background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.3);}
+.adm-info{background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;margin-bottom:8px;
+  font-family:'Share Tech Mono',monospace;font-size:8px;}
+.adm-row{display:flex;justify-content:space-between;padding:2px 0;}
+.adm-key{color:var(--muted);}
+.adm-val{color:var(--text);font-weight:600;}
+
+/* EMPTY */
+.empty{text-align:center;padding:30px 20px;}
+.empty-icon{font-size:32px;margin-bottom:8px;}
+.empty-txt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,20,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(245,158,11,0.12);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;text-decoration:none;color:#4b5563;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--delta);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+
+.page-content{padding-bottom:70px;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">💎 DELTA TRADE</div>
+    </div>
+  </div>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span id="walletIcon">⚡</span>
+    <span id="walletTxt">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page-content">
+
+<!-- TOKEN TABS -->
+<div class="token-tabs">
+  <div class="tok-tab active" id="tab-BNB" onclick="selectToken('BNB',0)">
+    <div class="tok-tab-sym">BNB/USDT</div>
+    <div class="tok-tab-price" id="tabp-BNB">$—</div>
+    <div class="tok-tab-chg" id="tabc-BNB">—</div>
+  </div>
+  <div class="tok-tab" id="tab-BTC" onclick="selectToken('BTC',1)">
+    <div class="tok-tab-sym">BTC/USDT</div>
+    <div class="tok-tab-price" id="tabp-BTC">$—</div>
+    <div class="tok-tab-chg" id="tabc-BTC">—</div>
+  </div>
+</div>
+
+<!-- PRICE HEADER -->
+<div class="price-header">
+  <div class="ph-left">
+    <div class="ph-sym" id="phSym">BNB/USDT</div>
+    <div class="ph-price" id="phPrice">$—</div>
+    <div class="ph-chg up" id="phChg">—</div>
+  </div>
+  <div class="ph-right">
+    <div class="ph-stat">24H High: <span id="ph24H" style="color:var(--green)">—</span></div>
+    <div class="ph-stat">24H Low: <span id="ph24L" style="color:var(--red)">—</span></div>
+    <div class="ph-stat">Volume: <span id="phVol" style="color:var(--text)">—</span></div>
+  </div>
+</div>
+
+<!-- TIMEFRAME -->
+<div class="tf-bar">
+  <button class="tf-btn" onclick="setTF('1')">1M</button>
+  <button class="tf-btn active" id="tf5" onclick="setTF('5')">5M</button>
+  <button class="tf-btn" onclick="setTF('15')">15M</button>
+  <button class="tf-btn" onclick="setTF('30')">30M</button>
+  <button class="tf-btn" onclick="setTF('60')">1H</button>
+  <button class="tf-btn" onclick="setTF('240')">4H</button>
+  <button class="tf-btn" onclick="setTF('1D')">1D</button>
+</div>
+
+<!-- CHART -->
+<div id="chartContainer">
+  <div class="chart-overlay" id="chartOverlay" style="display:none;">
+    <div class="co-pnl" id="chartPnL">+$0.00 (0.00%)</div>
+  </div>
+</div>
+
+<!-- TRADING FORM -->
+<div class="trade-form">
+  <div class="form-card">
+
+    <!-- LONG/SHORT -->
+    <div class="dir-toggle">
+      <div class="dir-long active" id="btnLong" onclick="selDir(0)">
+        <div class="dir-name" style="color:var(--green)">📈 LONG</div>
+        <div class="dir-lev" id="dlLong">Beli / Naik</div>
+      </div>
+      <div class="dir-short" id="btnShort" onclick="selDir(1)">
+        <div class="dir-name" style="color:var(--red)">📉 SHORT</div>
+        <div class="dir-lev" id="dlShort">Jual / Turun</div>
+      </div>
+    </div>
+
+    <!-- LEVERAGE -->
+    <div class="sec-lbl">LEVERAGE</div>
+    <div class="lev-grid">
+      <div class="lev-btn sel" id="lev0" onclick="selLev(0)"><div class="lev-val">2x</div></div>
+      <div class="lev-btn" id="lev1" onclick="selLev(1)"><div class="lev-val">5x</div></div>
+      <div class="lev-btn" id="lev2" onclick="selLev(2)"><div class="lev-val">10x</div></div>
+      <div class="lev-btn" id="lev3" onclick="selLev(3)"><div class="lev-val">25x</div></div>
+      <div class="lev-btn" id="lev4" onclick="selLev(4)"><div class="lev-val">50x</div></div>
+      <div class="lev-btn" id="lev5" onclick="selLev(5)"><div class="lev-val">100x</div></div>
+    </div>
+
+    <!-- MAX ROI -->
+    <div class="sec-lbl">MAX ROI (AUTO CLOSE)</div>
+    <div class="roi-grid">
+      <div class="roi-btn sel" id="roi0" onclick="selRoi(0)"><div class="roi-val">100%</div></div>
+      <div class="roi-btn" id="roi1" onclick="selRoi(1)"><div class="roi-val">300%</div></div>
+      <div class="roi-btn" id="roi2" onclick="selRoi(2)"><div class="roi-val">500%</div></div>
+    </div>
+
+    <!-- MARGIN INPUT -->
+    <div class="sec-lbl">MARGIN (USDT VIRTUAL)</div>
+    <div class="input-wrap">
+      <input class="input-field" id="marginInput" type="number"
+        placeholder="10" oninput="updatePreview()" min="1">
+      <span class="input-unit">USDT</span>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+      margin-top:3px;text-align:right;">
+      Saldo: <span id="balUSDT" style="color:var(--delta)">$—</span>
+    </div>
+
+    <!-- POSITION PREVIEW -->
+    <div class="pos-preview" id="posPreview" style="display:none;">
+      <div class="pp-row"><span class="pp-key">Nilai Posisi</span><span class="pp-val" id="prvSize">—</span></div>
+      <div class="pp-row"><span class="pp-key">Entry Price</span><span class="pp-val" id="prvEntry">—</span></div>
+      <div class="pp-row"><span class="pp-key">Harga Likuidasi</span><span class="pp-val liq" id="prvLiq">—</span></div>
+      <div class="pp-row"><span class="pp-key">Max Profit (ROI)</span><span class="pp-val tp" id="prvMaxP">—</span></div>
+      <div class="pp-row"><span class="pp-key">Fee Entry</span><span class="pp-val" id="prvFee">—</span></div>
+    </div>
+
+    <!-- SL/TP -->
+    <div class="sltp-row">
+      <div class="sltp-box" style="border:1px solid rgba(239,68,68,0.2);">
+        <div class="sltp-lbl" style="color:var(--red2)">🔴 STOP LOSS</div>
+        <div class="sltp-presets">
+          <button class="sltp-preset" onclick="setSLPreset(-5)">-5%</button>
+          <button class="sltp-preset" onclick="setSLPreset(-10)">-10%</button>
+          <button class="sltp-preset" onclick="setSLPreset(-20)">-20%</button>
+          <button class="sltp-preset" onclick="setSLPreset(-50)">-50%</button>
+        </div>
+        <input class="sltp-input" id="slInput" type="number" placeholder="Harga SL"
+          oninput="updateChartLines()">
+      </div>
+      <div class="sltp-box" style="border:1px solid rgba(16,185,129,0.2);">
+        <div class="sltp-lbl" style="color:var(--green2)">🟢 TAKE PROFIT</div>
+        <div class="sltp-presets">
+          <button class="sltp-preset" onclick="setTPPreset(10)">+10%</button>
+          <button class="sltp-preset" onclick="setTPPreset(25)">+25%</button>
+          <button class="sltp-preset" onclick="setTPPreset(50)">+50%</button>
+          <button class="sltp-preset" onclick="setTPPreset(100)">+100%</button>
+        </div>
+        <input class="sltp-input" id="tpInput" type="number" placeholder="Harga TP"
+          oninput="updateChartLines()">
+      </div>
+    </div>
+
+    <!-- ACTION BUTTON -->
+    <div id="actionBtn">
+      <button class="btn-long" id="btnOpen" onclick="openPosition()">
+        📈 BUY LONG
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ACTIVE POSITION -->
+<div id="activePositionSection"></div>
+
+<!-- PORTFOLIO -->
+<div class="portfolio">
+  <div class="port-title">💼 PORTFOLIO VIRTUAL</div>
+  <div class="port-grid">
+    <div class="port-box">
+      <div class="port-sym">USDT</div>
+      <div class="port-amt" id="portUSDT">$—</div>
+      <div class="port-usd" id="portUSDT2">—</div>
+    </div>
+    <div class="port-box">
+      <div class="port-sym">BNB</div>
+      <div class="port-amt" id="portBNB">—</div>
+      <div class="port-usd" id="portBNBusd">$—</div>
+    </div>
+    <div class="port-box">
+      <div class="port-sym">BTC</div>
+      <div class="port-amt" id="portBTC">—</div>
+      <div class="port-usd" id="portBTCusd">$—</div>
+    </div>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;
+    padding:8px;margin-top:6px;display:flex;justify-content:space-between;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">TOTAL NILAI</span>
+    <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--delta);" id="portTotal">$—</span>
+  </div>
+</div>
+
+<!-- DEPOSIT/WD -->
+<div class="dep-card">
+  <div class="dep-tabs">
+    <button class="dep-tab active" id="depTabDep" onclick="switchDepTab('deposit')">⬇️ DEPOSIT INDC</button>
+    <button class="dep-tab" id="depTabWd" onclick="switchDepTab('wd')">⬆️ WITHDRAW</button>
+    <button class="dep-tab" id="depTabSwap" onclick="switchDepTab('swap')">🔄 SWAP</button>
+  </div>
+
+  <!-- Deposit -->
+  <div id="depDeposit">
+    <div class="sec-lbl">JUMLAH INDC</div>
+    <div class="input-wrap" style="margin-bottom:6px;">
+      <input class="input-field" id="depAmt" type="number" placeholder="1000">
+      <span class="input-unit">INDC</span>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:8px;">
+      1.000 INDC = $3.00 USDT Virtual (@$0.003)
+    </div>
+    <button class="btn-outline" onclick="doDeposit()">⬇️ DEPOSIT → USDT VIRTUAL</button>
+  </div>
+
+  <!-- Withdraw -->
+  <div id="depWd" style="display:none;">
+    <div class="sec-lbl">PILIH TOKEN UNTUK WD</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">
+      <div class="roi-btn sel" id="wdTok255" onclick="selWdTok(255)"><div class="roi-val" style="color:var(--delta)">USDT</div></div>
+      <div class="roi-btn" id="wdTok0" onclick="selWdTok(0)"><div class="roi-val" style="color:var(--delta)">BNB</div></div>
+      <div class="roi-btn" id="wdTok1" onclick="selWdTok(1)"><div class="roi-val" style="color:var(--delta)">BTC</div></div>
+    </div>
+    <div class="sec-lbl">JUMLAH</div>
+    <div class="input-wrap" style="margin-bottom:6px;">
+      <input class="input-field" id="wdAmt" type="number" placeholder="10">
+      <span class="input-unit" id="wdUnit">USDT</span>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:8px;" id="wdInfo">
+      Konversi ke INDC ril @ $0.003
+    </div>
+    <button class="btn-outline" onclick="doWithdraw()">⬆️ WITHDRAW → INDC RIL</button>
+  </div>
+
+  <!-- Swap -->
+  <div id="depSwap" style="display:none;">
+    <div class="sec-lbl">DARI</div>
+    <select id="swapFrom" class="sltp-input" style="margin-bottom:8px;" onchange="updateSwapInfo()">
+      <option value="255">USDT Virtual</option>
+      <option value="0">BNB Virtual</option>
+      <option value="1">BTC Virtual</option>
+    </select>
+    <div class="sec-lbl">KE</div>
+    <select id="swapTo" class="sltp-input" style="margin-bottom:8px;">
+      <option value="0">BNB Virtual</option>
+      <option value="1">BTC Virtual</option>
+      <option value="255">USDT Virtual</option>
+    </select>
+    <div class="sec-lbl">JUMLAH</div>
+    <div class="input-wrap" style="margin-bottom:6px;">
+      <input class="input-field" id="swapAmt" type="number" placeholder="10">
+      <span class="input-unit" id="swapUnit">USDT</span>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:8px;">
+      Fee swap: 0.1% → Dev wallet
+    </div>
+    <button class="btn-outline" onclick="doSwap()">🔄 SWAP SEKARANG</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="hist-section">
+  <div style="font-family:'Orbitron',sans-serif;font-size:9px;color:var(--delta);
+    letter-spacing:1px;margin-bottom:8px;">📋 RIWAYAT POSISI</div>
+  <div id="historyList">
+    <div class="empty"><div class="empty-txt">CONNECT WALLET UNTUK LIHAT RIWAYAT</div></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-title">🔐 ADMIN — DELTA TRADE</div>
+  <div class="adm-info" id="admInfo">
+    <div class="adm-row"><span class="adm-key">Status</span><span class="adm-val" id="admStatus">—</span></div>
+    <div class="adm-row"><span class="adm-key">Pool</span><span class="adm-val" id="admPool">—</span></div>
+    <div class="adm-row"><span class="adm-key">Dev Fees</span><span class="adm-val" id="admFees">—</span></div>
+  </div>
+  <div class="admin-row">
+    <button class="btn-admin btn-adm-pause"  onclick="admPause(true)">⏸️ PAUSE</button>
+    <button class="btn-admin btn-adm-resume" onclick="admPause(false)">▶️ RESUME</button>
+  </div>
+  <div class="admin-row">
+    <button class="btn-admin btn-adm-fee"  onclick="admWithdrawFees()">💰 TARIK FEE</button>
+    <button class="btn-admin btn-adm-pool" onclick="loadAdminData()">🔄 REFRESH</button>
+  </div>
+  <div class="sec-lbl" style="margin-top:8px;">DEPOSIT POOL TAMBAHAN</div>
+  <div class="input-wrap" style="margin-bottom:6px;">
+    <input class="input-field" id="admPoolAmt" type="number" placeholder="100000">
+    <span class="input-unit">INDC</span>
+  </div>
+  <button class="btn-outline" onclick="admDepositPool()">⬇️ DEPOSIT KE POOL</button>
+</div>
+
+</div><!-- end page-content -->
+
+<!-- BOTTOMNAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item active"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html"      class="bnav-item"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
+</nav>
+
+<script>
+// ═══ CONFIG ══════════════════════════════════════════════
+const CONTRACT  = "0x3B466e2184024e5E8e101FAa0c5cd441008C2010";
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const DEV_ADDR  = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const INDC_DEC  = 9;
+const VIRT_DEC  = 1e18;
+const INDC_PRICE= 0.003; // $0.003
+
+const LEVERAGES = [2,5,10,25,50,100];
+const MAX_ROIS  = [100,300,500];
+const TOKENS    = [{sym:"BNB",idx:0},{sym:"BTC",idx:1}];
+
+const ABI = [
+  "function getBalance(address) view returns (uint256,uint256,uint256)",
+  "function getPosition1(uint256) view returns (address,uint8,uint8,uint8,uint8)",
+  "function getPosition2(uint256) view returns (uint256,uint256,int256,int256,int256,int256)",
+  "function getPosition3(uint256) view returns (uint256,int256,int256,uint8)",
+  "function getCurrentPnL(uint256) view returns (int256,int256,bool)",
+  "function getLiquidationPrice(uint8,uint8,int256) view returns (int256)",
+  "function getActivePosition(address,uint8) view returns (uint256)",
+  "function getUSDTValue(address) view returns (uint256)",
+  "function getPrice(uint8) view returns (int256)",
+  "function getPoolInfo() view returns (uint256,uint256)",
+  "function posCount() view returns (uint256)",
+  "function deposit(uint256) external",
+  "function withdraw(uint8,uint256) external",
+  "function swapVirtual(uint8,uint8,uint256) external",
+  "function openPosition(uint8,uint8,uint8,uint8,uint256,int256,int256) external",
+  "function closePosition(uint256) external",
+  "function updateSL(uint256,int256) external",
+  "function updateTP(uint256,int256) external",
+  "function liquidate(uint256) external",
+  "function setPaused(bool) external",
+  "function withdrawFees() external",
+  "function depositPool(uint256) external",
+];
+const INDC_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) external returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+];
+
+// ═══ STATE ════════════════════════════════════════════════
+let provider, signer, userAddr, contract, indcContract;
+let curToken = {sym:"BNB", idx:0};
+let curDir    = 0; // 0=LONG 1=SHORT
+let curLev    = 0; // index
+let curRoi    = 0; // index
+let curWdTok  = 255;
+let isAdmin   = false;
+let prices    = {BNB:0, BTC:0};
+let wsConns   = {};
+let chart, candleSeries, volumeSeries;
+let entryLine, liqLine, slLine, tpLine;
+let activePosPid = 0;
+let pnlInterval;
+
+// ═══ WALLET ═══════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!","#ef4444"); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) {
+      await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer       = await provider.getSigner();
+    userAddr     = await signer.getAddress();
+    contract     = new ethers.Contract(CONTRACT, ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
+    document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletIcon").textContent = "✅";
+    showToast("Wallet terhubung!","#10b981");
+    isAdmin = userAddr.toLowerCase() === DEV_ADDR.toLowerCase();
+    if (isAdmin) { document.getElementById("adminPanel").style.display="block"; loadAdminData(); }
+    loadBalance();
+    loadActivePosition();
+    loadHistory();
+    window.ethereum.on("accountsChanged",()=>location.reload());
+    window.ethereum.on("chainChanged",()=>location.reload());
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function getRC() {
+  const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+  return new ethers.Contract(CONTRACT, ABI, prov);
+}
+
+// ═══ CHART — LIGHTWEIGHT CHARTS ═══════════════════════════
+function initChart() {
+  const container = document.getElementById("chartContainer");
+  chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 280,
+    layout: { background:{color:"#070d1a"}, textColor:"#64748b" },
+    grid: {
+      vertLines: { color:"rgba(255,255,255,0.04)" },
+      horzLines: { color:"rgba(255,255,255,0.04)" },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor:"rgba(255,255,255,0.08)" },
+    timeScale: { borderColor:"rgba(255,255,255,0.08)", timeVisible:true, secondsVisible:false },
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor:"#10b981", downColor:"#ef4444",
+    borderUpColor:"#10b981", borderDownColor:"#ef4444",
+    wickUpColor:"#10b981", wickDownColor:"#ef4444",
+  });
+
+  // Resize observer
+  new ResizeObserver(()=>{
+    chart.applyOptions({ width: container.clientWidth });
+  }).observe(container);
+}
+
+let currentTF = "5";
+let klineHistory = [];
+
+async function loadCandles(sym, interval) {
+  try {
+    // Fetch historical candles dari Binance REST
+    // Note: Binance REST mungkin diblokir di DApps — fallback ke WS saja
+    const pair = sym.toLowerCase()+"usdt";
+    const url  = `https://api.binance.com/api/v3/klines?symbol=${sym.toUpperCase()}USDT&interval=${interval}m&limit=200`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error("Fetch failed");
+    const data = await resp.json();
+    klineHistory = data.map(k => ({
+      time: Math.floor(k[0]/1000),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low:  parseFloat(k[3]),
+      close:parseFloat(k[4]),
+    }));
+    candleSeries.setData(klineHistory);
+  } catch(e) {
+    // Kalau blocked, start dari candle kosong dan isi dari WS
+    klineHistory = [];
+  }
+}
+
+function setTF(tf) {
+  currentTF = tf;
+  document.querySelectorAll(".tf-btn").forEach(b=>b.classList.remove("active"));
+  event.target.classList.add("active");
+  loadCandles(curToken.sym, tf === "1D" ? "1d" : tf);
+  startKlineWS(curToken.sym, tf);
+}
+
+function startKlineWS(sym, interval) {
+  // Tutup WS kline lama
+  if (wsConns["kline"]) { try{wsConns["kline"].close();}catch(e){} }
+
+  const intv = interval === "1D" ? "1d" : interval+"m";
+  const pair = sym.toLowerCase()+"usdt";
+  const ws   = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@kline_${intv}`);
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    const k = d.k;
+    const candle = {
+      time:  Math.floor(k.t/1000),
+      open:  parseFloat(k.o),
+      high:  parseFloat(k.h),
+      low:   parseFloat(k.l),
+      close: parseFloat(k.c),
+    };
+    candleSeries.update(candle);
+
+    // Update price
+    prices[sym] = parseFloat(k.c);
+    updatePriceHeader(sym, parseFloat(k.c), parseFloat(k.P||0));
+
+    // Update SL/TP preview lines kalau ada posisi
+    if (activePosPid > 0) updatePnLOverlay();
+    updatePreview();
+  };
+  ws.onclose = () => { delete wsConns["kline"]; };
+  wsConns["kline"] = ws;
+}
+
+function startTickerWS(sym) {
+  if (wsConns["ticker_"+sym]) return;
+  const pair = sym.toLowerCase()+"usdt";
+  const ws   = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+  ws.onmessage = e => {
+    const d   = JSON.parse(e.data);
+    const cur = parseFloat(d.c);
+    const pct = parseFloat(d.P);
+    prices[sym] = cur;
+    updatePriceHeader(sym, cur, pct);
+    updateTabPrice(sym, cur, pct);
+    // Update 24H
+    if (sym === curToken.sym) {
+      document.getElementById("ph24H").textContent = "$"+parseFloat(d.h).toLocaleString("en",{maximumFractionDigits:2});
+      document.getElementById("ph24L").textContent = "$"+parseFloat(d.l).toLocaleString("en",{maximumFractionDigits:2});
+      document.getElementById("phVol").textContent = fmtK(parseFloat(d.v));
+    }
+    updatePortfolio();
+    if (activePosPid > 0) updatePnLOverlay();
+    updatePreview();
+  };
+  ws.onclose = () => { delete wsConns["ticker_"+sym]; setTimeout(()=>startTickerWS(sym),3000); };
+  wsConns["ticker_"+sym] = ws;
+}
+
+function updatePriceHeader(sym, price, pct) {
+  if (sym !== curToken.sym) return;
+  const isUp = pct >= 0;
+  const fmt  = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+price.toFixed(4);
+  const el   = document.getElementById("phPrice");
+  el.textContent = fmt;
+  el.className   = "ph-price "+(isUp?"":"down");
+  const chg = document.getElementById("phChg");
+  chg.textContent = (isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%";
+  chg.className   = "ph-chg "+(isUp?"up":"down");
+}
+
+function updateTabPrice(sym, price, pct) {
+  const isUp = pct >= 0;
+  const fmt  = price > 100 ? "$"+Math.round(price).toLocaleString() : "$"+price.toFixed(4);
+  const pEl  = document.getElementById("tabp-"+sym);
+  const cEl  = document.getElementById("tabc-"+sym);
+  if (pEl) pEl.textContent = fmt;
+  if (cEl) {
+    cEl.textContent = (isUp?"+":"")+pct.toFixed(2)+"%";
+    cEl.className   = "tok-tab-chg "+(isUp?"up":"down");
+  }
+}
+
+// ═══ CHART LINES ══════════════════════════════════════════
+function drawChartLine(id, price, color, style) {
+  if (!chart || !price) return;
+  try {
+    return candleSeries.createPriceLine({
+      price: price,
+      color: color,
+      lineWidth: 1,
+      lineStyle: style || LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: id,
+    });
+  } catch(e) {}
+}
+
+function clearChartLines() {
+  try {
+    if (entryLine) candleSeries.removePriceLine(entryLine);
+    if (liqLine)   candleSeries.removePriceLine(liqLine);
+    if (slLine)    candleSeries.removePriceLine(slLine);
+    if (tpLine)    candleSeries.removePriceLine(tpLine);
+  } catch(e) {}
+  entryLine = liqLine = slLine = tpLine = null;
+}
+
+function updateChartLines() {
+  clearChartLines();
+  const price  = prices[curToken.sym];
+  const margin = parseFloat(document.getElementById("marginInput").value||"0");
+  const sl     = parseFloat(document.getElementById("slInput").value||"0");
+  const tp     = parseFloat(document.getElementById("tpInput").value||"0");
+  const lev    = LEVERAGES[curLev];
+
+  if (price > 0) {
+    // Entry line
+    entryLine = drawChartLine("Entry", price, "#f59e0b", 2);
+
+    // Liquidasi line
+    const liqP = curDir===0
+      ? price * (1 - 0.9/lev)
+      : price * (1 + 0.9/lev);
+    liqLine = drawChartLine("Liq", liqP, "#ef4444", 2);
+  }
+  if (sl > 0) slLine = drawChartLine("SL", sl, "#f87171", 1);
+  if (tp > 0) tpLine = drawChartLine("TP", tp, "#34d399", 1);
+}
+
+function drawPositionLines(entryPrice, liqPrice, slPrice, tpPrice) {
+  clearChartLines();
+  if (entryPrice) entryLine = drawChartLine("Entry", Number(entryPrice)/1e8, "#f59e0b", 2);
+  if (liqPrice)   liqLine   = drawChartLine("Liq",   Number(liqPrice)/1e8,   "#ef4444", 2);
+  if (slPrice && Number(slPrice) > 0)   slLine = drawChartLine("SL", Number(slPrice)/1e8,  "#f87171", 1);
+  if (tpPrice && Number(tpPrice) > 0)   tpLine = drawChartLine("TP", Number(tpPrice)/1e8,  "#34d399", 1);
+}
+
+// ═══ TOKEN SELECTION ══════════════════════════════════════
+function selectToken(sym, idx) {
+  curToken = {sym, idx};
+  TOKENS.forEach(t => {
+    document.getElementById("tab-"+t.sym).classList.toggle("active", t.sym===sym);
+  });
+  document.getElementById("phSym").textContent = sym+"/USDT";
+  clearChartLines();
+  loadCandles(sym, currentTF === "1D" ? "1d" : currentTF);
+  startKlineWS(sym, currentTF);
+  loadActivePosition();
+  updatePreview();
+}
+
+// ═══ FORM SELECTORS ═══════════════════════════════════════
+function selDir(v) {
+  curDir = v;
+  document.getElementById("btnLong").classList.toggle("active",  v===0);
+  document.getElementById("btnShort").classList.toggle("active", v===1);
+  const openBtn = document.getElementById("btnOpen");
+  if (openBtn) {
+    openBtn.className  = v===0 ? "btn-long" : "btn-short";
+    openBtn.textContent= v===0 ? "📈 BUY LONG" : "📉 SELL SHORT";
+  }
+  updatePreview();
+  updateChartLines();
+}
+
+function selLev(v) {
+  curLev = v;
+  [0,1,2,3,4,5].forEach(i => document.getElementById("lev"+i).classList.toggle("sel",i===v));
+  updatePreview();
+  updateChartLines();
+}
+
+function selRoi(v) {
+  curRoi = v;
+  [0,1,2].forEach(i => document.getElementById("roi"+i).classList.toggle("sel",i===v));
+  updatePreview();
+}
+
+function selWdTok(v) {
+  curWdTok = v;
+  [255,0,1].forEach(i => {
+    const el = document.getElementById("wdTok"+i);
+    if (el) el.classList.toggle("sel", i===v);
+  });
+  const units = {255:"USDT", 0:"BNB", 1:"BTC"};
+  document.getElementById("wdUnit").textContent = units[v]||"USDT";
+}
+
+// ═══ PREVIEW ══════════════════════════════════════════════
+function updatePreview() {
+  const margin = parseFloat(document.getElementById("marginInput")?.value||"0");
+  const price  = prices[curToken.sym];
+  if (margin <= 0 || price <= 0) {
+    document.getElementById("posPreview").style.display="none";
+    return;
+  }
+  document.getElementById("posPreview").style.display="block";
+
+  const lev    = LEVERAGES[curLev];
+  const size   = margin * lev;
+  const fee    = size * 0.001; // 0.1%
+  const liqP   = curDir===0 ? price*(1-0.9/lev) : price*(1+0.9/lev);
+  const maxP   = margin * MAX_ROIS[curRoi] / 100;
+
+  document.getElementById("prvSize").textContent  = "$"+size.toFixed(2);
+  document.getElementById("prvEntry").textContent = "$"+price.toLocaleString("en",{maximumFractionDigits:2});
+  document.getElementById("prvLiq").textContent   = "$"+liqP.toFixed(2);
+  document.getElementById("prvMaxP").textContent  = "+$"+maxP.toFixed(2)+" ("+MAX_ROIS[curRoi]+"%)";
+  document.getElementById("prvFee").textContent   = "$"+fee.toFixed(4);
+}
+
+function setSLPreset(pct) {
+  const price = prices[curToken.sym];
+  if (!price) return;
+  const sl = curDir===0 ? price*(1+pct/100) : price*(1-pct/100);
+  document.getElementById("slInput").value = sl.toFixed(2);
+  updateChartLines();
+}
+
+function setTPPreset(pct) {
+  const price = prices[curToken.sym];
+  if (!price) return;
+  const tp = curDir===0 ? price*(1+pct/100) : price*(1-pct/100);
+  document.getElementById("tpInput").value = tp.toFixed(2);
+  updateChartLines();
+}
+
+// ═══ OPEN POSITION ════════════════════════════════════════
+async function openPosition() {
+  if (!userAddr) { showToast("Connect wallet!","#ef4444"); return; }
+  const margin = parseFloat(document.getElementById("marginInput").value||"0");
+  if (margin <= 0) { showToast("Masukkan margin!","#ef4444"); return; }
+
+  const slVal = parseFloat(document.getElementById("slInput").value||"0");
+  const tpVal = parseFloat(document.getElementById("tpInput").value||"0");
+
+  try {
+    // Konversi margin USDT ke VIRT_DEC (1e18)
+    const marginVirt = BigInt(Math.round(margin * 1e18)).toString();
+    const slBig      = slVal > 0 ? BigInt(Math.round(slVal * 1e8)).toString() : "0";
+    const tpBig      = tpVal > 0 ? BigInt(Math.round(tpVal * 1e8)).toString() : "0";
+
+    showToast("Membuka posisi...","#f59e0b");
+    const tx = await contract.openPosition(
+      curToken.idx, curDir, curLev, curRoi,
+      marginVirt, slBig, tpBig
+    );
+    await tx.wait();
+    showToast(`Posisi ${curDir===0?"LONG":"SHORT"} dibuka! 💎`,"#10b981");
+    loadBalance();
+    loadActivePosition();
+  } catch(e) {
+    if (e.message.includes("kalibrasi") || e.message.includes("maintenance")) {
+      showToast("⚙️ Sistem sedang kalibrasi. Coba lagi!","#f59e0b");
+    } else {
+      showToast("Gagal: "+e.message,"#ef4444");
+    }
+  }
+}
+
+// ═══ CLOSE POSITION ═══════════════════════════════════════
+async function closePosition(pid) {
+  if (!userAddr) return;
+  try {
+    showToast("Menutup posisi...","#f59e0b");
+    const tx = await contract.closePosition(pid);
+    await tx.wait();
+    showToast("Posisi ditutup! ✅","#10b981");
+    clearChartLines();
+    activePosPid = 0;
+    document.getElementById("chartOverlay").style.display="none";
+    if (pnlInterval) clearInterval(pnlInterval);
+    loadBalance();
+    loadActivePosition();
+    loadHistory();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+// ═══ LOAD ACTIVE POSITION ═════════════════════════════════
+async function loadActivePosition() {
+  const c   = await getRC();
+  const sec = document.getElementById("activePositionSection");
+
+  try {
+    let found = false;
+    for (const tok of TOKENS) {
+      const pid = Number(await c.getActivePosition(userAddr||"0x0000000000000000000000000000000000000001", tok.idx));
+      if (pid === 0) continue;
+      found = true;
+      activePosPid = pid;
+
+      const [,token,dir,status] = await c.getPosition1(pid);
+      if (Number(status) !== 0) continue;
+
+      const [margin,size,entry,liqPrice,slP,tpP] = await c.getPosition2(pid);
+      const [pnl,pnlPct,isProfit] = await c.getCurrentPnL(pid);
+      const lev = LEVERAGES[Number(await c.getPosition1(pid).then(r=>r[4]))];
+
+      drawPositionLines(entry, liqPrice, slP, tpP);
+      document.getElementById("chartOverlay").style.display="block";
+
+      const dirStr  = Number(dir)===0?"LONG":"SHORT";
+      const dirCls  = Number(dir)===0?"long":"short";
+      const pnlUSD  = Number(pnl)/1e18;
+      const pnlPctN = Number(pnlPct)/100;
+
+      sec.innerHTML = `<div class="pos-card ${dirCls}">
+        <div class="pc-head">
+          <div class="pc-title ${dirCls}">💎 ${tok.sym}/USDT ${dirStr}</div>
+          <div class="pc-badge ${dirCls}">${LEVERAGES[Number(await c.getPosition1(pid).then(r=>r[4]))]}x · ${MAX_ROIS[Number(await c.getPosition3(pid).then(r=>r[3]))]}% ROI</div>
+        </div>
+        <div class="pc-pnl ${isProfit?"profit":"loss"}" id="pcPnL">
+          ${isProfit?"+":""} $${Math.abs(pnlUSD).toFixed(4)} (${isProfit?"+":""}${pnlPctN.toFixed(2)}%)
+        </div>
+        <div class="pc-row"><span class="pc-key">Entry</span><span class="pc-val">$${(Number(entry)/1e8).toLocaleString("en",{maximumFractionDigits:2})}</span></div>
+        <div class="pc-row"><span class="pc-key">Harga Skrg</span><span class="pc-val" id="pcCurPrice">$${prices[tok.sym]>0?prices[tok.sym].toLocaleString("en",{maximumFractionDigits:2}):"—"}</span></div>
+        <div class="pc-row"><span class="pc-key">Likuidasi</span><span class="pc-val" style="color:var(--red2)">$${(Number(liqPrice)/1e8).toFixed(2)}</span></div>
+        <div class="pc-row"><span class="pc-key">Margin</span><span class="pc-val">$${(Number(margin)/1e18).toFixed(2)}</span></div>
+        <div class="pc-row"><span class="pc-key">Ukuran Posisi</span><span class="pc-val">$${(Number(size)/1e18).toFixed(2)}</span></div>
+        ${Number(slP)>0?`<div class="pc-row"><span class="pc-key">Stop Loss</span><span class="pc-val" style="color:var(--red2)">$${(Number(slP)/1e8).toFixed(2)}</span></div>`:""}
+        ${Number(tpP)>0?`<div class="pc-row"><span class="pc-key">Take Profit</span><span class="pc-val" style="color:var(--green2)">$${(Number(tpP)/1e8).toFixed(2)}</span></div>`:""}
+        <button class="btn-close" onclick="closePosition(${pid})">🔴 CLOSE POSISI SEKARANG</button>
+      </div>`;
+
+      // Update PnL realtime
+      if (pnlInterval) clearInterval(pnlInterval);
+      pnlInterval = setInterval(async()=>{
+        try {
+          const cc = await getRC();
+          const [p,pp,ip] = await cc.getCurrentPnL(pid);
+          const pv  = Number(p)/1e18;
+          const ppv = Number(pp)/100;
+          const el  = document.getElementById("pcPnL");
+          if (el) {
+            el.textContent = `${ip?"+":""} $${Math.abs(pv).toFixed(4)} (${ip?"+":""}${ppv.toFixed(2)}%)`;
+            el.className   = "pc-pnl "+(ip?"profit":"loss");
+          }
+          const cp = document.getElementById("pcCurPrice");
+          if (cp && prices[tok.sym]) cp.textContent = "$"+prices[tok.sym].toLocaleString("en",{maximumFractionDigits:2});
+          updatePnLOverlay(pv, ppv, ip);
+        } catch(e) {}
+      }, 3000);
+
+      break;
+    }
+
+    if (!found) {
+      activePosPid = 0;
+      if (pnlInterval) clearInterval(pnlInterval);
+      document.getElementById("chartOverlay").style.display="none";
+      sec.innerHTML = "";
+    }
+  } catch(e) {
+    sec.innerHTML = "";
+  }
+}
+
+function updatePnLOverlay(pv, ppv, ip) {
+  const el = document.getElementById("chartPnL");
+  if (!el) return;
+  if (pv !== undefined) {
+    el.textContent = `${ip?"+":""} $${Math.abs(pv).toFixed(4)} (${ip?"+":""}${ppv.toFixed(2)}%)`;
+    el.className   = "co-pnl "+(ip?"profit":"loss");
+  }
+}
+
+// ═══ BALANCE & PORTFOLIO ══════════════════════════════════
+async function loadBalance() {
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [usdt,bnb,btc] = await c.getBalance(userAddr);
+    const usdtV = Number(usdt)/1e18;
+    const bnbV  = Number(bnb)/1e18;
+    const btcV  = Number(btc)/1e18;
+
+    document.getElementById("balUSDT").textContent = "$"+usdtV.toFixed(2);
+    document.getElementById("portUSDT").textContent = "$"+usdtV.toFixed(2);
+    document.getElementById("portUSDT2").textContent = (usdtV/INDC_PRICE).toFixed(0)+" INDC";
+
+    const bnbUSD = bnbV * (prices.BNB||0);
+    const btcUSD = btcV * (prices.BTC||0);
+
+    document.getElementById("portBNB").textContent    = bnbV.toFixed(4)+" BNB";
+    document.getElementById("portBNBusd").textContent = "$"+bnbUSD.toFixed(2);
+    document.getElementById("portBTC").textContent    = btcV.toFixed(6)+" BTC";
+    document.getElementById("portBTCusd").textContent = "$"+btcUSD.toFixed(2);
+
+    const total = usdtV + bnbUSD + btcUSD;
+    document.getElementById("portTotal").textContent = "$"+total.toFixed(2)+" (≈"+(total/INDC_PRICE).toFixed(0)+" INDC)";
+  } catch(e) {}
+}
+
+function updatePortfolio() {
+  if (!userAddr) return;
+  loadBalance();
+}
+
+// ═══ DEPOSIT / WITHDRAW / SWAP ════════════════════════════
+function switchDepTab(tab) {
+  ["deposit","wd","swap"].forEach(t => {
+    document.getElementById("dep"+t.charAt(0).toUpperCase()+t.slice(1)).style.display = t===tab?"block":"none";
+    document.getElementById("depTab"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active",t===tab);
+  });
+}
+
+// Perlu fix switchDepTab untuk key yang benar
+function switchDepTab(tab) {
+  const map = {deposit:"Deposit", wd:"Wd", swap:"Swap"};
+  Object.keys(map).forEach(t => {
+    document.getElementById("dep"+map[t]).style.display = t===tab?"block":"none";
+    document.getElementById("depTab"+map[t]).classList.toggle("active",t===tab);
+  });
+}
+
+async function doDeposit() {
+  if (!userAddr) { showToast("Connect wallet!","#ef4444"); return; }
+  const amt = parseFloat(document.getElementById("depAmt").value||"0");
+  if (amt <= 0) { showToast("Masukkan jumlah!","#ef4444"); return; }
+  try {
+    const amtWei = ethers.parseUnits(amt.toString(), INDC_DEC);
+    showToast("Approve INDC...","#f59e0b");
+    const allow = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < amtWei) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    showToast("Deposit...","#f59e0b");
+    const tx = await contract.deposit(amtWei);
+    await tx.wait();
+    showToast("Deposit berhasil! 💎","#10b981");
+    loadBalance();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function doWithdraw() {
+  if (!userAddr) { showToast("Connect wallet!","#ef4444"); return; }
+  const amt = parseFloat(document.getElementById("wdAmt").value||"0");
+  if (amt <= 0) { showToast("Masukkan jumlah!","#ef4444"); return; }
+  try {
+    // Konversi amount ke 1e18
+    const amtBig = BigInt(Math.round(amt * 1e18)).toString();
+    showToast("Withdraw...","#f59e0b");
+    const tx = await contract.withdraw(curWdTok, amtBig);
+    await tx.wait();
+    showToast("Withdraw berhasil! INDC masuk wallet ✅","#10b981");
+    loadBalance();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function doSwap() {
+  if (!userAddr) { showToast("Connect wallet!","#ef4444"); return; }
+  const from = parseInt(document.getElementById("swapFrom").value);
+  const to   = parseInt(document.getElementById("swapTo").value);
+  const amt  = parseFloat(document.getElementById("swapAmt").value||"0");
+  if (amt <= 0) { showToast("Masukkan jumlah!","#ef4444"); return; }
+  if (from === to) { showToast("Token sama!","#ef4444"); return; }
+  try {
+    const amtBig = BigInt(Math.round(amt * 1e18)).toString();
+    showToast("Swap...","#f59e0b");
+    const tx = await contract.swapVirtual(from, to, amtBig);
+    await tx.wait();
+    showToast("Swap berhasil! 🔄","#10b981");
+    loadBalance();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+// ═══ HISTORY ══════════════════════════════════════════════
+async function loadHistory() {
+  if (!userAddr) return;
+  const c   = await getRC();
+  const el  = document.getElementById("historyList");
+  try {
+    const total = Number(await c.posCount());
+    let html = "";
+    let count = 0;
+    for (let i=total; i>=Math.max(1,total-50) && count<10; i--) {
+      const [owner,token,dir,status] = await c.getPosition1(i);
+      if (owner.toLowerCase() !== userAddr.toLowerCase()) continue;
+      if (Number(status)===0) continue;
+      const [margin,,entry,,, ] = await c.getPosition2(i);
+      const [,closePrice,pnl]   = await c.getPosition3(i);
+      const tokSym = Number(token)===0?"BNB":"BTC";
+      const dirStr = Number(dir)===0?"LONG":"SHORT";
+      const isProfit = Number(pnl) >= 0;
+      const isLiq    = Number(status)===2;
+      const pnlUSD   = Number(pnl)/1e18;
+      html += `<div class="hist-card">
+        <div class="hc-head">
+          <span class="hc-sym" style="color:${Number(dir)===0?"var(--green)":"var(--red)"}">${tokSym} ${dirStr} #${i}</span>
+          <span class="hc-badge ${isLiq?"badge-liq":isProfit?"badge-profit":"badge-loss"}">
+            ${isLiq?"💀 LIQ":isProfit?"✅ PROFIT":"❌ LOSS"}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;">
+          <span style="color:var(--muted);">Entry $${(Number(entry)/1e8).toFixed(2)} → Close $${(Number(closePrice)/1e8).toFixed(2)}</span>
+          <span style="color:${isProfit?"var(--green)":"var(--red)"};">
+            ${isProfit?"+":""}$${pnlUSD.toFixed(4)}
+          </span>
+        </div>
+      </div>`;
+      count++;
+    }
+    el.innerHTML = count>0 ? html : `<div class="empty"><div class="empty-txt">BELUM ADA RIWAYAT</div></div>`;
+  } catch(e) { el.innerHTML = `<div class="empty"><div class="empty-txt">—</div></div>`; }
+}
+
+// ═══ ADMIN ════════════════════════════════════════════════
+async function loadAdminData() {
+  if (!isAdmin) return;
+  try {
+    const c = await getRC();
+    const [pool,fees] = await c.getPoolInfo();
+    document.getElementById("admPool").textContent  = fmtK(Number(pool)/1e9)+" INDC";
+    document.getElementById("admFees").textContent  = fmtK(Number(fees)/1e9)+" INDC";
+  } catch(e) {}
+}
+
+async function admPause(v) {
+  if (!isAdmin) return;
+  try {
+    const tx = await contract.setPaused(v);
+    await tx.wait();
+    showToast(v?"Paused ⏸️":"Resumed ▶️","#10b981");
+    loadAdminData();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function admWithdrawFees() {
+  if (!isAdmin) return;
+  try {
+    const tx = await contract.withdrawFees();
+    await tx.wait();
+    showToast("Fee ditarik! 💰","#10b981");
+    loadAdminData();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function admDepositPool() {
+  if (!isAdmin) return;
+  const amt = parseFloat(document.getElementById("admPoolAmt").value||"0");
+  if (amt <= 0) return;
+  try {
+    const amtWei = ethers.parseUnits(amt.toString(), INDC_DEC);
+    const allow  = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < amtWei) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    const tx = await contract.depositPool(amtWei);
+    await tx.wait();
+    showToast("Pool deposit berhasil!","#10b981");
+    loadAdminData();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+// ═══ HELPERS ══════════════════════════════════════════════
+function fmtK(v) {
+  if(v>=1000000) return (v/1000000).toFixed(1)+"M";
+  if(v>=1000)    return (v/1000).toFixed(1)+"K";
+  return Math.round(v).toString();
+}
+
+function showToast(msg,color="#10b981") {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.background=color;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3000);
+}
+
+// ═══ INIT ═════════════════════════════════════════════════
+window.addEventListener("load", async()=>{
+  // Init chart
+  initChart();
+
+  // Load candles BNB default
+  await loadCandles("BNB", "5");
+
+  // Start websockets
+  startKlineWS("BNB","5");
+  startTickerWS("BNB");
+  startTickerWS("BTC");
+
+  // Active position kalau sudah connect
+  if (userAddr) {
+    loadBalance();
+    loadActivePosition();
+    loadHistory();
+  }
+
+  // SW auto-update
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener("updatefound", () => {
+        const n = reg.installing;
+        n.addEventListener("statechange", () => {
+          if (n.state === "activated") window.location.reload();
+        });
+      });
+    }).catch(e => console.warn(e));
+    navigator.serviceWorker.addEventListener("controllerchange",
+      () => window.location.reload());
+  }
+});
+</script>
+</body>
+</html>
