@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Stairway To Heaven</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --dark:#0a0a0f;--dark2:#0f0f1a;--dark3:#1a1a2e;
+  --gold:#f59e0b;--gold2:#fbbf24;--gold3:#fef3c7;--gold4:#78350f;
+  --heaven:#e2c97e;--star:#fff8e7;
+  --green:#10b981;--red:#ef4444;--muted:#64748b;
+  --text:#e2e8f0;--border:rgba(245,158,11,0.15);--card:rgba(15,15,26,0.98);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
+  min-height:100vh;overflow-x:hidden;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes glow{0%,100%{text-shadow:0 0 10px #f59e0b,0 0 20px #f59e0b}50%{text-shadow:0 0 5px #f59e0b}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes starfall{0%{transform:translateY(-10px);opacity:0}50%{opacity:1}100%{transform:translateY(10px);opacity:0}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(10,10,15,0.99);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:28px;height:28px;border-radius:50%;border:2px solid rgba(245,158,11,0.6);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--heaven);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:8px;padding:6px 10px;
+  border:1px solid rgba(245,158,11,0.4);border-radius:16px;
+  background:rgba(245,158,11,0.08);color:var(--gold2);cursor:pointer;
+  display:flex;align-items:center;gap:4px;}
+
+.page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* HERO */
+.hero{text-align:center;padding:20px 0 16px;animation:fadeUp 0.5s ease;}
+.hero-stars{font-size:18px;letter-spacing:4px;margin-bottom:8px;animation:starfall 2s infinite;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;
+  letter-spacing:3px;line-height:1.2;margin-bottom:4px;
+  background:linear-gradient(135deg,var(--gold4),var(--gold),var(--heaven),var(--gold));
+  background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:shimmer 3s linear infinite;}
+.hero-sub{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--heaven);letter-spacing:2px;margin-bottom:6px;}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  line-height:1.8;font-style:italic;}
+
+/* TABS */
+.main-tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;padding:4px;}
+.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  padding:7px 3px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;transition:all 0.2s;}
+.tab-btn.active{background:rgba(245,158,11,0.12);color:var(--gold);border:1px solid rgba(245,158,11,0.3);}
+
+/* LEVEL CARD */
+.level-card{background:linear-gradient(135deg,rgba(120,53,15,0.3),rgba(245,158,11,0.1));
+  border:1px solid rgba(245,158,11,0.3);border-radius:16px;padding:16px;
+  margin-bottom:12px;text-align:center;position:relative;overflow:hidden;}
+.lc-level-name{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;
+  color:var(--gold);letter-spacing:3px;animation:glow 2s ease-in-out infinite;margin-bottom:4px;}
+.lc-emoji{font-size:36px;margin-bottom:8px;display:block;animation:float 3s ease-in-out infinite;}
+.lc-points{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;color:var(--star);}
+.lc-pts-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;}
+.lc-progress{margin-top:12px;}
+.lc-prog-lbl{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;
+  font-size:7px;color:var(--muted);margin-bottom:4px;}
+.lc-prog-track{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;}
+.lc-prog-fill{height:100%;background:linear-gradient(90deg,var(--gold4),var(--gold),var(--heaven));
+  border-radius:4px;transition:width 0.5s ease;}
+.lc-next{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:6px;}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
+.sg-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;}
+.sg-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;}
+.sg-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+
+/* STAIRWAY VISUAL */
+.stairway{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:12px;}
+.sw-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:12px;}
+.sw-step{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;
+  margin-bottom:4px;transition:all 0.2s;cursor:pointer;}
+.sw-step.current{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);}
+.sw-step.done{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);}
+.sw-step.locked{opacity:0.4;}
+.sw-icon{font-size:18px;width:32px;text-align:center;flex-shrink:0;}
+.sw-info{flex:1;}
+.sw-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+.sw-name.current{color:var(--gold);}
+.sw-name.done{color:var(--green);}
+.sw-name.locked{color:var(--muted);}
+.sw-range{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:1px;}
+.sw-bonus{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:2px 7px;border-radius:4px;flex-shrink:0;}
+.sw-bonus.current{background:rgba(245,158,11,0.15);color:var(--gold);}
+.sw-bonus.done{background:rgba(16,185,129,0.1);color:var(--green);}
+.sw-bonus.locked{background:rgba(255,255,255,0.04);color:var(--muted);}
+.sw-claimed{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--green);}
+
+/* CLAIM SECTION */
+.claim-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:12px;}
+.cc-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:10px;}
+.prog-list{display:flex;flex-direction:column;gap:6px;}
+.prog-item{display:flex;align-items:center;gap:10px;padding:10px;
+  background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);
+  border-radius:8px;}
+.pi-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;}
+.pi-info{flex:1;}
+.pi-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--text);}
+.pi-pts{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold);margin-top:1px;}
+.btn-claim{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  padding:6px 10px;border-radius:6px;border:1px solid rgba(245,158,11,0.3);
+  background:rgba(245,158,11,0.1);color:var(--gold);cursor:pointer;
+  white-space:nowrap;transition:all 0.2s;flex-shrink:0;}
+.btn-claim:hover{background:rgba(245,158,11,0.2);}
+.btn-claim:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* REDEEM */
+.redeem-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:12px;}
+.rc-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:10px;}
+.rc-info{background:rgba(245,158,11,0.04);border-radius:8px;padding:10px;margin-bottom:10px;}
+.rc-row{display:flex;justify-content:space-between;padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-family:'Share Tech Mono',monospace;font-size:8px;}
+.rc-row:last-child{border:none;}
+.rc-key{color:var(--muted);}
+.rc-val{color:var(--text);font-weight:600;}
+.rc-val.ok{color:var(--green);}
+.rc-val.warn{color:var(--gold);}
+.rc-val.bad{color:var(--red);}
+.input-wrap{display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;padding:10px 12px;margin-bottom:6px;}
+.input-field{flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--text);}
+.input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.btn-redeem{width:100%;padding:13px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(135deg,var(--gold4),var(--gold));color:white;
+  transition:all 0.2s;margin-top:8px;}
+.btn-redeem:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* BONUS ALERT */
+.bonus-alert{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);
+  border-radius:10px;padding:12px;margin-bottom:12px;animation:fadeUp 0.3s ease;}
+.ba-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--green);letter-spacing:1px;margin-bottom:4px;}
+.ba-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.btn-claim-bonus{width:100%;padding:11px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  background:rgba(16,185,129,0.15);color:var(--green);
+  border:1px solid rgba(16,185,129,0.3);margin-top:8px;}
+
+/* PANDUAN */
+.guide-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-bottom:12px;}
+.guide-head{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;cursor:pointer;}
+.guide-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;}
+.guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
+.guide-arrow.open{transform:rotate(180deg);}
+.guide-body{display:none;padding:4px 14px 14px;}
+.guide-body.open{display:block;}
+.guide-step{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.guide-step:last-child{border:none;}
+.gs-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:900;flex-shrink:0;margin-top:2px;
+  background:rgba(245,158,11,0.15);color:var(--gold);}
+.gs-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:3px;}
+.gs-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.7;}
+
+/* TAX TABLE */
+.tax-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.tax-table th{font-family:'Orbitron',sans-serif;font-size:7px;color:var(--gold);
+  padding:6px;text-align:left;background:rgba(245,158,11,0.08);
+  border-bottom:1px solid rgba(245,158,11,0.2);}
+.tax-table td{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  padding:6px;border-bottom:1px solid rgba(255,255,255,0.04);}
+.tax-table tr:last-child td{border:none;}
+
+/* TOAST */
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(20px);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:10px 18px;
+  border-radius:20px;color:white;z-index:999;opacity:0;transition:all 0.3s;
+  white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* EMPTY */
+.empty{text-align:center;padding:30px 20px;}
+.empty-icon{font-size:32px;margin-bottom:8px;}
+.empty-txt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,5,15,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(245,158,11,0.12);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;text-decoration:none;color:#4b5563;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">🪜 STAIRWAY TO HEAVEN</div>
+    </div>
+  </div>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span id="walletIcon">⚡</span>
+    <span id="walletTxt">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-stars">✨ ⭐ 🌟 ⭐ ✨</div>
+    <div class="hero-title">STAIRWAY<br>TO HEAVEN</div>
+    <div class="hero-sub">NAIKI TANGGA · KUMPUL POIN · RAIH KEJAYAAN</div>
+    <div class="hero-desc">"Setiap trade adalah selangkah menuju surga — kumpul poin dari semua program!"</div>
+  </div>
+
+  <!-- MAIN TABS -->
+  <div class="main-tabs">
+    <button class="tab-btn active" onclick="switchTab('level')"  id="tab-level">🪜 LEVEL</button>
+    <button class="tab-btn"        onclick="switchTab('claim')"  id="tab-claim">🎯 KLAIM</button>
+    <button class="tab-btn"        onclick="switchTab('redeem')" id="tab-redeem">💰 REDEEM</button>
+    <button class="tab-btn"        onclick="switchTab('guide')"  id="tab-guide">📖 PANDUAN</button>
+  </div>
+
+  <!-- ══ TAB LEVEL ══ -->
+  <div id="sec-level">
+
+    <!-- Level Card -->
+    <div class="level-card" id="levelCard">
+      <div class="empty">
+        <div class="empty-icon">🪜</div>
+        <div class="empty-txt">CONNECT WALLET UNTUK LIHAT LEVEL</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="sg-box">
+        <div class="sg-lbl">POIN SAAT INI</div>
+        <div class="sg-val" id="statPts">—</div>
+      </div>
+      <div class="sg-box">
+        <div class="sg-lbl">TOTAL POIN</div>
+        <div class="sg-val" id="statTotal">—</div>
+      </div>
+      <div class="sg-box">
+        <div class="sg-lbl">LEVEL</div>
+        <div class="sg-val" id="statLevel">—</div>
+      </div>
+    </div>
+
+    <!-- Bonus Alert -->
+    <div id="bonusAlert" style="display:none;"></div>
+
+    <!-- Stairway Visual -->
+    <div class="stairway">
+      <div class="sw-title">🪜 TANGGA MENUJU HEAVEN</div>
+      <div id="stairwayList"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB KLAIM ══ -->
+  <div id="sec-claim" style="display:none;">
+    <div class="claim-card">
+      <div class="cc-title">🎯 KLAIM POIN DARI PROGRAM</div>
+      <div class="prog-list">
+
+        <div class="prog-item">
+          <div class="pi-icon">🎁</div>
+          <div class="pi-info">
+            <div class="pi-name">PHANTOM BOX TRADE</div>
+            <div class="pi-pts">+1 POIN per box · Via dev verify</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);text-align:center;">
+            Hubungi<br>Dev
+          </div>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">⚔️</div>
+          <div class="pi-info">
+            <div class="pi-name">CLASH TRADE</div>
+            <div class="pi-pts">+2 POIN per duel selesai</div>
+          </div>
+          <button class="btn-claim" onclick="claimProgram('clash')">KLAIM</button>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">🌀</div>
+          <div class="pi-info">
+            <div class="pi-name">CYCLE TRADE</div>
+            <div class="pi-pts">+2 POIN per session selesai</div>
+          </div>
+          <button class="btn-claim" onclick="claimProgram('cycle')">KLAIM</button>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">👁️</div>
+          <div class="pi-info">
+            <div class="pi-name">SHADOW COPY TRADE</div>
+            <div class="pi-pts">+3 POIN per sesi copier</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+            <input id="shadowSid" type="number" placeholder="SID"
+              style="width:60px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+              border-radius:4px;padding:4px 6px;font-family:'Share Tech Mono',monospace;
+              font-size:8px;color:var(--text);outline:none;">
+            <button class="btn-claim" onclick="claimProgram('shadow')">KLAIM</button>
+          </div>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">💥</div>
+          <div class="pi-info">
+            <div class="pi-name">BLITZ TRADE</div>
+            <div class="pi-pts">+2 POIN per room · Via dev verify</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);text-align:center;">
+            Hubungi<br>Dev
+          </div>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">🔺</div>
+          <div class="pi-info">
+            <div class="pi-name">THREE TRADE</div>
+            <div class="pi-pts">+3 POIN per sesi selesai</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+            <input id="threeSid" type="number" placeholder="SID"
+              style="width:60px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+              border-radius:4px;padding:4px 6px;font-family:'Share Tech Mono',monospace;
+              font-size:8px;color:var(--text);outline:none;">
+            <button class="btn-claim" onclick="claimProgram('three')">KLAIM</button>
+          </div>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">🌊</div>
+          <div class="pi-info">
+            <div class="pi-name">WAVE TRADE</div>
+            <div class="pi-pts">+2 POIN per sesi selesai</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+            <input id="waveSid" type="number" placeholder="SID"
+              style="width:60px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+              border-radius:4px;padding:4px 6px;font-family:'Share Tech Mono',monospace;
+              font-size:8px;color:var(--text);outline:none;">
+            <button class="btn-claim" onclick="claimProgram('wave')">KLAIM</button>
+          </div>
+        </div>
+
+        <div class="prog-item">
+          <div class="pi-icon">💎</div>
+          <div class="pi-info">
+            <div class="pi-name">DELTA TRADE</div>
+            <div class="pi-pts">+5 POIN per posisi ditutup</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+            <input id="deltaPid" type="number" placeholder="PID"
+              style="width:60px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+              border-radius:4px;padding:4px 6px;font-family:'Share Tech Mono',monospace;
+              font-size:8px;color:var(--text);outline:none;">
+            <button class="btn-claim" onclick="claimProgram('delta')">KLAIM</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB REDEEM ══ -->
+  <div id="sec-redeem" style="display:none;">
+    <div class="redeem-card">
+      <div class="rc-title">💰 TUKAR POIN → INDC</div>
+      <div class="rc-info" id="redeemInfo">
+        <div class="rc-row"><span class="rc-key">Status</span><span class="rc-val" id="rdStatus">—</span></div>
+        <div class="rc-row"><span class="rc-key">Poin Tersedia</span><span class="rc-val" id="rdPts">—</span></div>
+        <div class="rc-row"><span class="rc-key">Tax Redeem</span><span class="rc-val" id="rdTax">—</span></div>
+        <div class="rc-row"><span class="rc-key">Rate</span><span class="rc-val">1 poin = 1 INDC</span></div>
+        <div class="rc-row"><span class="rc-key">Min Redeem</span><span class="rc-val">100 poin</span></div>
+        <div class="rc-row"><span class="rc-key">Cooldown</span><span class="rc-val" id="rdCooldown">—</span></div>
+      </div>
+
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+        margin-bottom:8px;">JUMLAH POIN YANG INGIN DITUKAR</div>
+      <div class="input-wrap">
+        <input class="input-field" id="redeemAmt" type="number"
+          placeholder="100" min="100" oninput="updateRedeemPreview()">
+        <span class="input-unit">POIN</span>
+      </div>
+
+      <div id="redeemPreview" style="display:none;background:rgba(245,158,11,0.04);
+        border-radius:8px;padding:8px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;margin-bottom:3px;">
+          <span style="color:var(--muted)">Gross INDC</span>
+          <span id="prvGross" style="color:var(--text)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;margin-bottom:3px;">
+          <span style="color:var(--muted)">Tax</span>
+          <span id="prvTaxAmt" style="color:var(--red)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;">
+          <span style="color:var(--muted)">Kamu Dapat</span>
+          <span id="prvNet" style="color:var(--gold)">—</span>
+        </div>
+      </div>
+
+      <button class="btn-redeem" id="btnRedeem" onclick="doRedeem()" disabled>
+        💰 REDEEM POIN → INDC
+      </button>
+    </div>
+
+    <!-- Tax Table -->
+    <div class="redeem-card">
+      <div class="rc-title">📊 TABEL TAX REDEEM</div>
+      <table class="tax-table">
+        <tr><th>Umur Poin</th><th>Tax</th><th>Keterangan</th></tr>
+        <tr><td>30 - 90 hari</td><td style="color:var(--red)">20%</td><td>Early redeem</td></tr>
+        <tr><td>90 - 180 hari</td><td style="color:var(--gold)">10%</td><td>Sabar sedikit</td></tr>
+        <tr><td>180 - 365 hari</td><td style="color:var(--gold2)">5%</td><td>Hampir bebas</td></tr>
+        <tr><td>365 hari+</td><td style="color:var(--green)">0%</td><td>Gratis! 🎉</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ TAB PANDUAN ══ -->
+  <div id="sec-guide" style="display:none;">
+    <div class="guide-card">
+      <div class="guide-head" onclick="toggleGuide()">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>📖</span>
+          <span class="guide-title">CARA KERJA STAIRWAY TO HEAVEN</span>
+        </div>
+        <span class="guide-arrow open" id="guideArrow">▼</span>
+      </div>
+      <div class="guide-body open" id="guideBody">
+        <div class="guide-step">
+          <div class="gs-num">1</div>
+          <div>
+            <div class="gs-title">MAIN PROGRAM TRADE</div>
+            <div class="gs-desc">Main salah satu dari 8 program trade INDOCOIN. Setiap kali selesai trading — ada poin yang bisa diklaim! Semakin aktif = semakin banyak poin terkumpul.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">2</div>
+          <div>
+            <div class="gs-title">KLAIM POIN</div>
+            <div class="gs-desc">Buka tab KLAIM setelah selesai trading. Masukkan Session ID (SID) atau Position ID (PID) dari program yang sudah selesai, lalu klaim poin. Anti double claim — setiap sesi hanya bisa diklaim 1x!</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">3</div>
+          <div>
+            <div class="gs-title">NAIKI TANGGA LEVEL</div>
+            <div class="gs-desc">Kumpulkan poin dan naiki tangga level dari EARTHLY hingga HEAVEN. Setiap naik level dapat bonus INDC sekali! Level tidak turun — pencapaian permanen selamanya.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">4</div>
+          <div>
+            <div class="gs-title">KLAIM BONUS LEVEL</div>
+            <div class="gs-desc">Saat naik ke level baru, klaim bonus INDC langsung ke wallet. WANDERER +50, SEEKER +150, BELIEVER +300, CHOSEN +500, BLESSED +1.000, ASCENDED +2.500, DIVINE +5.000, HEAVEN +10.000 INDC!</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num">5</div>
+          <div>
+            <div class="gs-title">REDEEM POIN → INDC</div>
+            <div class="gs-desc">Poin bisa ditukar ke INDC ril kapanpun (min 100 poin, cooldown 7 hari). Tax tergantung umur poin: 20% (30-90 hari), 10% (90-180 hari), 5% (180-365 hari), 0% (365 hari+). Harus aktif trading 1x dalam 7 hari!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Level Table -->
+    <div class="guide-card">
+      <div class="guide-head" onclick="toggleGuide2()">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>🪜</span>
+          <span class="guide-title">TABEL LEVEL & BONUS</span>
+        </div>
+        <span class="guide-arrow open" id="guideArrow2">▼</span>
+      </div>
+      <div class="guide-body open" id="guideBody2">
+        <table class="tax-table">
+          <tr><th>Level</th><th>Nama</th><th>Poin</th><th>Bonus</th></tr>
+          <tr><td>0</td><td>🌍 EARTHLY</td><td>0-99</td><td>—</td></tr>
+          <tr><td>1</td><td>🚶 WANDERER</td><td>100-299</td><td style="color:var(--gold)">+50 INDC</td></tr>
+          <tr><td>2</td><td>🔍 SEEKER</td><td>300-699</td><td style="color:var(--gold)">+150 INDC</td></tr>
+          <tr><td>3</td><td>🙏 BELIEVER</td><td>700-1499</td><td style="color:var(--gold)">+300 INDC</td></tr>
+          <tr><td>4</td><td>⭐ CHOSEN</td><td>1500-2999</td><td style="color:var(--gold)">+500 INDC</td></tr>
+          <tr><td>5</td><td>🌟 BLESSED</td><td>3000-5999</td><td style="color:var(--gold)">+1.000 INDC</td></tr>
+          <tr><td>6</td><td>👼 ASCENDED</td><td>6000-9999</td><td style="color:var(--gold)">+2.500 INDC</td></tr>
+          <tr><td>7</td><td>✨ DIVINE</td><td>10000+</td><td style="color:var(--gold)">+5.000 INDC</td></tr>
+          <tr><td>8</td><td>☁️ HEAVEN</td><td>Undangan</td><td style="color:var(--green)">+10.000 INDC</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOMNAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item active"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html"      class="bnav-item"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
+</nav>
+
+<script>
+// ═══ CONFIG ══════════════════════════════════════════════
+const STH_ADDR     = "0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a";
+const TRACKER_ADDR = "0x72266DE5B0a11869853C5f3C18527aB4Db422d03";
+const INDC_DEC     = 9;
+const BSC_RPC      = "https://bsc-dataseed.binance.org/";
+
+const LEVELS = [
+  {name:"EARTHLY",  emoji:"🌍", min:0,     max:99,    bonus:0},
+  {name:"WANDERER", emoji:"🚶", min:100,   max:299,   bonus:50},
+  {name:"SEEKER",   emoji:"🔍", min:300,   max:699,   bonus:150},
+  {name:"BELIEVER", emoji:"🙏", min:700,   max:1499,  bonus:300},
+  {name:"CHOSEN",   emoji:"⭐", min:1500,  max:2999,  bonus:500},
+  {name:"BLESSED",  emoji:"🌟", min:3000,  max:5999,  bonus:1000},
+  {name:"ASCENDED", emoji:"👼", min:6000,  max:9999,  bonus:2500},
+  {name:"DIVINE",   emoji:"✨", min:10000, max:49999, bonus:5000},
+  {name:"HEAVEN",   emoji:"☁️", min:50000, max:999999,bonus:10000},
+];
+
+const STH_ABI = [
+  "function getUserInfo(address) view returns (uint256,uint256,uint256,string,uint256,uint256,uint256)",
+  "function getRedeemInfo(address) view returns (bool,string,uint256,uint256,uint256,uint256)",
+  "function getLevelProgress(address) view returns (uint256,string,uint256,uint256,uint256,bool[])",
+  "function getEstimateRedeem(address,uint256) view returns (uint256,uint256,uint256,uint256)",
+  "function getUnclaimedBonuses(address) view returns (uint8[],uint256[])",
+  "function claimLevelBonus(uint8) external",
+  "function redeemPoints(uint256) external",
+];
+
+const TRACKER_ABI = [
+  "function claimClash() external",
+  "function claimCycle() external",
+  "function claimShadow(uint256) external",
+  "function claimThree(uint256) external",
+  "function claimWave(uint256) external",
+  "function claimDelta(uint256) external",
+];
+
+// ═══ STATE ════════════════════════════════════════════════
+let provider, signer, userAddr, sthContract, trackerContract;
+let userInfo = null;
+
+// ═══ WALLET ═══════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!","#ef4444"); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) {
+      await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer          = await provider.getSigner();
+    userAddr        = await signer.getAddress();
+    sthContract     = new ethers.Contract(STH_ADDR, STH_ABI, signer);
+    trackerContract = new ethers.Contract(TRACKER_ADDR, TRACKER_ABI, signer);
+    document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletIcon").textContent = "✅";
+    showToast("Wallet terhubung!","#10b981");
+    loadUserData();
+    window.ethereum.on("accountsChanged",()=>location.reload());
+    window.ethereum.on("chainChanged",()=>location.reload());
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+async function getRC() {
+  const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+  return new ethers.Contract(STH_ADDR, STH_ABI, prov);
+}
+
+// ═══ LOAD USER DATA ═══════════════════════════════════════
+async function loadUserData() {
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [pts, totalPts, lvl, lvlName, firstTime, lastRedeem, lastActive] =
+      await c.getUserInfo(userAddr);
+
+    userInfo = { pts:Number(pts), totalPts:Number(totalPts), lvl:Number(lvl),
+      lvlName, firstTime:Number(firstTime), lastRedeem:Number(lastRedeem),
+      lastActive:Number(lastActive) };
+
+    document.getElementById("statPts").textContent   = fmtK(userInfo.pts);
+    document.getElementById("statTotal").textContent = fmtK(userInfo.totalPts);
+    document.getElementById("statLevel").textContent = userInfo.lvl;
+
+    renderLevelCard();
+    renderStairway();
+    checkBonuses();
+    loadRedeemInfo();
+  } catch(e) { console.warn(e); }
+}
+
+// ═══ LEVEL CARD ═══════════════════════════════════════════
+function renderLevelCard() {
+  if (!userInfo) return;
+  const lv   = LEVELS[userInfo.lvl];
+  const next = LEVELS[Math.min(userInfo.lvl+1, 8)];
+  const pct  = userInfo.lvl < 8
+    ? Math.min(100, (userInfo.totalPts - lv.min) / (next.min - lv.min) * 100)
+    : 100;
+
+  document.getElementById("levelCard").innerHTML = `
+    <span class="lc-emoji">${lv.emoji}</span>
+    <div class="lc-level-name">${lv.name}</div>
+    <div class="lc-pts">${fmtK(userInfo.pts)}</div>
+    <div class="lc-pts-lbl">POIN TERSEDIA</div>
+    <div class="lc-progress">
+      <div class="lc-prog-lbl">
+        <span>${fmtK(userInfo.totalPts)} total poin</span>
+        <span>${userInfo.lvl < 8 ? "→ "+next.name+" ("+fmtK(next.min)+")" : "MAX LEVEL ☁️"}</span>
+      </div>
+      <div class="lc-prog-track">
+        <div class="lc-prog-fill" style="width:${pct}%"></div>
+      </div>
+      ${userInfo.lvl < 8 ? `<div class="lc-next">Butuh ${fmtK(Math.max(0,next.min-userInfo.totalPts))} poin lagi untuk ${next.name}</div>` : `<div class="lc-next" style="color:var(--gold)">✨ Kamu sudah di puncak!</div>`}
+    </div>`;
+}
+
+// ═══ STAIRWAY VISUAL ══════════════════════════════════════
+function renderStairway() {
+  const el = document.getElementById("stairwayList");
+  el.innerHTML = LEVELS.map((lv, i) => {
+    const isDone    = userInfo ? userInfo.lvl > i : false;
+    const isCurrent = userInfo ? userInfo.lvl === i : i === 0;
+    const isLocked  = userInfo ? userInfo.lvl < i : i > 0;
+    const cls = isDone ? "done" : isCurrent ? "current" : "locked";
+    const bonus = lv.bonus > 0 ? "+"+fmtK(lv.bonus)+" INDC" : "—";
+
+    return `<div class="sw-step ${cls}">
+      <div class="sw-icon">${lv.emoji}</div>
+      <div class="sw-info">
+        <div class="sw-name ${cls}">${lv.name}</div>
+        <div class="sw-range">${fmtK(lv.min)}${i<8?" - "+fmtK(lv.max):"+"}  poin</div>
+      </div>
+      <div class="sw-bonus ${cls}">${bonus}</div>
+    </div>`;
+  }).join("");
+}
+
+// ═══ CHECK BONUSES ════════════════════════════════════════
+async function checkBonuses() {
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [levels, bonuses] = await c.getUnclaimedBonuses(userAddr);
+    const el = document.getElementById("bonusAlert");
+
+    if (levels.length === 0) { el.style.display="none"; return; }
+
+    const totalBonus = bonuses.reduce((a,b) => a + Number(b), 0);
+    el.style.display = "block";
+    el.innerHTML = `
+      <div class="bonus-alert">
+        <div class="ba-title">🎉 BONUS LEVEL TERSEDIA!</div>
+        <div class="ba-desc">
+          Kamu naik ke level ${levels.map(l=>LEVELS[l]?.name).join(", ")}!<br>
+          Total bonus: <b style="color:var(--gold)">${fmtK(totalBonus/1e9)} INDC</b>
+        </div>
+        <button class="btn-claim-bonus" onclick="claimAllBonuses(${JSON.stringify(Array.from(levels))})">
+          🏆 KLAIM SEMUA BONUS LEVEL
+        </button>
+      </div>`;
+  } catch(e) {}
+}
+
+async function claimAllBonuses(levels) {
+  if (!userAddr) return;
+  for (const lvl of levels) {
+    try {
+      showToast(`Klaim bonus level ${LEVELS[lvl]?.name}...`,"#f59e0b");
+      const tx = await sthContract.claimLevelBonus(lvl);
+      await tx.wait();
+      showToast(`Bonus ${LEVELS[lvl]?.name} diklaim! 🎉`,"#10b981");
+    } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+  }
+  loadUserData();
+}
+
+// ═══ CLAIM PROGRAMS ═══════════════════════════════════════
+async function claimProgram(prog) {
+  if (!userAddr) { showToast("Connect wallet!","#ef4444"); return; }
+  try {
+    showToast("Klaim poin...","#f59e0b");
+    let tx;
+    if (prog === 'clash') {
+      tx = await trackerContract.claimClash();
+    } else if (prog === 'cycle') {
+      tx = await trackerContract.claimCycle();
+    } else if (prog === 'shadow') {
+      const sid = document.getElementById("shadowSid").value;
+      if (!sid) { showToast("Masukkan SID!","#ef4444"); return; }
+      tx = await trackerContract.claimShadow(parseInt(sid));
+    } else if (prog === 'three') {
+      const sid = document.getElementById("threeSid").value;
+      if (!sid) { showToast("Masukkan SID!","#ef4444"); return; }
+      tx = await trackerContract.claimThree(parseInt(sid));
+    } else if (prog === 'wave') {
+      const sid = document.getElementById("waveSid").value;
+      if (!sid) { showToast("Masukkan SID!","#ef4444"); return; }
+      tx = await trackerContract.claimWave(parseInt(sid));
+    } else if (prog === 'delta') {
+      const pid = document.getElementById("deltaPid").value;
+      if (!pid) { showToast("Masukkan PID!","#ef4444"); return; }
+      tx = await trackerContract.claimDelta(parseInt(pid));
+    }
+    await tx.wait();
+    showToast("Poin berhasil diklaim! ⭐","#10b981");
+    loadUserData();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+// ═══ REDEEM ═══════════════════════════════════════════════
+async function loadRedeemInfo() {
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [canRedeem, reason, taxPct, netPPt, timeUnlock, timeCooldown] =
+      await c.getRedeemInfo(userAddr);
+
+    document.getElementById("rdStatus").textContent   = canRedeem ? "✅ Bisa Redeem" : "❌ "+reason;
+    document.getElementById("rdStatus").className     = "rc-val "+(canRedeem?"ok":"bad");
+    document.getElementById("rdPts").textContent      = fmtK(userInfo?.pts||0)+" poin";
+    document.getElementById("rdTax").textContent      = (Number(taxPct)/100).toFixed(0)+"%";
+    document.getElementById("rdTax").className        = "rc-val "+(Number(taxPct)===0?"ok":Number(taxPct)<=500?"warn":"bad");
+
+    const cd = Number(timeCooldown);
+    document.getElementById("rdCooldown").textContent = cd > 0
+      ? fmtTime(cd)+" lagi"
+      : "✅ Siap";
+
+    document.getElementById("btnRedeem").disabled = !canRedeem;
+  } catch(e) {}
+}
+
+async function updateRedeemPreview() {
+  const pts = parseInt(document.getElementById("redeemAmt").value||"0");
+  if (pts < 100) { document.getElementById("redeemPreview").style.display="none"; return; }
+  try {
+    const c = await getRC();
+    const [gross, taxAmt, net, taxPct] = await c.getEstimateRedeem(userAddr, pts);
+    document.getElementById("redeemPreview").style.display="block";
+    document.getElementById("prvGross").textContent  = fmtK(Number(gross)/1e9)+" INDC";
+    document.getElementById("prvTaxAmt").textContent = "-"+fmtK(Number(taxAmt)/1e9)+" INDC ("+Number(taxPct)/100+"%)";
+    document.getElementById("prvNet").textContent    = fmtK(Number(net)/1e9)+" INDC";
+  } catch(e) {}
+}
+
+async function doRedeem() {
+  if (!userAddr) return;
+  const pts = parseInt(document.getElementById("redeemAmt").value||"0");
+  if (pts < 100) { showToast("Min 100 poin!","#ef4444"); return; }
+  try {
+    showToast("Redeem poin...","#f59e0b");
+    const tx = await sthContract.redeemPoints(pts);
+    await tx.wait();
+    showToast("Redeem berhasil! INDC masuk wallet 💰","#10b981");
+    loadUserData();
+  } catch(e) { showToast("Gagal: "+e.message,"#ef4444"); }
+}
+
+// ═══ HELPERS ══════════════════════════════════════════════
+function switchTab(tab) {
+  ["level","claim","redeem","guide"].forEach(t => {
+    document.getElementById("sec-"+t).style.display = t===tab?"block":"none";
+    document.getElementById("tab-"+t).classList.toggle("active",t===tab);
+  });
+  if (tab==="redeem" && userAddr) loadRedeemInfo();
+}
+
+function toggleGuide() {
+  document.getElementById("guideBody").classList.toggle("open");
+  document.getElementById("guideArrow").classList.toggle("open");
+}
+
+function toggleGuide2() {
+  document.getElementById("guideBody2").classList.toggle("open");
+  document.getElementById("guideArrow2").classList.toggle("open");
+}
+
+function fmtK(v) {
+  if(v>=1000000) return (v/1000000).toFixed(1)+"M";
+  if(v>=1000)    return (v/1000).toFixed(1)+"K";
+  return Math.round(v).toString();
+}
+
+function fmtTime(s) {
+  if(s<=0) return "Selesai";
+  const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);
+  if(d>0) return d+"h "+h+"j";
+  if(h>0) return h+"j "+m+"m";
+  return m+"m";
+}
+
+function showToast(msg,color="#10b981") {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.background=color;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3000);
+}
+
+// ═══ INIT ═════════════════════════════════════════════════
+window.addEventListener("load",()=>{
+  renderStairway();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener("updatefound", () => {
+        const n = reg.installing;
+        n.addEventListener("statechange", () => {
+          if (n.state === "activated") window.location.reload();
+        });
+      });
+    }).catch(e => console.warn(e));
+    navigator.serviceWorker.addEventListener("controllerchange",
+      () => window.location.reload());
+  }
+});
+</script>
+</body>
+</html>
