@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Wave Trade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --wave:#6366f1;--wave2:#818cf8;--wave3:#e0e7ff;--wave4:#1e1b4b;
+  --gold:#facc15;--green:#34d399;--red:#f87171;--cyan:#38bdf8;
+  --muted:#64748b;--text:#e2e8f0;--border:rgba(99,102,241,0.15);
+  --card:rgba(15,23,42,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(99,102,241,0.3)}50%{box-shadow:0 0 20px rgba(99,102,241,0.7)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-left{display:flex;align-items:center;gap:8px;}
+.nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--wave2);letter-spacing:1px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;padding:7px 12px;
+  border:1px solid rgba(99,102,241,0.4);border-radius:20px;
+  background:rgba(99,102,241,0.08);color:var(--wave2);cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all 0.2s;}
+
+.page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* HERO */
+.hero{text-align:center;padding:18px 0 14px;animation:fadeUp 0.4s ease;}
+.hero-badge{display:inline-flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;
+  font-size:8px;letter-spacing:2px;color:var(--wave2);background:rgba(99,102,241,0.08);
+  border:1px solid rgba(99,102,241,0.25);padding:4px 14px;border-radius:20px;margin-bottom:12px;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;
+  letter-spacing:4px;line-height:1.1;margin-bottom:6px;
+  background:linear-gradient(135deg,var(--wave2),var(--cyan),var(--wave2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:wave 3s ease-in-out infinite;}
+.hero-sub{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--text);letter-spacing:2px;margin-bottom:6px;}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;font-style:italic;}
+
+/* PAUSED BANNER */
+.paused-banner{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);
+  border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;display:none;}
+.pb-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--red);letter-spacing:1px;}
+.pb-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;}
+
+/* STATS */
+.live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
+.ls-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;}
+.ls-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--wave2);}
+.ls-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1s infinite;margin-right:3px;}
+
+/* TABS */
+.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;padding:5px;}
+.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  padding:8px 3px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;}
+.tab-btn.active{background:rgba(99,102,241,0.12);color:var(--wave2);border:1px solid rgba(99,102,241,0.3);}
+
+/* SESSION CARD */
+.sess-card{background:var(--card);border-radius:14px;padding:14px;
+  margin-bottom:10px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.sess-card:hover{transform:translateY(-1px);}
+.sess-card.ripple {border:1px solid rgba(56,189,248,0.25);}
+.sess-card.wave   {border:1px solid rgba(99,102,241,0.25);}
+.sess-card.tsunami{border:1px solid rgba(167,139,250,0.25);}
+.sess-card.ripple::before  {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyan);}
+.sess-card.wave::before    {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--wave);}
+.sess-card.tsunami::before {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--wave2);}
+
+.sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.sc-type{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;
+  padding:3px 10px;border-radius:6px;letter-spacing:1px;}
+.sc-type.ripple  {background:rgba(56,189,248,0.12);color:var(--cyan);border:1px solid rgba(56,189,248,0.3);}
+.sc-type.wave    {background:rgba(99,102,241,0.12);color:var(--wave2);border:1px solid rgba(99,102,241,0.3);}
+.sc-type.tsunami {background:rgba(167,139,250,0.12);color:#c4b5fd;border:1px solid rgba(167,139,250,0.3);}
+.sc-id{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.sc-status{font-family:'Share Tech Mono',monospace;font-size:7px;
+  padding:3px 8px;border-radius:8px;display:flex;align-items:center;gap:4px;}
+.sc-status.voting{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
+.sc-status.active{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.blink-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1s infinite;flex-shrink:0;}
+
+/* TOKEN PRICE */
+.sc-price-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.sc-token{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;}
+.sc-price{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
+  color:var(--green);transition:color 0.2s;}
+.sc-price.down{color:var(--red);}
+.sc-chg{font-family:'Share Tech Mono',monospace;font-size:8px;
+  padding:2px 7px;border-radius:6px;}
+.sc-chg.up{background:rgba(52,211,153,0.1);color:var(--green);}
+.sc-chg.down{background:rgba(248,113,113,0.1);color:var(--red);}
+
+/* WAVE METER */
+.wave-meter{margin-bottom:10px;}
+.wm-title{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold);
+  letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+.wm-bar-wrap{position:relative;height:28px;border-radius:8px;overflow:hidden;
+  background:rgba(248,113,113,0.1);margin-bottom:4px;}
+.wm-bar-long{position:absolute;left:0;top:0;bottom:0;background:rgba(52,211,153,0.3);
+  transition:width 0.5s ease;display:flex;align-items:center;padding-left:8px;}
+.wm-bar-short{position:absolute;right:0;top:0;bottom:0;background:rgba(248,113,113,0.3);
+  display:flex;align-items:center;justify-content:flex-end;padding-right:8px;}
+.wm-long-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--green);white-space:nowrap;}
+.wm-short-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--red);white-space:nowrap;}
+.wm-stats{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:7px;}
+.wm-multi{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:4px;}
+.wm-multi.long{background:rgba(52,211,153,0.1);color:var(--green);}
+.wm-multi.short{background:rgba(248,113,113,0.1);color:var(--red);}
+
+/* POOL & TIMER */
+.sc-bottom{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.sc-pool-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;}
+.sc-pool-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);}
+.sc-timer-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;}
+.sc-timer-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
+.sc-timer-val.urgent{color:var(--red);animation:blink 1s infinite;}
+.sc-players-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;}
+.sc-players-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;}
+
+/* JOIN FORM */
+.join-form{background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.15);
+  border-radius:10px;padding:10px;margin-bottom:10px;}
+.jf-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--wave2);letter-spacing:1px;margin-bottom:8px;}
+.dir-row{display:flex;gap:6px;margin-bottom:8px;}
+.dir-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
+.dir-btn.sel-long {border-color:rgba(52,211,153,0.5);background:rgba(52,211,153,0.08);}
+.dir-btn.sel-short{border-color:rgba(248,113,113,0.5);background:rgba(248,113,113,0.08);}
+.dir-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
+.dir-multi{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.input-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 12px;margin-bottom:6px;}
+.input-field{flex:1;background:transparent;border:none;outline:none;
+  font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text);}
+.input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* BUTTONS */
+.btn-main{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;
+  transition:all 0.2s;margin-bottom:6px;}
+.btn-wave{background:linear-gradient(135deg,var(--wave4),var(--wave));color:white;}
+.btn-green{background:linear-gradient(135deg,#059669,var(--green));color:white;}
+.btn-outline{background:transparent;border:1px solid rgba(99,102,241,0.3);color:var(--wave2);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* MY POSITION */
+.my-pos{background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);
+  border-radius:10px;padding:10px;margin-bottom:10px;}
+.mp-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--wave2);letter-spacing:1px;margin-bottom:6px;}
+.mp-row{display:flex;justify-content:space-between;padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);}
+.mp-row:last-child{border:none;}
+.mp-key{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.mp-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
+
+/* HISTORY */
+.hist-card{background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;}
+.hist-head{display:flex;justify-content:space-between;margin-bottom:6px;}
+.hist-id{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.hist-badge{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  padding:2px 8px;border-radius:6px;}
+.badge-win {background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.badge-lose{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
+.badge-draw{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
+
+/* WEEKLY PRIZE */
+.prize-card{background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.2);
+  border-radius:14px;padding:14px;margin-bottom:12px;animation:glow 3s infinite;}
+.prize-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:10px;}
+.prize-row{display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.prize-row:last-child{border:none;}
+.prize-rank{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;width:30px;}
+.prize-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text);flex:1;}
+.prize-wins{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--wave2);}
+.prize-amt{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);}
+
+/* PANDUAN */
+.guide-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
+.guide-arrow.open{transform:rotate(180deg);}
+.guide-body{display:none;padding:4px 16px 16px;}
+.guide-body.open{display:block;}
+.guide-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.guide-step:last-of-type{border:none;}
+.gs-num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;flex-shrink:0;margin-top:2px;}
+.gs-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+.gs-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
+
+/* CHART BTN */
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:10px;
+  margin-bottom:10px;border-radius:10px;text-decoration:none;
+  background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.2);
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--wave2);letter-spacing:1px;cursor:pointer;}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;}
+.empty-icon{font-size:40px;margin-bottom:10px;}
+.empty-txt{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  font-family:'Share Tech Mono',monospace;font-size:9px;padding:10px 18px;
+  border-radius:20px;color:white;z-index:999;opacity:0;transition:all 0.3s;
+  white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ADMIN PANEL */
+.admin-panel{background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.2);
+  border-radius:14px;padding:14px;margin-top:20px;margin-bottom:12px;display:none;}
+.admin-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--red);letter-spacing:1px;margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;}
+.admin-status{display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;margin-bottom:10px;}
+.admin-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+.admin-stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
+.admin-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+.btn-admin{padding:10px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:0.5px;transition:all 0.2s;}
+.btn-pause {background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3);}
+.btn-resume{background:rgba(52,211,153,0.15);color:var(--green);border:1px solid rgba(52,211,153,0.3);}
+.btn-open  {background:rgba(99,102,241,0.15);color:var(--wave2);border:1px solid rgba(99,102,241,0.3);}
+.btn-fee   {background:rgba(250,204,21,0.15);color:var(--gold);border:1px solid rgba(250,204,21,0.3);}
+.open-sess-form{background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;margin-bottom:8px;}
+.admin-sel{width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;padding:8px;font-family:'Share Tech Mono',monospace;
+  font-size:10px;color:var(--text);outline:none;margin-bottom:6px;}
+
+/* BOTTOMNAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,25,0.97);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:62px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:2px;text-decoration:none;color:#6b7280;transition:all 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:18px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">🌊 WAVE TRADE</div>
+    </div>
+  </div>
+  <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
+    <span id="walletIcon">⚡</span>
+    <span id="walletTxt">CONNECT</span>
+  </button>
+</nav>
+
+<div class="page">
+
+  <!-- PAUSED BANNER -->
+  <div class="paused-banner" id="pausedBanner">
+    <div class="pb-title">⚙️ PROGRAM SEDANG MAINTENANCE</div>
+    <div class="pb-desc">Wave Trade sedang dalam persiapan. Akan segera aktif!</div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🌊 MULTI PLAYER · CONTRARIAN · P2P</div>
+    <div class="hero-title">WAVE TRADE</div>
+    <div class="hero-sub">LONG VS SHORT — BERANI MELAWAN ARUS!</div>
+    <div class="hero-desc">"Minoritas yang benar dapat multiplier terbesar — semakin berani semakin besar reward!"</div>
+  </div>
+
+  <!-- LIVE STATS -->
+  <div class="live-stats">
+    <div class="ls-box">
+      <div class="ls-lbl"><span class="ls-dot"></span>SESI AKTIF</div>
+      <div class="ls-val" id="statSess">—</div>
+    </div>
+    <div class="ls-box">
+      <div class="ls-lbl">PRIZE POOL</div>
+      <div class="ls-val" id="statPrize">—</div>
+    </div>
+    <div class="ls-box">
+      <div class="ls-lbl">TOTAL SESI</div>
+      <div class="ls-val" id="statTotal">—</div>
+    </div>
+  </div>
+
+  <!-- MAIN TABS -->
+  <div class="main-tabs">
+    <button class="tab-btn active" onclick="switchTab('sessions')" id="tab-sessions">🌊 SESI</button>
+    <button class="tab-btn"        onclick="switchTab('my')"       id="tab-my">📊 POSISIKU</button>
+    <button class="tab-btn"        onclick="switchTab('prize')"    id="tab-prize">🏆 PRIZE</button>
+    <button class="tab-btn"        onclick="switchTab('guide')"    id="tab-guide">📖 PANDUAN</button>
+  </div>
+
+  <!-- ══ TAB SESI ══ -->
+  <div id="sec-sessions">
+    <a href="chart.html" class="btn-chart">
+      <span style="font-size:14px;">📊</span>
+      <div><div>LIHAT LIVE CHART</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">Analisa sebelum vote</div></div>
+      <span style="margin-left:auto;">›</span>
+    </a>
+    <div id="sessionList">
+      <div class="empty"><div class="empty-icon">🌊</div>
+      <div class="empty-txt">MEMUAT SESI...</div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB POSISIKU ══ -->
+  <div id="sec-my" style="display:none;">
+    <div id="mySection">
+      <div class="empty"><div class="empty-icon">📊</div>
+      <div class="empty-txt">CONNECT WALLET UNTUK LIHAT POSISI</div></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PRIZE ══ -->
+  <div id="sec-prize" style="display:none;">
+    <div class="prize-card">
+      <div class="prize-title">🏆 WEEKLY PRIZE POOL</div>
+      <div style="text-align:center;margin-bottom:10px;">
+        <div class="ls-lbl">TOTAL PRIZE MINGGU INI</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--gold);" id="prizeTotal">—</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:4px;">Reset setiap Senin 00:00</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;margin-bottom:10px;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">DISTRIBUSI PRIZE</div>
+        <div class="prize-row"><span class="prize-rank">🥇</span><span style="font-family:'Share Tech Mono',monospace;font-size:8px;">Rank #1 Win Rate Tertinggi</span><span class="prize-amt">50%</span></div>
+        <div class="prize-row"><span class="prize-rank">🥈</span><span style="font-family:'Share Tech Mono',monospace;font-size:8px;">Rank #2</span><span class="prize-amt">30%</span></div>
+        <div class="prize-row"><span class="prize-rank">🥉</span><span style="font-family:'Share Tech Mono',monospace;font-size:8px;">Rank #3</span><span class="prize-amt">20%</span></div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-align:center;line-height:1.7;">
+        Win rate dihitung dari sesi Wave Trade minggu ini.<br>
+        Min 5 sesi untuk eligible prize mingguan.
+      </div>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:9px;color:var(--wave2);letter-spacing:1px;margin-bottom:8px;">📊 STATISTIK MINGGUANKU</div>
+      <div id="myWeekly">
+        <div class="empty" style="padding:20px;"><div class="empty-txt">CONNECT WALLET</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB PANDUAN ══ -->
+  <div id="sec-guide" style="display:none;">
+    <div class="guide-wrap">
+      <div class="guide-head" onclick="toggleGuide()">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:15px">📖</span>
+          <span class="guide-head-title">PANDUAN CARA BERMAIN</span>
+        </div>
+        <span class="guide-arrow open" id="guideArrow">▼</span>
+      </div>
+      <div class="guide-body open" id="guideBody">
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(99,102,241,0.12);color:var(--wave2)">1</div>
+          <div><div class="gs-title" style="color:var(--wave2)">PILIH SESI</div>
+          <div class="gs-desc">Pilih sesi yang ingin diikuti — RIPPLE (15 menit), WAVE (1 jam), atau TSUNAMI (4 jam). Setiap sesi punya token berbeda yang ditentukan platform.</div></div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(250,204,21,0.12);color:var(--gold)">2</div>
+          <div><div class="gs-title" style="color:var(--gold)">BACA WAVE METER</div>
+          <div class="gs-desc">Sebelum vote, lihat Wave Meter — berapa % trader pilih LONG vs SHORT. <b style="color:var(--text)">Pilih minoritas = multiplier lebih besar!</b> Kalau 80% LONG dan kamu SHORT tapi benar = dapat hingga 4x!</div></div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(52,211,153,0.12);color:var(--green)">3</div>
+          <div><div class="gs-title" style="color:var(--green)">VOTE LONG ATAU SHORT</div>
+          <div class="gs-desc">Pilih <b style="color:var(--green)">LONG</b> jika yakin harga naik, atau <b style="color:var(--red)">SHORT</b> jika yakin turun. Masukkan taruhan dan konfirmasi. Voting tutup 30 detik sebelum entry price dikunci.</div></div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(56,189,248,0.12);color:var(--cyan)">4</div>
+          <div><div class="gs-title" style="color:var(--cyan)">TUNGGU HASIL</div>
+          <div class="gs-desc">Setelah voting tutup, harga entry dikunci dari Chainlink. Pantau pergerakan harga di Live Chart. Sesi selesai saat durasi habis — harga exit diambil otomatis.</div></div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(248,113,113,0.12);color:var(--red)">5</div>
+          <div><div class="gs-title" style="color:var(--red)">KLAIM REWARD</div>
+          <div class="gs-desc"><b style="color:var(--green)">Menang:</b> Dapat bagian proporsional dari pool lawan dengan multiplier contrarian (max 20x). <b style="color:var(--red)">Kalah:</b> Taruhan ke pool pemenang. <b style="color:var(--gold)">Draw:</b> Refund 100%.</div></div>
+        </div>
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(250,204,21,0.12);color:var(--gold)">6</div>
+          <div><div class="gs-title" style="color:var(--gold)">PRIZE POOL MINGGUAN</div>
+          <div class="gs-desc">Win rate tertinggi minggu ini (min 5 sesi) masuk top 3 dan dapat bonus dari prize pool! Prize direset setiap Senin. Makin aktif main = makin besar peluang menang prize!</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info multiplier -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:8px;">⚡ TABEL MULTIPLIER CONTRARIAN</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;">
+        Multiplier = Total Net Pool ÷ Pool Kubu Pemenang<br><br>
+        <span style="color:var(--text)">Contoh — Pool LONG 80% vs SHORT 20%:</span><br>
+        • SHORT menang → multiplier ~4.75x 🔥<br>
+        • LONG menang  → multiplier ~1.19x<br><br>
+        <span style="color:var(--text)">Pool seimbang 50% vs 50%:</span><br>
+        • Keduanya → multiplier ~1.9x<br><br>
+        <span style="color:var(--gold)">Max multiplier: 20x (cap)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL — hanya muncul untuk dev wallet -->
+  <div class="admin-panel" id="adminPanel">
+    <div class="admin-title">🔐 ADMIN PANEL — WAVE TRADE</div>
+
+    <div class="admin-status">
+      <div>
+        <div class="admin-stat-lbl">STATUS PROGRAM</div>
+        <div class="admin-stat-val" id="adminStatus">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="admin-stat-lbl">FEE TERKUMPUL</div>
+        <div class="admin-stat-val" style="color:var(--gold);" id="adminFees">—</div>
+      </div>
+    </div>
+
+    <div class="admin-row">
+      <button class="btn-admin btn-pause"  onclick="adminPause(true)">⏸️ PAUSE PROGRAM</button>
+      <button class="btn-admin btn-resume" onclick="adminPause(false)">▶️ RESUME PROGRAM</button>
+    </div>
+
+    <!-- Buka Sesi Baru -->
+    <div class="open-sess-form">
+      <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--wave2);letter-spacing:1px;margin-bottom:8px;">➕ BUKA SESI BARU</div>
+      <select class="admin-sel" id="adminSessType">
+        <option value="0">⚡ RIPPLE — 15 Menit</option>
+        <option value="1">🌊 WAVE — 1 Jam</option>
+        <option value="2">🌊 TSUNAMI — 4 Jam</option>
+      </select>
+      <select class="admin-sel" id="adminToken">
+        <option value="0">BNB</option>
+        <option value="1">BTC</option>
+        <option value="2">ETH</option>
+        <option value="3">DOGE</option>
+        <option value="5">AVAX</option>
+        <option value="6">ADA</option>
+        <option value="7">UNI</option>
+        <option value="8">LINK</option>
+        <option value="9">AAVE</option>
+      </select>
+      <button class="btn-admin btn-open" style="width:100%;padding:10px;" onclick="adminOpenSession()">
+        🌊 BUKA SESI INI
+      </button>
+    </div>
+
+    <div class="admin-row">
+      <button class="btn-admin btn-fee" onclick="adminWithdrawFees()">💰 TARIK FEE</button>
+      <button class="btn-admin" style="background:rgba(56,189,248,0.1);color:var(--cyan);border:1px solid rgba(56,189,248,0.2);" onclick="loadAdminData()">🔄 REFRESH</button>
+    </div>
+
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+      text-align:center;margin-top:6px;padding:6px;background:rgba(255,255,255,0.02);border-radius:6px;">
+      ⚠️ Admin panel hanya terlihat oleh dev wallet
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOMNAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="earn.html"      class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a href="trade.html"     class="bnav-item active"><span class="bnav-icon">⚡</span><span class="bnav-label">TRADE</span></a>
+  <a href="presale.html"   class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
+  <a href="swap.html"      class="bnav-item"><span class="bnav-icon">🔄</span><span class="bnav-label">SWAP</span></a>
+</nav>
+
+<script>
+// ═══ CONFIG ════════════════════════════════════════════════
+const CONTRACT  = "0x981e5AE5d346D36C5F438B5734852B1866e07ae5";
+const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const DEV_ADDR  = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc";
+const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const INDC_DEC  = 9;
+
+const SESS_TYPES  = ["RIPPLE","WAVE","TSUNAMI"];
+const SESS_COLORS = ["ripple","wave","tsunami"];
+const SESS_EMOJI  = ["⚡","🌊","🌊"];
+const DURATIONS   = ["15 Menit","1 Jam","4 Jam"];
+const TOKENS = {
+  0:"BNB",1:"BTC",2:"ETH",3:"DOGE",
+  5:"AVAX",6:"ADA",7:"UNI",8:"LINK",9:"AAVE"
+};
+
+const ABI = [
+  "function sessionCount() view returns (uint256)",
+  "function totalSessions() view returns (uint256)",
+  "function weeklyPrize() view returns (uint256)",
+  "function devFees() view returns (uint256)",
+  "function paused() view returns (bool)",
+  "function getSession1(uint256) view returns (uint8,uint8,uint8,uint256)",
+  "function getSession2(uint256) view returns (uint256,uint256,uint256,uint256)",
+  "function getSessionPrices(uint256) view returns (int256,int256)",
+  "function getPlayer(uint256,address) view returns (uint256,uint8,bool)",
+  "function getWaveMeter(uint256) view returns (uint256,uint256,uint256,uint256,uint256,uint256)",
+  "function getActiveSessions(uint256,uint256) view returns (uint256[])",
+  "function getPrice(uint8) view returns (int256)",
+  "function getWeeklyStats(address) view returns (uint256,uint256,uint256)",
+  "function estimatePayout(uint256,uint8) view returns (uint256)",
+  "function joinSession(uint256,uint8,uint256) external",
+  "function lockSession(uint256) external",
+  "function finalizeSession(uint256) external",
+  "function claimReward(uint256) external",
+  "function claimRefund(uint256) external",
+  "function openSession(uint8,uint8) external",
+  "function setPaused(bool) external",
+  "function withdrawFees() external",
+];
+
+const INDC_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) external returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+];
+
+// ═══ STATE ════════════════════════════════════════════════
+let provider, signer, userAddr, contract, indcContract;
+let activeSessions = [];
+let latestPrices   = {};
+let wsConns        = {};
+let isAdmin        = false;
+let joinDirs       = {}; // sid → dir selected
+
+// ═══ WALLET ═══════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!","#f87171"); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    const net = await provider.getNetwork();
+    if (net.chainId !== 56n) {
+      await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x38"}]});
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer       = await provider.getSigner();
+    userAddr     = await signer.getAddress();
+    contract     = new ethers.Contract(CONTRACT, ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
+    document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    document.getElementById("walletIcon").textContent = "✅";
+    showToast("Wallet terhubung!","#34d399");
+
+    // Cek apakah dev wallet
+    isAdmin = userAddr.toLowerCase() === DEV_ADDR.toLowerCase();
+    if (isAdmin) {
+      document.getElementById("adminPanel").style.display = "block";
+      loadAdminData();
+    }
+
+    loadMyPosition();
+    loadWeeklyStats();
+    window.ethereum.on("accountsChanged",()=>location.reload());
+    window.ethereum.on("chainChanged",()=>location.reload());
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+async function getRC() {
+  const prov = provider || new ethers.JsonRpcProvider(BSC_RPC);
+  return new ethers.Contract(CONTRACT, ABI, prov);
+}
+
+// ═══ LOAD SESSIONS ════════════════════════════════════════
+async function loadSessions() {
+  try {
+    const c     = await getRC();
+    const total = Number(await c.sessionCount());
+    const isPaused = await c.paused();
+    const prize = await c.weeklyPrize();
+
+    // Update paused banner
+    document.getElementById("pausedBanner").style.display = isPaused ? "block" : "none";
+
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statPrize").textContent = fmtK(Number(prize)/1e9);
+    document.getElementById("prizeTotal").textContent = fmtK(Number(prize)/1e9)+" INDC";
+
+    // Ambil sesi aktif
+    const ids = await c.getActiveSessions(Math.max(1,total-30), 20);
+    activeSessions = [];
+
+    for (const id of ids) {
+      const sid = Number(id);
+      if (sid === 0) continue;
+      const [stype,token,status,playerCount] = await c.getSession1(sid);
+      const [voteEnd,tradeEnd,longPool,shortPool] = await c.getSession2(sid);
+      const [lPct,sPct,lAmt,sAmt,estML,estMS] = await c.getWaveMeter(sid);
+
+      activeSessions.push({
+        sid, stype:Number(stype), token:Number(token),
+        status:Number(status), playerCount:Number(playerCount),
+        voteEnd:Number(voteEnd), tradeEnd:Number(tradeEnd),
+        longPool, shortPool,
+        lPct:Number(lPct), sPct:Number(sPct),
+        estML:Number(estML), estMS:Number(estMS)
+      });
+    }
+
+    document.getElementById("statSess").textContent = activeSessions.length;
+    renderSessions();
+    startAllWS();
+  } catch(e) { console.warn(e); }
+}
+
+function renderSessions() {
+  const el  = document.getElementById("sessionList");
+  const now = Math.floor(Date.now()/1000);
+
+  if (!activeSessions.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🌊</div>
+      <div class="empty-txt">BELUM ADA SESI AKTIF<br>Tunggu sesi baru dibuka!</div></div>`;
+    return;
+  }
+
+  el.innerHTML = activeSessions.map(s => {
+    const col    = SESS_COLORS[s.stype];
+    const typeLbl= SESS_TYPES[s.stype];
+    const tokNm  = TOKENS[s.token]||"?";
+    const price  = latestPrices[tokNm]||0;
+    const pFmt   = price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(4);
+    const isVote = s.status===0;
+    const isActive= s.status===2;
+    const timeLeft= isVote ? s.voteEnd-now : s.tradeEnd-now;
+    const isUrgent= timeLeft<60&&timeLeft>0;
+    const totalPool= Number(s.longPool)+Number(s.shortPool);
+    const estML_x = (s.estML/10000).toFixed(2);
+    const estMS_x = (s.estMS/10000).toFixed(2);
+
+    return `<div class="sess-card ${col}" onclick="openSession(${s.sid})">
+      <div class="sc-top">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="sc-type ${col}">${SESS_EMOJI[s.stype]} ${typeLbl}</div>
+          <div class="sc-id">SESI #${s.sid}</div>
+        </div>
+        <div class="sc-status ${isVote?"voting":"active"}">
+          ${isActive?'<div class="blink-dot"></div>':''} 
+          ${isVote?"⏳ VOTING":"🔴 LIVE"}
+        </div>
+      </div>
+
+      <!-- Harga -->
+      <div class="sc-price-row">
+        <div>
+          <div class="sc-token" style="color:var(--wave2)">${tokNm}/USDT</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">${DURATIONS[s.stype]}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="sc-price" id="sp-${s.sid}">${pFmt}</div>
+          <div class="sc-chg up" id="sc-${s.sid}">—</div>
+        </div>
+      </div>
+
+      <!-- Wave Meter -->
+      <div class="wave-meter">
+        <div class="wm-title">📊 WAVE METER <span style="color:var(--muted);font-weight:400;">— Pilih minoritas untuk multiplier lebih besar!</span></div>
+        <div class="wm-bar-wrap">
+          <div class="wm-bar-long" style="width:${s.lPct}%">
+            <span class="wm-long-lbl">📈 LONG ${s.lPct}%</span>
+          </div>
+          <div class="wm-bar-short" style="width:${s.sPct}%">
+            <span class="wm-short-lbl">SHORT ${s.sPct}% 📉</span>
+          </div>
+        </div>
+        <div class="wm-stats">
+          <span>
+            <span class="wm-multi long">LONG menang: ${estML_x}x</span>
+          </span>
+          <span>
+            <span class="wm-multi short">SHORT menang: ${estMS_x}x</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Bottom -->
+      <div class="sc-bottom">
+        <div>
+          <div class="sc-pool-lbl">TOTAL POOL</div>
+          <div class="sc-pool-val">${fmtK(totalPool/1e9)} INDC</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="sc-timer-lbl">${isVote?"VOTING TUTUP":"SELESAI"}</div>
+          <div class="sc-timer-val ${isUrgent?"urgent":""}" id="st-${s.sid}">${fmtTime(timeLeft)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="sc-players-lbl">PEMAIN</div>
+          <div class="sc-players-val">${s.playerCount}</div>
+        </div>
+      </div>
+
+      ${isVote ? `
+      <!-- Join Form -->
+      <div class="join-form" onclick="event.stopPropagation()">
+        <div class="jf-title">⚡ PILIH POSISI & JOIN</div>
+        <div class="dir-row">
+          <div class="dir-btn" id="jl-${s.sid}" onclick="selJoinDir(${s.sid},0)">
+            <div class="dir-name" style="color:var(--green)">📈 LONG</div>
+            <div class="dir-multi">Menang: ${estML_x}x</div>
+          </div>
+          <div class="dir-btn" id="js-${s.sid}" onclick="selJoinDir(${s.sid},1)">
+            <div class="dir-name" style="color:var(--red)">📉 SHORT</div>
+            <div class="dir-multi">Menang: ${estMS_x}x</div>
+          </div>
+        </div>
+        <div class="input-wrap">
+          <input class="input-field" id="jbet-${s.sid}" type="number" 
+            placeholder="${s.stype===0?100:s.stype===1?500:1000}" min="${s.stype===0?100:s.stype===1?500:1000}">
+          <span class="input-unit">INDC</span>
+        </div>
+        <button class="btn-main btn-wave" onclick="joinSession(${s.sid})">🌊 JOIN SESI INI</button>
+      </div>
+      ` : `
+      <a href="chart.html?sym=${tokNm}&tf=5" class="btn-chart" onclick="event.stopPropagation()">
+        <span>📊</span><div>PANTAU CHART ${tokNm}</div><span style="margin-left:auto;">›</span>
+      </a>
+      `}
+    </div>`;
+  }).join("");
+
+  startCountdowns();
+}
+
+// ═══ JOIN SESSION ══════════════════════════════════════════
+function selJoinDir(sid, dir) {
+  joinDirs[sid] = dir;
+  document.getElementById("jl-"+sid)?.classList.toggle("sel-long",  dir===0);
+  document.getElementById("js-"+sid)?.classList.toggle("sel-short", dir===1);
+}
+
+async function joinSession(sid) {
+  if (!userAddr) { showToast("Connect wallet!","#f87171"); return; }
+  const dir = joinDirs[sid];
+  if (dir === undefined) { showToast("Pilih LONG atau SHORT!","#f87171"); return; }
+  const s   = activeSessions.find(x=>x.sid===sid);
+  const min = s ? [100,500,1000][s.stype] : 100;
+  const bet = parseFloat(document.getElementById("jbet-"+sid)?.value||"0");
+  if (bet < min) { showToast(`Min ${min} INDC!`,"#f87171"); return; }
+
+  try {
+    const betWei = ethers.parseUnits(bet.toString(), INDC_DEC);
+    showToast("Approve INDC...","#6366f1");
+    const allow = await indcContract.allowance(userAddr, CONTRACT);
+    if (allow < betWei) {
+      const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    showToast("Join sesi...","#6366f1");
+    const tx = await contract.joinSession(sid, dir, betWei);
+    await tx.wait();
+    showToast("Berhasil join! 🌊","#34d399");
+    loadSessions();
+    loadMyPosition();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+// ═══ OPEN SESSION DETAIL ══════════════════════════════════
+async function openSession(sid) {
+  // Cek posisi user di sesi ini
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [bet,dir,claimed] = await c.getPlayer(sid, userAddr);
+    if (Number(bet) > 0) {
+      showToast(`Posisimu: ${Number(dir)===0?"📈 LONG":"📉 SHORT"} — ${fmtK(Number(bet)/1e9)} INDC`,"#6366f1");
+    }
+  } catch(e) {}
+}
+
+// ═══ CLAIM ════════════════════════════════════════════════
+async function claimReward(sid) {
+  try {
+    showToast("Klaim reward...","#6366f1");
+    const tx = await contract.claimReward(sid);
+    await tx.wait();
+    showToast("Reward diklaim! 💰","#34d399");
+    loadMyPosition();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+async function claimRefund(sid) {
+  try {
+    showToast("Klaim refund...","#6366f1");
+    const tx = await contract.claimRefund(sid);
+    await tx.wait();
+    showToast("Refund berhasil! ✅","#34d399");
+    loadMyPosition();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+// ═══ MY POSITION ══════════════════════════════════════════
+async function loadMyPosition() {
+  if (!userAddr) return;
+  const el = document.getElementById("mySection");
+  try {
+    const c     = await getRC();
+    const total = Number(await c.sessionCount());
+    let html    = "";
+    let count   = 0;
+
+    for (let i = total; i >= Math.max(1,total-50) && count < 10; i--) {
+      const [bet,dir,claimed] = await c.getPlayer(i, userAddr);
+      if (Number(bet) === 0) continue;
+      const [stype,token,status] = await c.getSession1(i);
+      const [,tradeEnd] = await c.getSession2(i);
+      const now  = Math.floor(Date.now()/1000);
+      const tokNm= TOKENS[Number(token)]||"?";
+      const st   = Number(status);
+      const dirLbl = Number(dir)===0?"📈 LONG":"📉 SHORT";
+      const dirCol = Number(dir)===0?"var(--green)":"var(--red)";
+
+      let badge = "";
+      let actions = "";
+
+      if (st === 0 || st === 2) {
+        badge = `<span class="hist-badge" style="background:rgba(99,102,241,0.1);color:var(--wave2);border:1px solid rgba(99,102,241,0.2);">⏳ AKTIF</span>`;
+      } else if (st === 3 && !claimed) {
+        // Cek apakah menang
+        const [entry,exit_] = await c.getSessionPrices(i);
+        const won = Number(exit_)>Number(entry) ? (Number(dir)===0) : (Number(dir)===1);
+        if (won) {
+          badge = `<span class="hist-badge badge-win">🏆 MENANG</span>`;
+          actions = `<button class="btn-main btn-green" style="margin-top:8px;" onclick="claimReward(${i})">💰 KLAIM REWARD</button>`;
+        } else {
+          badge = `<span class="hist-badge badge-lose">❌ KALAH</span>`;
+        }
+      } else if (st === 4 && !claimed) {
+        badge = `<span class="hist-badge badge-draw">🤝 DRAW/CANCEL</span>`;
+        actions = `<button class="btn-main btn-outline" style="margin-top:8px;" onclick="claimRefund(${i})">↩️ KLAIM REFUND</button>`;
+      } else if (claimed) {
+        badge = `<span class="hist-badge" style="background:rgba(100,116,139,0.1);color:var(--muted);">✅ DIKLAIM</span>`;
+      }
+
+      html += `<div class="hist-card">
+        <div class="hist-head">
+          <span class="hist-id">SESI #${i} — ${SESS_TYPES[Number(stype)]} ${tokNm}</span>
+          ${badge}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;margin-bottom:4px;">
+          <span>Posisi: <b style="color:${dirCol}">${dirLbl}</b></span>
+          <span>Taruhan: <b style="color:var(--gold)">${fmtK(Number(bet)/1e9)} INDC</b></span>
+        </div>
+        ${actions}
+      </div>`;
+      count++;
+    }
+
+    el.innerHTML = count>0 ? html : `<div class="empty"><div class="empty-icon">📊</div>
+      <div class="empty-txt">BELUM ADA POSISI</div></div>
+      <div style="text-align:center;margin-top:10px;">
+        <button class="btn-main btn-wave" style="width:auto;padding:10px 20px;" onclick="switchTab('sessions')">
+          🌊 CARI SESI
+        </button>
+      </div>`;
+  } catch(e) { console.warn(e); }
+}
+
+// ═══ WEEKLY STATS ══════════════════════════════════════════
+async function loadWeeklyStats() {
+  if (!userAddr) return;
+  try {
+    const c = await getRC();
+    const [wins,games,prize] = await c.getWeeklyStats(userAddr);
+    const wr = Number(games)>0 ? Math.round(Number(wins)*100/Number(games)) : 0;
+    document.getElementById("myWeekly").innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div style="text-align:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);">GAMES</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;">${games}</div>
+        </div>
+        <div style="text-align:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);">WIN RATE</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:${wr>=60?"var(--green)":"var(--text)"};">${wr}%</div>
+        </div>
+        <div style="text-align:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);">WINS</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--green);">${wins}</div>
+        </div>
+      </div>
+      ${Number(games)>=5?`
+      <div style="text-align:center;margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--green);">
+        ✅ Eligible untuk prize mingguan!
+      </div>`:`
+      <div style="text-align:center;margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">
+        Min 5 sesi untuk eligible prize. Sisa: ${Math.max(0,5-Number(games))} sesi lagi.
+      </div>`}`;
+  } catch(e) {}
+}
+
+// ═══ ADMIN FUNCTIONS ══════════════════════════════════════
+async function loadAdminData() {
+  if (!isAdmin) return;
+  try {
+    const c    = await getRC();
+    const isPaused = await c.paused();
+    const fees = await c.devFees();
+    document.getElementById("adminStatus").textContent = isPaused ? "⏸️ PAUSED" : "✅ ACTIVE";
+    document.getElementById("adminStatus").style.color = isPaused ? "var(--red)" : "var(--green)";
+    document.getElementById("adminFees").textContent   = fmtK(Number(fees)/1e9)+" INDC";
+  } catch(e) {}
+}
+
+async function adminPause(v) {
+  if (!isAdmin) return;
+  try {
+    showToast(v?"Pausing...":"Resuming...","#6366f1");
+    const tx = await contract.setPaused(v);
+    await tx.wait();
+    showToast(v?"Program di-pause ⏸️":"Program di-resume ▶️","#34d399");
+    loadAdminData();
+    loadSessions();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+async function adminOpenSession() {
+  if (!isAdmin) return;
+  const sType = parseInt(document.getElementById("adminSessType").value);
+  const token = parseInt(document.getElementById("adminToken").value);
+  try {
+    showToast("Membuka sesi...","#6366f1");
+    const tx = await contract.openSession(sType, token);
+    await tx.wait();
+    showToast("Sesi berhasil dibuka! 🌊","#34d399");
+    loadSessions();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+async function adminWithdrawFees() {
+  if (!isAdmin) return;
+  try {
+    showToast("Tarik fee...","#facc15");
+    const tx = await contract.withdrawFees();
+    await tx.wait();
+    showToast("Fee berhasil ditarik! 💰","#34d399");
+    loadAdminData();
+  } catch(e) { showToast("Gagal: "+e.message,"#f87171"); }
+}
+
+// ═══ WEBSOCKET ════════════════════════════════════════════
+function startAllWS() {
+  Object.values(TOKENS).forEach(sym => {
+    if (!wsConns[sym]) startWS(sym);
+  });
+}
+
+function startWS(sym) {
+  const pair = sym.toLowerCase()+"usdt";
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+    ws.onmessage = e => {
+      const d   = JSON.parse(e.data);
+      const cur = parseFloat(d.c);
+      const pct = parseFloat(d.P);
+      const isUp= pct>=0;
+      latestPrices[sym] = cur;
+
+      // Update semua session card yang pakai token ini
+      activeSessions.forEach(s => {
+        if (TOKENS[s.token]===sym) {
+          const pEl = document.getElementById("sp-"+s.sid);
+          const cEl = document.getElementById("sc-"+s.sid);
+          if (pEl) {
+            pEl.textContent = cur>100?"$"+Math.round(cur).toLocaleString():"$"+cur.toFixed(4);
+            pEl.className   = "sc-price "+(isUp?"":"down");
+          }
+          if (cEl) {
+            cEl.textContent = (isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%";
+            cEl.className   = "sc-chg "+(isUp?"up":"down");
+          }
+        }
+      });
+    };
+    ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startWS(sym),3000); };
+    wsConns[sym] = ws;
+  } catch(e) {}
+}
+
+// ═══ COUNTDOWN ════════════════════════════════════════════
+let countdownInterval;
+function startCountdowns() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    const now = Math.floor(Date.now()/1000);
+    activeSessions.forEach(s => {
+      const el = document.getElementById("st-"+s.sid);
+      if (!el) return;
+      const isVote = s.status===0;
+      const left   = isVote ? s.voteEnd-now : s.tradeEnd-now;
+      el.textContent = fmtTime(left);
+      el.className   = "sc-timer-val "+(left<60&&left>0?"urgent":"");
+    });
+  }, 1000);
+}
+
+// ═══ HELPERS ══════════════════════════════════════════════
+function toggleGuide() {
+  document.getElementById("guideBody").classList.toggle("open");
+  document.getElementById("guideArrow").classList.toggle("open");
+}
+
+function switchTab(tab) {
+  ["sessions","my","prize","guide"].forEach(t => {
+    document.getElementById("sec-"+t).style.display = t===tab?"block":"none";
+    document.getElementById("tab-"+t).classList.toggle("active",t===tab);
+  });
+  if (tab==="my"    && userAddr) loadMyPosition();
+  if (tab==="prize" && userAddr) loadWeeklyStats();
+}
+
+function fmtK(v) {
+  if(v>=1000000) return (v/1000000).toFixed(1)+"M";
+  if(v>=1000)    return (v/1000).toFixed(1)+"K";
+  return Math.round(v).toString();
+}
+
+function fmtTime(s) {
+  if(s<=0) return "00:00";
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  if(h>0) return `${h}:${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+  return `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+}
+
+function showToast(msg,color="#34d399") {
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.style.background=color;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),3000);
+}
+
+// ═══ INIT ═════════════════════════════════════════════════
+window.addEventListener("load",()=>{
+  loadSessions();
+  setInterval(loadSessions, 30000);
+
+  // SW auto-update
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener("updatefound", () => {
+        const n = reg.installing;
+        n.addEventListener("statechange", () => {
+          if (n.state === "activated") window.location.reload();
+        });
+      });
+    }).catch(e => console.warn(e));
+    navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload());
+  }
+});
+</script>
+</body>
+</html>
