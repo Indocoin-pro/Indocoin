@@ -779,12 +779,40 @@ async function createSession() {
 
   try {
     const betWei = ethers.parseUnits(bet.toString(), INDC_DEC);
-    showToast("Approve INDC...","#14b8a6");
+
+    // Cek balance INDC dulu
+    const balance = await indcContract.balanceOf(userAddr);
+    if (balance < betWei) {
+      const punya = fmtK(Number(balance)/1e9);
+      showToast(`INDC tidak cukup! Punya: ${punya} INDC`,"#f87171");
+      return;
+    }
+
+    // Approve jika perlu
+    showToast("Cek allowance...","#14b8a6");
     const allow = await indcContract.allowance(userAddr, CONTRACT);
     if (allow < betWei) {
+      showToast("Approve INDC...","#14b8a6");
       const tx1 = await indcContract.approve(CONTRACT, ethers.MaxUint256);
       await tx1.wait();
+      showToast("Approve berhasil!","#34d399");
     }
+
+    // Pre-flight: test oracle untuk token yang dipilih
+    showToast("Cek oracle harga...","#14b8a6");
+    for (const idx of selTokens) {
+      try {
+        const p = await contract.getPrice(Number(idx));
+        if (!p || Number(p) === 0) {
+          showToast(`Oracle ${TOKENS[idx].sym} belum siap. Coba lagi!`,"#f97316");
+          return;
+        }
+      } catch(oe) {
+        showToast(`Oracle ${TOKENS[idx].sym} error. Coba beberapa detik lagi!`,"#f97316");
+        return;
+      }
+    }
+
     showToast("Memulai sesi...","#14b8a6");
     const tokens = selTokens.map(v => Number(v));
     const tx = await contract.createSession(tokens, Number(selDurVal), betWei);
@@ -797,6 +825,10 @@ async function createSession() {
     const msg = parseErr(e);
     if (msg.toLowerCase().includes("oracle") || msg.toLowerCase().includes("stale")) {
       showToast("⚙️ Oracle sedang sinkronisasi. Coba lagi!","#f97316");
+    } else if (msg.toLowerCase().includes("user rejected") || msg.toLowerCase().includes("denied")) {
+      showToast("Transaksi dibatalkan","#f97316");
+    } else if (msg.toLowerCase().includes("insufficient") || msg.toLowerCase().includes("transfer")) {
+      showToast("INDC tidak cukup atau transfer gagal!","#f87171");
     } else {
       showToast("Gagal: "+msg,"#f87171");
     }
