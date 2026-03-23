@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "22.9";
+const VERSION = "23.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -59,6 +59,8 @@ const CACHE_FILES = [
   "/blitz-trade.html",
   "/three-trade.html",
   "/three-chart.html",
+  "/wave-trade.html",
+  "/delta-trade.html",
   "/league-trade.html",
   "/signal-trade.html",
   "/time-vault-trade.html",
