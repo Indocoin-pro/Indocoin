@@ -109,6 +109,14 @@ body{background:var(--dark);color:var(--text);font-family:'Share Tech Mono',mono
     </div>
   </div>
 
+  <!-- DEBUG BAR -->
+  <div id="debugBar" style="padding:4px 12px;background:rgba(255,0,0,0.1);border-bottom:1px solid rgba(255,0,0,0.2);font-family:'Share Tech Mono',monospace;font-size:8px;color:#f87171;display:flex;gap:12px;flex-wrap:wrap;">
+    <span>WS: <span id="dbWS">⏳ waiting</span></span>
+    <span>Prices: <span id="dbPrices">—</span></span>
+    <span>Entry: <span id="dbEntry">—</span></span>
+    <span>Accum: <span id="dbAccum">—</span></span>
+  </div>
+
   <div class="tf-bar">
     <button class="tf-btn" onclick="setTF('5')">5M</button>
     <button class="tf-btn active" onclick="setTF('15')">15M</button>
@@ -293,6 +301,13 @@ function startWS(sym) {
       const d=JSON.parse(e.data);
       const cur=parseFloat(d.c), pct=parseFloat(d.P), isUp=pct>=0;
       prices[sym]=cur;
+      // Debug update
+      document.getElementById("dbWS").textContent = "✅ connected";
+      document.getElementById("dbWS").style.color = "#34d399";
+      const allP = [...myTokens,...machTokens].map(s=>s+":"+(prices[s]?prices[s].toFixed(2):"?")).join(" ");
+      document.getElementById("dbPrices").textContent = allP;
+      const allE = [...myTokens,...machTokens].map(s=>s+":"+(entryPrices[s]?entryPrices[s].toFixed(2):"?")).join(" ");
+      document.getElementById("dbEntry").textContent = allE;
       const pEl=document.getElementById("price-"+sym);
       const cEl=document.getElementById("chg-"+sym);
       const frEl=document.getElementById("frentry-"+sym);
@@ -314,6 +329,9 @@ function updateAccum(){
   const myA=myC>0?myT:null,mA=mC>0?mT:null;
   const myEl=document.getElementById("myAccum"),mEl=document.getElementById("machAccum"),vsEl=document.getElementById("vsStatus");
   if(myEl&&myA!==null){myEl.textContent=(myA>=0?"+":"")+myA.toFixed(2)+"%";myEl.style.color=myA>=0?"var(--green)":"var(--red)";}
+  // Debug accum
+  const dbA = document.getElementById("dbAccum");
+  if(dbA) dbA.textContent = "my:"+myC+"/"+myTokens.length+" mach:"+mC+"/"+machTokens.length;
   if(mEl&&mA!==null){mEl.textContent=(mA>=0?"+":"")+mA.toFixed(2)+"%";mEl.style.color=mA>=0?"var(--green)":"var(--red)";}
   if(vsEl&&myA!==null&&mA!==null){const w=myA>mA;vsEl.textContent=w?"🏆 UNGGUL":"⚠️ TERTINGGAL";vsEl.style.color=w?"var(--green)":"var(--red)";}
   // Update frentry per token
