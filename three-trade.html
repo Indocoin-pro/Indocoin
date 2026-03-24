@@ -19,6 +19,8 @@
 body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.7)}70%{box-shadow:0 0 0 5px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+.dot-active{animation:pulseGreen 1.5s infinite;background:var(--green)!important;}
 @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(20,184,166,0.3)}50%{box-shadow:0 0 20px rgba(20,184,166,0.6)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes electric{0%,100%{text-shadow:0 0 10px #14b8a6,0 0 20px #14b8a6}50%{text-shadow:0 0 5px #14b8a6}}
@@ -317,8 +319,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
   <!-- MAIN TABS -->
   <div class="main-tabs">
-    <button class="tab-btn active" onclick="switchTab('trade')"   id="tab-trade">🔺 TRADE</button>
-    <button class="tab-btn"        onclick="switchTab('active')"  id="tab-active">📊 AKTIF</button>
+    <button class="tab-btn active" onclick="switchTab('trade')"   id="tab-trade">⚡ TRADE</button>
+    <button class="tab-btn"        onclick="switchTab('active')"  id="tab-active"><span id="activeIndicator" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle;"></span>AKTIF</button>
     <button class="tab-btn"        onclick="switchTab('history')" id="tab-history">📋 RIWAYAT</button>
     <button class="tab-btn"        onclick="switchTab('guide')"   id="tab-guide">📖 PANDUAN</button>
   </div>
@@ -890,6 +892,9 @@ async function loadActiveSession() {
       const [trader,,, status] = await c.getSession1(i);
       if (trader.toLowerCase() === userAddr.toLowerCase() && Number(status) === 0) {
         activeSid = i;
+        // Set dot hijau pulse
+        const dot = document.getElementById("activeIndicator");
+        if (dot) dot.className = "dot-active";
         renderActiveSession(i, c);
         return;
       }
@@ -1032,6 +1037,18 @@ async function renderActiveSession(sid, c) {
         </div>
       </div>
 
+      <!-- Live Chart Button -->
+      <a href="${chartUrl}" class="btn-chart" style="margin-bottom:8px;">
+        <span style="font-size:16px;">📊</span>
+        <div style="flex:1;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:#ffffff;letter-spacing:1px;">LIHAT CHART LIVE</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;">
+            ${tSyms.join(" · ")} vs ${mSyms.join(" · ")}
+          </div>
+        </div>
+        <span style="margin-left:auto;font-size:14px;color:var(--teal);">›</span>
+      </a>
+
       <!-- Taruhan -->
       <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;margin-bottom:10px;
         display:flex;justify-content:space-between;">
@@ -1049,18 +1066,6 @@ async function renderActiveSession(sid, c) {
           </div>
         </div>
       </div>
-
-      <!-- Live Chart Button -->
-      <a href="${chartUrl}" class="btn-chart">
-        <span style="font-size:14px;">📊</span>
-        <div>
-          <div>PANTAU 3 TOKEN + TIMER</div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);font-weight:400;">
-            ${tSyms.join(" · ")} vs ${mSyms.join(" · ")}
-          </div>
-        </div>
-        <span style="margin-left:auto;">›</span>
-      </a>
 
       <!-- Finalisasi -->
       ${timeLeft <= 0 ? `
