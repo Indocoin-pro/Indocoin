@@ -324,6 +324,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <!-- CHART -->
 <div id="chartContainer">
+  <div id="chartLoading" style="position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:var(--dark);pointer-events:none;"></div>
   <div class="chart-overlay" id="chartOverlay" style="display:none;">
     <div class="co-pnl" id="chartPnL">+$0.00 (0.00%)</div>
   </div>
@@ -685,25 +686,32 @@ let currentTF = "5";
 let klineHistory = [];
 
 async function loadCandles(sym, interval) {
+  klineHistory = [];
+  // Coba fetch dulu, fallback ke WS kalau gagal
   try {
-    // Fetch historical candles dari Binance REST
-    // Note: Binance REST mungkin diblokir di DApps — fallback ke WS saja
-    const pair = sym.toLowerCase()+"usdt";
-    const url  = `https://api.binance.com/api/v3/klines?symbol=${sym.toUpperCase()}USDT&interval=${interval}m&limit=200`;
+    const url = `https://api.binance.com/api/v3/klines?symbol=${sym.toUpperCase()}USDT&interval=${interval === "1D" ? "1d" : interval+"m"}&limit=200`;
     const resp = await fetch(url);
-    if (!resp.ok) throw new Error("Fetch failed");
+    if (!resp.ok) throw new Error("blocked");
     const data = await resp.json();
     klineHistory = data.map(k => ({
-      time: Math.floor(k[0]/1000),
-      open: parseFloat(k[1]),
-      high: parseFloat(k[2]),
-      low:  parseFloat(k[3]),
-      close:parseFloat(k[4]),
+      time:  Math.floor(k[0]/1000),
+      open:  parseFloat(k[1]),
+      high:  parseFloat(k[2]),
+      low:   parseFloat(k[3]),
+      close: parseFloat(k[4]),
     }));
-    candleSeries.setData(klineHistory);
+    if (candleSeries && klineHistory.length > 0) {
+      candleSeries.setData(klineHistory);
+      chart.timeScale().fitContent();
+    }
   } catch(e) {
-    // Kalau blocked, start dari candle kosong dan isi dari WS
+    // Fetch diblok — tampilkan loading lalu isi dari WS
     klineHistory = [];
+    if (candleSeries) candleSeries.setData([]);
+    // Tampilkan pesan loading di chart
+    const overlay = document.getElementById("chartLoading");
+    if (overlay) { overlay.style.display="flex"; overlay.innerHTML='<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#64748b;letter-spacing:1px;">⏳ Memuat candle dari stream...</div>'; }
+    // Chart akan terisi otomatis dari startKlineWS
   }
 }
 
@@ -733,7 +741,19 @@ function startKlineWS(sym, interval) {
       low:   parseFloat(k.l),
       close: parseFloat(k.c),
     };
-    candleSeries.update(candle);
+
+    // Update atau tambah candle ke history
+    if (klineHistory.length === 0 || klineHistory[klineHistory.length-1].time !== candle.time) {
+      klineHistory.push(candle);
+      if (klineHistory.length > 300) klineHistory.shift();
+    } else {
+      klineHistory[klineHistory.length-1] = candle;
+    }
+    if (candleSeries) candleSeries.update(candle);
+
+    // Sembunyikan loading overlay saat candle pertama masuk
+    const overlay = document.getElementById("chartLoading");
+    if (overlay) overlay.style.display = "none";
 
     // Update price
     prices[sym] = parseFloat(k.c);
