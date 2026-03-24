@@ -1176,10 +1176,17 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
   window._activeTraderSyms  = tSyms;
   window._activeMachineSyms = mSyms;
 
-  // WS untuk semua 6 token — close dan restart supaya fresh
+  // Pastikan _entryPrices ada — kalau kosong pakai latestPrices saat ini
+  if (!window._entryPrices) window._entryPrices = {};
   const allSyms = [...tSyms, ...mSyms];
   allSyms.forEach(sym => {
-    // Close WS lama kalau ada, supaya reconnect fresh
+    if (!window._entryPrices[sym] && latestPrices[sym]) {
+      window._entryPrices[sym] = latestPrices[sym];
+    }
+  });
+
+  // WS — close dan restart supaya fresh
+  allSyms.forEach(sym => {
     if (wsConns[sym]) {
       try { wsConns[sym].close(); } catch(e) {}
       delete wsConns[sym];
@@ -1187,7 +1194,7 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
     startPriceWSFor(sym);
   });
 
-  // Ambil harga awal dari kontrak sementara tunggu WS
+  // Ambil entry dari kontrak (lebih akurat), update jika berhasil
   updateActivePrices(tSyms, mSyms);
 
   // Clear interval lama
