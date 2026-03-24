@@ -972,7 +972,7 @@ async function renderActiveSession(sid, c) {
             ${tSyms.map((s,i) => `
               <div class="vs-tok-row">
                 <span class="vs-tok-sym" style="color:var(--ga)">${s}</span>
-                <span class="vs-tok-pct" id="tp${i}" style="color:var(--muted)">—</span>
+                <span class="vs-tok-pct" id="tp${i}" data-sym="${s}" style="color:var(--muted)">—</span>
               </div>`).join("")}
           </div>
           <div class="vs-accum ${tWin?"":""}">
@@ -989,7 +989,7 @@ async function renderActiveSession(sid, c) {
             ${mSyms.map((s,i) => `
               <div class="vs-tok-row">
                 <span class="vs-tok-sym" style="color:var(--gb)">${s}</span>
-                <span class="vs-tok-pct" id="mp${i}" style="color:var(--muted)">—</span>
+                <span class="vs-tok-pct" id="mp${i}" data-sym="${s}" style="color:var(--muted)">—</span>
               </div>`).join("")}
           </div>
           <div class="vs-accum">
@@ -1160,13 +1160,18 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
   window._activeTraderSyms  = tSyms;
   window._activeMachineSyms = mSyms;
 
-  // WS untuk semua 6 token
+  // WS untuk semua 6 token — close dan restart supaya fresh
   const allSyms = [...tSyms, ...mSyms];
   allSyms.forEach(sym => {
-    if (!wsConns[sym]) startPriceWSFor(sym);
+    // Close WS lama kalau ada, supaya reconnect fresh
+    if (wsConns[sym]) {
+      try { wsConns[sym].close(); } catch(e) {}
+      delete wsConns[sym];
+    }
+    startPriceWSFor(sym);
   });
 
-  // Langsung ambil harga dari kontrak (pasti jalan karena wallet connect)
+  // Ambil harga awal dari kontrak sementara tunggu WS
   updateActivePrices(tSyms, mSyms);
 
   // Clear interval lama
@@ -1501,24 +1506,15 @@ function startPriceWSFor(sym) {
       }
       updateSelRow();
 
-      // Update harga di tab AKTIF — pakai format 4 desimal
+      // Update harga di tab AKTIF — langsung scan tp0-tp2 dan mp0-mp2
       const pFmt4 = fmtPrice4(price);
       const pColor = parseFloat(d.P)>=0?"var(--green)":"var(--red)";
-      if (window._activeTraderSyms) {
-        window._activeTraderSyms.forEach((s,i) => {
-          if (s===sym) {
-            const el = document.getElementById("tp"+i);
-            if (el) { el.textContent=pFmt4; el.style.color=pColor; }
-          }
-        });
-      }
-      if (window._activeMachineSyms) {
-        window._activeMachineSyms.forEach((s,i) => {
-          if (s===sym) {
-            const el = document.getElementById("mp"+i);
-            if (el) { el.textContent=pFmt4; el.style.color=pColor; }
-          }
-        });
+      for (let i=0; i<3; i++) {
+        const tp = document.getElementById("tp"+i);
+        const mp = document.getElementById("mp"+i);
+        // Cek apakah elemen ini untuk token ini dengan data-sym
+        if (tp && tp.dataset.sym === sym) { tp.textContent=pFmt4; tp.style.color=pColor; }
+        if (mp && mp.dataset.sym === sym) { mp.textContent=pFmt4; mp.style.color=pColor; }
       }
     };
     ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startPriceWSFor(sym),3000); };
