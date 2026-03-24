@@ -45,13 +45,6 @@ body{background:var(--dark);color:var(--text);font-family:'Share Tech Mono',mono
 .pnl-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;}
 .pnl-mid{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);text-align:center;}
 
-.tf-bar{display:flex;gap:6px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--border);}
-.tf-bar::-webkit-scrollbar{display:none;}
-.tf-btn{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  padding:4px 10px;border-radius:6px;border:1px solid var(--border);
-  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;}
-.tf-btn.active{background:rgba(20,184,166,0.12);color:var(--teal);border-color:rgba(20,184,166,0.3);}
-
 .chart-section{padding:8px 12px;}
 .chart-item{margin-bottom:14px;background:var(--dark2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .chart-header{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 4px;}
@@ -68,6 +61,7 @@ canvas{display:block;width:100%;background:#0a0f1e;}
 .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);
   animation:pulse 1s infinite;display:inline-block;margin-right:4px;vertical-align:middle;}
 .page{padding-bottom:20px;}
+.loading-txt{text-align:center;padding:30px;font-size:9px;color:var(--muted);}
 </style>
 </head>
 <body>
@@ -108,16 +102,6 @@ canvas{display:block;width:100%;background:#0a0f1e;}
     </div>
   </div>
 
-  <div class="tf-bar">
-    <button class="tf-btn" onclick="setTF('1m')">1M</button>
-    <button class="tf-btn active" onclick="setTF('5m')">5M</button>
-    <button class="tf-btn" onclick="setTF('15m')">15M</button>
-    <button class="tf-btn" onclick="setTF('30m')">30M</button>
-    <button class="tf-btn" onclick="setTF('1h')">1H</button>
-    <button class="tf-btn" onclick="setTF('4h')">4H</button>
-    <button class="tf-btn" onclick="setTF('1d')">1D</button>
-  </div>
-
   <div class="chart-section" id="chartSection"></div>
 </div>
 
@@ -129,153 +113,146 @@ const endTime    = parseInt(params.get("end")||"0");
 const sid        = params.get("sid")||"—";
 const startTs    = Math.floor(Date.now()/1000);
 
-let curTF      = "5m";
-let curView    = "me";
-let wsConns    = {};
-let prices     = {};
-let entryPrices= {};
-let candles    = {}; // {sym: [{t,o,h,l,c}]}
+let curView     = "me";
+let wsConns     = {};
+let prices      = {};
+let entryPrices = {};
+let priceHistory= {}; // {sym: [price, price, ...]} max 200 points
 let timerInt;
+
+const MAX_POINTS = 200;
 
 document.getElementById("sessId").textContent = "#"+sid;
 
 // ════════════════════════════════════
-// DRAW CANVAS CHART
+// DRAW LINE CHART
 // ════════════════════════════════════
-function drawChart(sym, accentColor) {
+function drawLineChart(sym, accentColor) {
   const canvas = document.getElementById("cv-"+sym);
   if (!canvas) return;
   const ctx  = canvas.getContext("2d");
   const W    = canvas.width;
   const H    = canvas.height;
-  const data = candles[sym] || [];
+  const data = priceHistory[sym] || [];
 
-  ctx.clearRect(0, 0, W, H);
-
-  // Background
+  ctx.clearRect(0,0,W,H);
   ctx.fillStyle = "#0a0f1e";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0,0,W,H);
 
   if (data.length < 2) {
-    ctx.fillStyle = "#64748b";
-    ctx.font = "11px Share Tech Mono";
+    ctx.fillStyle = "#475569";
+    ctx.font = "10px Share Tech Mono";
     ctx.textAlign = "center";
-    ctx.fillText("Memuat data...", W/2, H/2);
+    ctx.fillText("⏳ Menunggu data realtime...", W/2, H/2-6);
+    ctx.font = "8px Share Tech Mono";
+    ctx.fillText("Chart terbentuk otomatis", W/2, H/2+10);
     return;
   }
 
-  const PAD_L=40, PAD_R=8, PAD_T=10, PAD_B=20;
-  const chartW = W - PAD_L - PAD_R;
-  const chartH = H - PAD_T - PAD_B;
+  const PAD_L=42, PAD_R=8, PAD_T=10, PAD_B=18;
+  const chartW = W-PAD_L-PAD_R;
+  const chartH = H-PAD_T-PAD_B;
 
-  // Range harga
-  let minP = Infinity, maxP = -Infinity;
-  data.forEach(c => { if(c.l<minP) minP=c.l; if(c.h>maxP) maxP=c.h; });
+  // Range
+  let minP = Math.min(...data);
+  let maxP = Math.max(...data);
   if (entryPrices[sym]) {
-    if (entryPrices[sym] < minP) minP = entryPrices[sym];
-    if (entryPrices[sym] > maxP) maxP = entryPrices[sym];
+    minP = Math.min(minP, entryPrices[sym]);
+    maxP = Math.max(maxP, entryPrices[sym]);
   }
-  const range = maxP - minP || 1;
-  const pad   = range * 0.05;
-  const lo    = minP - pad;
-  const hi    = maxP + pad;
-  const span  = hi - lo;
+  const range = maxP-minP||minP*0.001;
+  const pad   = range*0.1;
+  const lo    = minP-pad;
+  const hi    = maxP+pad;
+  const span  = hi-lo||1;
 
+  const toX = i => PAD_L + (i/(data.length-1))*chartW;
   const toY = p => PAD_T + chartH - ((p-lo)/span)*chartH;
-  const candleW = Math.max(2, Math.floor(chartW / data.length) - 1);
-  const step    = chartW / data.length;
 
-  // Grid horizontal
+  // Grid
   ctx.strokeStyle = "rgba(255,255,255,0.04)";
-  ctx.lineWidth   = 1;
-  for (let i=0; i<=4; i++) {
-    const y = PAD_T + (chartH/4)*i;
+  ctx.lineWidth = 1;
+  for (let i=0;i<=3;i++) {
+    const y = PAD_T + (chartH/3)*i;
     ctx.beginPath(); ctx.moveTo(PAD_L,y); ctx.lineTo(W-PAD_R,y); ctx.stroke();
-    const price = hi - (span/4)*i;
-    ctx.fillStyle = "#64748b";
-    ctx.font = "8px Share Tech Mono";
-    ctx.textAlign = "right";
-    ctx.fillText(price>100?price.toFixed(0):price.toFixed(3), PAD_L-2, y+3);
+    const price = hi-(span/3)*i;
+    ctx.fillStyle="#475569"; ctx.font="8px Share Tech Mono"; ctx.textAlign="right";
+    ctx.fillText(price>1000?price.toFixed(0):price>10?price.toFixed(2):price.toFixed(4), PAD_L-2, y+3);
   }
 
-  // Garis entry
+  // Garis entry (dashed)
   if (entryPrices[sym]) {
     const ey = toY(entryPrices[sym]);
     ctx.strokeStyle = accentColor;
-    ctx.lineWidth   = 1;
-    ctx.setLineDash([4,3]);
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5,4]);
     ctx.beginPath(); ctx.moveTo(PAD_L,ey); ctx.lineTo(W-PAD_R,ey); ctx.stroke();
     ctx.setLineDash([]);
+    // Label entry
     ctx.fillStyle = accentColor;
     ctx.font = "7px Share Tech Mono";
-    ctx.textAlign = "left";
-    ctx.fillText("E", W-PAD_R+1, ey+3);
+    ctx.textAlign = "right";
+    ctx.fillText("ENTRY", PAD_L-2, ey-2);
   }
 
-  // Candles
-  data.forEach((c,i) => {
-    const x    = PAD_L + i*step + step/2;
-    const isUp = c.c >= c.o;
-    const col  = isUp ? "#34d399" : "#f87171";
+  // Area gradient bawah garis
+  const isProfit = data[data.length-1] >= (entryPrices[sym]||data[0]);
+  const lineColor = isProfit ? "#34d399" : "#f87171";
+  const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T+chartH);
+  grad.addColorStop(0, isProfit?"rgba(52,211,153,0.25)":"rgba(248,113,113,0.25)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
 
-    // Wick
-    ctx.strokeStyle = col;
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, toY(c.h));
-    ctx.lineTo(x, toY(c.l));
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(data[0]));
+  for (let i=1;i<data.length;i++) ctx.lineTo(toX(i), toY(data[i]));
+  ctx.lineTo(toX(data.length-1), PAD_T+chartH);
+  ctx.lineTo(toX(0), PAD_T+chartH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
 
-    // Body
-    const y1 = toY(Math.max(c.o,c.c));
-    const y2 = toY(Math.min(c.o,c.c));
-    const bH = Math.max(1, y2-y1);
-    ctx.fillStyle = col;
-    ctx.fillRect(x - candleW/2, y1, candleW, bH);
-  });
+  // Garis harga (line)
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = "round";
+  ctx.beginPath();
+  ctx.moveTo(toX(0), toY(data[0]));
+  for (let i=1;i<data.length;i++) ctx.lineTo(toX(i), toY(data[i]));
+  ctx.stroke();
 
-  // Current price line
+  // Titik harga terakhir
+  const lastX = toX(data.length-1);
+  const lastY = toY(data[data.length-1]);
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI*2);
+  ctx.fillStyle = lineColor;
+  ctx.fill();
+
+  // Current price line (dashed kuning)
   if (prices[sym]) {
     const py = toY(prices[sym]);
-    ctx.strokeStyle = "rgba(250,204,21,0.6)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2,2]);
+    ctx.strokeStyle = "rgba(250,204,21,0.5)";
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([2,3]);
     ctx.beginPath(); ctx.moveTo(PAD_L,py); ctx.lineTo(W-PAD_R,py); ctx.stroke();
     ctx.setLineDash([]);
-  }
-
-  // Time labels bawah
-  ctx.fillStyle = "#475569";
-  ctx.font = "7px Share Tech Mono";
-  ctx.textAlign = "center";
-  const step2 = Math.floor(data.length/4);
-  for (let i=0; i<4; i++) {
-    const idx = i*step2;
-    if (idx < data.length) {
-      const x = PAD_L + idx*step + step/2;
-      const d = new Date(data[idx].t*1000);
-      const lbl = curTF==="1d"
-        ? `${d.getDate()}/${d.getMonth()+1}`
-        : `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
-      ctx.fillText(lbl, x, H-4);
-    }
   }
 }
 
 // ════════════════════════════════════
-// RENDER CHARTS
+// RENDER
 // ════════════════════════════════════
 function renderCharts() {
-  const tokens     = curView==="me" ? myTokens : machTokens;
-  const color      = curView==="me" ? "var(--ga)" : "var(--gb)";
-  const accentHex  = curView==="me" ? "#38bdf8" : "#f97316";
-  const label      = curView==="me" ? "👤 TOKEN KAMU" : "🤖 TOKEN MESIN";
-  const el         = document.getElementById("chartSection");
+  const tokens    = curView==="me" ? myTokens : machTokens;
+  const color     = curView==="me" ? "var(--ga)" : "var(--gb)";
+  const accentHex = curView==="me" ? "#38bdf8" : "#f97316";
+  const label     = curView==="me" ? "👤 TOKEN KAMU" : "🤖 TOKEN MESIN";
+  const el        = document.getElementById("chartSection");
 
   el.innerHTML = `
     <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:${color};
       letter-spacing:1px;margin-bottom:8px;padding:4px 0;">${label}</div>
-    ${tokens.map(sym => `
+    ${tokens.map(sym=>`
       <div class="chart-item">
         <div class="chart-header">
           <div><span class="live-dot"></span>
@@ -283,63 +260,29 @@ function renderCharts() {
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
             <span class="ch-price" id="price-${sym}">—</span>
-            <span class="ch-chg"  id="chg-${sym}">—</span>
+            <span class="ch-chg"   id="chg-${sym}">—</span>
           </div>
         </div>
         <div class="entry-row">
           <span>Entry: <span id="entry-${sym}" style="color:var(--text)">—</span></span>
           <span>Dari entry: <span id="frentry-${sym}" class="ch-pct">—</span></span>
         </div>
-        <canvas id="cv-${sym}" height="160" style="width:100%;"></canvas>
+        <canvas id="cv-${sym}" height="150"></canvas>
       </div>`).join("")}`;
 
-  // Set canvas width sesuai container
-  tokens.forEach(sym => {
+  tokens.forEach(sym=>{
     const cv = document.getElementById("cv-"+sym);
     if (cv) cv.width = cv.parentElement.clientWidth;
-    loadKlines(sym);
+    drawLineChart(sym, accentHex);
     if (!wsConns[sym]) startWS(sym);
   });
 
-  // Start WS semua token untuk akumulasi
-  [...myTokens,...machTokens].forEach(sym => { if(!wsConns[sym]) startWS(sym); });
+  // Pastikan semua token punya WS untuk akumulasi
+  [...myTokens,...machTokens].forEach(sym=>{ if(!wsConns[sym]) startWS(sym); });
 }
 
 // ════════════════════════════════════
-// LOAD KLINES
-// ════════════════════════════════════
-async function loadKlines(sym) {
-  try {
-    const pair = sym.toUpperCase()+"USDT";
-    const url  = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${curTF}&limit=80`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (!Array.isArray(data)) return;
-    candles[sym] = data.map(k=>({
-      t: Math.floor(k[0]/1000),
-      o: parseFloat(k[1]),
-      h: parseFloat(k[2]),
-      l: parseFloat(k[3]),
-      c: parseFloat(k[4])
-    }));
-    const accentHex = curView==="me"?"#38bdf8":"#f97316";
-    drawChart(sym, accentHex);
-  } catch(e) {
-    console.warn("Klines error", sym, e);
-    // Gambar canvas kosong dengan pesan
-    const cv = document.getElementById("cv-"+sym);
-    if (cv) {
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle="#0a0f1e"; ctx.fillRect(0,0,cv.width,cv.height);
-      ctx.fillStyle="#64748b"; ctx.font="10px Share Tech Mono";
-      ctx.textAlign="center";
-      ctx.fillText("Gagal memuat data", cv.width/2, cv.height/2);
-    }
-  }
-}
-
-// ════════════════════════════════════
-// WEBSOCKET TICKER
+// WEBSOCKET
 // ════════════════════════════════════
 function startWS(sym) {
   if (wsConns[sym]) return;
@@ -350,21 +293,21 @@ function startWS(sym) {
       const d   = JSON.parse(e.data);
       const cur = parseFloat(d.c);
       const pct = parseFloat(d.P);
-      const isUp= pct >= 0;
+      const isUp= pct>=0;
+
       prices[sym] = cur;
 
-      // Update candle terakhir
-      if (candles[sym] && candles[sym].length>0) {
-        const last = candles[sym][candles[sym].length-1];
-        last.c = cur;
-        if (cur > last.h) last.h = cur;
-        if (cur < last.l) last.l = cur;
-        const accentHex = curView==="me"?"#38bdf8":"#f97316";
-        const tokens = curView==="me" ? myTokens : machTokens;
-        if (tokens.includes(sym)) drawChart(sym, accentHex);
+      // Simpan ke history
+      if (!priceHistory[sym]) priceHistory[sym]=[];
+      // Tambah titik setiap tick (throttle: max 1 per detik)
+      const now = Date.now();
+      if (!sym._lastTick || now-sym._lastTick > 1000) {
+        priceHistory[sym].push(cur);
+        if (priceHistory[sym].length > MAX_POINTS) priceHistory[sym].shift();
+        sym._lastTick = now;
       }
 
-      // Update UI
+      // Update harga display
       const pEl  = document.getElementById("price-"+sym);
       const cEl  = document.getElementById("chg-"+sym);
       const frEl = document.getElementById("frentry-"+sym);
@@ -373,39 +316,27 @@ function startWS(sym) {
         pEl.className = "ch-price "+(isUp?"up":"down");
       }
       if (cEl) {
-        cEl.textContent = (isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%";
-        cEl.className = "ch-chg "+(isUp?"up":"down");
+        cEl.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%";
+        cEl.className="ch-chg "+(isUp?"up":"down");
       }
-      if (entryPrices[sym] && frEl) {
-        const fe = (cur-entryPrices[sym])/entryPrices[sym]*100;
-        frEl.textContent = (fe>=0?"+":"")+fe.toFixed(2)+"%";
-        frEl.style.color = fe>=0?"var(--green)":"var(--red)";
+      if (entryPrices[sym]&&frEl) {
+        const fe=(cur-entryPrices[sym])/entryPrices[sym]*100;
+        frEl.textContent=(fe>=0?"+":"")+fe.toFixed(2)+"%";
+        frEl.style.color=fe>=0?"var(--green)":"var(--red)";
       }
+
+      // Redraw chart kalau sedang ditampilkan
+      const tokens = curView==="me"?myTokens:machTokens;
+      if (tokens.includes(sym)) {
+        const accentHex = curView==="me"?"#38bdf8":"#f97316";
+        drawLineChart(sym, accentHex);
+      }
+
       updateAccum();
     };
-    ws.onclose = ()=>{ delete wsConns[sym]; setTimeout(()=>startWS(sym),3000); };
-    wsConns[sym] = ws;
+    ws.onclose=()=>{ delete wsConns[sym]; setTimeout(()=>startWS(sym),3000); };
+    wsConns[sym]=ws;
   } catch(e){}
-}
-
-// ════════════════════════════════════
-// SWITCH VIEW & TIMEFRAME
-// ════════════════════════════════════
-function switchView(v) {
-  curView = v;
-  document.getElementById("tsMe").classList.toggle("active", v==="me");
-  document.getElementById("tsMac").classList.toggle("active", v==="machine");
-  renderCharts();
-}
-
-function setTF(tf) {
-  curTF = tf;
-  document.querySelectorAll(".tf-btn").forEach(b => {
-    const map = {"1m":"1M","5m":"5M","15m":"15M","30m":"30M","1h":"1H","4h":"4H","1d":"1D"};
-    b.classList.toggle("active", b.textContent === (map[tf]||tf));
-  });
-  const tokens = curView==="me" ? myTokens : machTokens;
-  tokens.forEach(sym => { candles[sym]=[]; loadKlines(sym); });
 }
 
 // ════════════════════════════════════
@@ -415,11 +346,21 @@ function updateAccum() {
   let myT=0,myC=0,mT=0,mC=0;
   myTokens.forEach(s=>{if(entryPrices[s]&&prices[s]){myT+=(prices[s]-entryPrices[s])/entryPrices[s]*100;myC++;}});
   machTokens.forEach(s=>{if(entryPrices[s]&&prices[s]){mT+=(prices[s]-entryPrices[s])/entryPrices[s]*100;mC++;}});
-  const myA = myC>0?myT:null, mA = mC>0?mT:null;
-  const myEl=document.getElementById("myAccum"), mEl=document.getElementById("machAccum"), vsEl=document.getElementById("vsStatus");
+  const myA=myC>0?myT:null, mA=mC>0?mT:null;
+  const myEl=document.getElementById("myAccum"),mEl=document.getElementById("machAccum"),vsEl=document.getElementById("vsStatus");
   if(myEl&&myA!==null){myEl.textContent=(myA>=0?"+":"")+myA.toFixed(2)+"%";myEl.style.color=myA>=0?"var(--green)":"var(--red)";}
   if(mEl&&mA!==null){mEl.textContent=(mA>=0?"+":"")+mA.toFixed(2)+"%";mEl.style.color=mA>=0?"var(--green)":"var(--red)";}
   if(vsEl&&myA!==null&&mA!==null){const w=myA>mA;vsEl.textContent=w?"🏆 UNGGUL":"⚠️ TERTINGGAL";vsEl.style.color=w?"var(--green)":"var(--red)";}
+}
+
+// ════════════════════════════════════
+// SWITCH VIEW
+// ════════════════════════════════════
+function switchView(v) {
+  curView=v;
+  document.getElementById("tsMe").classList.toggle("active",v==="me");
+  document.getElementById("tsMac").classList.toggle("active",v==="machine");
+  renderCharts();
 }
 
 // ════════════════════════════════════
@@ -428,34 +369,35 @@ function updateAccum() {
 async function loadEntryPrices() {
   if (!sid||sid==="—") return;
   try {
-    const RPC = "https://bsc-dataseed.binance.org/";
-    const CONTRACT = "0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
-    const sidHex = parseInt(sid).toString(16).padStart(64,"0");
-    const res = await fetch(RPC, {
-      method:"POST", headers:{"Content-Type":"application/json"},
+    const RPC="https://bsc-dataseed.binance.org/";
+    const CONTRACT="0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
+    const sidHex=parseInt(sid).toString(16).padStart(64,"0");
+    const res=await fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_call",
-        params:[{to:CONTRACT, data:"0x575437ba"+sidHex},"latest"]})
-    });
-    const json = await res.json();
-    if (!json.result||json.result==="0x") return;
-    const hex = json.result.slice(2);
-    const allSyms = [...myTokens,...machTokens];
-    allSyms.forEach((sym,i) => {
-      if (i>=6) return;
-      const chunk = hex.slice(i*64,(i+1)*64);
-      let n = BigInt("0x"+chunk);
-      if (n >= BigInt("0x8"+("0".repeat(63)))) n -= BigInt("0x1"+("0".repeat(64)));
-      if (n>0n) {
-        entryPrices[sym] = Number(n)/1e8;
-        const eEl = document.getElementById("entry-"+sym);
-        if (eEl) {
-          const v = entryPrices[sym];
-          eEl.textContent = v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);
+        params:[{to:CONTRACT,data:"0x575437ba"+sidHex},"latest"]})});
+    const json=await res.json();
+    if(!json.result||json.result==="0x") return;
+    const hex=json.result.slice(2);
+    const allSyms=[...myTokens,...machTokens];
+    allSyms.forEach((sym,i)=>{
+      if(i>=6) return;
+      const chunk=hex.slice(i*64,(i+1)*64);
+      let n=BigInt("0x"+chunk);
+      if(n>=BigInt("0x8"+("0".repeat(63)))) n-=BigInt("0x1"+("0".repeat(64)));
+      if(n>0n){
+        entryPrices[sym]=Number(n)/1e8;
+        const eEl=document.getElementById("entry-"+sym);
+        if(eEl){
+          const v=entryPrices[sym];
+          eEl.textContent=v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);
         }
-        // Redraw chart dengan garis entry
-        const accentHex = curView==="me"?"#38bdf8":"#f97316";
-        const tokens = curView==="me"?myTokens:machTokens;
-        if (tokens.includes(sym)) drawChart(sym, accentHex);
+        // Set entry sebagai titik awal history
+        if(!priceHistory[sym]||priceHistory[sym].length===0){
+          priceHistory[sym]=[entryPrices[sym]];
+        }
+        const accentHex=curView==="me"?"#38bdf8":"#f97316";
+        const tokens=curView==="me"?myTokens:machTokens;
+        if(tokens.includes(sym)) drawLineChart(sym,accentHex);
       }
     });
   } catch(e){ console.warn("Entry error",e); }
@@ -464,12 +406,12 @@ async function loadEntryPrices() {
 // ════════════════════════════════════
 // TIMER
 // ════════════════════════════════════
-function startTimer() {
-  if (!endTime) return;
-  const totalDur = endTime - startTs;
-  timerInt = setInterval(()=>{
-    const now=Math.floor(Date.now()/1000), left=endTime-now;
-    const el=document.getElementById("timerVal"), pEl=document.getElementById("progressFill");
+function startTimer(){
+  if(!endTime) return;
+  const totalDur=endTime-startTs;
+  timerInt=setInterval(()=>{
+    const now=Math.floor(Date.now()/1000),left=endTime-now;
+    const el=document.getElementById("timerVal"),pEl=document.getElementById("progressFill");
     if(el){el.textContent=fmtTime(Math.max(0,left));el.className="timer-val "+(left<300?"urgent":"");}
     if(pEl&&totalDur>0){
       pEl.style.width=Math.max(0,Math.min(100,left/totalDur*100))+"%";
@@ -496,7 +438,7 @@ window.addEventListener("load",()=>{
       setInterval(()=>reg.update(),60000);
       reg.addEventListener("updatefound",()=>{
         const n=reg.installing;
-        n.addEventListener("statechange",()=>{ if(n.state==="activated") window.location.reload(); });
+        n.addEventListener("statechange",()=>{if(n.state==="activated")window.location.reload();});
       });
     }).catch(e=>console.warn(e));
     navigator.serviceWorker.addEventListener("controllerchange",()=>window.location.reload());
