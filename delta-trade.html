@@ -761,7 +761,11 @@ function startKlineWS(sym, interval) {
 }
 
 function startTickerWS(sym) {
-  if (wsConns["ticker_"+sym]) return;
+  // Close lama kalau ada
+  if (wsConns["ticker_"+sym]) {
+    try { wsConns["ticker_"+sym].close(); } catch(e) {}
+    delete wsConns["ticker_"+sym];
+  }
   const pair = sym.toLowerCase()+"usdt";
   const ws   = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
   ws.onmessage = e => {
@@ -1305,6 +1309,11 @@ window.addEventListener("load", async()=>{
   // Start websockets untuk harga realtime
   startTickerWS("BNB");
   startTickerWS("BTC");
+  // Retry setelah 3 detik kalau belum dapat harga
+  setTimeout(() => {
+    if (!prices["BNB"]) startTickerWS("BNB");
+    if (!prices["BTC"]) startTickerWS("BTC");
+  }, 3000);
 
   // Active position kalau sudah connect
   if (userAddr) {
