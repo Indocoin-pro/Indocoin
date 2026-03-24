@@ -942,7 +942,22 @@ async function renderActiveSession(sid, c) {
       if(ep[i]>0) window._entryPrices[sym] = ep[i];
     });
     localStorage.setItem("threeEntry_"+sid, JSON.stringify(window._entryPrices));
-  } catch(e) { console.warn("Entry fetch error",e); }
+    // Debug
+    const dbEl = document.getElementById("debugEntry");
+    if (dbEl) {
+      const keys = Object.keys(window._entryPrices);
+      if (keys.length > 0) {
+        dbEl.textContent = "EP: " + keys.map(k=>k+":$"+window._entryPrices[k].toFixed(2)).join(" | ");
+        dbEl.style.color = "#34d399";
+      } else {
+        dbEl.textContent = "EP: KOSONG!";
+      }
+    }
+  } catch(e) {
+    console.warn("Entry fetch error",e);
+    const dbEl = document.getElementById("debugEntry");
+    if (dbEl) dbEl.textContent = "EP ERROR: "+e.message;
+  }
 
   const chartUrl = `three-chart.html?sid=${sid}&t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}`;
 
@@ -963,6 +978,9 @@ async function renderActiveSession(sid, c) {
             transition:width 1s linear;"></div>
         </div>
       </div>
+
+      <!-- DEBUG ENTRY -->
+      <div id="debugEntry" style="padding:3px 8px;background:rgba(255,0,0,0.1);border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:7px;color:#f87171;margin-bottom:4px;"></div>
 
       <!-- VS -->
       <div class="vs-wrap">
@@ -1503,6 +1521,11 @@ function startPriceWSFor(sym) {
       }
       updateSelRow();
 
+      // Debug WS
+      const dbEl2 = document.getElementById("debugEntry");
+      if (dbEl2 && dbEl2.style.color !== "#34d399") {
+        dbEl2.textContent = "WS OK: "+sym+"=$"+price.toFixed(4)+" EP:"+(window._entryPrices?JSON.stringify(Object.keys(window._entryPrices)):"null");
+      }
       // Update % dari entry di tab AKTIF
       const ep = window._entryPrices && window._entryPrices[sym];
       if (ep && ep > 0) {
