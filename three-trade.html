@@ -1097,11 +1097,29 @@ async function renderClaimSession(sid, c) {
     </div>`;
 }
 
-// ═══ UPDATE HARGA AKTIF DARI KONTRAK ════════════════════
+// ═══ UPDATE HARGA AKTIF ════════════════════════════════
+function fmtPrice4(p) {
+  // Selalu 4 desimal, pakai separator ribuan kalau > 1000
+  if (p >= 1000) {
+    const parts = p.toFixed(4).split(".");
+    parts[0] = parseInt(parts[0]).toLocaleString("en");
+    return "$"+parts.join(".");
+  }
+  return "$"+p.toFixed(4);
+}
+
+function updateActivePriceUI(sym, price, elId) {
+  const el = document.getElementById(elId);
+  if (el && price > 0) {
+    el.textContent = fmtPrice4(price);
+    el.style.color = "var(--text)";
+  }
+}
+
 async function updateActivePrices(tSyms, mSyms) {
+  // Ambil harga dari kontrak untuk tampilan awal
   try {
     const c = await getRC();
-    // Update trader tokens
     for (let i=0; i<tSyms.length; i++) {
       const sym = tSyms[i];
       const idx = TOKENS.findIndex(t=>t.sym===sym);
@@ -1109,17 +1127,12 @@ async function updateActivePrices(tSyms, mSyms) {
       try {
         const p = await c.getPrice(idx);
         const price = Number(p)/1e8;
-        if (price > 0) {
+        if (price > 0 && !latestPrices[sym]) {
           latestPrices[sym] = price;
-          const el = document.getElementById("tp"+i);
-          if (el) {
-            el.textContent = "$"+price.toFixed(4);
-            el.style.color = "var(--text)";
-          }
+          updateActivePriceUI(sym, price, "tp"+i);
         }
       } catch(e) {}
     }
-    // Update machine tokens
     for (let i=0; i<mSyms.length; i++) {
       const sym = mSyms[i];
       const idx = TOKENS.findIndex(t=>t.sym===sym);
@@ -1127,17 +1140,17 @@ async function updateActivePrices(tSyms, mSyms) {
       try {
         const p = await c.getPrice(idx);
         const price = Number(p)/1e8;
-        if (price > 0) {
+        if (price > 0 && !latestPrices[sym]) {
           latestPrices[sym] = price;
-          const el = document.getElementById("mp"+i);
-          if (el) {
-            el.textContent = "$"+price.toFixed(4);
-            el.style.color = "var(--text)";
-          }
+          updateActivePriceUI(sym, price, "mp"+i);
         }
       } catch(e) {}
     }
-  } catch(e) { console.warn("updateActivePrices error",e); }
+  } catch(e) {}
+  // Pastikan WS jalan untuk update realtime
+  [...tSyms,...mSyms].forEach(sym => {
+    if (!wsConns[sym]) startPriceWSFor(sym);
+  });
 }
 
 // ═══ REALTIME UPDATES ═════════════════════════════════════
@@ -1192,8 +1205,9 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       });
       localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
 
-      // 3. Update harga dari kontrak setiap interval
-      updateActivePrices(tSyms, mSyms);
+      // 3. Update harga dari latestPrices (sudah diupdate WS)
+      tSyms.forEach((s,i)=>{ if(latestPrices[s]) updateActivePriceUI(s,latestPrices[s],"tp"+i); });
+      mSyms.forEach((s,i)=>{ if(latestPrices[s]) updateActivePriceUI(s,latestPrices[s],"mp"+i); });
 
     } catch(e) { console.warn("interval error",e); }
   }, 3000);
@@ -1476,7 +1490,7 @@ function startPriceWSFor(sym) {
       const d = JSON.parse(e.data);
       latestPrices[sym] = parseFloat(d.c);
       const price = latestPrices[sym];
-      const pFmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+      const pFmt = price>1000?"$"+price.toLocaleString("en",{minimumFractionDigits:4,maximumFractionDigits:4}):"$"+price.toFixed(4);
 
       // Update token grid kalau tampil
       const idx = TOKENS.findIndex(t=>t.sym===sym);
@@ -1487,21 +1501,22 @@ function startPriceWSFor(sym) {
       }
       updateSelRow();
 
-      // Update harga di tab AKTIF — trader tokens (tp0,tp1,tp2)
+      // Update harga di tab AKTIF — pakai format 4 desimal
+      const pFmt4 = fmtPrice4(price);
+      const pColor = parseFloat(d.P)>=0?"var(--green)":"var(--red)";
       if (window._activeTraderSyms) {
         window._activeTraderSyms.forEach((s,i) => {
           if (s===sym) {
             const el = document.getElementById("tp"+i);
-            if (el) { el.textContent=pFmt; el.style.color=parseFloat(d.P)>=0?"var(--green)":"var(--red)"; }
+            if (el) { el.textContent=pFmt4; el.style.color=pColor; }
           }
         });
       }
-      // Update harga di tab AKTIF — machine tokens (mp0,mp1,mp2)
       if (window._activeMachineSyms) {
         window._activeMachineSyms.forEach((s,i) => {
           if (s===sym) {
             const el = document.getElementById("mp"+i);
-            if (el) { el.textContent=pFmt; el.style.color=parseFloat(d.P)>=0?"var(--green)":"var(--red)"; }
+            if (el) { el.textContent=pFmt4; el.style.color=pColor; }
           }
         });
       }
