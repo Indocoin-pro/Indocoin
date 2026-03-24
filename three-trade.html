@@ -1099,10 +1099,10 @@ async function renderClaimSession(sid, c) {
 
 // ═══ REALTIME UPDATES ═════════════════════════════════════
 function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) {
-  // Simpan syms untuk update harga di UI
+  // Simpan ke window agar bisa diakses dari mana saja
+  window._activeSid         = sid;
   window._activeTraderSyms  = tSyms;
   window._activeMachineSyms = mSyms;
-  window._activeSid         = sid;
 
   // WS untuk semua 6 token
   const allSyms = [...tSyms, ...mSyms];
@@ -1110,30 +1110,73 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
     if (!wsConns[sym]) startPriceWSFor(sym);
   });
 
-  // Update P&L setiap 5 detik
+  // Clear interval lama
   if (window._activeInterval) clearInterval(window._activeInterval);
+
+  // Interval utama setiap 3 detik
   window._activeInterval = setInterval(async () => {
+    // 1. Update akumulasi dari kontrak
     try {
       const c = await getRC();
       const [tA, mA, tW] = await c.getCurrentAccum(sid);
       const ta = document.getElementById("tAccumVal");
       const ma = document.getElementById("mAccumVal");
-      if (ta) { ta.textContent = (Number(tA)/100).toFixed(2)+"%"; ta.style.color = Number(tA)>=0?"var(--green)":"var(--red)"; }
-      if (ma) { ma.textContent = (Number(mA)/100).toFixed(2)+"%"; ma.style.color = Number(mA)>=0?"var(--green)":"var(--red)"; }
-    } catch(e) {}
-    // Simpan data ke localStorage untuk three-chart
-    saveChartData(
-      window._activeSid||sid,
-      window._activeTraderSyms||tSyms,
-      window._activeMachineSyms||mSyms
-    );
-  }, 5000);
-  // Simpan langsung saat pertama kali
-  setTimeout(()=>saveChartData(
-    window._activeSid||sid,
-    window._activeTraderSyms||tSyms,
-    window._activeMachineSyms||mSyms
-  ), 2000);
+      if (ta) { ta.textContent=(Number(tA)/100).toFixed(2)+"%"; ta.style.color=Number(tA)>=0?"var(--green)":"var(--red)"; }
+      if (ma) { ma.textContent=(Number(mA)/100).toFixed(2)+"%"; ma.style.color=Number(mA)>=0?"var(--green)":"var(--red)"; }
+
+      // 2. Hitung dan simpan chart data ke localStorage
+      const ep = window._entryPrices || {};
+      let myT=0, myC=0, mT=0, mC=0;
+      tSyms.forEach(s=>{ if(ep[s]&&latestPrices[s]){myT+=(latestPrices[s]-ep[s])/ep[s]*100;myC++;} });
+      mSyms.forEach(s=>{ if(ep[s]&&latestPrices[s]){mT+=(latestPrices[s]-ep[s])/ep[s]*100;mC++;} });
+
+      const chartData = {
+        sid, ts: Date.now(), tSyms, mSyms,
+        entry:   {},
+        prices:  {},
+        frEntry: {},
+        myAccum:   myC>0 ? myT   : Number(tA)/100,
+        machAccum: mC>0  ? mT    : Number(mA)/100,
+        winning:   Number(tA) > Number(mA),
+      };
+      [...tSyms,...mSyms].forEach(s=>{
+        if(ep[s])             chartData.entry[s]   = ep[s];
+        if(latestPrices[s])   chartData.prices[s]  = latestPrices[s];
+        if(ep[s]&&latestPrices[s]) chartData.frEntry[s] = (latestPrices[s]-ep[s])/ep[s]*100;
+      });
+      localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
+
+      // 3. Update harga di UI tab AKTIF
+      tSyms.forEach((s,i)=>{
+        const el=document.getElementById("tp"+i);
+        if(el&&latestPrices[s]){
+          const p=latestPrices[s];
+          el.textContent=p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
+          el.style.color="var(--text)";
+        }
+      });
+      mSyms.forEach((s,i)=>{
+        const el=document.getElementById("mp"+i);
+        if(el&&latestPrices[s]){
+          const p=latestPrices[s];
+          el.textContent=p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
+          el.style.color="var(--text)";
+        }
+      });
+
+    } catch(e) { console.warn("interval error",e); }
+  }, 3000);
+
+  // Jalankan langsung pertama kali setelah 1 detik
+  setTimeout(async()=>{
+    try {
+      const c = await getRC();
+      const [tA, mA] = await c.getCurrentAccum(sid);
+      const ta=document.getElementById("tAccumVal"), ma2=document.getElementById("mAccumVal");
+      if(ta){ta.textContent=(Number(tA)/100).toFixed(2)+"%";ta.style.color=Number(tA)>=0?"var(--green)":"var(--red)";}
+      if(ma2){ma2.textContent=(Number(mA)/100).toFixed(2)+"%";ma2.style.color=Number(mA)>=0?"var(--green)":"var(--red)";}
+    } catch(e){}
+  }, 1000);
 
   // Countdown timer
   if (countdownTimer) clearInterval(countdownTimer);
@@ -1412,15 +1455,6 @@ function startPriceWSFor(sym) {
           price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
       }
       updateSelRow();
-
-      // Simpan ke localStorage setiap kali ada harga baru
-      if (window._activeSid && window._activeTraderSyms) {
-        saveChartData(
-          window._activeSid,
-          window._activeTraderSyms,
-          window._activeMachineSyms||[]
-        );
-      }
 
       // Update harga di tab AKTIF — trader tokens (tp0,tp1,tp2)
       if (window._activeTraderSyms) {
