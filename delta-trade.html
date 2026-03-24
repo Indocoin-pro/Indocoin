@@ -1303,17 +1303,18 @@ function showToast(msg,color="#10b981") {
 
 // ═══ INIT ═════════════════════════════════════════════════
 window.addEventListener("load", async()=>{
+  // Start websockets DULU sebelum chart
+  startTickerWS("BNB");
+  startTickerWS("BTC");
+
   // Init TradingView chart
   initChart();
 
-  // Start websockets untuk harga realtime
-  startTickerWS("BNB");
-  startTickerWS("BTC");
-  // Retry setelah 3 detik kalau belum dapat harga
-  setTimeout(() => {
-    if (!prices["BNB"]) startTickerWS("BNB");
-    if (!prices["BTC"]) startTickerWS("BTC");
-  }, 3000);
+  // Retry WS setiap 5 detik kalau belum dapat harga
+  setInterval(() => {
+    if (!prices["BNB"] || !wsConns["ticker_BNB"]) startTickerWS("BNB");
+    if (!prices["BTC"] || !wsConns["ticker_BTC"]) startTickerWS("BTC");
+  }, 5000);
 
   // Active position kalau sudah connect
   if (userAddr) {
