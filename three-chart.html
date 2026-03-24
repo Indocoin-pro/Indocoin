@@ -133,9 +133,15 @@ let curTF      = "15";
 let curView    = "me";
 let wsConns    = {};
 let prices     = {};
-let entryPrices= {};
 let tvLoaded   = false;
 let timerInt;
+
+// Entry prices dari URL params (dikirim dari three-trade.html)
+let entryPrices = {};
+const te = [params.get("te1"),params.get("te2"),params.get("te3")];
+const me = [params.get("me1"),params.get("me2"),params.get("me3")];
+myTokens.forEach((sym,i)=>{ if(te[i]&&parseFloat(te[i])>0) entryPrices[sym]=parseFloat(te[i]); });
+machTokens.forEach((sym,i)=>{ if(me[i]&&parseFloat(me[i])>0) entryPrices[sym]=parseFloat(me[i]); });
 
 document.getElementById("sessId").textContent = "#"+sid;
 
@@ -298,36 +304,29 @@ function updateAccum(){
   if(myEl&&myA!==null){myEl.textContent=(myA>=0?"+":"")+myA.toFixed(2)+"%";myEl.style.color=myA>=0?"var(--green)":"var(--red)";}
   if(mEl&&mA!==null){mEl.textContent=(mA>=0?"+":"")+mA.toFixed(2)+"%";mEl.style.color=mA>=0?"var(--green)":"var(--red)";}
   if(vsEl&&myA!==null&&mA!==null){const w=myA>mA;vsEl.textContent=w?"🏆 UNGGUL":"⚠️ TERTINGGAL";vsEl.style.color=w?"var(--green)":"var(--red)";}
+  // Update frentry per token
+  [...myTokens,...machTokens].forEach(s=>{
+    if(!entryPrices[s]||!prices[s]) return;
+    const frEl=document.getElementById("frentry-"+s);
+    if(frEl){
+      const fe=(prices[s]-entryPrices[s])/entryPrices[s]*100;
+      frEl.textContent=(fe>=0?"+":"")+fe.toFixed(2)+"%";
+      frEl.style.color=fe>=0?"var(--green)":"var(--red)";
+    }
+  });
 }
 
-// ════ ENTRY PRICES + AKUMULASI DARI KONTRAK ════
-async function loadEntryPrices(){
-  if(!sid||sid==="—") return;
-  try{
-    const RPC="https://bsc-dataseed.binance.org/";
-    const CONTRACT="0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
-    const sidHex=parseInt(sid).toString(16).padStart(64,"0");
-
-    // getSessionPrices — ambil entry price
-    const r1=await fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_call",params:[{to:CONTRACT,data:"0x575437ba"+sidHex},"latest"]})});
-    const j1=await r1.json();
-    if(j1.result&&j1.result!=="0x"){
-      const hex=j1.result.slice(2);
-      const allSyms=[...myTokens,...machTokens];
-      allSyms.forEach((sym,i)=>{
-        if(i>=6) return;
-        const chunk=hex.slice(i*64,(i+1)*64);
-        let n=BigInt("0x"+chunk);
-        if(n>=BigInt("0x8"+("0".repeat(63)))) n-=BigInt("0x1"+("0".repeat(64)));
-        if(n>0n){
-          entryPrices[sym]=Number(n)/1e8;
-          const eEl=document.getElementById("entry-"+sym);
-          if(eEl){const v=entryPrices[sym];eEl.textContent=v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);}
-        }
-      });
+// ════ TAMPILKAN ENTRY PRICES DI UI ════
+function loadEntryPrices(){
+  // Entry prices sudah ada dari URL params, langsung tampilkan
+  [...myTokens,...machTokens].forEach(sym=>{
+    if(!entryPrices[sym]) return;
+    const eEl=document.getElementById("entry-"+sym);
+    if(eEl){
+      const v=entryPrices[sym];
+      eEl.textContent=v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);
     }
-  }catch(e){console.warn("Entry error",e);}
+  });
 }
 
 // Polling akumulasi dari kontrak setiap 5 detik
@@ -394,11 +393,7 @@ window.addEventListener("load",()=>{
   renderCharts();
   startTimer();
   loadEntryPrices();
-  // Poll akumulasi dari kontrak setiap 5 detik
-  if(sid&&sid!=="—"){
-    pollAccum();
-    setInterval(pollAccum, 5000);
-  }
+
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("/sw.js").then(reg=>{
       setInterval(()=>reg.update(),60000);

@@ -932,7 +932,15 @@ async function renderActiveSession(sid, c) {
   const mPct = 100 - tPct;
 
   // Chart URL
-  const chartUrl = `three-chart.html?t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}&sid=${sid}`;
+  // Ambil entry prices dari kontrak untuk dikirim ke chart
+  let ep = [];
+  try {
+    const px = await c.getSessionPrices(sid);
+    // tEntry[0..2] dan mEntry[0..2]
+    ep = [...px[0].map(p=>Number(p)/1e8), ...px[1].map(p=>Number(p)/1e8)];
+  } catch(e) { ep = [0,0,0,0,0,0]; }
+
+  const chartUrl = `three-chart.html?t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}&sid=${sid}&te1=${ep[0]}&te2=${ep[1]}&te3=${ep[2]}&me1=${ep[3]}&me2=${ep[4]}&me3=${ep[5]}`;
 
   el.innerHTML = `
     <div class="sess-card">
