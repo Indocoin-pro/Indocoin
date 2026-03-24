@@ -931,19 +931,20 @@ async function renderActiveSession(sid, c) {
   const tPct = Math.max(0, Math.min(100, 50 + Number(tAccum)/100));
   const mPct = 100 - tPct;
 
-  // Chart URL — ambil entry prices dari kontrak
+  // Ambil entry prices dan simpan ke localStorage
   let ep = [0,0,0,0,0,0];
   try {
     const px = await c.getSessionPrices(sid);
     ep = [...px[0].map(p=>Number(p)/1e8), ...px[1].map(p=>Number(p)/1e8)];
-    // Simpan ke sessionStorage sebagai backup
-    sessionStorage.setItem("ep_"+sid, JSON.stringify({
-      t: tSyms.map((s,i)=>({sym:s,p:ep[i]})),
-      m: mSyms.map((s,i)=>({sym:s,p:ep[3+i]}))
-    }));
+    // Simpan entry ke window dan localStorage
+    window._entryPrices = {};
+    [...tSyms,...mSyms].forEach((sym,i) => {
+      if(ep[i]>0) window._entryPrices[sym] = ep[i];
+    });
+    localStorage.setItem("threeEntry_"+sid, JSON.stringify(window._entryPrices));
   } catch(e) { console.warn("Entry fetch error",e); }
 
-  const chartUrl = `three-chart.html?t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}&sid=${sid}&te1=${ep[0]}&te2=${ep[1]}&te3=${ep[2]}&me1=${ep[3]}&me2=${ep[4]}&me3=${ep[5]}`;
+  const chartUrl = `three-chart.html?sid=${sid}&t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}`;
 
   el.innerHTML = `
     <div class="sess-card">
@@ -1119,7 +1120,11 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       if (ta) { ta.textContent = (Number(tA)/100).toFixed(2)+"%"; ta.style.color = Number(tA)>=0?"var(--green)":"var(--red)"; }
       if (ma) { ma.textContent = (Number(mA)/100).toFixed(2)+"%"; ma.style.color = Number(mA)>=0?"var(--green)":"var(--red)"; }
     } catch(e) {}
+    // Simpan data ke localStorage untuk three-chart
+    saveChartData(sid, tSyms, mSyms);
   }, 5000);
+  // Simpan langsung saat pertama kali
+  setTimeout(()=>saveChartData(sid, tSyms, mSyms), 2000);
 
   // Countdown timer
   if (countdownTimer) clearInterval(countdownTimer);
@@ -1323,6 +1328,55 @@ async function loadHistory() {
     el.innerHTML = count > 0 ? html : `<div class="empty"><div class="empty-icon">📋</div>
       <div class="empty-txt">BELUM ADA RIWAYAT TRADING</div></div>`;
   } catch(e) { console.warn(e); }
+}
+
+// ═══ SAVE CHART DATA KE LOCALSTORAGE ════════════════════
+function saveChartData(sid, tSyms, mSyms) {
+  try {
+    // Hitung akumulasi dari entry price dan harga live
+    const calcAccum = (syms) => {
+      let total = 0, count = 0;
+      syms.forEach(sym => {
+        const ep = window._entryPrices && window._entryPrices[sym];
+        const lp = latestPrices[sym];
+        if (ep && lp) {
+          total += (lp - ep) / ep * 100;
+          count++;
+        }
+      });
+      return count > 0 ? {val: total, count} : null;
+    };
+
+    const myAccum  = calcAccum(tSyms);
+    const mAccum   = calcAccum(mSyms);
+
+    const data = {
+      sid,
+      ts: Date.now(),
+      tSyms, mSyms,
+      // Entry prices
+      entry: {},
+      // Harga live
+      prices: {},
+      // % dari entry per token
+      frEntry: {},
+      // Akumulasi
+      myAccum:  myAccum  ? myAccum.val  : null,
+      machAccum:mAccum   ? mAccum.val   : null,
+      winning:  (myAccum && mAccum) ? myAccum.val > mAccum.val : null,
+    };
+
+    // Isi entry, prices, frEntry
+    [...tSyms, ...mSyms].forEach(sym => {
+      const ep = window._entryPrices && window._entryPrices[sym];
+      const lp = latestPrices[sym];
+      if (ep) data.entry[sym] = ep;
+      if (lp) data.prices[sym] = lp;
+      if (ep && lp) data.frEntry[sym] = (lp - ep) / ep * 100;
+    });
+
+    localStorage.setItem("threeChart_"+sid, JSON.stringify(data));
+  } catch(e) { console.warn("saveChartData error", e); }
 }
 
 // ═══ PRICE WEBSOCKET ════════════════════════════════════
