@@ -300,31 +300,74 @@ function updateAccum(){
   if(vsEl&&myA!==null&&mA!==null){const w=myA>mA;vsEl.textContent=w?"🏆 UNGGUL":"⚠️ TERTINGGAL";vsEl.style.color=w?"var(--green)":"var(--red)";}
 }
 
-// ════ ENTRY PRICES ════
+// ════ ENTRY PRICES + AKUMULASI DARI KONTRAK ════
 async function loadEntryPrices(){
   if(!sid||sid==="—") return;
   try{
     const RPC="https://bsc-dataseed.binance.org/";
     const CONTRACT="0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
     const sidHex=parseInt(sid).toString(16).padStart(64,"0");
-    const res=await fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json"},
+
+    // getSessionPrices — ambil entry price
+    const r1=await fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_call",params:[{to:CONTRACT,data:"0x575437ba"+sidHex},"latest"]})});
+    const j1=await r1.json();
+    if(j1.result&&j1.result!=="0x"){
+      const hex=j1.result.slice(2);
+      const allSyms=[...myTokens,...machTokens];
+      allSyms.forEach((sym,i)=>{
+        if(i>=6) return;
+        const chunk=hex.slice(i*64,(i+1)*64);
+        let n=BigInt("0x"+chunk);
+        if(n>=BigInt("0x8"+("0".repeat(63)))) n-=BigInt("0x1"+("0".repeat(64)));
+        if(n>0n){
+          entryPrices[sym]=Number(n)/1e8;
+          const eEl=document.getElementById("entry-"+sym);
+          if(eEl){const v=entryPrices[sym];eEl.textContent=v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);}
+        }
+      });
+    }
+  }catch(e){console.warn("Entry error",e);}
+}
+
+// Polling akumulasi dari kontrak setiap 5 detik
+async function pollAccum(){
+  if(!sid||sid==="—") return;
+  try{
+    const RPC="https://bsc-dataseed.binance.org/";
+    const CONTRACT="0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
+    const sidHex=parseInt(sid).toString(16).padStart(64,"0");
+    // getCurrentAccum(sid) selector = 0x... hitung manual
+    // getCurrentAccum selector = keccak256("getCurrentAccum(uint256)") = 0x12345...
+    // Pakai eth_call
+    const res=await fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({jsonrpc:"2.0",id:2,method:"eth_call",
+        params:[{to:CONTRACT,data:"0xf5686d97"+sidHex},"latest"]})});
     const json=await res.json();
     if(!json.result||json.result==="0x") return;
     const hex=json.result.slice(2);
-    const allSyms=[...myTokens,...machTokens];
-    allSyms.forEach((sym,i)=>{
-      if(i>=6) return;
-      const chunk=hex.slice(i*64,(i+1)*64);
+    // Returns (int256 traderAccum, int256 machineAccum, bool traderWinning)
+    // 3 x 32 bytes
+    const decode256=(chunk)=>{
       let n=BigInt("0x"+chunk);
       if(n>=BigInt("0x8"+("0".repeat(63)))) n-=BigInt("0x1"+("0".repeat(64)));
-      if(n>0n){
-        entryPrices[sym]=Number(n)/1e8;
-        const eEl=document.getElementById("entry-"+sym);
-        if(eEl){const v=entryPrices[sym];eEl.textContent=v>100?"$"+v.toLocaleString("en",{maximumFractionDigits:2}):"$"+v.toFixed(4);}
-      }
-    });
-  }catch(e){console.warn("Entry error",e);}
+      return Number(n);
+    };
+    const tA = decode256(hex.slice(0,64));
+    const mA = decode256(hex.slice(64,128));
+    const win = parseInt(hex.slice(128,192),16)===1;
+
+    const myEl=document.getElementById("myAccum");
+    const mEl=document.getElementById("machAccum");
+    const vsEl=document.getElementById("vsStatus");
+
+    const tPct=(tA/100).toFixed(2);
+    const mPct=(mA/100).toFixed(2);
+
+    if(myEl){myEl.textContent=(tA>=0?"+":"")+tPct+"%";myEl.style.color=tA>=0?"var(--green)":"var(--red)";}
+    if(mEl){mEl.textContent=(mA>=0?"+":"")+mPct+"%";mEl.style.color=mA>=0?"var(--green)":"var(--red)";}
+    if(vsEl){vsEl.textContent=win?"🏆 UNGGUL":"⚠️ TERTINGGAL";vsEl.style.color=win?"var(--green)":"var(--red)";}
+  }catch(e){console.warn("Accum error",e);}
 }
 
 // ════ TIMER ════
@@ -351,6 +394,11 @@ window.addEventListener("load",()=>{
   renderCharts();
   startTimer();
   loadEntryPrices();
+  // Poll akumulasi dari kontrak setiap 5 detik
+  if(sid&&sid!=="—"){
+    pollAccum();
+    setInterval(pollAccum, 5000);
+  }
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("/sw.js").then(reg=>{
       setInterval(()=>reg.update(),60000);
