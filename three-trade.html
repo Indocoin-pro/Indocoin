@@ -1212,25 +1212,23 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       if (ta) { ta.textContent=(Number(tA)/100).toFixed(2)+"%"; ta.style.color=Number(tA)>=0?"var(--green)":"var(--red)"; }
       if (ma) { ma.textContent=(Number(mA)/100).toFixed(2)+"%"; ma.style.color=Number(mA)>=0?"var(--green)":"var(--red)"; }
 
-      // 2. Harga sekarang dari getSessionPrices — tExit dan mExit = harga live oracle
-      const [tEntry, mEntry, tExit, mExit] = await c.getSessionPrices(sid);
+      // 2. Hitung % dari entry pakai latestPrices (WS realtime)
+      // Entry price sudah ada di window._entryPrices dari getSessionPrices saat sesi dimuat
+      const ep = window._entryPrices || {};
 
-      // Update % per token trader
       tSyms.forEach((s,i) => {
-        const entry = Number(tEntry[i]);
-        const exit  = Number(tExit[i]);
-        if (entry > 0 && exit > 0) {
-          const pct = (exit - entry) / entry * 100;
+        const entry = ep[s];
+        const cur   = latestPrices[s];
+        if (entry > 0 && cur > 0) {
+          const pct = (cur - entry) / entry * 100;
           updateTokenPct("tp"+i, pct);
         }
       });
-
-      // Update % per token mesin
       mSyms.forEach((s,i) => {
-        const entry = Number(mEntry[i]);
-        const exit  = Number(mExit[i]);
-        if (entry > 0 && exit > 0) {
-          const pct = (exit - entry) / entry * 100;
+        const entry = ep[s];
+        const cur   = latestPrices[s];
+        if (entry > 0 && cur > 0) {
+          const pct = (cur - entry) / entry * 100;
           updateTokenPct("mp"+i, pct);
         }
       });
@@ -1243,19 +1241,11 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
         machAccum: Number(mA)/100,
         winning: Number(tA) > Number(mA),
       };
-      tSyms.forEach((s,i) => {
-        if (Number(tEntry[i])>0) { chartData.entry[s]=Number(tEntry[i])/1e8; }
-        if (Number(tExit[i])>0)  { chartData.prices[s]=Number(tExit[i])/1e8; }
-        if (Number(tEntry[i])>0&&Number(tExit[i])>0) {
-          chartData.frEntry[s]=(Number(tExit[i])-Number(tEntry[i]))/Number(tEntry[i])*100;
-        }
-      });
-      mSyms.forEach((s,i) => {
-        if (Number(mEntry[i])>0) { chartData.entry[s]=Number(mEntry[i])/1e8; }
-        if (Number(mExit[i])>0)  { chartData.prices[s]=Number(mExit[i])/1e8; }
-        if (Number(mEntry[i])>0&&Number(mExit[i])>0) {
-          chartData.frEntry[s]=(Number(mExit[i])-Number(mEntry[i]))/Number(mEntry[i])*100;
-        }
+      [...tSyms,...mSyms].forEach(s => {
+        if (ep[s])           chartData.entry[s]   = ep[s];
+        if (latestPrices[s]) chartData.prices[s]  = latestPrices[s];
+        if (ep[s] && latestPrices[s])
+          chartData.frEntry[s] = (latestPrices[s]-ep[s])/ep[s]*100;
       });
       localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
 
@@ -1556,7 +1546,7 @@ function startPriceWSFor(sym) {
       if (dbEl2 && dbEl2.style.color !== "#34d399") {
         dbEl2.textContent = "WS OK: "+sym+"=$"+price.toFixed(4)+" EP:"+(window._entryPrices?JSON.stringify(Object.keys(window._entryPrices)):"null");
       }
-      // Update % dari entry di tab AKTIF
+      // Update % dari entry langsung saat WS terima harga baru
       const ep = window._entryPrices && window._entryPrices[sym];
       if (ep && ep > 0) {
         const pct = (price - ep) / ep * 100;
@@ -1566,6 +1556,26 @@ function startPriceWSFor(sym) {
           if (tp && tp.dataset.sym === sym) updateTokenPct("tp"+i, pct);
           if (mp && mp.dataset.sym === sym) updateTokenPct("mp"+i, pct);
         }
+      }
+      // Juga update kalau _entryPrices belum ada tapi sudah ada di localStorage
+      if (!ep) {
+        try {
+          const stored = localStorage.getItem("threeEntry_"+window._activeSid);
+          if (stored) {
+            const obj = JSON.parse(stored);
+            if (obj[sym]) {
+              if (!window._entryPrices) window._entryPrices = {};
+              window._entryPrices[sym] = obj[sym];
+              const pct2 = (price - obj[sym]) / obj[sym] * 100;
+              for (let i=0; i<3; i++) {
+                const tp = document.getElementById("tp"+i);
+                const mp = document.getElementById("mp"+i);
+                if (tp && tp.dataset.sym === sym) updateTokenPct("tp"+i, pct2);
+                if (mp && mp.dataset.sym === sym) updateTokenPct("mp"+i, pct2);
+              }
+            }
+          }
+        } catch(e) {}
       }
     };
     ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startPriceWSFor(sym),3000); };
