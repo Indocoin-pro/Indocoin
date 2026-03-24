@@ -6,7 +6,17 @@
 <title>INDOCOIN — Delta Trade</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+// Load lightweight-charts secara async agar tidak blok wallet connect
+(function(){
+  var s = document.createElement('script');
+  s.src = 'https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js';
+  s.async = true;
+  s.onload = function(){ if(typeof initChart==='function') initChart(); };
+  s.onerror = function(){ console.warn('Lightweight charts gagal load'); };
+  document.head.appendChild(s);
+})();
+</script>
 <style>
 :root{
   --dark:#070d1a;--dark2:#0d1525;--dark3:#1a2540;
@@ -656,6 +666,10 @@ async function getRC() {
 
 // ═══ CHART — LIGHTWEIGHT CHARTS ═══════════════════════════
 function initChart() {
+  if (typeof LightweightCharts === 'undefined') {
+    setTimeout(initChart, 500);
+    return;
+  }
   const container = document.getElementById("chartContainer");
   chart = LightweightCharts.createChart(container, {
     width: container.clientWidth,
