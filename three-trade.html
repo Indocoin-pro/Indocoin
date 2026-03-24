@@ -1102,6 +1102,7 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
   // Simpan syms untuk update harga di UI
   window._activeTraderSyms  = tSyms;
   window._activeMachineSyms = mSyms;
+  window._activeSid         = sid;
 
   // WS untuk semua 6 token
   const allSyms = [...tSyms, ...mSyms];
@@ -1121,10 +1122,18 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       if (ma) { ma.textContent = (Number(mA)/100).toFixed(2)+"%"; ma.style.color = Number(mA)>=0?"var(--green)":"var(--red)"; }
     } catch(e) {}
     // Simpan data ke localStorage untuk three-chart
-    saveChartData(sid, tSyms, mSyms);
+    saveChartData(
+      window._activeSid||sid,
+      window._activeTraderSyms||tSyms,
+      window._activeMachineSyms||mSyms
+    );
   }, 5000);
   // Simpan langsung saat pertama kali
-  setTimeout(()=>saveChartData(sid, tSyms, mSyms), 2000);
+  setTimeout(()=>saveChartData(
+    window._activeSid||sid,
+    window._activeTraderSyms||tSyms,
+    window._activeMachineSyms||mSyms
+  ), 2000);
 
   // Countdown timer
   if (countdownTimer) clearInterval(countdownTimer);
@@ -1403,6 +1412,15 @@ function startPriceWSFor(sym) {
           price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
       }
       updateSelRow();
+
+      // Simpan ke localStorage setiap kali ada harga baru
+      if (window._activeSid && window._activeTraderSyms) {
+        saveChartData(
+          window._activeSid,
+          window._activeTraderSyms,
+          window._activeMachineSyms||[]
+        );
+      }
 
       // Update harga di tab AKTIF — trader tokens (tp0,tp1,tp2)
       if (window._activeTraderSyms) {
