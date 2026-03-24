@@ -972,7 +972,7 @@ async function renderActiveSession(sid, c) {
             ${tSyms.map((s,i) => `
               <div class="vs-tok-row">
                 <span class="vs-tok-sym" style="color:var(--ga)">${s}</span>
-                <span class="vs-tok-pct" id="tp${i}" data-sym="${s}" style="color:var(--muted)">—</span>
+                <span class="vs-tok-pct" id="tp${i}" data-sym="${s}" style="color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;">—</span>
               </div>`).join("")}
           </div>
           <div class="vs-accum ${tWin?"":""}">
@@ -989,7 +989,7 @@ async function renderActiveSession(sid, c) {
             ${mSyms.map((s,i) => `
               <div class="vs-tok-row">
                 <span class="vs-tok-sym" style="color:var(--gb)">${s}</span>
-                <span class="vs-tok-pct" id="mp${i}" data-sym="${s}" style="color:var(--muted)">—</span>
+                <span class="vs-tok-pct" id="mp${i}" data-sym="${s}" style="color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;">—</span>
               </div>`).join("")}
           </div>
           <div class="vs-accum">
@@ -1117,40 +1117,38 @@ function updateActivePriceUI(sym, price, elId) {
 }
 
 async function updateActivePrices(tSyms, mSyms) {
-  // Ambil harga dari kontrak untuk tampilan awal
+  // Ambil harga terbaru dari kontrak lalu hitung % dari entry
   try {
     const c = await getRC();
-    for (let i=0; i<tSyms.length; i++) {
-      const sym = tSyms[i];
+    const allSyms = [...tSyms, ...mSyms];
+    for (let i=0; i<allSyms.length; i++) {
+      const sym = allSyms[i];
       const idx = TOKENS.findIndex(t=>t.sym===sym);
       if (idx < 0) continue;
       try {
         const p = await c.getPrice(idx);
-        const price = Number(p)/1e8;
-        if (price > 0 && !latestPrices[sym]) {
-          latestPrices[sym] = price;
-          updateActivePriceUI(sym, price, "tp"+i);
-        }
-      } catch(e) {}
-    }
-    for (let i=0; i<mSyms.length; i++) {
-      const sym = mSyms[i];
-      const idx = TOKENS.findIndex(t=>t.sym===sym);
-      if (idx < 0) continue;
-      try {
-        const p = await c.getPrice(idx);
-        const price = Number(p)/1e8;
-        if (price > 0 && !latestPrices[sym]) {
-          latestPrices[sym] = price;
-          updateActivePriceUI(sym, price, "mp"+i);
+        const curPrice = Number(p)/1e8;
+        if (curPrice > 0) {
+          latestPrices[sym] = curPrice;
+          // Hitung % dari entry sesi
+          const ep = window._entryPrices && window._entryPrices[sym];
+          if (ep && ep > 0) {
+            const pct = (curPrice - ep) / ep * 100;
+            const elId = i < tSyms.length ? "tp"+i : "mp"+(i-tSyms.length);
+            updateTokenPct(elId, pct);
+          }
         }
       } catch(e) {}
     }
   } catch(e) {}
-  // Pastikan WS jalan untuk update realtime
-  [...tSyms,...mSyms].forEach(sym => {
-    if (!wsConns[sym]) startPriceWSFor(sym);
-  });
+}
+
+function updateTokenPct(elId, pct) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const isUp = pct >= 0;
+  el.textContent = (isUp ? "▲ +" : "▼ ") + Math.abs(pct).toFixed(2) + "%";
+  el.style.color = isUp ? "var(--green)" : "var(--red)";
 }
 
 // ═══ REALTIME UPDATES ═════════════════════════════════════
@@ -1210,9 +1208,8 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       });
       localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
 
-      // 3. Update harga dari latestPrices (sudah diupdate WS)
-      tSyms.forEach((s,i)=>{ if(latestPrices[s]) updateActivePriceUI(s,latestPrices[s],"tp"+i); });
-      mSyms.forEach((s,i)=>{ if(latestPrices[s]) updateActivePriceUI(s,latestPrices[s],"mp"+i); });
+      // 3. Update % dari entry untuk semua token
+      updateActivePrices(tSyms, mSyms);
 
     } catch(e) { console.warn("interval error",e); }
   }, 3000);
@@ -1506,15 +1503,16 @@ function startPriceWSFor(sym) {
       }
       updateSelRow();
 
-      // Update harga di tab AKTIF — langsung scan tp0-tp2 dan mp0-mp2
-      const pFmt4 = fmtPrice4(price);
-      const pColor = parseFloat(d.P)>=0?"var(--green)":"var(--red)";
-      for (let i=0; i<3; i++) {
-        const tp = document.getElementById("tp"+i);
-        const mp = document.getElementById("mp"+i);
-        // Cek apakah elemen ini untuk token ini dengan data-sym
-        if (tp && tp.dataset.sym === sym) { tp.textContent=pFmt4; tp.style.color=pColor; }
-        if (mp && mp.dataset.sym === sym) { mp.textContent=pFmt4; mp.style.color=pColor; }
+      // Update % dari entry di tab AKTIF
+      const ep = window._entryPrices && window._entryPrices[sym];
+      if (ep && ep > 0) {
+        const pct = (price - ep) / ep * 100;
+        for (let i=0; i<3; i++) {
+          const tp = document.getElementById("tp"+i);
+          const mp = document.getElementById("mp"+i);
+          if (tp && tp.dataset.sym === sym) updateTokenPct("tp"+i, pct);
+          if (mp && mp.dataset.sym === sym) updateTokenPct("mp"+i, pct);
+        }
       }
     };
     ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startPriceWSFor(sym),3000); };
