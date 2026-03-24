@@ -931,14 +931,17 @@ async function renderActiveSession(sid, c) {
   const tPct = Math.max(0, Math.min(100, 50 + Number(tAccum)/100));
   const mPct = 100 - tPct;
 
-  // Chart URL
-  // Ambil entry prices dari kontrak untuk dikirim ke chart
-  let ep = [];
+  // Chart URL — ambil entry prices dari kontrak
+  let ep = [0,0,0,0,0,0];
   try {
     const px = await c.getSessionPrices(sid);
-    // tEntry[0..2] dan mEntry[0..2]
     ep = [...px[0].map(p=>Number(p)/1e8), ...px[1].map(p=>Number(p)/1e8)];
-  } catch(e) { ep = [0,0,0,0,0,0]; }
+    // Simpan ke sessionStorage sebagai backup
+    sessionStorage.setItem("ep_"+sid, JSON.stringify({
+      t: tSyms.map((s,i)=>({sym:s,p:ep[i]})),
+      m: mSyms.map((s,i)=>({sym:s,p:ep[3+i]}))
+    }));
+  } catch(e) { console.warn("Entry fetch error",e); }
 
   const chartUrl = `three-chart.html?t1=${tSyms[0]}&t2=${tSyms[1]}&t3=${tSyms[2]}&m1=${mSyms[0]}&m2=${mSyms[1]}&m3=${mSyms[2]}&end=${endTime}&sid=${sid}&te1=${ep[0]}&te2=${ep[1]}&te3=${ep[2]}&me1=${ep[3]}&me2=${ep[4]}&me3=${ep[5]}`;
 
@@ -1095,6 +1098,10 @@ async function renderClaimSession(sid, c) {
 
 // ═══ REALTIME UPDATES ═════════════════════════════════════
 function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) {
+  // Simpan syms untuk update harga di UI
+  window._activeTraderSyms  = tSyms;
+  window._activeMachineSyms = mSyms;
+
   // WS untuk semua 6 token
   const allSyms = [...tSyms, ...mSyms];
   allSyms.forEach(sym => {
@@ -1331,15 +1338,36 @@ function startPriceWSFor(sym) {
     ws.onmessage = e => {
       const d = JSON.parse(e.data);
       latestPrices[sym] = parseFloat(d.c);
+      const price = latestPrices[sym];
+      const pFmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+
       // Update token grid kalau tampil
       const idx = TOKENS.findIndex(t=>t.sym===sym);
       const el  = document.getElementById("tok-"+idx);
       if (el) {
-        const price = latestPrices[sym];
         el.querySelector(".tok-price").textContent =
           price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
       }
       updateSelRow();
+
+      // Update harga di tab AKTIF — trader tokens (tp0,tp1,tp2)
+      if (window._activeTraderSyms) {
+        window._activeTraderSyms.forEach((s,i) => {
+          if (s===sym) {
+            const el = document.getElementById("tp"+i);
+            if (el) { el.textContent=pFmt; el.style.color=parseFloat(d.P)>=0?"var(--green)":"var(--red)"; }
+          }
+        });
+      }
+      // Update harga di tab AKTIF — machine tokens (mp0,mp1,mp2)
+      if (window._activeMachineSyms) {
+        window._activeMachineSyms.forEach((s,i) => {
+          if (s===sym) {
+            const el = document.getElementById("mp"+i);
+            if (el) { el.textContent=pFmt; el.style.color=parseFloat(d.P)>=0?"var(--green)":"var(--red)"; }
+          }
+        });
+      }
     };
     ws.onclose = () => { delete wsConns[sym]; setTimeout(()=>startPriceWSFor(sym),3000); };
     wsConns[sym] = ws;

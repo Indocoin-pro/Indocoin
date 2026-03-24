@@ -136,12 +136,24 @@ let prices     = {};
 let tvLoaded   = false;
 let timerInt;
 
-// Entry prices dari URL params (dikirim dari three-trade.html)
+// Entry prices — baca dari URL params dulu, fallback ke sessionStorage
 let entryPrices = {};
 const te = [params.get("te1"),params.get("te2"),params.get("te3")];
 const me = [params.get("me1"),params.get("me2"),params.get("me3")];
 myTokens.forEach((sym,i)=>{ if(te[i]&&parseFloat(te[i])>0) entryPrices[sym]=parseFloat(te[i]); });
 machTokens.forEach((sym,i)=>{ if(me[i]&&parseFloat(me[i])>0) entryPrices[sym]=parseFloat(me[i]); });
+
+// Fallback: baca dari sessionStorage kalau URL params kosong
+if(sid&&sid!=="—") {
+  try {
+    const stored = sessionStorage.getItem("ep_"+sid);
+    if(stored) {
+      const ep = JSON.parse(stored);
+      ep.t.forEach(item=>{ if(!entryPrices[item.sym]&&item.p>0) entryPrices[item.sym]=item.p; });
+      ep.m.forEach(item=>{ if(!entryPrices[item.sym]&&item.p>0) entryPrices[item.sym]=item.p; });
+    }
+  } catch(e){}
+}
 
 document.getElementById("sessId").textContent = "#"+sid;
 
