@@ -1097,6 +1097,49 @@ async function renderClaimSession(sid, c) {
     </div>`;
 }
 
+// ═══ UPDATE HARGA AKTIF DARI KONTRAK ════════════════════
+async function updateActivePrices(tSyms, mSyms) {
+  try {
+    const c = await getRC();
+    // Update trader tokens
+    for (let i=0; i<tSyms.length; i++) {
+      const sym = tSyms[i];
+      const idx = TOKENS.findIndex(t=>t.sym===sym);
+      if (idx < 0) continue;
+      try {
+        const p = await c.getPrice(idx);
+        const price = Number(p)/1e8;
+        if (price > 0) {
+          latestPrices[sym] = price;
+          const el = document.getElementById("tp"+i);
+          if (el) {
+            el.textContent = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+            el.style.color = "var(--text)";
+          }
+        }
+      } catch(e) {}
+    }
+    // Update machine tokens
+    for (let i=0; i<mSyms.length; i++) {
+      const sym = mSyms[i];
+      const idx = TOKENS.findIndex(t=>t.sym===sym);
+      if (idx < 0) continue;
+      try {
+        const p = await c.getPrice(idx);
+        const price = Number(p)/1e8;
+        if (price > 0) {
+          latestPrices[sym] = price;
+          const el = document.getElementById("mp"+i);
+          if (el) {
+            el.textContent = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+            el.style.color = "var(--text)";
+          }
+        }
+      } catch(e) {}
+    }
+  } catch(e) { console.warn("updateActivePrices error",e); }
+}
+
 // ═══ REALTIME UPDATES ═════════════════════════════════════
 function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) {
   // Simpan ke window agar bisa diakses dari mana saja
@@ -1110,27 +1153,8 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
     if (!wsConns[sym]) startPriceWSFor(sym);
   });
 
-  // Langsung update harga dari latestPrices yang sudah ada
-  tSyms.forEach((s,i) => {
-    if (latestPrices[s]) {
-      const el = document.getElementById("tp"+i);
-      if (el) {
-        const p = latestPrices[s];
-        el.textContent = p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
-        el.style.color = "var(--text)";
-      }
-    }
-  });
-  mSyms.forEach((s,i) => {
-    if (latestPrices[s]) {
-      const el = document.getElementById("mp"+i);
-      if (el) {
-        const p = latestPrices[s];
-        el.textContent = p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
-        el.style.color = "var(--text)";
-      }
-    }
-  });
+  // Langsung ambil harga dari kontrak (pasti jalan karena wallet connect)
+  updateActivePrices(tSyms, mSyms);
 
   // Clear interval lama
   if (window._activeInterval) clearInterval(window._activeInterval);
@@ -1168,23 +1192,8 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
       });
       localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
 
-      // 3. Update harga di UI tab AKTIF
-      tSyms.forEach((s,i)=>{
-        const el=document.getElementById("tp"+i);
-        if(el&&latestPrices[s]){
-          const p=latestPrices[s];
-          el.textContent=p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
-          el.style.color="var(--text)";
-        }
-      });
-      mSyms.forEach((s,i)=>{
-        const el=document.getElementById("mp"+i);
-        if(el&&latestPrices[s]){
-          const p=latestPrices[s];
-          el.textContent=p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
-          el.style.color="var(--text)";
-        }
-      });
+      // 3. Update harga dari kontrak setiap interval
+      updateActivePrices(tSyms, mSyms);
 
     } catch(e) { console.warn("interval error",e); }
   }, 3000);
