@@ -1200,44 +1200,67 @@ function startActiveUpdates(sid, tTokensRaw, mTokensRaw, tSyms, mSyms, endTime) 
   // Clear interval lama
   if (window._activeInterval) clearInterval(window._activeInterval);
 
-  // Interval utama setiap 3 detik
+  // Interval utama setiap 5 detik
   window._activeInterval = setInterval(async () => {
-    // 1. Update akumulasi dari kontrak
     try {
       const c = await getRC();
+
+      // 1. Akumulasi
       const [tA, mA, tW] = await c.getCurrentAccum(sid);
       const ta = document.getElementById("tAccumVal");
       const ma = document.getElementById("mAccumVal");
       if (ta) { ta.textContent=(Number(tA)/100).toFixed(2)+"%"; ta.style.color=Number(tA)>=0?"var(--green)":"var(--red)"; }
       if (ma) { ma.textContent=(Number(mA)/100).toFixed(2)+"%"; ma.style.color=Number(mA)>=0?"var(--green)":"var(--red)"; }
 
-      // 2. Hitung dan simpan chart data ke localStorage
-      const ep = window._entryPrices || {};
-      let myT=0, myC=0, mT=0, mC=0;
-      tSyms.forEach(s=>{ if(ep[s]&&latestPrices[s]){myT+=(latestPrices[s]-ep[s])/ep[s]*100;myC++;} });
-      mSyms.forEach(s=>{ if(ep[s]&&latestPrices[s]){mT+=(latestPrices[s]-ep[s])/ep[s]*100;mC++;} });
+      // 2. Harga sekarang dari getSessionPrices — tExit dan mExit = harga live oracle
+      const [tEntry, mEntry, tExit, mExit] = await c.getSessionPrices(sid);
 
+      // Update % per token trader
+      tSyms.forEach((s,i) => {
+        const entry = Number(tEntry[i]);
+        const exit  = Number(tExit[i]);
+        if (entry > 0 && exit > 0) {
+          const pct = (exit - entry) / entry * 100;
+          updateTokenPct("tp"+i, pct);
+        }
+      });
+
+      // Update % per token mesin
+      mSyms.forEach((s,i) => {
+        const entry = Number(mEntry[i]);
+        const exit  = Number(mExit[i]);
+        if (entry > 0 && exit > 0) {
+          const pct = (exit - entry) / entry * 100;
+          updateTokenPct("mp"+i, pct);
+        }
+      });
+
+      // 3. Simpan ke localStorage untuk three-chart
       const chartData = {
         sid, ts: Date.now(), tSyms, mSyms,
-        entry:   {},
-        prices:  {},
-        frEntry: {},
-        myAccum:   myC>0 ? myT   : Number(tA)/100,
-        machAccum: mC>0  ? mT    : Number(mA)/100,
-        winning:   Number(tA) > Number(mA),
+        entry: {}, prices: {}, frEntry: {},
+        myAccum: Number(tA)/100,
+        machAccum: Number(mA)/100,
+        winning: Number(tA) > Number(mA),
       };
-      [...tSyms,...mSyms].forEach(s=>{
-        if(ep[s])             chartData.entry[s]   = ep[s];
-        if(latestPrices[s])   chartData.prices[s]  = latestPrices[s];
-        if(ep[s]&&latestPrices[s]) chartData.frEntry[s] = (latestPrices[s]-ep[s])/ep[s]*100;
+      tSyms.forEach((s,i) => {
+        if (Number(tEntry[i])>0) { chartData.entry[s]=Number(tEntry[i])/1e8; }
+        if (Number(tExit[i])>0)  { chartData.prices[s]=Number(tExit[i])/1e8; }
+        if (Number(tEntry[i])>0&&Number(tExit[i])>0) {
+          chartData.frEntry[s]=(Number(tExit[i])-Number(tEntry[i]))/Number(tEntry[i])*100;
+        }
+      });
+      mSyms.forEach((s,i) => {
+        if (Number(mEntry[i])>0) { chartData.entry[s]=Number(mEntry[i])/1e8; }
+        if (Number(mExit[i])>0)  { chartData.prices[s]=Number(mExit[i])/1e8; }
+        if (Number(mEntry[i])>0&&Number(mExit[i])>0) {
+          chartData.frEntry[s]=(Number(mExit[i])-Number(mEntry[i]))/Number(mEntry[i])*100;
+        }
       });
       localStorage.setItem("threeChart_"+sid, JSON.stringify(chartData));
 
-      // 3. Update % dari entry untuk semua token
-      updateActivePrices(tSyms, mSyms);
-
     } catch(e) { console.warn("interval error",e); }
-  }, 3000);
+  }, 5000);
 
   // Jalankan langsung pertama kali setelah 1 detik
   setTimeout(async()=>{
