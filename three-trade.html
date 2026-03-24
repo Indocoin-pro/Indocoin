@@ -555,7 +555,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <script>
 // ═══ CONFIG ════════════════════════════════════════════════
-const CONTRACT  = "0xA002f937d6aB84e9aC4a0FaC5b5B505E8c9884A8";
+const CONTRACT  = "0xd5a4c3aD1bEA7f70303fA1C9feF05Ff4578709d4";
 const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_RPC   = "https://bsc-dataseed.binance.org/";
 const INDC_DEC  = 9;
@@ -1372,24 +1372,33 @@ async function showResultPopup(sid) {
         <span class="popup-key">Taruhan</span>
         <span class="popup-val">${fmtFull(Number(bet)/1e9)} INDC</span>
       </div>
-      ${isWin ? `
+      ${isWin ? (() => {
+        const betN     = Number(bet)/1e9;
+        const rewardN  = Number(reward)/1e9;
+        const profitBersih = rewardN - betN;
+        const profitKotor  = profitBersih / 0.9;
+        const fee          = profitKotor * 0.1;
+        return `
       <div class="popup-result-row">
         <span class="popup-key">Profit Kotor</span>
-        <span class="popup-val" style="color:var(--green);">+${fmtFull(Number(BigInt(reward)*10n/9n)/1e9)} INDC</span>
+        <span class="popup-val" style="color:var(--green);">+${fmtFull(profitKotor)} INDC</span>
       </div>
       <div class="popup-result-row">
         <span class="popup-key">Fee Platform (10%)</span>
-        <span class="popup-val" style="color:var(--muted);">-${fmtFull(Number(BigInt(reward)/9n)/1e9)} INDC</span>
+        <span class="popup-val" style="color:var(--muted);">-${fmtFull(fee)} INDC</span>
       </div>
       <div class="popup-result-row">
-        <span class="popup-key">Kamu Terima</span>
-        <span class="popup-val" style="color:var(--green);font-size:12px;">
-          ${fmtFull(Number(bet)/1e9)} + ${fmtFull(Number(reward)/1e9)} = ${fmtFull((Number(bet)+Number(reward))/1e9)} INDC
-        </span>
-      </div>` : isDraw ? `
+        <span class="popup-key">Profit Bersih</span>
+        <span class="popup-val" style="color:var(--green);">+${fmtFull(profitBersih)} INDC</span>
+      </div>
+      <div class="popup-result-row" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;margin-top:4px;">
+        <span class="popup-key" style="font-size:9px;">Kamu Terima</span>
+        <span class="popup-val" style="color:var(--green);font-size:13px;">${fmtFull(rewardN)} INDC</span>
+      </div>`;
+      })() : isDraw ? `
       <div class="popup-result-row">
-        <span class="popup-key">Refund</span>
-        <span class="popup-val" style="color:var(--gold);">${fmtFull(Number(bet)/1e9)} INDC (100%)</span>
+        <span class="popup-key">Refund 100%</span>
+        <span class="popup-val" style="color:var(--gold);">${fmtFull(Number(reward)/1e9)} INDC</span>
       </div>` : `
       <div class="popup-result-row">
         <span class="popup-key">Taruhan Hilang</span>
@@ -1399,7 +1408,7 @@ async function showResultPopup(sid) {
 
     ${(isWin||isDraw) && !claimed ? `
       <button class="btn-main btn-teal" onclick="claimReward(${sid})">
-        💰 KLAIM ${fmtFull((Number(bet)+Number(reward))/1e9)} INDC
+        💰 KLAIM ${fmtFull(Number(reward)/1e9)} INDC
       </button>
     ` : claimed ? `
       <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);padding:10px;">
