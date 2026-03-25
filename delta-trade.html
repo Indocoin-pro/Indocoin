@@ -318,30 +318,50 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   </div>
 </div>
 
-<!-- TOKEN + HARGA DIBAWAH CHART -->
-<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--dark2);border-bottom:1px solid var(--border);">
-  <!-- Token selector -->
-  <div style="display:flex;gap:8px;">
-    <div class="tok-tab active" id="tab-BNB" onclick="selectToken('BNB',0)" style="cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid rgba(245,158,11,0.3);text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--delta);">BNB/USDT</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BNB">$—</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;" id="tabc-BNB">—</div>
+<!-- TOKEN + TF + HARGA DIBAWAH CHART -->
+<div style="background:var(--dark2);border-bottom:1px solid var(--border);">
+
+  <!-- Token picker kiri + Entry/Now kanan -->
+  <div style="display:flex;align-items:center;padding:8px 10px;gap:8px;">
+
+    <!-- Token picker -->
+    <div style="position:relative;flex-shrink:0;">
+      <div onclick="toggleTokenPicker()" style="cursor:pointer;padding:6px 12px;border-radius:8px;
+        border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);
+        display:flex;align-items:center;gap:6px;">
+        <div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--delta);" id="selTokenLabel">BNB/USDT</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="selTokenPrice">$—</div>
+        </div>
+        <span style="color:var(--delta);font-size:8px;">▼</span>
+      </div>
+      <!-- Dropdown -->
+      <div id="tokenPicker" style="display:none;position:absolute;top:110%;left:0;z-index:100;
+        background:var(--dark2);border:1px solid var(--border);border-radius:8px;overflow:hidden;min-width:140px;">
+        <div onclick="selectToken('BNB',0);toggleTokenPicker()" style="padding:8px 14px;cursor:pointer;
+          border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--delta);">BNB/USDT</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BNB">$—</span>
+        </div>
+        <div onclick="selectToken('BTC',1);toggleTokenPicker()" style="padding:8px 14px;cursor:pointer;
+          display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--text);">BTC/USDT</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BTC">$—</span>
+        </div>
+      </div>
     </div>
-    <div class="tok-tab" id="tab-BTC" onclick="selectToken('BTC',1)" style="cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
-      <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);">BTC/USDT</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BTC">$—</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;" id="tabc-BTC">—</div>
+
+    <!-- Entry & Harga Sekarang sebelah kanan -->
+    <div style="display:flex;gap:1px;flex:1;background:var(--border);border-radius:8px;overflow:hidden;">
+      <div style="background:var(--dark2);padding:6px 10px;flex:1;text-align:center;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:2px;">ENTRY</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#f59e0b;" id="infoEntry">$—</div>
+      </div>
+      <div style="background:var(--dark2);padding:6px 10px;flex:1;text-align:center;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:2px;">SEKARANG</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);" id="infoNow">$—</div>
+      </div>
     </div>
-  </div>
-  <!-- Timeframe -->
-  <div class="tf-bar" style="padding:0;border:none;gap:4px;">
-    <button class="tf-btn" onclick="setTF('1')">1M</button>
-    <button class="tf-btn active" id="tf5" onclick="setTF('5')">5M</button>
-    <button class="tf-btn" onclick="setTF('15')">15M</button>
-    <button class="tf-btn" onclick="setTF('30')">30M</button>
-    <button class="tf-btn" onclick="setTF('60')">1H</button>
-    <button class="tf-btn" onclick="setTF('240')">4H</button>
-    <button class="tf-btn" onclick="setTF('1D')">1D</button>
   </div>
 </div>
 
@@ -801,11 +821,9 @@ function startTickerWS(sym) {
   }
 }
 
-// Fallback: ambil harga dari kontrak via BSC RPC
+// Ambil harga dari kontrak via BSC RPC
 async function fetchPriceFromContract(sym) {
   try {
-    const RPC = "https://bsc-dataseed.binance.org/";
-    // getPrice selector untuk delta contract
     const c = await getRC();
     const tokIdx = TOKENS.findIndex(t=>t.sym===sym);
     if (tokIdx < 0) return;
@@ -813,21 +831,35 @@ async function fetchPriceFromContract(sym) {
     const price = Number(p) / 1e8;
     if (price > 0) {
       prices[sym] = price;
-      updatePriceHeader(sym, price, 0);
-      updateTabPrice(sym, price, 0);
+      // Update tab harga
+      const pEl = document.getElementById("tabp-"+sym);
+      const fmt2 = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+      if(pEl) pEl.textContent = fmt2;
+      // Update label di token picker button kalau ini token aktif
+      if(sym === curToken.sym) {
+        const sp = document.getElementById("selTokenPrice");
+        if(sp) sp.textContent = fmt2;
+      }
+      // Update header kalau token aktif
+      if(sym === curToken.sym) {
+        updatePriceHeader(sym, price, 0);
+        // Update harga sekarang di panel bawah
+        const fmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+        const nowEl = document.getElementById("infoNow");
+        if(nowEl) { nowEl.textContent = fmt; nowEl.style.color="var(--text)"; }
+        const overlayNow = document.getElementById("overlayNow");
+        if(overlayNow) overlayNow.textContent = fmt;
+      }
+      updatePortfolio();
+      updatePreview();
     }
-  } catch(e) {
-    // Coba lagi 10 detik
-    setTimeout(()=>fetchPriceFromContract(sym), 10000);
-  }
+  } catch(e) { console.warn("fetchPrice error", sym, e); }
 }
 
-// Poll harga dari kontrak setiap 10 detik sebagai backup
+// Poll harga semua token dari kontrak
 async function pollPrices() {
   for (const t of TOKENS) {
-    if (!prices[t.sym] || !wsConns["ticker_"+t.sym]) {
-      await fetchPriceFromContract(t.sym);
-    }
+    await fetchPriceFromContract(t.sym);
   }
 }
 
@@ -935,19 +967,47 @@ function drawPositionLines(entryPrice, liqPrice, slPrice, tpPrice) {
 }
 
 // ═══ TOKEN SELECTION ══════════════════════════════════════
+function toggleTokenPicker() {
+  const el = document.getElementById("tokenPicker");
+  if(el) el.style.display = el.style.display==="none" ? "block" : "none";
+  // Tutup saat klik di luar
+  setTimeout(()=>{
+    document.addEventListener("click", function close(e){
+      if(!e.target.closest("#tokenPicker") && !e.target.closest("[onclick*='toggleTokenPicker']")){
+        const el=document.getElementById("tokenPicker");
+        if(el) el.style.display="none";
+        document.removeEventListener("click",close);
+      }
+    });
+  }, 100);
+}
+
 function selectToken(sym, idx) {
   curToken = {sym, idx};
+  // Update styling tab
   TOKENS.forEach(t => {
-    document.getElementById("tab-"+t.sym).classList.toggle("active", t.sym===sym);
+    const tab = document.getElementById("tab-"+t.sym);
+    if (!tab) return;
+    if (t.sym === sym) {
+      tab.style.borderColor = "rgba(245,158,11,0.5)";
+      tab.style.background  = "rgba(245,158,11,0.08)";
+      tab.querySelector("div").style.color = "var(--delta)";
+    } else {
+      tab.style.borderColor = "var(--border)";
+      tab.style.background  = "transparent";
+      tab.querySelector("div").style.color = "var(--muted)";
+    }
   });
-  document.getElementById("phSym").textContent = sym+"/USDT";
+  const phEl = document.getElementById("phSym");
+  if(phEl) phEl.textContent = sym+"/USDT";
+  // Update label token picker
+  const lbl = document.getElementById("selTokenLabel");
+  if(lbl) lbl.textContent = sym+"/USDT";
   clearChartLines();
-  // Load TradingView chart untuk token baru
+  // Reload TradingView chart
   loadTVChart(sym, currentTF);
-  // Start ticker WS untuk token ini
-  startTickerWS(sym);
-  // Update harga langsung kalau sudah ada
-  if (prices[sym]) updatePriceHeader(sym, prices[sym], 0);
+  // Harga dari kontrak
+  fetchPriceFromContract(sym);
   loadActivePosition();
   updatePreview();
 }
@@ -1153,6 +1213,10 @@ async function loadActivePosition() {
       document.getElementById("chartOverlay").style.display="none";
       const ov = document.getElementById("tradingPriceOverlay");
       if(ov) ov.style.display="none";
+      const ie = document.getElementById("infoEntry");
+      if(ie) { ie.textContent="$—"; ie.style.color="#f59e0b"; }
+      const iN = document.getElementById("infoNow");
+      if(iN) { iN.textContent="$—"; iN.style.color="var(--text)"; }
       sec.innerHTML = "";
     }
   } catch(e) {
@@ -1182,12 +1246,14 @@ function updatePnLOverlay(pv, ppv, ip) {
   }
 }
 
-// Update overlay entry price
+// Update entry price di panel bawah dan overlay
 function setOverlayEntry(entryPrice) {
-  const el = document.getElementById("overlayEntry");
-  if (el && entryPrice > 0) {
-    el.textContent = entryPrice>100?"$"+entryPrice.toLocaleString("en",{maximumFractionDigits:2}):"$"+entryPrice.toFixed(4);
-  }
+  if (!entryPrice || entryPrice <= 0) return;
+  const fmt = entryPrice>100?"$"+entryPrice.toLocaleString("en",{maximumFractionDigits:2}):"$"+entryPrice.toFixed(4);
+  const el1 = document.getElementById("overlayEntry");
+  const el2 = document.getElementById("infoEntry");
+  if(el1) el1.textContent = fmt;
+  if(el2) { el2.textContent = fmt; el2.style.color="#f59e0b"; }
 }
 
 // ═══ BALANCE & PORTFOLIO ══════════════════════════════════
