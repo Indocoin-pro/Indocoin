@@ -806,49 +806,123 @@ function startKlineWS(sym, interval) {
   startTickerWS(sym);
 }
 
+// Update harga dari sumber manapun
+function onPriceUpdate(sym, price, pct, high, low, vol) {
+  if (!price || price <= 0) return;
+  prices[sym] = price;
+  updatePriceHeader(sym, price, pct||0);
+  updateTabPrice(sym, price, pct||0);
+  if (sym === curToken.sym) {
+    if (high) {
+      const hEl = document.getElementById("hl24H");
+      const lEl = document.getElementById("hl24L");
+      if(hEl) hEl.textContent = high>100?"$"+Math.round(high).toLocaleString():"$"+high.toFixed(4);
+      if(lEl) lEl.textContent = low>100?"$"+Math.round(low).toLocaleString():"$"+low.toFixed(4);
+    }
+    // Update token picker price
+    const sp = document.getElementById("selTokenPrice");
+    const fmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+    if(sp) sp.textContent = fmt;
+    const pEl = document.getElementById("tabp-"+sym);
+    if(pEl) pEl.textContent = fmt;
+  }
+  updatePortfolio();
+  if (activePosPid > 0) updatePnLOverlay();
+  updatePreview();
+}
+
 function startTickerWS(sym) {
-  // Close lama kalau ada
-  if (wsConns["ticker_"+sym]) {
-    try { wsConns["ticker_"+sym].close(); } catch(e) {}
-    delete wsConns["ticker_"+sym];
-  }
+  // Tutup WS lama
+  ["binance","bybit","okx","coincap"].forEach(src => {
+    const key = src+"_"+sym;
+    if (wsConns[key]) { try{wsConns[key].close();}catch(e){} delete wsConns[key]; }
+  });
+
   const pair = sym.toLowerCase()+"usdt";
+  let connected = false;
+
+  // ── 1. Binance ──────────────────────────────────────────
   try {
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
-    ws.onopen  = () => { console.log("WS open: "+sym); };
-    ws.onmessage = e => {
-      const d   = JSON.parse(e.data);
-      const cur = parseFloat(d.c);
-      const pct = parseFloat(d.P);
-      prices[sym] = cur;
-      updatePriceHeader(sym, cur, pct);
-      updateTabPrice(sym, cur, pct);
-      if (sym === curToken.sym) {
-        const h = parseFloat(d.h), l = parseFloat(d.l), v = parseFloat(d.v);
-        document.getElementById("ph24H").textContent = "$"+h.toLocaleString("en",{maximumFractionDigits:2});
-        document.getElementById("ph24L").textContent = "$"+l.toLocaleString("en",{maximumFractionDigits:2});
-        document.getElementById("phVol").textContent = fmtK(v);
-        // Update overlay High/Low di tengah chart
-        const hEl = document.getElementById("hl24H");
-        const lEl = document.getElementById("hl24L");
-        const vEl = document.getElementById("hl24V");
-        if(hEl) hEl.textContent = h>100?"$"+Math.round(h).toLocaleString():"$"+h.toFixed(4);
-        if(lEl) lEl.textContent = l>100?"$"+Math.round(l).toLocaleString():"$"+l.toFixed(4);
-        if(vEl) vEl.textContent = fmtK(v);
+    const ws1 = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+    ws1.onopen = () => { console.log("✅ Binance WS: "+sym); };
+    ws1.onmessage = e => {
+      connected = true;
+      const d = JSON.parse(e.data);
+      onPriceUpdate(sym, parseFloat(d.c), parseFloat(d.P), parseFloat(d.h), parseFloat(d.l), parseFloat(d.v));
+    };
+    ws1.onerror = () => {};
+    ws1.onclose = () => { delete wsConns["binance_"+sym]; };
+    wsConns["binance_"+sym] = ws1;
+  } catch(e) {}
+
+  // ── 2. Bybit ────────────────────────────────────────────
+  try {
+    const ws2 = new WebSocket("wss://stream.bybit.com/v5/public/spot");
+    ws2.onopen = () => {
+      ws2.send(JSON.stringify({op:"subscribe", args:["tickers."+sym.toUpperCase()+"USDT"]}));
+      console.log("✅ Bybit WS: "+sym);
+    };
+    ws2.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.topic && d.topic.startsWith("tickers") && d.data) {
+        const price = parseFloat(d.data.lastPrice||d.data.last_price);
+        const pct   = parseFloat(d.data.price24hPcnt||0) * 100;
+        const high  = parseFloat(d.data.highPrice24h||0);
+        const low   = parseFloat(d.data.lowPrice24h||0);
+        if (price > 0) onPriceUpdate(sym, price, pct, high, low, 0);
       }
-      updatePortfolio();
-      if (activePosPid > 0) updatePnLOverlay();
-      updatePreview();
     };
-    ws.onerror = () => { fetchPriceFromContract(sym); };
-    ws.onclose = () => {
-      delete wsConns["ticker_"+sym];
-      setTimeout(()=>startTickerWS(sym), 3000);
+    ws2.onerror = () => {};
+    ws2.onclose = () => { delete wsConns["bybit_"+sym]; };
+    wsConns["bybit_"+sym] = ws2;
+  } catch(e) {}
+
+  // ── 3. OKX ──────────────────────────────────────────────
+  try {
+    const ws3 = new WebSocket("wss://ws.okx.com/ws/v5/public");
+    ws3.onopen = () => {
+      ws3.send(JSON.stringify({op:"subscribe", args:[{channel:"tickers", instId:sym.toUpperCase()+"-USDT"}]}));
+      console.log("✅ OKX WS: "+sym);
     };
-    wsConns["ticker_"+sym] = ws;
-  } catch(e) {
-    fetchPriceFromContract(sym);
-  }
+    ws3.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.data && d.data[0]) {
+        const tick = d.data[0];
+        const price = parseFloat(tick.last);
+        const high  = parseFloat(tick.high24h||0);
+        const low   = parseFloat(tick.low24h||0);
+        if (price > 0) onPriceUpdate(sym, price, 0, high, low, 0);
+      }
+    };
+    ws3.onerror = () => {};
+    ws3.onclose = () => { delete wsConns["okx_"+sym]; };
+    wsConns["okx_"+sym] = ws3;
+  } catch(e) {}
+
+  // ── 4. CoinCap ──────────────────────────────────────────
+  try {
+    const coinMap = {"BNB":"binance-coin","BTC":"bitcoin"};
+    const asset   = coinMap[sym];
+    if (asset) {
+      const ws4 = new WebSocket(`wss://ws.coincap.io/prices?assets=${asset}`);
+      ws4.onmessage = e => {
+        const d = JSON.parse(e.data);
+        const price = parseFloat(d[asset]);
+        if (price > 0) onPriceUpdate(sym, price, 0, 0, 0, 0);
+      };
+      ws4.onerror = () => {};
+      ws4.onclose = () => { delete wsConns["coincap_"+sym]; };
+      wsConns["coincap_"+sym] = ws4;
+    }
+  } catch(e) {}
+
+  // Reconnect semua setiap 30 detik kalau tidak ada harga
+  setTimeout(() => {
+    if (!prices[sym]) {
+      console.warn("No price for "+sym+", reconnecting...");
+      startTickerWS(sym);
+    }
+  }, 10000);
 }
 
 // Ambil harga dari kontrak via BSC RPC
