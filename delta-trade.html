@@ -843,112 +843,131 @@ function onPriceUpdate(sym, price, pct, high, low, vol) {
   updatePreview();
 }
 
+// ═══ REALTIME PRICE ENGINE (v2 - Fixed) ══════════════════
+// Satu WS utama per token (Binance), fallback otomatis ke Bybit/OKX
+// Tidak lagi buka 4-5 WS sekaligus — lebih stabil, lebih cepat
+
+const wsState = {}; // { sym: { ws, src, alive, retries, hbTimer, reconnTimer } }
+const WS_SOURCES = ["binance","bybit","okx"];
+
 function startTickerWS(sym) {
-  // Tutup WS lama
-  ["binance","bybit","okx","coincap"].forEach(src => {
+  // Bersihkan koneksi lama dulu
+  stopTickerWS(sym);
+  // Mulai dari sumber utama (Binance)
+  wsState[sym] = { src: 0, retries: 0, alive: false };
+  connectWS(sym);
+}
+
+function stopTickerWS(sym) {
+  const st = wsState[sym];
+  if (!st) return;
+  if (st.ws) { try { st.ws.close(); } catch(e) {} }
+  if (st.hbTimer)    clearInterval(st.hbTimer);
+  if (st.reconnTimer) clearTimeout(st.reconnTimer);
+  delete wsState[sym];
+  // Bersihkan wsConns lama juga
+  ["binance","bybit","okx","fstream","coincap"].forEach(src => {
     const key = src+"_"+sym;
     if (wsConns[key]) { try{wsConns[key].close();}catch(e){} delete wsConns[key]; }
   });
+}
 
+function connectWS(sym) {
+  const st = wsState[sym];
+  if (!st) return;
+  const src = WS_SOURCES[st.src % WS_SOURCES.length];
   const pair = sym.toLowerCase()+"usdt";
-  let connected = false;
+  let url, onOpen, onMsg;
 
-  // ── 0. Binance fstream (futures) — kadang tidak diblok ──
-  try {
-    const ws0 = new WebSocket(`wss://fstream.binance.com/ws/${pair}@markPrice`);
-    ws0.onopen = () => { console.log("✅ fstream Binance: "+sym); };
-    ws0.onmessage = e => {
+  if (src === "binance") {
+    // Binance: update setiap ~1 detik, sangat reliable
+    url   = `wss://stream.binance.com:9443/ws/${pair}@ticker`;
+    onMsg = e => {
       const d = JSON.parse(e.data);
-      const price = parseFloat(d.p||d.c||0);
-      if (price > 0) onPriceUpdate(sym, price, 0, 0, 0, 0);
-    };
-    ws0.onerror = () => {};
-    ws0.onclose = () => { delete wsConns["fstream_"+sym]; };
-    wsConns["fstream_"+sym] = ws0;
-  } catch(e) {}
-
-  // ── 1. Binance ──────────────────────────────────────────
-  try {
-    const ws1 = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
-    ws1.onopen = () => { console.log("✅ Binance WS: "+sym); };
-    ws1.onmessage = e => {
-      connected = true;
-      const d = JSON.parse(e.data);
-      onPriceUpdate(sym, parseFloat(d.c), parseFloat(d.P), parseFloat(d.h), parseFloat(d.l), parseFloat(d.v));
-    };
-    ws1.onerror = () => {};
-    ws1.onclose = () => { delete wsConns["binance_"+sym]; };
-    wsConns["binance_"+sym] = ws1;
-  } catch(e) {}
-
-  // ── 2. Bybit ────────────────────────────────────────────
-  try {
-    const ws2 = new WebSocket("wss://stream.bybit.com/v5/public/spot");
-    ws2.onopen = () => {
-      ws2.send(JSON.stringify({op:"subscribe", args:["tickers."+sym.toUpperCase()+"USDT"]}));
-      console.log("✅ Bybit WS: "+sym);
-    };
-    ws2.onmessage = e => {
-      const d = JSON.parse(e.data);
-      if (d.topic && d.topic.startsWith("tickers") && d.data) {
-        const price = parseFloat(d.data.lastPrice||d.data.last_price);
-        const pct   = parseFloat(d.data.price24hPcnt||0) * 100;
-        const high  = parseFloat(d.data.highPrice24h||0);
-        const low   = parseFloat(d.data.lowPrice24h||0);
-        if (price > 0) onPriceUpdate(sym, price, pct, high, low, 0);
+      const price = parseFloat(d.c);
+      if (price > 0) {
+        st.alive = true;
+        onPriceUpdate(sym, price, parseFloat(d.P||0), parseFloat(d.h||0), parseFloat(d.l||0), parseFloat(d.v||0));
       }
     };
-    ws2.onerror = () => {};
-    ws2.onclose = () => { delete wsConns["bybit_"+sym]; };
-    wsConns["bybit_"+sym] = ws2;
-  } catch(e) {}
-
-  // ── 3. OKX ──────────────────────────────────────────────
-  try {
-    const ws3 = new WebSocket("wss://ws.okx.com/ws/v5/public");
-    ws3.onopen = () => {
-      ws3.send(JSON.stringify({op:"subscribe", args:[{channel:"tickers", instId:sym.toUpperCase()+"-USDT"}]}));
-      console.log("✅ OKX WS: "+sym);
+  } else if (src === "bybit") {
+    url   = "wss://stream.bybit.com/v5/public/spot";
+    onOpen = ws => ws.send(JSON.stringify({op:"subscribe", args:["tickers."+sym.toUpperCase()+"USDT"]}));
+    onMsg = e => {
+      const d = JSON.parse(e.data);
+      if (d.topic && d.topic.startsWith("tickers") && d.data) {
+        const price = parseFloat(d.data.lastPrice||0);
+        if (price > 0) {
+          st.alive = true;
+          onPriceUpdate(sym, price, parseFloat(d.data.price24hPcnt||0)*100,
+            parseFloat(d.data.highPrice24h||0), parseFloat(d.data.lowPrice24h||0), 0);
+        }
+      }
     };
-    ws3.onmessage = e => {
+  } else {
+    // OKX fallback
+    url   = "wss://ws.okx.com/ws/v5/public";
+    onOpen = ws => ws.send(JSON.stringify({op:"subscribe", args:[{channel:"tickers", instId:sym.toUpperCase()+"-USDT"}]}));
+    onMsg = e => {
       const d = JSON.parse(e.data);
       if (d.data && d.data[0]) {
         const tick = d.data[0];
         const price = parseFloat(tick.last);
-        const high  = parseFloat(tick.high24h||0);
-        const low   = parseFloat(tick.low24h||0);
-        if (price > 0) onPriceUpdate(sym, price, 0, high, low, 0);
+        if (price > 0) {
+          st.alive = true;
+          onPriceUpdate(sym, price, 0, parseFloat(tick.high24h||0), parseFloat(tick.low24h||0), 0);
+        }
       }
     };
-    ws3.onerror = () => {};
-    ws3.onclose = () => { delete wsConns["okx_"+sym]; };
-    wsConns["okx_"+sym] = ws3;
-  } catch(e) {}
+  }
 
-  // ── 4. CoinCap ──────────────────────────────────────────
   try {
-    const coinMap = {"BNB":"binance-coin","BTC":"bitcoin"};
-    const asset   = coinMap[sym];
-    if (asset) {
-      const ws4 = new WebSocket(`wss://ws.coincap.io/prices?assets=${asset}`);
-      ws4.onmessage = e => {
-        const d = JSON.parse(e.data);
-        const price = parseFloat(d[asset]);
-        if (price > 0) onPriceUpdate(sym, price, 0, 0, 0, 0);
-      };
-      ws4.onerror = () => {};
-      ws4.onclose = () => { delete wsConns["coincap_"+sym]; };
-      wsConns["coincap_"+sym] = ws4;
-    }
-  } catch(e) {}
+    const ws = new WebSocket(url);
+    st.ws    = ws;
+    st.alive = false;
 
-  // Reconnect semua setiap 30 detik kalau tidak ada harga
-  setTimeout(() => {
-    if (!prices[sym]) {
-      console.warn("No price for "+sym+", reconnecting...");
-      startTickerWS(sym);
-    }
-  }, 10000);
+    ws.onopen = () => {
+      console.log(`✅ WS [${src}] ${sym} connected`);
+      st.retries = 0;
+      wsConns[src+"_"+sym] = ws;
+      if (onOpen) onOpen(ws);
+
+      // Heartbeat: cek setiap 5 detik apakah harga sudah diterima
+      if (st.hbTimer) clearInterval(st.hbTimer);
+      st.hbTimer = setInterval(() => {
+        if (!st.alive) {
+          // WS connect tapi tidak ada data — coba sumber berikutnya
+          console.warn(`⚠️ WS [${src}] ${sym} no data, switching source...`);
+          st.src++;
+          connectWS(sym);
+        }
+        st.alive = false; // reset untuk interval berikutnya
+      }, 5000);
+    };
+
+    ws.onmessage = onMsg;
+
+    ws.onerror = () => {};
+
+    ws.onclose = () => {
+      if (st.hbTimer) clearInterval(st.hbTimer);
+      delete wsConns[src+"_"+sym];
+      // Auto-reconnect dengan delay (exponential backoff max 10 detik)
+      if (wsState[sym] === st) {
+        const delay = Math.min(1000 * Math.pow(2, st.retries), 10000);
+        st.retries++;
+        console.warn(`🔄 WS [${src}] ${sym} closed, reconnect in ${delay}ms (attempt ${st.retries})`);
+        st.reconnTimer = setTimeout(() => {
+          if (wsState[sym] === st) connectWS(sym);
+        }, delay);
+      }
+    };
+
+  } catch(e) {
+    // Kalau gagal buka WS, langsung coba sumber berikutnya
+    st.src++;
+    st.reconnTimer = setTimeout(() => connectWS(sym), 2000);
+  }
 }
 
 // Ambil harga dari kontrak via BSC RPC
@@ -1026,9 +1045,24 @@ function updatePriceData(sym, price) {
   updatePreview();
 }
 
-// Poll harga semua token - setiap 2 detik
+// Poll harga via REST — hanya dipakai kalau WS belum hidup
+// Binance REST: sangat cepat, tidak ada delay 30 detik seperti Chainlink
 async function pollPrices() {
-  await Promise.all(TOKENS.map(t => fetchPriceChainlink(t.sym)));
+  for (const t of TOKENS) {
+    const st = wsState[t.sym];
+    // Skip kalau WS sudah aktif mengirim harga
+    if (st && st.alive) continue;
+    // Fallback: Binance REST API
+    try {
+      const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${t.sym}USDT`);
+      const json = await resp.json();
+      const price = parseFloat(json.price);
+      if (price > 0) onPriceUpdate(t.sym, price, 0, 0, 0, 0);
+    } catch(e) {
+      // Chainlink hanya sebagai last resort
+      await fetchPriceChainlink(t.sym);
+    }
+  }
 }
 
 function updatePriceHeader(sym, price, pct) {
@@ -1743,17 +1777,17 @@ function showToast(msg,color="#10b981") {
 
 // ═══ INIT ═════════════════════════════════════════════════
 window.addEventListener("load", async()=>{
-  // Start websockets DULU sebelum chart
+  // Start WebSocket DULU — ini sumber harga utama (< 1 detik)
   startTickerWS("BNB");
   startTickerWS("BTC");
 
   // Init TradingView chart
   initChart();
 
-  // Poll harga setiap 10 detik sebagai backup
-  // Poll harga setiap 2 detik via Chainlink
-  setInterval(pollPrices, 2000);
-  setTimeout(pollPrices, 500);
+  // Fallback poll: hanya aktif kalau WS belum dapat harga
+  // Jalankan sekali langsung, lalu setiap 3 detik (bukan 2 detik via Chainlink)
+  setTimeout(pollPrices, 800);
+  setInterval(pollPrices, 3000);
 
   // Active position kalau sudah connect
   if (userAddr) {
