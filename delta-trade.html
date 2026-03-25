@@ -1267,23 +1267,39 @@ async function loadActivePosition() {
       </div>`;
 
       // Update PnL realtime
+      // Simpan data posisi untuk hitung PnL realtime
+      const entryP  = Number(entry)/1e8;
+      const sizeV   = Number(size)/1e18;
+      const dirNum  = Number(dir);
+
       if (pnlInterval) clearInterval(pnlInterval);
-      pnlInterval = setInterval(async()=>{
+      pnlInterval = setInterval(()=>{
         try {
-          const cc = await getRC();
-          const [p,pp,ip] = await cc.getCurrentPnL(pid);
-          const pv  = Number(p)/1e18;
-          const ppv = Number(pp)/100;
-          const el  = document.getElementById("pcPnL");
+          const curP = prices[tok.sym];
+          if (!curP || !entryP) return;
+
+          // Hitung PnL dari harga realtime
+          const priceDiff = dirNum===0 ? curP - entryP : entryP - curP;
+          const pnlPct    = (priceDiff / entryP) * 100;
+          const pnlUSD    = sizeV * (priceDiff / entryP);
+          const isProfit  = pnlUSD >= 0;
+
+          const el = document.getElementById("pcPnL");
           if (el) {
-            el.textContent = `${ip?"+":""} $${Math.abs(pv).toFixed(4)} (${ip?"+":""}${ppv.toFixed(2)}%)`;
-            el.className   = "pc-pnl "+(ip?"profit":"loss");
+            el.textContent = `${isProfit?"+":""} $${Math.abs(pnlUSD).toFixed(4)} (${isProfit?"+":""}${pnlPct.toFixed(2)}%)`;
+            el.className   = "pc-pnl "+(isProfit?"profit":"loss");
           }
           const cp = document.getElementById("pcCurPrice");
-          if (cp && prices[tok.sym]) cp.textContent = "$"+prices[tok.sym].toLocaleString("en",{maximumFractionDigits:2});
-          updatePnLOverlay(pv, ppv, ip);
+          if (cp) cp.textContent = "$"+curP.toLocaleString("en",{maximumFractionDigits:2});
+
+          // Update panel tengah PnL
+          const pnlEl = document.getElementById("overlayPnl");
+          if (pnlEl) {
+            pnlEl.textContent = (isProfit?"+":"") + "$" + Math.abs(pnlUSD).toFixed(2);
+            pnlEl.style.color = isProfit ? "var(--green)" : "var(--red)";
+          }
         } catch(e) {}
-      }, 3000);
+      }, 500); // Update setiap 500ms mengikuti harga realtime
 
       break;
     }
