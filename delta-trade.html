@@ -853,6 +853,20 @@ function startTickerWS(sym) {
   const pair = sym.toLowerCase()+"usdt";
   let connected = false;
 
+  // ── 0. Binance fstream (futures) — kadang tidak diblok ──
+  try {
+    const ws0 = new WebSocket(`wss://fstream.binance.com/ws/${pair}@markPrice`);
+    ws0.onopen = () => { console.log("✅ fstream Binance: "+sym); };
+    ws0.onmessage = e => {
+      const d = JSON.parse(e.data);
+      const price = parseFloat(d.p||d.c||0);
+      if (price > 0) onPriceUpdate(sym, price, 0, 0, 0, 0);
+    };
+    ws0.onerror = () => {};
+    ws0.onclose = () => { delete wsConns["fstream_"+sym]; };
+    wsConns["fstream_"+sym] = ws0;
+  } catch(e) {}
+
   // ── 1. Binance ──────────────────────────────────────────
   try {
     const ws1 = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
