@@ -631,6 +631,9 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <script>
 // ═══ CONFIG ══════════════════════════════════════════════
+// 🚀 Railway Price Server — ganti URL ini setelah deploy di Railway
+const RAILWAY_WS_URL = "wss://indocoin-production.up.railway.app";
+
 const CONTRACT  = "0x3B466e2184024e5E8e101FAa0c5cd441008C2010";
 const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const DEV_ADDR  = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc";
@@ -848,7 +851,9 @@ function onPriceUpdate(sym, price, pct, high, low, vol) {
 // Tidak lagi buka 4-5 WS sekaligus — lebih stabil, lebih cepat
 
 const wsState = {}; // { sym: { ws, src, alive, retries, hbTimer, reconnTimer } }
-const WS_SOURCES = ["binance","bybit","okx"];
+// Railway = sumber utama (server kita sendiri, paling stabil)
+// Binance/Bybit/OKX = fallback otomatis kalau Railway down
+const WS_SOURCES = ["railway","binance","bybit","okx"];
 
 function startTickerWS(sym) {
   // Bersihkan koneksi lama dulu
@@ -879,7 +884,20 @@ function connectWS(sym) {
   const pair = sym.toLowerCase()+"usdt";
   let url, onOpen, onMsg;
 
-  if (src === "binance") {
+  if (src === "railway") {
+    // Railway server kita sendiri — broadcast semua token sekaligus
+    url   = RAILWAY_WS_URL;
+    onMsg = e => {
+      try {
+        const d = JSON.parse(e.data);
+        // Server kirim: { sym, price, pct, high, low }
+        if (d.sym && d.price > 0) {
+          st.alive = true;
+          onPriceUpdate(d.sym, d.price, d.pct || 0, d.high || 0, d.low || 0, 0);
+        }
+      } catch(err) {}
+    };
+  } else if (src === "binance") {
     // Binance: update setiap ~1 detik, sangat reliable
     url   = `wss://stream.binance.com:9443/ws/${pair}@ticker`;
     onMsg = e => {
