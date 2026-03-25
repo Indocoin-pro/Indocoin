@@ -767,26 +767,64 @@ function startTickerWS(sym) {
     delete wsConns["ticker_"+sym];
   }
   const pair = sym.toLowerCase()+"usdt";
-  const ws   = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
-  ws.onmessage = e => {
-    const d   = JSON.parse(e.data);
-    const cur = parseFloat(d.c);
-    const pct = parseFloat(d.P);
-    prices[sym] = cur;
-    updatePriceHeader(sym, cur, pct);
-    updateTabPrice(sym, cur, pct);
-    // Update 24H
-    if (sym === curToken.sym) {
-      document.getElementById("ph24H").textContent = "$"+parseFloat(d.h).toLocaleString("en",{maximumFractionDigits:2});
-      document.getElementById("ph24L").textContent = "$"+parseFloat(d.l).toLocaleString("en",{maximumFractionDigits:2});
-      document.getElementById("phVol").textContent = fmtK(parseFloat(d.v));
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${pair}@ticker`);
+    ws.onopen  = () => { console.log("WS open: "+sym); };
+    ws.onmessage = e => {
+      const d   = JSON.parse(e.data);
+      const cur = parseFloat(d.c);
+      const pct = parseFloat(d.P);
+      prices[sym] = cur;
+      updatePriceHeader(sym, cur, pct);
+      updateTabPrice(sym, cur, pct);
+      if (sym === curToken.sym) {
+        document.getElementById("ph24H").textContent = "$"+parseFloat(d.h).toLocaleString("en",{maximumFractionDigits:2});
+        document.getElementById("ph24L").textContent = "$"+parseFloat(d.l).toLocaleString("en",{maximumFractionDigits:2});
+        document.getElementById("phVol").textContent = fmtK(parseFloat(d.v));
+      }
+      updatePortfolio();
+      if (activePosPid > 0) updatePnLOverlay();
+      updatePreview();
+    };
+    ws.onerror = () => { fetchPriceFromContract(sym); };
+    ws.onclose = () => {
+      delete wsConns["ticker_"+sym];
+      setTimeout(()=>startTickerWS(sym), 3000);
+    };
+    wsConns["ticker_"+sym] = ws;
+  } catch(e) {
+    fetchPriceFromContract(sym);
+  }
+}
+
+// Fallback: ambil harga dari kontrak via BSC RPC
+async function fetchPriceFromContract(sym) {
+  try {
+    const RPC = "https://bsc-dataseed.binance.org/";
+    // getPrice selector untuk delta contract
+    const c = await getRC();
+    const tokIdx = TOKENS.findIndex(t=>t.sym===sym);
+    if (tokIdx < 0) return;
+    const p = await c.getPrice(tokIdx);
+    const price = Number(p) / 1e8;
+    if (price > 0) {
+      prices[sym] = price;
+      updatePriceHeader(sym, price, 0);
+      updateTabPrice(sym, price, 0);
     }
-    updatePortfolio();
-    if (activePosPid > 0) updatePnLOverlay();
-    updatePreview();
-  };
-  ws.onclose = () => { delete wsConns["ticker_"+sym]; setTimeout(()=>startTickerWS(sym),3000); };
-  wsConns["ticker_"+sym] = ws;
+  } catch(e) {
+    // Coba lagi 10 detik
+    setTimeout(()=>fetchPriceFromContract(sym), 10000);
+  }
+}
+
+// Poll harga dari kontrak setiap 10 detik sebagai backup
+async function pollPrices() {
+  for (const t of TOKENS) {
+    if (!prices[t.sym] || !wsConns["ticker_"+t.sym]) {
+      await fetchPriceFromContract(t.sym);
+    }
+  }
 }
 
 function updatePriceHeader(sym, price, pct) {
@@ -1338,11 +1376,10 @@ window.addEventListener("load", async()=>{
   // Init TradingView chart
   initChart();
 
-  // Retry WS setiap 5 detik kalau belum dapat harga
-  setInterval(() => {
-    if (!prices["BNB"] || !wsConns["ticker_BNB"]) startTickerWS("BNB");
-    if (!prices["BTC"] || !wsConns["ticker_BTC"]) startTickerWS("BTC");
-  }, 5000);
+  // Poll harga setiap 10 detik sebagai backup
+  setInterval(pollPrices, 10000);
+  // Langsung poll setelah 2 detik
+  setTimeout(pollPrices, 2000);
 
   // Active position kalau sudah connect
   if (userAddr) {
