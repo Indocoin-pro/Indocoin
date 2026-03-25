@@ -852,45 +852,77 @@ function startTickerWS(sym) {
 }
 
 // Ambil harga dari kontrak via BSC RPC
-async function fetchPriceFromContract(sym) {
+// Chainlink feed addresses di BSC
+const CHAINLINK_FEEDS = {
+  "BNB":  "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE",
+  "BTC":  "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
+};
+// latestRoundData() selector
+const LATEST_ROUND_DATA = "0xfeaf968c";
+
+async function fetchPriceChainlink(sym) {
   try {
-    const c = await getRC();
-    const tokIdx = TOKENS.findIndex(t=>t.sym===sym);
-    if (tokIdx < 0) return;
-    const p = await c.getPrice(tokIdx);
-    const price = Number(p) / 1e8;
-    if (price > 0) {
-      prices[sym] = price;
-      // Update tab harga
-      const pEl = document.getElementById("tabp-"+sym);
-      const fmt2 = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
-      if(pEl) pEl.textContent = fmt2;
-      // Update label di token picker button kalau ini token aktif
-      if(sym === curToken.sym) {
-        const sp = document.getElementById("selTokenPrice");
-        if(sp) sp.textContent = fmt2;
-      }
-      // Update header kalau token aktif
-      if(sym === curToken.sym) {
-        updatePriceHeader(sym, price, 0);
-        // Update harga sekarang di panel bawah
-        const fmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
-        const nowEl = document.getElementById("infoNow");
-        if(nowEl) { nowEl.textContent = fmt; nowEl.style.color="var(--text)"; }
-        const overlayNow = document.getElementById("overlayNow");
-        if(overlayNow) overlayNow.textContent = fmt;
-      }
-      updatePortfolio();
-      updatePreview();
-    }
-  } catch(e) { console.warn("fetchPrice error", sym, e); }
+    const feed = CHAINLINK_FEEDS[sym];
+    if (!feed) return;
+    // Raw eth_call ke Chainlink feed — paling cepat
+    const resp = await fetch(BSC_RPC, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        jsonrpc:"2.0", id:1, method:"eth_call",
+        params:[{to: feed, data: LATEST_ROUND_DATA}, "latest"]
+      })
+    });
+    const json = await resp.json();
+    if (!json.result || json.result === "0x") return;
+    // Decode: skip roundId(32) + answer(32) — answer ada di bytes 32-64
+    const hex = json.result.slice(2);
+    const answer = BigInt("0x" + hex.slice(64, 128));
+    const price = Number(answer) / 1e8;
+    if (price > 0) updatePriceData(sym, price);
+  } catch(e) {}
 }
 
-// Poll harga semua token dari kontrak
-async function pollPrices() {
-  for (const t of TOKENS) {
-    await fetchPriceFromContract(t.sym);
+async function fetchPriceFromContract(sym) {
+  // Coba Chainlink dulu (lebih cepat)
+  await fetchPriceChainlink(sym);
+  // Fallback ke kontrak kalau Chainlink gagal
+  if (!prices[sym]) {
+    try {
+      const c = await getRC();
+      const tokIdx = TOKENS.findIndex(t=>t.sym===sym);
+      if (tokIdx < 0) return;
+      const p = await c.getPrice(tokIdx);
+      const price = Number(p) / 1e8;
+      if (price > 0) updatePriceData(sym, price);
+    } catch(e) {}
   }
+}
+
+function updatePriceData(sym, price) {
+  prices[sym] = price;
+  const fmt = price>100?"$"+price.toLocaleString("en",{maximumFractionDigits:2}):"$"+price.toFixed(4);
+  // Update tab
+  const pEl = document.getElementById("tabp-"+sym);
+  if(pEl) pEl.textContent = fmt;
+  // Update token picker label
+  if(sym === curToken.sym) {
+    const sp = document.getElementById("selTokenPrice");
+    if(sp) sp.textContent = fmt;
+    updatePriceHeader(sym, price, 0);
+    // Update PnL realtime kalau ada posisi
+    if(activePosPid > 0) {
+      const pnlEl = document.getElementById("overlayPnl");
+      // PnL dihitung di pnlInterval — cukup trigger update
+    }
+  }
+  updatePortfolio();
+  updatePreview();
+}
+
+// Poll harga semua token - setiap 2 detik
+async function pollPrices() {
+  await Promise.all(TOKENS.map(t => fetchPriceChainlink(t.sym)));
 }
 
 function updatePriceHeader(sym, price, pct) {
@@ -1613,9 +1645,9 @@ window.addEventListener("load", async()=>{
   initChart();
 
   // Poll harga setiap 10 detik sebagai backup
-  setInterval(pollPrices, 10000);
-  // Langsung poll setelah 2 detik
-  setTimeout(pollPrices, 2000);
+  // Poll harga setiap 2 detik via Chainlink
+  setInterval(pollPrices, 2000);
+  setTimeout(pollPrices, 500);
 
   // Active position kalau sudah connect
   if (userAddr) {
