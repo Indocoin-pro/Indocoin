@@ -1261,6 +1261,12 @@ async function loadActivePosition() {
         <div class="pc-row"><span class="pc-key">Ukuran Posisi</span><span class="pc-val">$${(Number(size)/1e18).toFixed(2)}</span></div>
         ${Number(slP)>0?`<div class="pc-row"><span class="pc-key">Stop Loss</span><span class="pc-val" style="color:var(--red2)">$${(Number(slP)/1e8).toFixed(2)}</span></div>`:""}
         ${Number(tpP)>0?`<div class="pc-row"><span class="pc-key">Take Profit</span><span class="pc-val" style="color:var(--green2)">$${(Number(tpP)/1e8).toFixed(2)}</span></div>`:""}
+        <button onclick="refreshPnL(${pid},'${tok.sym}')" style="width:100%;padding:8px;border-radius:8px;
+          border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.05);
+          color:var(--delta);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+          cursor:pointer;margin-bottom:8px;letter-spacing:1px;">
+          🔄 REFRESH PnL
+        </button>
         <button class="btn-close" onclick="closePosition(${pid})">🔴 CLOSE POSISI SEKARANG</button>
       </div>`;
 
@@ -1347,6 +1353,39 @@ function updatePnLOverlay(pv, ppv, ip) {
 }
 
 // Update entry price di panel bawah dan overlay
+async function refreshPnL(pid, sym) {
+  try {
+    const btn = document.querySelector("[onclick*='refreshPnL']");
+    if(btn) { btn.textContent = "⏳ UPDATING..."; btn.disabled = true; }
+    const c = await getRC();
+    const [pnl, pnlPct, isProfit] = await c.getCurrentPnL(pid);
+    const pv  = Number(pnl)/1e18;
+    const ppv = Number(pnlPct)/100;
+    // Update PnL card
+    const el = document.getElementById("pcPnL");
+    if(el) {
+      el.textContent = `${isProfit?"+":""} $${Math.abs(pv).toFixed(4)} (${isProfit?"+":""}${ppv.toFixed(2)}%)`;
+      el.className   = "pc-pnl "+(isProfit?"profit":"loss");
+    }
+    // Update harga sekarang
+    const [,,,liqP,,] = await c.getPosition2(pid);
+    const cp = document.getElementById("pcCurPrice");
+    if(cp && prices[sym]) cp.textContent = "$"+prices[sym].toLocaleString("en",{maximumFractionDigits:2});
+    // Update panel tengah
+    const pnlEl = document.getElementById("overlayPnl");
+    if(pnlEl) {
+      pnlEl.textContent = (isProfit?"+":"") + "$" + Math.abs(pv).toFixed(4);
+      pnlEl.style.color = isProfit ? "var(--green)" : "var(--red)";
+    }
+    if(btn) { btn.innerHTML = "🔄 REFRESH PnL"; btn.disabled = false; }
+    showToast("PnL diperbarui!","#10b981");
+  } catch(e) {
+    const btn = document.querySelector("[onclick*='refreshPnL']");
+    if(btn) { btn.innerHTML = "🔄 REFRESH PnL"; btn.disabled = false; }
+    showToast("Gagal refresh","#ef4444");
+  }
+}
+
 function setOverlayEntry(entryPrice) {
   if (!entryPrice || entryPrice <= 0) return;
   const fmt = entryPrice>100?"$"+entryPrice.toLocaleString("en",{maximumFractionDigits:2}):"$"+entryPrice.toFixed(4);
