@@ -634,7 +634,19 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 const CONTRACT  = "0x3B466e2184024e5E8e101FAa0c5cd441008C2010";
 const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const DEV_ADDR  = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc";
-const BSC_RPC   = "https://bsc-dataseed.binance.org/";
+const BSC_RPCS = [
+  "https://bsc-dataseed1.defibit.io/",
+  "https://bsc-dataseed1.ninicoin.io/",
+  "https://bsc-dataseed2.defibit.io/",
+  "https://bsc-dataseed3.defibit.io/",
+  "https://bsc-dataseed.binance.org/",
+];
+let BSC_RPC = BSC_RPCS[0];
+let _rpcIdx = 0;
+function nextRPC() {
+  _rpcIdx = (_rpcIdx + 1) % BSC_RPCS.length;
+  BSC_RPC = BSC_RPCS[_rpcIdx];
+}
 const INDC_DEC  = 9;
 const VIRT_DEC  = 1e18;
 const INDC_PRICE= 0.003; // $0.003
@@ -935,26 +947,32 @@ const CHAINLINK_FEEDS = {
 const LATEST_ROUND_DATA = "0xfeaf968c";
 
 async function fetchPriceChainlink(sym) {
-  try {
-    const feed = CHAINLINK_FEEDS[sym];
-    if (!feed) return;
-    // Raw eth_call ke Chainlink feed — paling cepat
-    const resp = await fetch(BSC_RPC, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        jsonrpc:"2.0", id:1, method:"eth_call",
-        params:[{to: feed, data: LATEST_ROUND_DATA}, "latest"]
-      })
-    });
-    const json = await resp.json();
-    if (!json.result || json.result === "0x") return;
-    // Decode: skip roundId(32) + answer(32) — answer ada di bytes 32-64
-    const hex = json.result.slice(2);
-    const answer = BigInt("0x" + hex.slice(64, 128));
-    const price = Number(answer) / 1e8;
-    if (price > 0) updatePriceData(sym, price);
-  } catch(e) {}
+  const feed = CHAINLINK_FEEDS[sym];
+  if (!feed) return;
+  // Coba semua RPC sampai berhasil
+  for (let i = 0; i < BSC_RPCS.length; i++) {
+    try {
+      const rpc = BSC_RPCS[i];
+      const resp = await fetch(rpc, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          jsonrpc:"2.0", id:1, method:"eth_call",
+          params:[{to: feed, data: LATEST_ROUND_DATA}, "latest"]
+        })
+      });
+      const json = await resp.json();
+      if (!json.result || json.result === "0x") continue;
+      const hex    = json.result.slice(2);
+      const answer = BigInt("0x" + hex.slice(64, 128));
+      const price  = Number(answer) / 1e8;
+      if (price > 0) {
+        BSC_RPC = rpc; // pakai RPC yang berhasil
+        updatePriceData(sym, price);
+        return;
+      }
+    } catch(e) { continue; }
+  }
 }
 
 async function fetchPriceFromContract(sym) {
