@@ -336,6 +336,8 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
 <script>
 // ═══ CONFIG ═════════════════════════════════════════════════════
+// 🚀 Railway Price Server
+const RAILWAY_WS_URL = "wss://indocoin-production.up.railway.app";
 const CONTRACT  = "0x9EdeA4C7CC9FC896388Dd24084D9c40059F12Fb1";
 const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_RPC   = "https://bsc-dataseed.binance.org/";
@@ -723,6 +725,36 @@ function backToList() {
 }
 
 // ═══ PRICE WS ═══════════════════════════════════════════════════
+// Railway WebSocket — sumber harga utama
+let railwayWS = null;
+function connectRailwayWS() {
+  try {
+    railwayWS = new WebSocket(RAILWAY_WS_URL);
+    railwayWS.onopen = () => console.log("✅ Railway WS connected");
+    railwayWS.onmessage = e => {
+      try {
+        const d = JSON.parse(e.data);
+        if (!d.sym || !d.price) return;
+        const sym = d.sym.toUpperCase();
+        latestPrices[sym] = d.price;
+        const el  = document.getElementById("dp-price");
+        const chg = document.getElementById("dp-chg");
+        if (el) {
+          const fmt = d.price>1000?"$"+Math.round(d.price).toLocaleString():"$"+d.price.toFixed(d.price<10?4:2);
+          el.textContent = fmt;
+          el.className = "pr-price "+((d.pct||0)>=0?"up":"down");
+        }
+        if (chg) {
+          chg.textContent = ((d.pct||0)>=0?"▲ +":"▼ ")+Math.abs(d.pct||0).toFixed(2)+"%";
+          chg.className = "pr-chg "+((d.pct||0)>=0?"up":"down");
+        }
+      } catch(err) {}
+    };
+    railwayWS.onerror = () => {};
+    railwayWS.onclose = () => { setTimeout(connectRailwayWS, 3000); };
+  } catch(e) { setTimeout(connectRailwayWS, 5000); }
+}
+
 function startPriceWS(sym, sid) {
   const pair = sym.toLowerCase()+"usdt";
   try {
@@ -1145,6 +1177,7 @@ window.addEventListener("load", async () => {
 
   // Load data tanpa wallet dulu
   loadMasterList();
+  connectRailwayWS(); // Railway realtime price
 
   // SW
   if ("serviceWorker" in navigator) {
