@@ -283,65 +283,32 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <div class="page-content">
 
-<!-- TOKEN TABS -->
-<div class="token-tabs">
-  <div class="tok-tab active" id="tab-BNB" onclick="selectToken('BNB',0)">
-    <div class="tok-tab-sym">BNB/USDT</div>
-    <div class="tok-tab-price" id="tabp-BNB">$—</div>
-    <div class="tok-tab-chg" id="tabc-BNB">—</div>
-  </div>
-  <div class="tok-tab" id="tab-BTC" onclick="selectToken('BTC',1)">
-    <div class="tok-tab-sym">BTC/USDT</div>
-    <div class="tok-tab-price" id="tabp-BTC">$—</div>
-    <div class="tok-tab-chg" id="tabc-BTC">—</div>
-  </div>
-</div>
-
-<!-- PRICE HEADER -->
-<div class="price-header">
-  <div class="ph-left">
-    <div class="ph-sym" id="phSym">BNB/USDT</div>
-    <div class="ph-price" id="phPrice">$—</div>
-    <div class="ph-chg up" id="phChg">—</div>
-  </div>
-  <div class="ph-right">
-    <div class="ph-stat">24H High: <span id="ph24H" style="color:var(--green)">—</span></div>
-    <div class="ph-stat">24H Low: <span id="ph24L" style="color:var(--red)">—</span></div>
-    <div class="ph-stat">Volume: <span id="phVol" style="color:var(--text)">—</span></div>
-  </div>
-</div>
-
-<!-- TIMEFRAME -->
-<div class="tf-bar">
-  <button class="tf-btn" onclick="setTF('1')">1M</button>
-  <button class="tf-btn active" id="tf5" onclick="setTF('5')">5M</button>
-  <button class="tf-btn" onclick="setTF('15')">15M</button>
-  <button class="tf-btn" onclick="setTF('30')">30M</button>
-  <button class="tf-btn" onclick="setTF('60')">1H</button>
-  <button class="tf-btn" onclick="setTF('240')">4H</button>
-  <button class="tf-btn" onclick="setTF('1D')">1D</button>
-</div>
-
-<!-- CHART -->
+<!-- CHART BESAR + INFO HARGA OVERLAY -->
 <div id="chartContainer" style="position:relative;">
-  <!-- TradingView Widget -->
-  <div id="tvContainer" style="width:100%;height:280px;"></div>
-  <!-- Overlay garis entry/SL/TP -->
-  <div id="chartOverlayLines" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5;">
-    <!-- Entry line -->
-    <div id="lineEntry" style="display:none;position:absolute;left:0;right:0;height:1px;border-top:1.5px dashed #facc15;">
-      <span id="labelEntry" style="position:absolute;right:4px;top:-10px;font-family:'Share Tech Mono',monospace;font-size:8px;color:#facc15;background:rgba(10,15,30,0.8);padding:1px 4px;border-radius:3px;"></span>
-    </div>
-    <!-- SL line -->
-    <div id="lineSL" style="display:none;position:absolute;left:0;right:0;height:1px;border-top:1.5px dashed #f87171;">
-      <span id="labelSL" style="position:absolute;right:4px;top:-10px;font-family:'Share Tech Mono',monospace;font-size:8px;color:#f87171;background:rgba(10,15,30,0.8);padding:1px 4px;border-radius:3px;"></span>
-    </div>
-    <!-- TP line -->
-    <div id="lineTP" style="display:none;position:absolute;left:0;right:0;height:1px;border-top:1.5px dashed #34d399;">
-      <span id="labelTP" style="position:absolute;right:4px;top:-10px;font-family:'Share Tech Mono',monospace;font-size:8px;color:#34d399;background:rgba(10,15,30,0.8);padding:1px 4px;border-radius:3px;"></span>
+  <!-- TradingView Widget - full height -->
+  <div id="tvContainer" style="width:100%;height:420px;"></div>
+
+  <!-- Info harga saat trading aktif - overlay di atas chart -->
+  <div id="tradingPriceOverlay" style="display:none;position:absolute;top:8px;left:8px;z-index:20;
+    background:rgba(7,13,26,0.85);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 12px;">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#64748b;letter-spacing:1px;margin-bottom:4px;">POSISI AKTIF</div>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#64748b;">ENTRY</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#f59e0b;" id="overlayEntry">$—</div>
+      </div>
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#64748b;">SEKARANG</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;" id="overlayNow">$—</div>
+      </div>
+      <div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#64748b;">PnL</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;" id="overlayPnl">—</div>
+      </div>
     </div>
   </div>
-  <!-- PnL overlay -->
+
+  <!-- PnL overlay lama -->
   <div class="chart-overlay" id="chartOverlay" style="display:none;">
     <div class="co-pnl" id="chartPnL">+$0.00 (0.00%)</div>
   </div>
@@ -349,6 +316,43 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div id="chartLoading" style="position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:var(--dark);pointer-events:none;">
     <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#64748b;letter-spacing:1px;">⏳ Memuat chart...</div>
   </div>
+</div>
+
+<!-- TOKEN + HARGA DIBAWAH CHART -->
+<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--dark2);border-bottom:1px solid var(--border);">
+  <!-- Token selector -->
+  <div style="display:flex;gap:8px;">
+    <div class="tok-tab active" id="tab-BNB" onclick="selectToken('BNB',0)" style="cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid rgba(245,158,11,0.3);text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--delta);">BNB/USDT</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BNB">$—</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;" id="tabc-BNB">—</div>
+    </div>
+    <div class="tok-tab" id="tab-BTC" onclick="selectToken('BTC',1)" style="cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid var(--border);text-align:center;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);">BTC/USDT</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);" id="tabp-BTC">$—</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;" id="tabc-BTC">—</div>
+    </div>
+  </div>
+  <!-- Timeframe -->
+  <div class="tf-bar" style="padding:0;border:none;gap:4px;">
+    <button class="tf-btn" onclick="setTF('1')">1M</button>
+    <button class="tf-btn active" id="tf5" onclick="setTF('5')">5M</button>
+    <button class="tf-btn" onclick="setTF('15')">15M</button>
+    <button class="tf-btn" onclick="setTF('30')">30M</button>
+    <button class="tf-btn" onclick="setTF('60')">1H</button>
+    <button class="tf-btn" onclick="setTF('240')">4H</button>
+    <button class="tf-btn" onclick="setTF('1D')">1D</button>
+  </div>
+</div>
+
+<!-- hidden elements untuk kompatibilitas JS -->
+<div style="display:none;">
+  <div id="phSym">BNB/USDT</div>
+  <div id="phPrice">$—</div>
+  <div id="phChg">—</div>
+  <div id="ph24H">—</div>
+  <div id="ph24L">—</div>
+  <div id="phVol">—</div>
 </div>
 
 <!-- TRADING FORM -->
@@ -1147,6 +1151,8 @@ async function loadActivePosition() {
       activePosPid = 0;
       if (pnlInterval) clearInterval(pnlInterval);
       document.getElementById("chartOverlay").style.display="none";
+      const ov = document.getElementById("tradingPriceOverlay");
+      if(ov) ov.style.display="none";
       sec.innerHTML = "";
     }
   } catch(e) {
@@ -1156,10 +1162,31 @@ async function loadActivePosition() {
 
 function updatePnLOverlay(pv, ppv, ip) {
   const el = document.getElementById("chartPnL");
-  if (!el) return;
-  if (pv !== undefined) {
+  if (el && pv !== undefined) {
     el.textContent = `${ip?"+":""} $${Math.abs(pv).toFixed(4)} (${ip?"+":""}${ppv.toFixed(2)}%)`;
     el.className   = "co-pnl "+(ip?"profit":"loss");
+  }
+  // Update overlay baru
+  const overlay = document.getElementById("tradingPriceOverlay");
+  const nowEl   = document.getElementById("overlayNow");
+  const pnlEl   = document.getElementById("overlayPnl");
+  if (overlay) overlay.style.display = "block";
+  if (nowEl && prices[curToken.sym]) {
+    const p = prices[curToken.sym];
+    nowEl.textContent = p>100?"$"+p.toLocaleString("en",{maximumFractionDigits:2}):"$"+p.toFixed(4);
+    nowEl.style.color = ip ? "var(--green)" : "var(--red)";
+  }
+  if (pnlEl && pv !== undefined) {
+    pnlEl.textContent = `${ip?"+":""} $${Math.abs(pv).toFixed(2)}`;
+    pnlEl.style.color = ip ? "var(--green)" : "var(--red)";
+  }
+}
+
+// Update overlay entry price
+function setOverlayEntry(entryPrice) {
+  const el = document.getElementById("overlayEntry");
+  if (el && entryPrice > 0) {
+    el.textContent = entryPrice>100?"$"+entryPrice.toLocaleString("en",{maximumFractionDigits:2}):"$"+entryPrice.toFixed(4);
   }
 }
 
