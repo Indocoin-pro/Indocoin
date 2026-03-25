@@ -790,6 +790,7 @@ function startTickerWS(sym) {
 }
 
 function updatePriceHeader(sym, price, pct) {
+  if (!price || price <= 0) return;
   if (sym !== curToken.sym) return;
   const isUp = pct >= 0;
   const fmt  = price > 100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:2}) : "$"+price.toFixed(4);
@@ -814,28 +815,51 @@ function updateTabPrice(sym, price, pct) {
 }
 
 // ═══ CHART LINES ══════════════════════════════════════════
+// Chart lines pakai HTML overlay (TradingView iframe tidak bisa di-inject)
+let chartLineData = {}; // {entry, liq, sl, tp}
+
 function drawChartLine(id, price, color, style) {
-  if (!chart || !price) return;
-  try {
-    return candleSeries.createPriceLine({
-      price: price,
-      color: color,
-      lineWidth: 1,
-      lineStyle: style || LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: id,
-    });
-  } catch(e) {}
+  chartLineData[id] = {price, color};
+  updateOverlayLines();
+  return {id, price}; // dummy return untuk kompatibilitas
 }
 
 function clearChartLines() {
-  try {
-    if (entryLine) candleSeries.removePriceLine(entryLine);
-    if (liqLine)   candleSeries.removePriceLine(liqLine);
-    if (slLine)    candleSeries.removePriceLine(slLine);
-    if (tpLine)    candleSeries.removePriceLine(tpLine);
-  } catch(e) {}
+  chartLineData = {};
+  updateOverlayLines();
   entryLine = liqLine = slLine = tpLine = null;
+}
+
+function updateOverlayLines() {
+  // Sembunyikan semua dulu
+  ["lineEntry","lineSL","lineTP"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = "none";
+  });
+  // Tampilkan yang ada data
+  const container = document.getElementById("chartContainer");
+  if (!container) return;
+  const h = container.offsetHeight;
+  const lines = [
+    {key:"Entry", elId:"lineEntry", labelId:"labelEntry"},
+    {key:"SL",    elId:"lineSL",   labelId:"labelSL"},
+    {key:"TP",    elId:"lineTP",   labelId:"labelTP"},
+  ];
+  lines.forEach(({key, elId, labelId}) => {
+    if (!chartLineData[key]) return;
+    const el = document.getElementById(elId);
+    const lb = document.getElementById(labelId);
+    if (!el || !lb) return;
+    // Posisi vertikal berdasarkan % range harga (estimasi)
+    const p = prices[curToken.sym];
+    if (!p) return;
+    const range = p * 0.02; // ±2% range
+    const pct = 0.5 + (p - chartLineData[key].price) / (range * 2);
+    const top = Math.max(5, Math.min(95, pct * 100));
+    el.style.display = "block";
+    el.style.top = top + "%";
+    lb.textContent = key + ": $" + chartLineData[key].price.toFixed(4);
+  });
 }
 
 function updateChartLines() {
@@ -876,8 +900,12 @@ function selectToken(sym, idx) {
   });
   document.getElementById("phSym").textContent = sym+"/USDT";
   clearChartLines();
-  loadCandles(sym, currentTF === "1D" ? "1d" : currentTF);
-  startKlineWS(sym, currentTF);
+  // Load TradingView chart untuk token baru
+  loadTVChart(sym, currentTF);
+  // Start ticker WS untuk token ini
+  startTickerWS(sym);
+  // Update harga langsung kalau sudah ada
+  if (prices[sym]) updatePriceHeader(sym, prices[sym], 0);
   loadActivePosition();
   updatePreview();
 }
