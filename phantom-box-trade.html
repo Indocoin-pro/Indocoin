@@ -11,14 +11,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
-  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
-  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
-  --text:#e2e8f0;--muted:#64748b;
-  --green:#34d399;--red:#f87171;--cyan:#38bdf8;--violet:#a78bfa;
-  --border:rgba(250,204,21,0.12);--card:rgba(15,23,42,0.95);
+  --bg:    #080808;
+  --bg2:   #111111;
+  --bg3:   #1a1a1a;
+  --white:  #f5f0e8;
+  --white2: #a89880;
+  --white3: #6b5a48;
+  --gold:   #c8922a;
+  --gold2:  #e8a830;
+  --gold3:  #f5c842;
+  --green:  #2ea86a;
+  --red:    #c94040;
+  --border: rgba(200,146,42,0.18);
+  --border2:rgba(200,146,42,0.1);
+  /* alias compat */
+  --dark:   #080808;
+  --dark2:  #111111;
+  --dark3:  #1a1a1a;
+  --text:   #f5f0e8;
+  --muted:  #a89880;
+  --cyan:   #e8a830;
+  --violet: #a89880;
+  --card:   #111111;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.05) 1px,transparent 1px);background-size:36px 36px;}
+.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.07) 0%,transparent 65%);}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
 #bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
 #bgLogo img{width:min(85vw,85vh);height:min(85vw,85vh);object-fit:contain;opacity:0.03;filter:blur(2px);}
 .star{position:fixed;background:#fff;border-radius:50%;animation:twinkle var(--d) ease-in-out infinite alternate;z-index:0;}
@@ -34,15 +55,15 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 
 /* TOPNAV */
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,15,30,0.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
 .nav-left{display:flex;align-items:center;gap:10px;text-decoration:none;}
 .nav-logo{width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
-.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
-.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--violet);letter-spacing:1px;}
-.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:7px 12px;border:1px solid rgba(250,204,21,0.4);border-radius:20px;background:rgba(250,204,21,0.08);color:var(--gold);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
-.btn-wallet.connected{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.08);color:var(--green);}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;padding:7px 14px;border:1px solid rgba(168,152,128,0.3);border-radius:4px;background:rgba(168,152,128,0.06);color:var(--white2);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+.btn-wallet.connected{border-color:rgba(168,152,128,0.3);background:rgba(168,152,128,0.08);color:var(--white2);}
 .wallet-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
-.wallet-dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:twinkle 1.5s infinite;}
+.wallet-dot.on{background:var(--white2);box-shadow:0 0 6px var(--white2);animation:pulse 1.5s infinite;}
 
 /* PAGE */
 .page{position:relative;z-index:1;padding:14px 12px 90px;max-width:480px;margin:0 auto;}
@@ -66,11 +87,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .btn-swap-now:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(250,204,21,0.3);}
 
 /* PANDUAN */
-.guide-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.1s both;}
+.guide-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.1s both;}
 .guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;transition:background 0.15s;}
 .guide-head:hover{background:rgba(255,255,255,0.02);}
 .guide-head-left{display:flex;align-items:center;gap:8px;}
-.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;}
 .guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
 .guide-arrow.open{transform:rotate(180deg);}
 .guide-body{display:none;padding:4px 16px 16px;}
@@ -95,11 +116,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .token-section{margin-bottom:12px;animation:fadeUp 0.4s ease 0.15s both;}
 .section-label{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:10px;}
 .token-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.token-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 6px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center;}
-.token-card.up{border-color:rgba(52,211,153,0.35);background:rgba(52,211,153,0.04);}
-.token-card.down{border-color:rgba(248,113,113,0.35);background:rgba(248,113,113,0.04);}
-.token-card.selected.up{border:2px solid var(--green);background:rgba(52,211,153,0.12);box-shadow:0 0 18px rgba(52,211,153,0.25);}
-.token-card.selected.down{border:2px solid var(--red);background:rgba(248,113,113,0.12);box-shadow:0 0 18px rgba(248,113,113,0.25);}
+.token-card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:8px 6px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.token-card.up{border-color:rgba(200,146,42,0.3);background:rgba(200,146,42,0.04);}
+.token-card.down{border-color:var(--border2);background:transparent;}
+.token-card.selected.up{border:2px solid var(--gold2);background:rgba(200,146,42,0.1);box-shadow:0 0 18px rgba(200,146,42,0.2);}
+.token-card.selected.down{border:2px solid var(--border);background:rgba(200,146,42,0.06);box-shadow:0 0 14px rgba(200,146,42,0.15);}
 .token-card:not(.selected):hover{transform:translateY(-2px);}
 .tc-dot{width:7px;height:7px;border-radius:50%;margin-bottom:5px;flex-shrink:0;}
 .tc-img{width:26px;height:26px;border-radius:50%;object-fit:contain;margin-bottom:4px;}
@@ -113,7 +134,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .token-card.selected .tc-selected-check{display:block;}
 
 /* JACKPOT POOL */
-.jackpot-wrap{background:var(--card);border:1px solid rgba(250,204,21,0.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;animation:fadeUp 0.4s ease 0.2s both;}
+.jackpot-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;animation:fadeUp 0.4s ease 0.2s both;}
 .jw-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .jw-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;display:flex;align-items:center;gap:5px;}
 .jw-amount{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold);}
@@ -122,7 +143,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .jw-footer{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
 
 /* STREAK */
-.streak-wrap{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.12);border-radius:10px;margin-bottom:12px;}
+.streak-wrap{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;}
 .streak-dots{display:flex;gap:5px;flex-shrink:0;}
 .sd{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);transition:all 0.3s;}
 .sd.lost{background:var(--red);border-color:var(--red);box-shadow:0 0 5px var(--red);}
@@ -131,17 +152,17 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .streak-info b{color:var(--violet);}
 
 /* TIMER & PREDIKSI */
-.timer-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;display:none;}
+.timer-section{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;display:none;}
 .timer-section.show{display:block;animation:fadeUp 0.3s ease;}
-.timer-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.timer-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 
 /* PREDIKSI NAIK/TURUN */
 .predict-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
 .predict-btn{padding:12px;border-radius:10px;border:2px solid transparent;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
-.predict-btn.up{background:rgba(52,211,153,0.08);border-color:rgba(52,211,153,0.3);color:var(--green);}
-.predict-btn.up:hover,.predict-btn.up.selected{background:rgba(52,211,153,0.2);border-color:var(--green);box-shadow:0 0 15px rgba(52,211,153,0.3);}
-.predict-btn.down{background:rgba(248,113,113,0.08);border-color:rgba(248,113,113,0.3);color:var(--red);}
-.predict-btn.down:hover,.predict-btn.down.selected{background:rgba(248,113,113,0.2);border-color:var(--red);box-shadow:0 0 15px rgba(248,113,113,0.3);}
+.predict-btn.up{background:rgba(200,146,42,0.08);border-color:rgba(200,146,42,0.3);color:var(--gold2);}
+.predict-btn.up:hover,.predict-btn.up.selected{background:rgba(200,146,42,0.18);border-color:var(--gold2);box-shadow:0 0 15px rgba(200,146,42,0.2);}
+.predict-btn.down{background:rgba(168,152,128,0.08);border-color:rgba(168,152,128,0.3);color:var(--white2);}
+.predict-btn.down:hover,.predict-btn.down.selected{background:rgba(168,152,128,0.18);border-color:var(--white2);box-shadow:0 0 15px rgba(168,152,128,0.15);}
 
 /* DURASI */
 .duration-title{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;}
@@ -158,7 +179,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .ep-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--cyan);}
 
 /* COUNTDOWN ACTIVE */
-.countdown-wrap{background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.2);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;display:none;}
+.countdown-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;text-align:center;display:none;}
 .countdown-wrap.show{display:block;animation:fadeUp 0.3s ease;}
 .cd-token{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;}
 .cd-predict{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;margin-bottom:8px;}
@@ -166,7 +187,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .cd-predict.down{color:var(--red);}
 .cd-timer{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;color:var(--gold);margin-bottom:6px;letter-spacing:4px;}
 .cd-price-row{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px;}
-.cd-price-now{color:var(--cyan);font-weight:700;}
+.cd-price-now{color:var(--white);font-weight:700;}
 .cd-diff.positive{color:var(--green);}
 .cd-diff.negative{color:var(--red);}
 .cd-bar-wrap{background:rgba(255,255,255,0.05);border-radius:4px;height:5px;overflow:hidden;margin-bottom:10px;}
@@ -178,16 +199,16 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 .box-section{margin-bottom:12px;animation:fadeUp 0.4s ease 0.25s both;}
 .box-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
-.box-item{aspect-ratio:1;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(167,139,250,0.2);background:rgba(167,139,250,0.05);transition:all 0.2s;position:relative;overflow:hidden;animation:glow 3s ease-in-out infinite;}
+.box-item{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(200,146,42,0.2);background:rgba(200,146,42,0.04);transition:all 0.2s;position:relative;overflow:hidden;}
 .box-item.jackpot-box{animation:glowGold 2s ease-in-out infinite;border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.07);}
-.box-item.selected-box{border-color:var(--violet);border-width:2px;transform:scale(1.08);box-shadow:0 0 20px rgba(167,139,250,0.4);}
+.box-item.selected-box{border-color:var(--gold2);border-width:2px;transform:scale(1.08);box-shadow:0 0 20px rgba(200,146,42,0.4);}
 .box-item.opened-box{opacity:0.3;cursor:not-allowed;animation:none;border-color:rgba(255,255,255,0.04);background:transparent;}
 .box-item:not(.opened-box):not(.selected-box):hover{transform:scale(1.04);}
 .box-emoji{font-size:22px;transition:all 0.3s;}
 .box-num{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
 
 /* SELECTED TOKEN PANEL */
-.sel-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;display:none;}
+.sel-panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;display:none;}
 .sel-panel.show{display:block;animation:fadeUp 0.3s ease;}
 .sel-panel-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
 .sel-panel-icon{width:40px;height:40px;border-radius:50%;object-fit:contain;}
@@ -197,21 +218,21 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .sel-stat{background:rgba(255,255,255,0.02);border-radius:8px;padding:8px 6px;text-align:center;}
 .sel-stat-label{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;}
 .sel-stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;}
-.btn-open{width:100%;padding:14px;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;background:linear-gradient(135deg,#3b0764,var(--violet));color:#fff;box-shadow:0 4px 20px rgba(167,139,250,0.3);}
-.btn-open:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(167,139,250,0.5);}
+.btn-open{width:100%;padding:14px;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;background:linear-gradient(135deg,#5a3800,var(--gold2));color:var(--bg);box-shadow:0 4px 24px rgba(200,146,42,0.35);}
+.btn-open:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(200,146,42,0.4);}
 .btn-open:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
 .btn-open.jackpot-mode{background:linear-gradient(135deg,var(--gold3),var(--gold));color:#0a0f1e;box-shadow:0 4px 20px rgba(250,204,21,0.4);}
 
 /* LIVE FEED */
-.livefeed{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.3s both;}
+.livefeed{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;animation:fadeUp 0.4s ease 0.3s both;}
 .lf-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);}
-.lf-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;}
-.lf-live-badge{display:flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--green);}
-.lf-live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:twinkle 1s infinite;}
+.lf-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.lf-live-badge{display:flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white2);}
+.lf-live-dot{width:5px;height:5px;border-radius:50%;background:var(--white2);animation:pulse 1.5s infinite;}
 .lf-list{max-height:160px;overflow-y:auto;}
 .lf-row{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.03);}
 .lf-row:last-child{border-bottom:none;}
-.lf-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--cyan);flex-shrink:0;width:80px;}
+.lf-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white2);flex-shrink:0;width:80px;}
 .lf-tok{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);flex-shrink:0;width:30px;}
 .lf-amt{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;flex:1;text-align:right;}
 .lf-amt.w{color:var(--green);}
@@ -222,7 +243,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 /* RESULT OVERLAY */
 .result-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);display:none;align-items:flex-end;justify-content:center;}
 .result-overlay.show{display:flex;}
-.result-sheet{background:var(--dark2);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:28px 24px 40px;text-align:center;position:relative;overflow:hidden;animation:fadeUp 0.4s cubic-bezier(0.34,1.2,0.64,1);}
+.result-sheet{background:var(--bg2);border:1px solid var(--border);border-top:1px solid var(--border);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:28px 24px 40px;text-align:center;position:relative;overflow:hidden;animation:fadeUp 0.4s cubic-bezier(0.34,1.2,0.64,1);}
 .result-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.12);margin:0 auto 20px;}
 .result-icon{font-size:56px;display:block;margin-bottom:12px;animation:float 2s ease-in-out infinite;}
 .result-tag{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;margin-bottom:6px;padding:4px 12px;border-radius:20px;display:inline-block;}
@@ -243,18 +264,22 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 /* BOTTOM NAV */
 .bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
-  background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:60px;}
+  background:rgba(8,8,8,0.99);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);display:flex;height:60px;}
 .bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:3px;cursor:pointer;text-decoration:none;
-  color:var(--muted);transition:color 0.2s;
-  font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;
+  color:var(--white3);transition:color 0.2s;
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
   border:none;background:transparent;}
-.bnav-item.active,.bnav-item:hover{color:var(--gold);}
-.bnav-icon{font-size:20px;}
-.bnav-label{font-size:7px;font-weight:700;letter-spacing:1px;font-family:'Orbitron',sans-serif;}
-.bnav-icon{font-size:18px;}
+.bnav-item.active,.bnav-item:hover{color:var(--white2);}
+.bnav-icon{font-size:20px;display:none;}
 .bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+/* SECTION ICON BOXES */
+.sec-icon{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;background:rgba(245,240,232,0.07);border:1px solid rgba(245,240,232,0.15);overflow:visible;}
+.sec-icon svg{color:var(--white);}
+@keyframes signalPing{0%{opacity:0.6;transform:scale(1);}100%{opacity:0;transform:scale(2);}}
+.sec-icon .ring1{position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(245,240,232,0.25);animation:signalPing 2s ease-out infinite;}
+.sec-icon .ring2{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(245,240,232,0.12);animation:signalPing 2s ease-out 0.5s infinite;}
 
 /* MISC */
 .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(250,204,21,0.3);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
@@ -263,6 +288,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 </head>
 <body>
 
+<div class="grid-bg"></div>
+<div class="scanline"></div>
 <div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
 
 <!-- TOPNAV -->
@@ -271,7 +298,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <img src="1772782967104.png" class="nav-logo" alt="" onerror="this.style.display='none'">
     <div>
       <div class="nav-brand-main">INDOCOIN</div>
-      <div class="nav-brand-sub">🎁 PHANTOM BOX TRADE</div>
+      <div class="nav-brand-sub">▸ PHANTOM BOX TRADE</div>
     </div>
   </a>
   <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
@@ -284,15 +311,15 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge">⚡ MYSTERY BOX TRADE</div>
-    <span class="hero-icon">🎁</span>
-    <div class="hero-title">PHANTOM BOX TRADE</div>
+    <div class="hero-badge">MYSTERY BOX TRADE</div>
+    
+    <div class="hero-title" style="color:var(--white);">PHANTOM <span style="color:var(--gold2);">BOX</span> TRADE</div>
     <div class="hero-desc">Buka kotak misteri berhadiah INDC.<br>Analisa pergerakan market, pilih arah yang tepat, dan raih hadiahmu!</div>
   </div>
 
   <!-- SWAP STATUS -->
   <div class="swap-status not-swapped" id="swapStatus">
-    <div class="ss-icon">⚠️</div>
+    <div class="ss-icon" style="font-size:16px;color:var(--white2);">!</div>
     <div class="ss-body">
       <div class="ss-title" style="color:var(--red)">SALDO INDC KURANG</div>
       <div class="ss-desc">Butuh minimal 100 INDC untuk<br>bisa membuka kotak misteri.</div>
@@ -300,11 +327,176 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <button class="btn-swap-now" onclick="window.location.href='swap.html'">BELI INDC →</button>
   </div>
 
+  <!-- REALTIME STATUS -->
+  <div class="reset-timer">
+    <span class="rt-label">HARGA</span>
+    <span class="rt-time" style="color:var(--green);font-size:9px" id="realtimeStatus">● MEMUAT...</span>
+  </div>
+
+  <!-- TOKEN CARDS -->
+  <div class="token-section">
+    <div class="section-label">PILIH TOKEN INDIKATOR HARI INI</div>
+    <div class="token-cards" id="tokenCards">
+      <div style="grid-column:1/-1;text-align:center;padding:24px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">
+        <div class="spin" style="margin:0 auto 10px;"></div>Memuat data token...
+      </div>
+    </div>
+  </div>
+
+  <!-- JACKPOT POOL -->
+  <div class="jackpot-wrap">
+    <div class="jw-top">
+      <div class="jw-title">MEGA JACKPOT POOL</div>
+      <div class="jw-amount" id="jpAmount">0 INDC</div>
+    </div>
+    <div class="jw-bar-bg"><div class="jw-bar" id="jpBar" style="width:0%"></div></div>
+    <div class="jw-footer">
+      <span id="jpFilled">0 / 1000 INDC terkumpul</span>
+      <span id="jpStatus">0% terisi</span>
+    </div>
+  </div>
+
+  <!-- POOL INFO -->
+  <div class="streak-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;">
+    <div style="text-align:center">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">POOL HADIAH</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--white)" id="poolAmount">— INDC</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">TOTAL DIBUKA</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--violet)" id="totalBoxCount">—</div>
+    </div>
+  </div>
+
+  <!-- BOX GRID -->
+  <div class="box-section">
+    <div class="section-label">10 KOTAK MISTERI — PILIH SATU</div>
+    <div class="box-grid" id="boxGrid"></div>
+  </div>
+
+  <!-- SELECTED PANEL -->
+  <div class="sel-panel" id="selPanel">
+    <div class="sel-panel-head">
+      <img class="sel-panel-icon" id="spImg" src="" onerror="this.style.display='none'">
+      <div>
+        <div class="sel-panel-name" id="spName">—</div>
+        <div class="sel-panel-cond" id="spCond">—</div>
+      </div>
+    </div>
+    <!-- INPUT TARUHAN -->
+    <div style="padding:10px 0 4px">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px">JUMLAH TARUHAN (10–1000 INDC)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="betSlider" min="10" max="1000" value="50" step="10"
+          oninput="updateBet(this.value)"
+          style="flex:1;accent-color:var(--gold);height:4px">
+        <div style="display:flex;align-items:center;gap:4px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);border-radius:8px;padding:6px 10px;min-width:90px">
+          <input type="number" id="betInput" min="10" max="1000" value="50"
+            oninput="updateBetFromInput(this.value)"
+            style="background:none;border:none;outline:none;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);width:50px">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)">INDC</span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">Min 10</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">Max 1000</span>
+      </div>
+    </div>
+
+    <div class="sel-stats">
+      <div class="sel-stat">
+        <div class="sel-stat-label">Min Hadiah</div>
+        <div class="sel-stat-val" id="spMinReward" style="color:var(--green)">—</div>
+      </div>
+      <div class="sel-stat">
+        <div class="sel-stat-label">Max Hadiah</div>
+        <div class="sel-stat-val" id="spMaxReward" style="color:var(--violet)">—</div>
+      </div>
+      <div class="sel-stat">
+        <div class="sel-stat-label">Rata-rata</div>
+        <div class="sel-stat-val" id="spAvgReward" style="color:var(--gold)">—</div>
+      </div>
+    </div>
+    <button class="btn-open" id="btnOpen" onclick="showTimerSection()" disabled>PILIH KOTAK DULU</button>
+  </div>
+
+  <!-- TIMER & PREDIKSI SECTION -->
+  <div class="timer-section" id="timerSection">
+
+    <!-- ARAH MARKET -->
+    <div class="timer-title"><div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="3" x2="10" y2="1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div> POSISI TRADING</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ARAH MARKET</div>
+    <div class="predict-wrap">
+      <button class="predict-btn up" id="btnUp" onclick="selectPredict('up')">
+        🟢 LONG
+      </button>
+      <button class="predict-btn down" id="btnDown" onclick="selectPredict('down')">
+        🔴 SHORT
+      </button>
+    </div>
+
+    <!-- DURASI -->
+    <div class="duration-title">PILIH DURASI</div>
+    <div class="duration-wrap">
+      <div class="dur-btn" id="dur15" onclick="selectDuration(15)">
+        <span class="dur-btn-time">15M</span>
+        <span>15 Menit</span>
+        <div class="dur-btn-multi">⚡ Cepat & ringkas</div>
+      </div>
+      <div class="dur-btn" id="dur60" onclick="selectDuration(60)">
+        <span class="dur-btn-time">1H</span>
+        <span>1 Jam</span>
+        <div class="dur-btn-multi">🎯 Peluang lebih baik</div>
+      </div>
+      <div class="dur-btn" id="dur240" onclick="selectDuration(240)">
+        <span class="dur-btn-time">4H</span>
+        <span>4 Jam</span>
+        <div class="dur-btn-multi">💎 Potensi maksimal</div>
+      </div>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:0.5px;text-align:center;margin-bottom:12px;line-height:1.6;">
+      Semakin lama durasi, semakin tinggi potensi — tapi analisa dulu arah marketmu
+    </div>
+
+    <!-- HARGA ENTRY -->
+    <div class="entry-price">
+      <div class="ep-label">📊 HARGA ENTRY <span id="epToken">—</span></div>
+      <div class="ep-val" id="epPrice">$—</div>
+    </div>
+
+    <!-- TOMBOL KONFIRMASI -->
+    <button class="btn-open" id="btnConfirm" onclick="confirmAndOpenBox()" disabled>
+      🔓 APPROVE INDC
+    </button>
+
+  </div>
+
+  <!-- COUNTDOWN ACTIVE -->
+  <div class="countdown-wrap" id="countdownWrap">
+    <div class="cd-token" id="cdToken">Memantau —</div>
+    <div class="cd-predict up" id="cdPredict">▲ LONG — PREDIKSI NAIK</div>
+    <div class="cd-timer" id="cdTimer">--:--:--</div>
+    <div class="cd-price-row">
+      <span>Entry: <span id="cdEntryPrice" style="color:var(--cyan)">$—</span></span>
+      <span>Sekarang: <span class="cd-price-now" id="cdCurrentPrice">$—</span></span>
+      <span class="cd-diff" id="cdDiff">—</span>
+    </div>
+    <div class="cd-bar-wrap">
+      <div class="cd-bar-fill" id="cdBarFill" style="width:100%"></div>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px" id="cdStatus">
+      Menunggu waktu habis...
+    </div>
+    <button class="btn-claim" id="btnClaim" onclick="claimReward()">
+      🏆 KLAIM HADIAH
+    </button>
+  </div>
+
   <!-- PANDUAN -->
   <div class="guide-wrap">
     <div class="guide-head" onclick="toggleGuide()">
       <div class="guide-head-left">
-        <span style="font-size:15px">📖</span>
+        <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>
         <span class="guide-head-title">PANDUAN CARA MAIN</span>
       </div>
       <span class="guide-arrow" id="guideArrow">▼</span>
@@ -420,196 +612,46 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     </div>
   </div>
 
-  <!-- REALTIME STATUS -->
-  <div class="reset-timer">
-    <span class="rt-label">🔄 HARGA</span>
-    <span class="rt-time" style="color:var(--green);font-size:9px" id="realtimeStatus">● MEMUAT...</span>
-  </div>
-
-  <!-- TOKEN CARDS -->
-  <div class="token-section">
-    <div class="section-label">PILIH TOKEN INDIKATOR HARI INI</div>
-    <div class="token-cards" id="tokenCards">
-      <div style="grid-column:1/-1;text-align:center;padding:24px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">
-        <div class="spin" style="margin:0 auto 10px;"></div>Memuat data token...
-      </div>
-    </div>
-  </div>
-
-  <!-- JACKPOT POOL -->
-  <div class="jackpot-wrap">
-    <div class="jw-top">
-      <div class="jw-title"><span style="animation:float 2s infinite;display:inline-block">⚡</span> MEGA JACKPOT POOL</div>
-      <div class="jw-amount" id="jpAmount">0 INDC</div>
-    </div>
-    <div class="jw-bar-bg"><div class="jw-bar" id="jpBar" style="width:0%"></div></div>
-    <div class="jw-footer">
-      <span id="jpFilled">0 / 1000 INDC terkumpul</span>
-      <span id="jpStatus">0% terisi</span>
-    </div>
-  </div>
-
-  <!-- POOL INFO -->
-  <div class="streak-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;">
-    <div style="text-align:center">
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">POOL HADIAH</div>
-      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--green)" id="poolAmount">— INDC</div>
-    </div>
-    <div style="text-align:center">
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px">TOTAL DIBUKA</div>
-      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--violet)" id="totalBoxCount">—</div>
-    </div>
-  </div>
-
-  <!-- BOX GRID -->
-  <div class="box-section">
-    <div class="section-label">10 KOTAK MISTERI — PILIH SATU</div>
-    <div class="box-grid" id="boxGrid"></div>
-  </div>
-
-  <!-- SELECTED PANEL -->
-  <div class="sel-panel" id="selPanel">
-    <div class="sel-panel-head">
-      <img class="sel-panel-icon" id="spImg" src="" onerror="this.style.display='none'">
-      <div>
-        <div class="sel-panel-name" id="spName">—</div>
-        <div class="sel-panel-cond" id="spCond">—</div>
-      </div>
-    </div>
-    <!-- INPUT TARUHAN -->
-    <div style="padding:10px 0 4px">
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px">JUMLAH TARUHAN (10–1000 INDC)</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="range" id="betSlider" min="10" max="1000" value="50" step="10"
-          oninput="updateBet(this.value)"
-          style="flex:1;accent-color:var(--gold);height:4px">
-        <div style="display:flex;align-items:center;gap:4px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);border-radius:8px;padding:6px 10px;min-width:90px">
-          <input type="number" id="betInput" min="10" max="1000" value="50"
-            oninput="updateBetFromInput(this.value)"
-            style="background:none;border:none;outline:none;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);width:50px">
-          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)">INDC</span>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">Min 10</span>
-        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">Max 1000</span>
-      </div>
-    </div>
-
-    <div class="sel-stats">
-      <div class="sel-stat">
-        <div class="sel-stat-label">Min Hadiah</div>
-        <div class="sel-stat-val" id="spMinReward" style="color:var(--green)">—</div>
-      </div>
-      <div class="sel-stat">
-        <div class="sel-stat-label">Max Hadiah</div>
-        <div class="sel-stat-val" id="spMaxReward" style="color:var(--violet)">—</div>
-      </div>
-      <div class="sel-stat">
-        <div class="sel-stat-label">Rata-rata</div>
-        <div class="sel-stat-val" id="spAvgReward" style="color:var(--gold)">—</div>
-      </div>
-    </div>
-    <button class="btn-open" id="btnOpen" onclick="showTimerSection()" disabled>🎁 PILIH KOTAK DULU</button>
-  </div>
-
-  <!-- TIMER & PREDIKSI SECTION -->
-  <div class="timer-section" id="timerSection">
-
-    <!-- ARAH MARKET -->
-    <div class="timer-title">🎯 POSISI TRADING</div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ARAH MARKET</div>
-    <div class="predict-wrap">
-      <button class="predict-btn up" id="btnUp" onclick="selectPredict('up')">
-        🟢 LONG
-      </button>
-      <button class="predict-btn down" id="btnDown" onclick="selectPredict('down')">
-        🔴 SHORT
-      </button>
-    </div>
-
-    <!-- DURASI -->
-    <div class="duration-title">PILIH DURASI</div>
-    <div class="duration-wrap">
-      <div class="dur-btn" id="dur15" onclick="selectDuration(15)">
-        <span class="dur-btn-time">15M</span>
-        <span>15 Menit</span>
-        <div class="dur-btn-multi">⚡ Cepat & ringkas</div>
-      </div>
-      <div class="dur-btn" id="dur60" onclick="selectDuration(60)">
-        <span class="dur-btn-time">1H</span>
-        <span>1 Jam</span>
-        <div class="dur-btn-multi">🎯 Peluang lebih baik</div>
-      </div>
-      <div class="dur-btn" id="dur240" onclick="selectDuration(240)">
-        <span class="dur-btn-time">4H</span>
-        <span>4 Jam</span>
-        <div class="dur-btn-multi">💎 Potensi maksimal</div>
-      </div>
-    </div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:0.5px;text-align:center;margin-bottom:12px;line-height:1.6;">
-      Semakin lama durasi, semakin tinggi potensi — tapi analisa dulu arah marketmu
-    </div>
-
-    <!-- HARGA ENTRY -->
-    <div class="entry-price">
-      <div class="ep-label">📊 HARGA ENTRY <span id="epToken">—</span></div>
-      <div class="ep-val" id="epPrice">$—</div>
-    </div>
-
-    <!-- TOMBOL KONFIRMASI -->
-    <button class="btn-open" id="btnConfirm" onclick="confirmAndOpenBox()" disabled>
-      🔓 APPROVE INDC
-    </button>
-
-  </div>
-
-  <!-- COUNTDOWN ACTIVE -->
-  <div class="countdown-wrap" id="countdownWrap">
-    <div class="cd-token" id="cdToken">Memantau —</div>
-    <div class="cd-predict up" id="cdPredict">🟢 LONG — PREDIKSI NAIK</div>
-    <div class="cd-timer" id="cdTimer">--:--:--</div>
-    <div class="cd-price-row">
-      <span>Entry: <span id="cdEntryPrice" style="color:var(--cyan)">$—</span></span>
-      <span>Sekarang: <span class="cd-price-now" id="cdCurrentPrice">$—</span></span>
-      <span class="cd-diff" id="cdDiff">—</span>
-    </div>
-    <div class="cd-bar-wrap">
-      <div class="cd-bar-fill" id="cdBarFill" style="width:100%"></div>
-    </div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:8px" id="cdStatus">
-      Menunggu waktu habis...
-    </div>
-    <button class="btn-claim" id="btnClaim" onclick="claimReward()">
-      🏆 KLAIM HADIAH
-    </button>
-  </div>
-
   <!-- LIVE FEED -->
-  <div class="livefeed">
+  <div class="livefeed" id="livefeedWrap">
     <div class="lf-head">
-      <div class="lf-title">📡 LIVE FEED</div>
+      <div class="lf-title"><div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><circle cx="10" cy="10" r="2.5" fill="currentColor"/><path d="M6.5 10a3.5 3.5 0 017 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3.5 10a6.5 6.5 0 0113 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div> LIVE FEED</div>
       <div class="lf-live-badge"><div class="lf-live-dot"></div>REAL-TIME</div>
     </div>
-    <div class="lf-list" id="liveFeed"></div>
+    <div class="lf-list" id="liveFeed"><div data-empty style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);">Belum ada aktivitas</div></div>
   </div>
 
 </div>
 
 <!-- BOTTOM NAV -->
 <nav class="bottomnav">
-  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
-  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
-  <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
-  <a class="bnav-item" href="presale.html"><span class="bnav-icon">🚀</span>PRESALE</a>
-  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
+  <a class="bnav-item" href="dashboard.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+    HOME
+  </a>
+  <a class="bnav-item" href="earn.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    EARN
+  </a>
+  <a class="bnav-item active" href="trade.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 3h14v14H3z" stroke="currentColor" stroke-width="1.4"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    TRADE
+  </a>
+  <a class="bnav-item" href="presale.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    PRESALE
+  </a>
+  <a class="bnav-item" href="community.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    COMMUNITY
+  </a>
 </nav>
 
 <!-- RESULT OVERLAY -->
 <div class="result-overlay" id="resultOverlay">
   <div class="result-sheet" id="resultSheet">
     <div class="result-handle"></div>
-    <span class="result-icon" id="rIcon">🎁</span>
+    <span class="result-icon" id="rIcon" style="font-size:0;display:flex;align-items:center;justify-content:center;"><svg width="52" height="52" viewBox="0 0 20 20" fill="none"><rect x="2" y="8" width="16" height="10" rx="2" stroke="#e8a830" stroke-width="1.4"/><path d="M10 8V18" stroke="#e8a830" stroke-width="1.4"/><path d="M2 11h16" stroke="#e8a830" stroke-width="1.4"/><path d="M10 8C10 8 7 2 4 4s0 4 6 4" stroke="#e8a830" stroke-width="1.4" stroke-linecap="round"/><path d="M10 8C10 8 13 2 16 4s0 4-6 4" stroke="#e8a830" stroke-width="1.4" stroke-linecap="round"/></svg></span>
     <div class="result-tag win" id="rTag">HASIL</div>
     <div class="result-amount win" id="rAmt">— INDC</div>
     <div class="result-desc" id="rDesc">—</div>
@@ -684,7 +726,7 @@ Object.defineProperty(window, 'BOX_PRICE', { get: () => betAmount });
 
 /* ═══ WALLET ═══ */
 async function connectWallet() {
-  if (!window.ethereum) { showToast("Buka lewat DApps browser!", "#f87171"); return; }
+  if (!window.ethereum) { showToast("Buka lewat DApps browser!", "#c94040"); return; }
   try {
     await window.ethereum.request({ method:"eth_requestAccounts" });
     const accs = await window.ethereum.request({ method:"eth_accounts" });
@@ -718,7 +760,6 @@ window.addEventListener("load", async () => {
   buildBoxes();
   fetchTokens();
   startTimer();
-  renderFeed();
   updateStreak();
   checkActiveSesi();
   // Auto refresh box states setiap 30 detik
@@ -855,7 +896,8 @@ function renderTokens() {
 
     const ch    = t.price_change_percentage_24h || 0;
     const isUp  = ch >= 0;
-    const color = isUp ? "#34d399" : "#f87171";
+    const dotColor = isUp ? "#e8a830" : "#c94040";
+    const color = "#a89880";
     const dir   = isUp ? "up" : "down";
     const chStr = (isUp ? "▲ +" : "▼ ") + Math.abs(ch).toFixed(2) + "%";
     const px    = t.current_price > 100
@@ -864,15 +906,15 @@ function renderTokens() {
     const arrow = isUp ? "🟢" : "🔴";
     return `
     <div class="token-card ${dir}" id="tc${i}" onclick="pickToken(${i})">
-      <div class="tc-dot" style="background:${color};box-shadow:0 0 6px ${color}"></div>
+      <div class="tc-dot" style="background:${dotColor};box-shadow:0 0 6px ${dotColor}"></div>
       <img class="tc-img" src="${t.image||""}" onerror="this.style.display='none'">
       <div class="tc-body">
         <div class="tc-sym">${(t.symbol||"").toUpperCase()}</div>
         <div class="tc-price" id="tcp${i}">${px}</div>
         <div class="tc-change" style="color:${color}">${chStr}</div>
-        <div class="tc-range">${t.rMin}–${t.rMax}<br><span style="color:${color}">⚡${t.jpMax}</span></div>
+        <div class="tc-range">${t.rMin}–${t.rMax}<br><span style="color:var(--white3)">⚡${t.jpMax}</span></div>
       </div>
-      <div class="tc-bar" style="background:linear-gradient(90deg,${color}33,${color})"></div>
+      <div class="tc-bar" style="background:linear-gradient(90deg,rgba(200,146,42,0.2),rgba(200,146,42,0.4))"></div>
       <div class="tc-selected-check" style="color:${color}">${arrow}</div>
     </div>`;
   }).join("");
@@ -894,7 +936,7 @@ function pickToken(i) {
   // Update panel
   const ch    = selToken.price_change_percentage_24h || 0;
   const isUp  = ch >= 0;
-  const color = isUp ? "#34d399" : "#f87171";
+  const color = isUp ? "#e8a830" : "#c94040";
   const label = isUp ? "🟢 BULLISH" : "🔴 BEARISH";
   document.getElementById("spImg").src              = selToken.image || "";
   document.getElementById("spName").textContent     = selToken.name + " (" + (selToken.symbol||"").toUpperCase() + ")";
@@ -1018,7 +1060,7 @@ function closeResult() { document.getElementById("resultOverlay").classList.remo
 
 function spawnConfetti() {
   const s = document.getElementById("resultSheet");
-  const cols = ["#facc15","#a78bfa","#34d399","#38bdf8","#f87171","#fb923c"];
+  const cols = ["#facc15","#a78bfa","#e8a830","#38bdf8","#c94040","#fb923c"];
   for(let i=0;i<24;i++) {
     const c=document.createElement("div"); c.className="confetti-p";
     c.style.cssText=`left:${Math.random()*100}%;top:${40+Math.random()*40}%;background:${cols[~~(Math.random()*cols.length)]};animation-delay:${Math.random()*0.5}s;animation-duration:${1+Math.random()}s;transform:rotate(${Math.random()*360}deg);`;
@@ -1093,14 +1135,7 @@ async function updateEstimate() {
 }
 
 /* ═══ LIVE FEED ═══ */
-const SEED_FEED = [
-  { addr:"0x3f4a...8b2c", tok:"BNB",  amt:120, w:true,  j:false, t:"2 mnt lalu" },
-  { addr:"0xa912...cc1e", tok:"ETH",  amt:380, w:true,  j:false, t:"5 mnt lalu" },
-  { addr:"0x771b...0d3f", tok:"CAKE", amt:22,  w:false, j:false, t:"9 mnt lalu" },
-  { addr:"0x2c88...fe90", tok:"BNB",  amt:497, w:true,  j:true,  t:"14 mnt lalu"},
-  { addr:"0xd441...7a1b", tok:"ETH",  amt:35,  w:false, j:false, t:"19 mnt lalu"},
-  { addr:"0x5509...3c2d", tok:"CAKE", amt:180, w:true,  j:false, t:"26 mnt lalu"},
-];
+const SEED_FEED = [];
 function renderFeed() {
   document.getElementById("liveFeed").innerHTML = SEED_FEED.map(f=>`
     <div class="lf-row">
@@ -1113,6 +1148,9 @@ function renderFeed() {
 function addFeedRow(addr, tok, amt, w, j) {
   const el=document.getElementById("liveFeed");
   const s=addr.slice(0,6)+"..."+addr.slice(-4);
+  // Hapus pesan kosong kalau ada
+  const empty=el.querySelector("[data-empty]");
+  if(empty) empty.remove();
   const div=document.createElement("div"); div.className="lf-row";
   div.innerHTML=`<div class="lf-addr">${s}</div><div class="lf-tok">${(tok||"").toUpperCase()}</div><div class="lf-amt ${j?"j":w?"w":"l"}">${j?"⚡ ":""}${amt} INDC</div><div class="lf-when">Baru saja</div>`;
   el.insertBefore(div,el.firstChild);
@@ -1226,7 +1264,8 @@ function updateTokenCardPrice(sym, price) {
       if (card && t.open_price) {
         const ch   = ((price - t.open_price) / t.open_price) * 100;
         const isUp = ch >= 0;
-        const color = isUp ? "#34d399" : "#f87171";
+        const dotColor = isUp ? "#e8a830" : "#c94040";
+    const color = "#a89880";
         const dir   = isUp ? "up" : "down";
         card.classList.remove("up","down");
         card.classList.add(dir);
@@ -1331,7 +1370,7 @@ const DURATION_LABELS = { 15:"15 Menit", 60:"1 Jam", 240:"4 Jam" };
 
 function showTimerSection() {
   if (!selToken) return;
-  if (!hasSwapped) { showToast("Saldo INDC kurang!", "#f87171"); return; }
+  if (!hasSwapped) { showToast("Saldo INDC kurang!", "#c94040"); return; }
   // Reset pilihan sebelumnya
   selectedPredict  = null;
   selectedDuration = null;
@@ -1422,10 +1461,10 @@ function checkConfirmReady() {
     // Reset ke APPROVE kalau pilihan berubah
     if (!_approveReady) {
       btn.style.background = "";
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
     } else {
       btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
-      btn.textContent = "🚀 MULAI TRADING";
+      btn.textContent = "MULAI TRADING";
     }
   }
 }
@@ -1436,10 +1475,10 @@ let _approveReady = false; // true setelah approve berhasil
 async function confirmAndOpenBox() {
   if (!selectedPredict || !selectedDuration) return;
   if (selBox === null || !selToken) return;
-  if (!userAddr) { showToast("❌ Connect wallet dulu!", "#f87171"); return; }
+  if (!userAddr) { showToast("❌ Connect wallet dulu!", "#c94040"); return; }
   if (!provider) {
     try { provider = new ethers.BrowserProvider(window.ethereum); }
-    catch(e) { showToast("❌ Wallet tidak terhubung!", "#f87171"); return; }
+    catch(e) { showToast("❌ Wallet tidak terhubung!", "#c94040"); return; }
   }
 
   // Kalau sudah approve → langsung openBox
@@ -1469,7 +1508,7 @@ async function _doApprove() {
     if (activeSess[0] === true) {
       showToast("⚠️ Ada sesi aktif! Klaim dulu sebelum buka kotak baru.", "#fbbf24");
       btn.disabled = false;
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
       document.getElementById("countdownWrap").classList.add("show");
       showClaimButton();
       return;
@@ -1480,9 +1519,9 @@ async function _doApprove() {
     const minBal = BigInt(100) * BigInt(10**9);
     const indcBal = await indcCon.balanceOf(userAddr);
     if (indcBal < minBal) {
-      showToast("❌ Saldo INDC kurang dari 100. Swap INDC dulu!", "#f87171");
+      showToast("❌ Saldo INDC kurang dari 100. Swap INDC dulu!", "#c94040");
       btn.disabled = false;
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
       return;
     }
 
@@ -1495,7 +1534,7 @@ async function _doApprove() {
     if (poolNow < minReward) {
       showToast("⚠️ Pool hadiah belum cukup. Tunggu sebentar!", "#fbbf24");
       btn.disabled = false;
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
       return;
     }
 
@@ -1507,12 +1546,12 @@ async function _doApprove() {
 
     if (allowance >= betWei) {
       // Sudah cukup approve — langsung ke MULAI TRADING
-      showToast("✅ Allowance sudah cukup!", "#34d399");
+      showToast("✅ Allowance sudah cukup!", "#e8a830");
       _approveReady = true;
       btn.disabled  = false;
       btn.className = "btn-open";
       btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
-      btn.textContent = "🚀 MULAI TRADING";
+      btn.textContent = "MULAI TRADING";
       return;
     }
 
@@ -1527,21 +1566,21 @@ async function _doApprove() {
     await approveTx.wait();
 
     // ── APPROVE SUKSES → ganti jadi MULAI TRADING ──
-    showToast("✅ Approve berhasil! Klik MULAI TRADING.", "#34d399");
+    showToast("✅ Approve berhasil! Klik MULAI TRADING.", "#e8a830");
     _approveReady = true;
     btn.disabled  = false;
     btn.className = "btn-open";
     btn.style.background = "linear-gradient(135deg,#065f46,var(--green))";
-    btn.textContent = "🚀 MULAI TRADING";
+    btn.textContent = "MULAI TRADING";
 
   } catch(e) {
     console.error("_doApprove:", e);
     const msg = e?.reason || e?.shortMessage ||
       (e?.message?.includes("user rejected") ? "❌ Dibatalkan." : e?.message?.slice(0,80)) || "Approve gagal";
-    showToast("❌ " + msg, "#f87171");
+    showToast("❌ " + msg, "#c94040");
     const btn = document.getElementById("btnConfirm");
     btn.disabled = false;
-    btn.textContent = "🔓 APPROVE INDC";
+    btn.textContent = "APPROVE INDC";
     _approveReady = false;
   }
 }
@@ -1568,11 +1607,11 @@ async function _doOpenBox() {
     const allowance = BigInt(await indcCon.allowance(userAddr, PHANTOM_CONTRACT));
 
     if (indcBal < betWei) {
-      showToast("❌ Saldo INDC tidak cukup untuk taruhan ini!", "#f87171");
+      showToast("❌ Saldo INDC tidak cukup untuk taruhan ini!", "#c94040");
       _approveReady = false;
       btn.disabled  = false;
       btn.style.background = "";
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
       return;
     }
     if (allowance < betWei) {
@@ -1580,7 +1619,7 @@ async function _doOpenBox() {
       _approveReady = false;
       btn.disabled  = false;
       btn.style.background = "";
-      btn.textContent = "🔓 APPROVE INDC";
+      btn.textContent = "APPROVE INDC";
       return;
     }
 
@@ -1589,7 +1628,7 @@ async function _doOpenBox() {
     if (activeSess[0] === true) {
       showToast("⚠️ Ada sesi aktif! Klaim dulu.", "#fbbf24");
       btn.disabled = false;
-      btn.textContent = "🚀 MULAI TRADING";
+      btn.textContent = "MULAI TRADING";
       document.getElementById("countdownWrap").classList.add("show");
       showClaimButton();
       return;
@@ -1657,13 +1696,13 @@ async function _doOpenBox() {
     // ── STEP 6: Reset tombol & state approve ──
     _approveReady = false;
     btn.style.background = "";
-    btn.textContent = "🔓 APPROVE INDC";
+    btn.textContent = "APPROVE INDC";
     btn.disabled = true;
 
     // ── STEP 7: Update pool ──
     document.getElementById("timerSection").classList.remove("show");
     await loadContractInfo();
-    showToast(`✅ Kotak dibuka! Tunggu timer selesai untuk klaim.`, "#34d399");
+    showToast(`✅ Kotak dibuka! Tunggu timer selesai untuk klaim.`, "#e8a830");
 
     // ── STEP 8: Mulai countdown ──
     startCountdown();
@@ -1685,9 +1724,9 @@ async function _doOpenBox() {
       else if (m.includes("insufficient funds"))    msg = "BNB tidak cukup untuk gas fee.";
       else                                          msg = m.slice(0, 100);
     }
-    showToast("❌ " + msg, "#f87171");
+    showToast("❌ " + msg, "#c94040");
     btn.disabled = false;
-    btn.textContent = "🚀 MULAI TRADING";
+    btn.textContent = "MULAI TRADING";
     activeSession = null;
     localStorage.removeItem("pbt_active");
     localStorage.removeItem("activeSession");
@@ -1797,7 +1836,7 @@ async function showClaimButton() {
 }
 
 async function claimReward() {
-  if (!userAddr) { showToast("Connect wallet dulu!", "#f87171"); return; }
+  if (!userAddr) { showToast("Connect wallet dulu!", "#c94040"); return; }
 
   const btn = document.getElementById("btnClaim");
   btn.disabled = true;
@@ -1809,7 +1848,7 @@ async function claimReward() {
       provider = new ethers.BrowserProvider(window.ethereum);
     }
     if (!provider) {
-      showToast("❌ Wallet tidak terhubung!", "#f87171");
+      showToast("❌ Wallet tidak terhubung!", "#c94040");
       btn.disabled = false;
       btn.textContent = "🏆 KLAIM HADIAH";
       return;
@@ -1893,7 +1932,7 @@ async function claimReward() {
   } catch(e) {
     console.error(e);
     const msg = e?.reason || e?.message || "Transaksi gagal";
-    showToast("❌ " + msg.slice(0,50), "#f87171");
+    showToast("❌ " + msg.slice(0,50), "#c94040");
     btn.disabled = false;
     btn.textContent = "🏆 KLAIM HADIAH";
   }
@@ -1973,7 +2012,7 @@ async function checkActiveSesi() {
       document.getElementById("cdTimer").textContent   = "00:00:00";
       document.getElementById("cdBarFill").style.width = "0%";
       showClaimButton();
-      showToast("✅ Timer selesai! Klik Klaim.", "#34d399");
+      showToast("✅ Timer selesai! Klik Klaim.", "#e8a830");
     }
   } catch(e) {
     console.warn("checkActiveSesi:", e);
