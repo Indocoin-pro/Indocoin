@@ -8,30 +8,56 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
-  --dark:#eef2ff;--dark2:#e0e7ff;--dark3:#c7d2fe;
-  --sc1:#4338ca;--sc2:#3730a3;--sc3:#e0e7ff;--sc4:#1e1b4b;
-  --gold:#b45309;--green:#047857;--red:#b91c1c;--cyan:#0369a1;
-  --muted:#6366f1;--text:#1e1b4b;--border:rgba(67,56,202,0.2);
-  --card:#f5f7ff;
+  --bg:    #ede8e0;
+  --bg2:   #f5f0e8;
+  --bg3:   #faf7f2;
+  --white:  #0f0700;
+  --white2: #3d2010;
+  --white3: #7a6050;
+  --gold:   #d4a030;
+  --gold2:  #f0b830;
+  --gold3:  #f8d040;
+  --green:  #1a7a4a;
+  --red:    #b83030;
+  --border: rgba(200,146,42,0.25);
+  --border2:rgba(200,146,42,0.15);
+  /* alias compat */
+  --dark:   #ede8e0;
+  --dark2:  #f5f0e8;
+  --dark3:  #faf7f2;
+  --text:   #1a0e00;
+  --muted:  #8a7060;
+  --cyan:   #c8922a;
+  --card:   #faf7f2;
+  --sc1:    #c8922a;
+  --sc2:    #a07020;
+  --sc3:    #f5f0e8;
+  --sc4:    #1a0e00;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.06) 1px,transparent 1px);background-size:36px 36px;}
+.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.06) 0%,transparent 65%);}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.2) 40%,rgba(200,146,42,0.08) 60%,transparent);animation:scan 10s linear infinite;opacity:0.35;}
+
+/* HERO TITLE ANIMATION */
+@keyframes shadowFade{0%,100%{opacity:0.55;letter-spacing:3px;}50%{opacity:0.75;letter-spacing:4px;}}
+@keyframes tradePulse{0%,100%{opacity:1;}50%{opacity:0.85;}}
+.line2{display:inline-block;animation:shadowFade 4s ease-in-out infinite;}
+.line3{display:inline-block;animation:tradePulse 4s ease-in-out infinite 0.5s;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(139,92,246,0.3)}50%{box-shadow:0 0 20px rgba(139,92,246,0.6)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* TOPNAV */
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
-  background:rgba(238,242,255,0.98);backdrop-filter:blur(20px);box-shadow:0 1px 12px rgba(67,56,202,0.08);
-  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(237,232,224,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
 .nav-left{display:flex;align-items:center;gap:8px;}
 .nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
-.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
-.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--sc2);letter-spacing:1px;}
-.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:7px 12px;
-  border:1px solid rgba(139,92,246,0.4);border-radius:20px;background:rgba(139,92,246,0.08);
-  color:var(--sc2);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;text-shadow:0 1px 2px rgba(255,255,255,0.1);}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;padding:7px 14px;border:1px solid rgba(160,112,32,0.3);border-radius:4px;background:rgba(160,112,32,0.06);color:var(--white2);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;}
 
 /* PAGE */
 .page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
@@ -45,73 +71,59 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
   letter-spacing:2px;line-height:1.3;margin-bottom:6px;color:#3b0764;
   position:relative;display:inline-block;}
 .hero-title::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
-  width:60%;height:3px;background:linear-gradient(90deg,transparent,#7c3aed,transparent);
+  width:60%;height:3px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);
   border-radius:2px;}
 .hero-title span{color:var(--sc2);}
-.hero-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b7280;line-height:1.8;}
+.hero-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white2);line-height:1.8;}
 
 /* TABS */
-.main-tabs{display:flex;gap:6px;margin-bottom:12px;background:#ffffff;border:2px solid #1e1b4b;box-shadow:0 2px 8px rgba(0,0,0,0.08);
-  border:1px solid var(--border);border-radius:12px;padding:5px;}
-.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  padding:8px 4px;border-radius:8px;border:none;background:transparent;
-  color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;}
-.tab-btn.active{background:rgba(139,92,246,0.15);color:var(--sc2);
-  border:1px solid rgba(139,92,246,0.3);}
+.main-tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:5px;}
+.tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:8px 4px;border-radius:8px;border:none;background:transparent;color:var(--white2);cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;}
+.tab-btn.active{background:rgba(200,146,42,0.15);color:var(--white);border:1px solid rgba(200,146,42,0.35);font-weight:900;}
 
 /* SECTION */
 .section{animation:fadeUp 0.3s ease;}
 
 /* MASTER LIST */
-.filter-bar{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;}
+.filter-bar{display:flex;gap:5px;margin-bottom:10px;padding-bottom:2px;}
 .filter-bar::-webkit-scrollbar{display:none;}
-.filt-btn{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
-  padding:5px 10px;border-radius:8px;border:2px solid #1e1b4b;
-  background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.2s;}
-.filt-btn.active{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.1);color:var(--sc2);}
+.filt-btn{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;padding:5px 4px;border-radius:20px;border:none;background:rgba(160,112,32,0.08);color:var(--white3);cursor:pointer;white-space:nowrap;flex:1;text-align:center;transition:all 0.2s;}
+.filt-btn.active{background:rgba(200,146,42,0.18);color:var(--gold2);font-weight:700;}
 
 /* MASTER CARD */
-.master-card{background:#ffffff;border:2px solid #1e1b4b;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.1);
-  padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;}
-.master-card:hover{border-color:rgba(139,92,246,0.3);transform:translateY(-1px);}
+.master-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;box-shadow:0 2px 8px rgba(200,146,42,0.08);padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;}
+.master-card:hover{border-color:rgba(200,146,42,0.4);transform:translateY(-1px);}
 .mc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.mc-avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;
-  justify-content:center;font-size:20px;flex-shrink:0;
-  background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);}
+.mc-avatar{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:rgba(200,146,42,0.08);border:1px solid var(--border);}
 .mc-info{flex:1;}
-.mc-addr{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text);font-weight:600;}
-.mc-tier{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--sc2);
-  display:flex;align-items:center;gap:4px;margin-top:2px;}
+.mc-addr{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white);font-weight:700;}
+.mc-tier{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--white2);display:flex;align-items:center;gap:4px;margin-top:2px;}
 .mc-stars{color:var(--gold);font-size:8px;letter-spacing:1px;}
 .mc-status{font-family:'Share Tech Mono',monospace;font-size:7px;
   padding:3px 8px;border-radius:8px;display:flex;align-items:center;gap:3px;}
 .mc-status.open{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
-.mc-status.trading{background:rgba(139,92,246,0.1);color:var(--sc2);border:1px solid rgba(139,92,246,0.2);}
+.mc-status.trading{background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
 .mc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
-.mc-stat-box{background:rgba(109,40,217,0.04);border-radius:8px;padding:7px 6px;text-align:center;}
-.mc-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px;}
-.mc-stat-val{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);}
-.mc-stat-val.green{color:var(--green);}
-.mc-stat-val.violet{color:var(--sc2);}
+.mc-stat-box{background:rgba(200,146,42,0.04);border-radius:6px;padding:7px 6px;text-align:center;}
+.mc-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--white2);letter-spacing:0.5px;margin-bottom:3px;}
+.mc-stat-val{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--white);}
+.mc-stat-val.green{color:var(--green);font-weight:900;}
+.mc-stat-val.violet{color:var(--gold2);}
 .mc-bottom{display:flex;justify-content:space-between;align-items:center;}
 .mc-token{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
-.mc-pot{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);}
+.mc-pot{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);}
 .mc-timer{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
-.btn-join{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  padding:7px 14px;border-radius:8px;border:none;cursor:pointer;
-  background:linear-gradient(135deg,var(--sc1),var(--sc2));color:white;
-  transition:all 0.2s;letter-spacing:0.5px;}
+.btn-join{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:7px 14px;border-radius:6px;border:none;cursor:pointer;background:linear-gradient(135deg,#5a3800,var(--gold2));color:var(--bg);transition:all 0.2s;letter-spacing:0.5px;}
 .btn-join:hover{opacity:0.9;transform:scale(1.02);}
 
 /* DETAIL SESI */
-.sess-card{background:#ffffff;border:2px solid #1e1b4b;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.1);
-  padding:14px;margin-bottom:10px;}
+.sess-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;}
 .sess-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--sc2);}
+.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--white);}
 .sess-badge{font-family:'Share Tech Mono',monospace;font-size:7px;
   padding:3px 8px;border-radius:8px;}
 .badge-reg{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
-.badge-trade{background:rgba(139,92,246,0.1);color:var(--sc2);border:1px solid rgba(139,92,246,0.2);}
+.badge-trade{background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
 .badge-done{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
 
 /* PRICE ROW */
@@ -119,7 +131,7 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 .pr-left{}
 .pr-sym{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;}
 .pr-price{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;transition:color 0.3s;}
-.pr-price.up{color:var(--green);}
+.pr-price{color:var(--white)!important;font-weight:900;}
 .pr-price.down{color:var(--red);}
 .pr-chg{font-family:'Share Tech Mono',monospace;font-size:9px;padding:2px 8px;border-radius:8px;display:inline-block;}
 .pr-chg.up{background:rgba(52,211,153,0.1);color:var(--green);}
@@ -134,44 +146,36 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
 /* STATS ROW */
 .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
-.stat-box{background:rgba(109,40,217,0.04);border:1px solid rgba(255,255,255,0.05);
-  border-radius:10px;padding:10px 8px;text-align:center;}
+.stat-box{background:rgba(200,146,42,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px 8px;text-align:center;}
 .stat-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
-.stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--white);}
 .stat-val.up{color:var(--green);}
 .stat-val.down{color:var(--red);}
 
 /* POSITION CARD */
-.pos-card{background:rgba(109,40,217,0.05);border:2px solid #1e1b4b;
-  border-radius:12px;padding:12px;margin-bottom:10px;}
-.pos-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
-  color:var(--sc2);letter-spacing:1px;margin-bottom:8px;}
+.pos-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+.pos-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--white);letter-spacing:1px;margin-bottom:8px;}
 .pos-row{display:flex;justify-content:space-between;align-items:center;
   font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 0;
   border-bottom:1px solid rgba(255,255,255,0.04);}
 .pos-row:last-child{border:none;}
-.pos-key{color:var(--muted);}
-.pos-val{color:var(--text);font-weight:600;}
+.pos-key{color:var(--white2);}
+.pos-val{color:var(--white);font-weight:700;}
 .pos-val.green{color:var(--green);}
 .pos-val.red{color:var(--red);}
 
 /* FORM MASTER */
-.form-card{background:#ffffff;border:2px solid #1e1b4b;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.1);
-  padding:14px;margin-bottom:10px;animation:fadeUp 0.3s ease;}
-.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
-  color:var(--sc2);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.form-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;animation:fadeUp 0.3s ease;}
+.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--white);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .sec-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
   letter-spacing:1px;margin-bottom:8px;margin-top:12px;}
 .opt-row{display:flex;gap:6px;flex-wrap:wrap;}
-.opt-btn{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  padding:7px 12px;border-radius:8px;border:2px solid #1e1b4b;
-  background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;flex-shrink:0;}
-.opt-btn.sel{border-color:rgba(139,92,246,0.5);background:rgba(139,92,246,0.12);color:var(--sc2);}
+.opt-btn{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--white2);cursor:pointer;transition:all 0.2s;flex-shrink:0;}
+.opt-btn.sel{border-color:var(--gold2);background:rgba(200,146,42,0.1);color:var(--gold2);}
 .tier-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:4px;}
-.tier-card{background:rgba(109,40,217,0.04);border:1px solid var(--border);border-radius:10px;
-  padding:10px;cursor:pointer;transition:all 0.2s;text-align:center;}
-.tier-card.sel{border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.08);}
-.tier-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--sc2);margin-bottom:2px;}
+.tier-card{background:rgba(200,146,42,0.03);border:1px solid var(--border2);border-radius:8px;padding:10px;cursor:pointer;transition:all 0.2s;text-align:center;}
+.tier-card.sel{border-color:var(--gold2);background:rgba(200,146,42,0.08);}
+.tier-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--gold2);margin-bottom:2px;}
 .tier-lock{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
 .tier-max{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold);margin-top:2px;}
 .input-row{display:flex;align-items:center;gap:8px;background:rgba(109,40,217,0.05);
@@ -184,20 +188,16 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
   font-size:11px;color:var(--text);outline:none;}
 
 /* LIVE CHART BUTTON */
-.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:11px;
-  margin-bottom:10px;border-radius:12px;text-decoration:none;
-  background:rgba(67,56,202,0.05);border:2px solid #1e1b4b;
-  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
-  color:var(--sc2);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:11px 11px 11px 16px;margin-bottom:10px;border-radius:8px;text-decoration:none;background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
 
 /* BUTTONS */
 .btn-main{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
   font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
   transition:all 0.2s;margin-bottom:8px;}
-.btn-violet{background:linear-gradient(135deg,var(--sc1),var(--sc2));color:white;}
+.btn-violet{background:linear-gradient(135deg,#5a3800,var(--gold2));color:var(--bg);}
 .btn-green{background:linear-gradient(135deg,#059669,#34d399);color:white;}
 .btn-red{background:linear-gradient(135deg,#dc2626,#f87171);color:white;}
-.btn-outline{background:transparent;border:2px solid #1e1b4b;color:#1e1b4b;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--white2);}
 .btn-main:disabled{opacity:0.4;cursor:not-allowed;}
 
 /* EMPTY STATE */
@@ -218,21 +218,75 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
 /* BOTTOMNAV */
 .bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
-  background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:60px;}
+  background:rgba(237,232,224,0.99);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);display:flex;height:60px;}
 .bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:3px;cursor:pointer;text-decoration:none;
-  color:var(--muted);transition:color 0.2s;
-  font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;
+  color:var(--white3);transition:color 0.2s;
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
   border:none;background:transparent;}
-.bnav-item.active,.bnav-item:hover{color:var(--gold);}
-.bnav-icon{font-size:20px;}
-.bnav-label{font-size:7px;font-weight:700;letter-spacing:1px;font-family:'Orbitron',sans-serif;}
+.bnav-item.active,.bnav-item:hover{color:var(--white2);}
+.bnav-icon{font-size:20px;display:none;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+
+
+/* STATISTIK GLOBAL */
+.stats-global{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;animation:fadeUp 0.3s ease;}
+.sg-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center;}
+.sg-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--white2);letter-spacing:1px;margin-bottom:4px;}
+.sg-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--white);}
+.sg-sub{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--white3);margin-top:2px;}
+
+/* TOP MASTER */
+.top-master-wrap{margin-bottom:12px;animation:fadeUp 0.3s ease 0.05s both;}
+.top-master-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.top-master-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--white);letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.top-master-grid{display:flex;flex-direction:column;gap:6px;}
+.tm-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.2s;}
+.tm-card:hover{border-color:var(--gold2);transform:translateY(-1px);}
+.tm-rank{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold2);width:20px;flex-shrink:0;}
+.tm-avatar{width:34px;height:34px;border-radius:8px;background:rgba(200,146,42,0.1);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold2);}
+.tm-info{flex:1;min-width:0;}
+.tm-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white);font-weight:700;}
+.tm-stats{display:flex;gap:8px;margin-top:3px;}
+.tm-stat{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);}
+.tm-stat b{color:var(--gold2);}
+.tm-wr{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--green);flex-shrink:0;}
+
+/* PANDUAN */
+.guide-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;}
+.guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;transition:background 0.15s;}
+.guide-head:hover{background:rgba(200,146,42,0.04);}
+.guide-head-left{display:flex;align-items:center;gap:8px;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--white);letter-spacing:1px;}
+.guide-arrow{font-size:10px;color:var(--white3);transition:transform 0.3s;}
+.guide-arrow.open{transform:rotate(180deg);}
+.guide-body{display:none;padding:4px 16px 16px;}
+.guide-body.open{display:block;}
+.guide-step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(200,146,42,0.1);}
+.guide-step:last-of-type{border-bottom:none;}
+.gs-num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;flex-shrink:0;margin-top:2px;}
+.gs-title{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+.gs-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white2);line-height:1.7;}
+.guide-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.gi-card{background:rgba(200,146,42,0.05);border:1px solid var(--border2);border-radius:8px;padding:10px;}
+.gi-label{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);letter-spacing:1px;margin-bottom:4px;}
+.gi-value{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold2);}
+.gi-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);margin-top:2px;}
+
+/* SECTION ICON BOXES */
+.sec-icon{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;background:rgba(26,14,0,0.08);border:1px solid rgba(26,14,0,0.18);overflow:visible;}
+.sec-icon svg{color:var(--white);}
+@keyframes signalPing{0%{opacity:0.5;transform:scale(1);}100%{opacity:0;transform:scale(2);}}
+.sec-icon .ring1{position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(26,14,0,0.2);animation:signalPing 2s ease-out infinite;}
+.sec-icon .ring2{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(26,14,0,0.1);animation:signalPing 2s ease-out 0.5s infinite;}
 </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
 
 <!-- TOPNAV -->
 <nav class="topnav">
@@ -240,11 +294,10 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
     <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
     <div>
       <div class="nav-brand">INDOCOIN</div>
-      <div class="nav-sub">🔮 SHADOW COPY TRADE</div>
+      <div class="nav-sub">▸ SHADOW COPY TRADE</div>
     </div>
   </div>
   <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
-    <span id="walletIcon">⚡</span>
     <span id="walletTxt">CONNECT</span>
   </button>
 </nav>
@@ -253,12 +306,12 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge">📡 COPY TRADING · TRUSTLESS · ON-CHAIN</div>
+    <div class="hero-badge">COPY TRADING · TRUSTLESS · ON-CHAIN</div>
     <div class="hero-title-wrap">
       <div class="hero-title-bg"></div>
       <div class="hero-title">
-        <span class="line2">SHADOW</span>
-        <span class="line3">COPY TRADE</span>
+        <span class="line2" style="color:var(--white2);">SHADOW</span>
+        <span class="line3" style="color:var(--white2);">COPY </span><span class="line3" style="color:var(--gold2);">TRADE</span>
       </div>
     </div>
     <div class="hero-title-underline"></div>
@@ -267,9 +320,9 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
   <!-- MAIN TABS -->
   <div class="main-tabs">
-    <button class="tab-btn active" onclick="switchTab('list')"   id="tab-list">📋 IKUTI MASTER</button>
-    <button class="tab-btn"        onclick="switchTab('my')"     id="tab-my">📊 POSISIKU</button>
-    <button class="tab-btn"        onclick="switchTab('master')" id="tab-master">🎖️ JADI MASTER</button>
+    <button class="tab-btn active" onclick="switchTab('list')" id="tab-list">IKUTI MASTER</button>
+    <button class="tab-btn" onclick="switchTab('my')" id="tab-my">POSISIKU</button>
+    <button class="tab-btn" onclick="switchTab('master')" id="tab-master">JADI MASTER</button>
   </div>
 
   <!-- ════ TAB 1: LIST MASTER ════ -->
@@ -278,25 +331,141 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
     <!-- Filter -->
     <div class="filter-bar">
       <button class="filt-btn active" onclick="filterMaster('all',this)">SEMUA</button>
-      <button class="filt-btn" onclick="filterMaster('reg',this)">🟢 BUKA DAFTAR</button>
-      <button class="filt-btn" onclick="filterMaster('trade',this)">🔵 TRADING</button>
-      <button class="filt-btn" onclick="filterMaster('t3',this)">🥇 JENDERAL+</button>
+      <button class="filt-btn" onclick="filterMaster('reg',this)">AVAILABLE</button>
+      <button class="filt-btn" onclick="filterMaster('trade',this)">RUNNING</button>
+      <button class="filt-btn" onclick="filterMaster('t3',this)">PROVEN</button>
+    </div>
+
+    <!-- PANDUAN -->
+    <div class="guide-wrap">
+      <div class="guide-head" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.guide-arrow').classList.toggle('open');">
+        <div class="guide-head-left">
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+          <span class="guide-head-title">PANDUAN CARA BERMAIN</span>
+        </div>
+        <span class="guide-arrow">▼</span>
+      </div>
+      <div class="guide-body">
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(200,146,42,0.1);color:var(--gold2)">1</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold2)">CONNECT WALLET</div>
+            <div class="gs-desc">Hubungkan wallet BSC kamu (MetaMask / Trust Wallet). Pastikan ada saldo <b style="color:var(--white)">INDC</b> minimal 10 INDC dan sedikit <b style="color:var(--white)">BNB</b> untuk gas fee.</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(200,146,42,0.1);color:var(--gold2)">2</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold2)">PILIH MASTER TRADER</div>
+            <div class="gs-desc">Lihat daftar master trader aktif. Perhatikan <b style="color:var(--white)">winrate</b>, <b style="color:var(--white)">total profit</b>, dan <b style="color:var(--white)">tier</b> mereka. Gunakan filter untuk menyaring master yang sedang buka daftar atau sedang trading.</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(200,146,42,0.1);color:var(--gold2)">3</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold2)">IKUTI SESI MASTER</div>
+            <div class="gs-desc">Klik kartu master → lihat detail posisi & statistik → tentukan jumlah <b style="color:var(--white)">taruhan</b> → klik <b style="color:var(--gold2)">IKUTI MASTER</b>. Arah trading kamu otomatis mengikuti posisi master secara real-time.</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(200,146,42,0.1);color:var(--gold2)">4</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold2)">PANTAU & KLAIM HASIL</div>
+            <div class="gs-desc">Cek tab <b style="color:var(--white)">POSISIKU</b> untuk memantau posisi aktif. Saat sesi selesai, tombol <b style="color:var(--gold2)">KLAIM</b> muncul otomatis. Klik dan konfirmasi di wallet — reward langsung masuk!</div>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="gs-num" style="background:rgba(200,146,42,0.1);color:var(--gold2)">5</div>
+          <div>
+            <div class="gs-title" style="color:var(--gold2)">JADI MASTER TRADER</div>
+            <div class="gs-desc">Punya kemampuan analisa yang baik? Daftar jadi master di tab <b style="color:var(--white)">JADI MASTER</b>. Pilih tier, set parameter sesi, dan mulai dapat <b style="color:var(--gold2)">fee dari setiap follower</b> yang mengikutimu!</div>
+          </div>
+        </div>
+
+        <div class="guide-info-grid">
+          <div class="gi-card">
+            <div class="gi-label">MIN IKUT</div>
+            <div class="gi-value">10 INDC</div>
+            <div class="gi-sub">Per sesi</div>
+          </div>
+          <div class="gi-card">
+            <div class="gi-label">FEE MASTER</div>
+            <div class="gi-value">5–20%</div>
+            <div class="gi-sub">Dari profit follower</div>
+          </div>
+          <div class="gi-card">
+            <div class="gi-label">ASET AMAN</div>
+            <div class="gi-value">100%</div>
+            <div class="gi-sub">Tetap di wallet kamu</div>
+          </div>
+          <div class="gi-card">
+            <div class="gi-label">ON-CHAIN</div>
+            <div class="gi-value">BSC</div>
+            <div class="gi-sub">Transparan & trustless</div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- Live Chart Button -->
     <a href="chart.html" class="btn-chart">
-      <span style="font-size:14px;">📊</span>
+      <div class="sec-icon" style="width:26px;height:26px;flex-shrink:0;"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="8" r="2" fill="currentColor"/></svg></div>
       <div style="text-align:left;">
         <div>LIHAT LIVE CHART</div>
         <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);font-weight:400;letter-spacing:0;margin-top:1px;">Analisa harga sebelum ikut master</div>
       </div>
-      <span style="margin-left:auto;font-size:14px;">›</span>
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="margin-left:auto;flex-shrink:0;color:var(--white2);"><path d="M7 5l6 5-6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
+
+
+    <!-- STATISTIK GLOBAL -->
+    <div class="stats-global" id="statsGlobal">
+      <div class="sg-box">
+        <div class="sg-lbl">MASTER</div>
+        <div class="sg-val" id="statMasters">—</div>
+        <div class="sg-sub">Aktif</div>
+      </div>
+      <div class="sg-box">
+        <div class="sg-lbl">FOLLOWER</div>
+        <div class="sg-val" id="statFollowers">—</div>
+        <div class="sg-sub">Total</div>
+      </div>
+      <div class="sg-box">
+        <div class="sg-lbl">VOLUME</div>
+        <div class="sg-val" id="statVolume">—</div>
+        <div class="sg-sub">INDC</div>
+      </div>
+      <div class="sg-box">
+        <div class="sg-lbl">WIN RATE</div>
+        <div class="sg-val" id="statWinrate">—</div>
+        <div class="sg-sub">Rata-rata</div>
+      </div>
+    </div>
+
+    <!-- TOP MASTER -->
+    <div class="top-master-wrap">
+      <div class="top-master-head">
+        <div class="top-master-title">
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><path d="M10 2l1.8 4 4.2.6-3 3 .7 4.2L10 11.8l-3.7 2 .7-4.2-3-3 4.2-.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
+          TOP MASTER
+        </div>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);">Winrate tertinggi</span>
+      </div>
+      <div class="top-master-grid" id="topMasterList">
+        <div style="text-align:center;padding:16px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);">Memuat data...</div>
+      </div>
+    </div>
 
     <!-- Master List -->
     <div id="masterList">
       <div class="empty">
-        <div class="empty-icon">🔍</div>
+        <div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="var(--white3)" stroke-width="1.4"/><path d="M14 14l3 3" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round"/></svg></div>
         <div class="empty-txt">MEMUAT DATA MASTER...</div>
       </div>
     </div>
@@ -307,7 +476,7 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
     <div id="myPosition">
       <div class="empty">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div class="empty-txt">CONNECT WALLET UNTUK LIHAT POSISI</div>
       </div>
     </div>
@@ -319,7 +488,7 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
     <div id="masterSection">
       <div class="empty">
-        <div class="empty-icon">🎖️</div>
+        <div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><path d="M10 2l1.8 4 4.2.6-3 3 .7 4.2L10 11.8l-3.7 2 .7-4.2-3-3 4.2-.6z" stroke="var(--white3)" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
         <div class="empty-txt">CONNECT WALLET UNTUK LANJUT</div>
       </div>
     </div>
@@ -330,11 +499,26 @@ body{background:#e8ecfd;color:var(--text);font-family:'Rajdhani',sans-serif;min-
 
 <!-- BOTTOMNAV -->
 <nav class="bottomnav">
-  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
-  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
-  <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
-  <a class="bnav-item" href="presale.html"><span class="bnav-icon">🚀</span>PRESALE</a>
-  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
+  <a class="bnav-item" href="dashboard.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+    HOME
+  </a>
+  <a class="bnav-item" href="earn.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    EARN
+  </a>
+  <a class="bnav-item active" href="trade.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 3h14v14H3z" stroke="currentColor" stroke-width="1.4"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    TRADE
+  </a>
+  <a class="bnav-item" href="presale.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    PRESALE
+  </a>
+  <a class="bnav-item" href="community.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    COMMUNITY
+  </a>
 </nav>
 
 <script>
@@ -444,8 +628,94 @@ async function getReadContract() {
 }
 
 // ═══ LOAD DATA ══════════════════════════════════════════════════
+
+/* ═══ STATISTIK GLOBAL + TOP MASTER ═══ */
+async function loadGlobalStats() {
+  try {
+    const c = await getReadContract();
+    const total = Number(await c.sidCount());
+
+    let totalMasters = new Set();
+    let totalFollowers = 0;
+    let totalVolume = 0n;
+    let totalWins = 0;
+    let totalSess = 0;
+    let masterStats = {};
+
+    for (let i = Math.max(1, total-100); i <= total; i++) {
+      try {
+        const [master, status, pot, cnt, mWins, mSess] = await Promise.all([
+          c.sMaster(i), c.sStatus(i), c.sPot(i),
+          c.sShadowCount(i), c.mWins(await c.sMaster(i)), c.mSessions(await c.sMaster(i))
+        ]);
+        const st = Number(status);
+        if (st >= 1 && st <= 3) {
+          totalMasters.add(master.toLowerCase());
+          totalFollowers += Number(cnt);
+          totalVolume += BigInt(pot);
+          const mAddr = master.toLowerCase();
+          if (!masterStats[mAddr]) {
+            masterStats[mAddr] = { addr: master, wins: Number(mWins), sess: Number(mSess), followers: 0 };
+          }
+          masterStats[mAddr].followers += Number(cnt);
+        }
+        if (st === 3) {
+          totalWins += Number(mWins);
+          totalSess += Number(mSess);
+        }
+      } catch(e) {}
+    }
+
+    // Update stats
+    const INDC_DEC = 10**9;
+    document.getElementById("statMasters").textContent   = totalMasters.size;
+    document.getElementById("statFollowers").textContent = totalFollowers.toLocaleString("id");
+    document.getElementById("statVolume").textContent    = Math.round(Number(totalVolume)/INDC_DEC).toLocaleString("id");
+    const avgWR = totalSess > 0 ? Math.round(totalWins*100/totalSess) : 0;
+    document.getElementById("statWinrate").textContent   = avgWR + "%";
+
+    // Top master — sort by winrate min 3 sesi
+    const topList = Object.values(masterStats)
+      .filter(m => m.sess >= 3)
+      .map(m => ({ ...m, wr: Math.round(m.wins*100/m.sess) }))
+      .sort((a,b) => b.wr - a.wr)
+      .slice(0, 3);
+
+    renderTopMaster(topList);
+  } catch(e) {
+    console.warn("loadGlobalStats:", e);
+  }
+}
+
+function renderTopMaster(list) {
+  const el = document.getElementById("topMasterList");
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:16px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);">Belum ada data</div>';
+    return;
+  }
+  const medals = ["#f0b830","#a89880","#c8922a"];
+  el.innerHTML = list.map((m,i) => {
+    const short = m.addr.slice(0,6)+"..."+m.addr.slice(-4);
+    const initial = m.addr.slice(2,4).toUpperCase();
+    return `
+    <div class="tm-card" onclick="switchTab('list')">
+      <div class="tm-rank" style="color:${medals[i]}">#${i+1}</div>
+      <div class="tm-avatar" style="color:${medals[i]};border-color:${medals[i]}40;">${initial}</div>
+      <div class="tm-info">
+        <div class="tm-addr">${short}</div>
+        <div class="tm-stats">
+          <span class="tm-stat"><b>${m.sess}</b> sesi</span>
+          <span class="tm-stat"><b>${m.followers}</b> follower</span>
+        </div>
+      </div>
+      <div class="tm-wr" style="color:${m.wr>=70?'var(--green)':'var(--gold2)'}">${m.wr}%</div>
+    </div>`;
+  }).join("");
+}
+
 async function loadAllData() {
   loadMasterList();
+  loadGlobalStats();
   if (userAddr) {
     loadMyPosition();
     loadMasterSection();
@@ -507,7 +777,7 @@ function renderMasterList() {
 
   const el = document.getElementById("masterList");
   if (!list.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>
+    el.innerHTML = `<div class="empty"><div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="var(--white3)" stroke-width="1.4"/><path d="M14 14l3 3" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round"/></svg></div>
       <div class="empty-txt">BELUM ADA SESI AKTIF</div></div>`;
     return;
   }
@@ -711,9 +981,9 @@ function backToList() {
   document.getElementById("sec-list").innerHTML = `
     <div class="filter-bar">
       <button class="filt-btn active" onclick="filterMaster('all',this)">SEMUA</button>
-      <button class="filt-btn" onclick="filterMaster('reg',this)">🟢 BUKA DAFTAR</button>
-      <button class="filt-btn" onclick="filterMaster('trade',this)">🔵 TRADING</button>
-      <button class="filt-btn" onclick="filterMaster('t3',this)">🥇 JENDERAL+</button>
+      <button class="filt-btn" onclick="filterMaster('reg',this)">AVAILABLE</button>
+      <button class="filt-btn" onclick="filterMaster('trade',this)">RUNNING</button>
+      <button class="filt-btn" onclick="filterMaster('t3',this)">PROVEN</button>
     </div>
     <a href="chart.html" class="btn-chart">
       <span style="font-size:14px;">📊</span>
@@ -843,7 +1113,7 @@ async function loadMyPosition() {
   if (sid === 0) {
     el.innerHTML = `
       <div class="empty">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div class="empty-txt">TIDAK ADA POSISI AKTIF</div>
       </div>
       <div style="text-align:center;margin-top:10px;">
