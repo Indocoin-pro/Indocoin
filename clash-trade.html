@@ -456,6 +456,12 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <div class="cp-td" id="cpTD" style="left:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)"></div>
         <div class="cp-tp" id="cpTP">$—</div>
       </div>
+      <div id="cpTensionInfo" style="text-align:center;margin-top:6px;
+        font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
+        background:rgba(255,255,255,0.03);border-radius:6px;padding:5px 8px;
+        border:1px dashed rgba(255,255,255,0.06);">
+        ⚔️ Bar ini aktif saat duel berlangsung — menunjukkan arah & kekuatan pergerakan harga dari titik entry
+      </div>
     </div>
   </div>
 
@@ -964,6 +970,11 @@ function connectRailwayWS() {
         latestPrices[sym] = d.price;
         if (sym==="BNB") document.getElementById("tkPrice0").textContent = "$"+d.price.toLocaleString("en",{maximumFractionDigits:2});
         if (sym==="BTC") document.getElementById("tkPrice1").textContent = "$"+d.price.toLocaleString("en",{maximumFractionDigits:0});
+        // Update CP chart preview juga
+        if (sym === CP_SYMS[cpTokenIdx]) {
+          cpPrice = d.price;
+          cpUpdateUI(d.price);
+        }
         if (countdownEndTime && !priceFrozen && activeDuel?.tokenSym===sym) {
           updateChartPrice(d.price);
           buildCandle(d.price);
@@ -1735,8 +1746,30 @@ function cpUpdateUI(cur) {
   const display=all.slice(-18);
   if(!display.length) return;
   const prices=display.flatMap(c=>[c.h,c.l]);
+  prices.push(cur);
   const minP=Math.min(...prices), maxP=Math.max(...prices), range=maxP-minP||1, H=60;
+
+  // Wrapper dengan Y-axis labels
+  const wrap = chart.parentElement;
+  wrap.style.position = "relative";
+  chart.style.marginLeft = "38px"; // ruang untuk label Y
+
   chart.innerHTML="";
+
+  // Label Y-axis (high, mid, low, current)
+  let yLabels = wrap.querySelector(".cp-ylabels");
+  if (!yLabels) {
+    yLabels = document.createElement("div");
+    yLabels.className = "cp-ylabels";
+    yLabels.style.cssText = "position:absolute;left:0;top:0;bottom:0;width:36px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;z-index:2;";
+    wrap.appendChild(yLabels);
+  }
+  const fmtY = v => v>999 ? "$"+Math.round(v).toLocaleString("en") : "$"+v.toFixed(v<10?3:2);
+  yLabels.innerHTML = `
+    <span style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);">${fmtY(maxP)}</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--green);font-weight:700;">${fmtY(cur)}</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);">${fmtY(minP)}</span>`;
+
   display.forEach(c=>{
     const col=document.createElement("div"); col.className="cp-col";
     const bH=Math.max(2,(Math.abs(c.c-c.o)/range)*H);
@@ -1749,6 +1782,13 @@ function cpUpdateUI(cur) {
       <div class="cp-wick ${c.bull?'bull':'bear'}" style="height:${wBH}px;bottom:${Math.max(0,bBot-wBH)}px;position:absolute;"></div>`;
     chart.appendChild(col);
   });
+
+  // Garis harga saat ini (horizontal line)
+  const curLine = document.createElement("div");
+  const curPct  = ((cur - minP) / range) * H;
+  curLine.style.cssText = `position:absolute;left:38px;right:0;bottom:${curPct}px;height:1px;background:rgba(52,211,153,0.4);border-top:1px dashed rgba(52,211,153,0.4);pointer-events:none;z-index:1;`;
+  chart.parentElement.appendChild(curLine);
+
   const mid=document.getElementById("cpMidline");
   if(mid){ const mp=((maxP-cpBasePrice)/range)*100; mid.style.top=Math.max(0,Math.min(100,mp))+"%"; }
 }
