@@ -149,6 +149,8 @@ html,body{height:100%;background:var(--dark);color:var(--text);font-family:'Rajd
 
 <script>
 /* ═══ STATE ═══ */
+// 🚀 Railway Price Server
+const RAILWAY_WS_URL = "wss://indocoin-production.up.railway.app";
 let curSym  = "BNB";
 let curTF   = "15";
 let wsConns = {};
@@ -236,6 +238,39 @@ function selectTF(tf) {
 }
 
 /* ═══ WEBSOCKET TICKER — update harga tab ═══ */
+// Railway WebSocket — sumber harga utama
+let railwayWS = null;
+function connectRailwayWS() {
+  try {
+    railwayWS = new WebSocket(RAILWAY_WS_URL);
+    railwayWS.onopen = () => console.log("✅ Railway WS chart connected");
+    railwayWS.onmessage = e => {
+      try {
+        const d    = JSON.parse(e.data);
+        if (!d.sym || !d.price) return;
+        const s    = d.sym.toUpperCase();
+        const i    = ["BNB","BTC","ETH"].indexOf(s);
+        if (i < 0) return;
+        const price = d.price;
+        const pct   = d.pct || 0;
+        const isUp  = pct >= 0;
+        const color = isUp ? "#34d399" : "#f87171";
+        const dec   = s==="BTC" ? 0 : 2;
+        const fmt   = price>100 ? "$"+price.toLocaleString("en",{maximumFractionDigits:dec}) : "$"+price.toFixed(4);
+        latestPrices[s] = price;
+        const tpEl = document.getElementById("tp"+i);
+        const tcEl = document.getElementById("tc"+i);
+        const tdEl = document.getElementById("td"+i);
+        if(tpEl){ tpEl.textContent=fmt; tpEl.style.color="var(--cyan)"; setTimeout(()=>tpEl.style.color="var(--muted)",400); }
+        if(tcEl){ tcEl.textContent=(isUp?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%"; tcEl.style.color=color; }
+        if(tdEl){ tdEl.style.background=color; }
+      } catch(err) {}
+    };
+    railwayWS.onerror = () => {};
+    railwayWS.onclose = () => { setTimeout(connectRailwayWS, 3000); };
+  } catch(e) { setTimeout(connectRailwayWS, 5000); }
+}
+
 function connectWS(sym) {
   // Tutup semua WS lama
   Object.values(wsConns).forEach(ws => ws.close());
@@ -315,9 +350,10 @@ function checkUrlParam() {
 /* ═══ INIT ═══ */
 window.addEventListener("load", async () => {
   checkUrlParam();
-  initPrices();
+  connectRailwayWS(); // Railway = utama (realtime per detik)
+  initPrices();       // REST = harga awal backup
   loadChart();
-  connectWS(curSym);
+  connectWS(curSym);  // Binance WS = backup
     if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").then(reg => {
       setInterval(() => reg.update(), 60000);
