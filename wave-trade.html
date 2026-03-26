@@ -8,14 +8,38 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
-  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
-  --wave:#6366f1;--wave2:#818cf8;--wave3:#e0e7ff;--wave4:#1e1b4b;
-  --gold:#facc15;--green:#34d399;--red:#f87171;--cyan:#38bdf8;
-  --muted:#64748b;--text:#e2e8f0;--border:rgba(99,102,241,0.15);
-  --card:rgba(15,23,42,0.97);
+  --bg:    #080808;
+  --bg2:   #111111;
+  --bg3:   #1a1a1a;
+  --white:  #f5f0e8;
+  --white2: #a89880;
+  --white3: #6b5a48;
+  --gold:   #c8922a;
+  --gold2:  #e8a830;
+  --gold3:  #f5c842;
+  --green:  #2ea86a;
+  --red:    #c94040;
+  --border: rgba(200,146,42,0.18);
+  --border2:rgba(200,146,42,0.1);
+  /* alias compat */
+  --dark:   #080808;
+  --dark2:  #111111;
+  --dark3:  #1a1a1a;
+  --text:   #f5f0e8;
+  --muted:  #a89880;
+  --cyan:   #e8a830;
+  --wave:   #c8922a;
+  --wave2:  #e8a830;
+  --wave3:  #f5f0e8;
+  --wave4:  #5a3800;
+  --card:   #111111;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.05) 1px,transparent 1px);background-size:36px 36px;}
+.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.07) 0%,transparent 65%);}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
@@ -24,17 +48,12 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 
 /* TOPNAV */
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
-  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
 .nav-left{display:flex;align-items:center;gap:8px;}
 .nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
-.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
-.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--wave2);letter-spacing:1px;}
-.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;padding:7px 12px;
-  border:1px solid rgba(99,102,241,0.4);border-radius:20px;
-  background:rgba(99,102,241,0.08);color:var(--wave2);cursor:pointer;
-  display:flex;align-items:center;gap:5px;transition:all 0.2s;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;padding:7px 14px;border:1px solid rgba(168,152,128,0.3);border-radius:4px;background:rgba(168,152,128,0.06);color:var(--white2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.2s;}
 
 .page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
 
@@ -59,50 +78,47 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .pb-desc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;}
 
 /* STATS */
-.live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
-.ls-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;}
+.live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;position:relative;z-index:2;}
+.ls-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;}
 .ls-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
-.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--wave2);}
-.ls-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1s infinite;margin-right:3px;}
+.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--white);}
+.ls-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--white2);animation:pulse 1s infinite;margin-right:3px;}
 
 /* TABS */
-.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--card);
-  border:1px solid var(--border);border-radius:12px;padding:5px;}
+.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:5px;}
 .tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
   padding:8px 3px;border-radius:8px;border:none;background:transparent;
   color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;}
-.tab-btn.active{background:rgba(99,102,241,0.12);color:var(--wave2);border:1px solid rgba(99,102,241,0.3);}
+.tab-btn.active{background:rgba(200,146,42,0.12);color:var(--gold2);border:1px solid rgba(200,146,42,0.3);}
 
 /* SESSION CARD */
-.sess-card{background:var(--card);border-radius:14px;padding:14px;
-  margin-bottom:10px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.sess-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
 .sess-card:hover{transform:translateY(-1px);}
-.sess-card.ripple {border:1px solid rgba(56,189,248,0.25);}
-.sess-card.wave   {border:1px solid rgba(99,102,241,0.25);}
-.sess-card.tsunami{border:1px solid rgba(167,139,250,0.25);}
-.sess-card.ripple::before  {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyan);}
-.sess-card.wave::before    {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--wave);}
-.sess-card.tsunami::before {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--wave2);}
+.sess-card.ripple {border-color:rgba(200,146,42,0.2);}
+.sess-card.wave   {border-color:rgba(200,146,42,0.3);}
+.sess-card.tsunami{border-color:rgba(200,146,42,0.4);}
+.sess-card.ripple::before  {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold);}
+.sess-card.wave::before    {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold2);}
+.sess-card.tsunami::before {content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold3);}
 
 .sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .sc-type{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;
   padding:3px 10px;border-radius:6px;letter-spacing:1px;}
-.sc-type.ripple  {background:rgba(56,189,248,0.12);color:var(--cyan);border:1px solid rgba(56,189,248,0.3);}
-.sc-type.wave    {background:rgba(99,102,241,0.12);color:var(--wave2);border:1px solid rgba(99,102,241,0.3);}
-.sc-type.tsunami {background:rgba(167,139,250,0.12);color:#c4b5fd;border:1px solid rgba(167,139,250,0.3);}
+.sc-type.ripple  {background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.3);}
+.sc-type.wave    {background:rgba(200,146,42,0.12);color:var(--gold2);border:1px solid rgba(200,146,42,0.35);}
+.sc-type.tsunami {background:rgba(200,146,42,0.15);color:var(--gold3);border:1px solid rgba(200,146,42,0.4);}
 .sc-id{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
 .sc-status{font-family:'Share Tech Mono',monospace;font-size:7px;
   padding:3px 8px;border-radius:8px;display:flex;align-items:center;gap:4px;}
-.sc-status.voting{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
-.sc-status.active{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+.sc-status.voting{background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
+.sc-status.active{background:rgba(168,152,128,0.1);color:var(--white2);border:1px solid rgba(168,152,128,0.2);}
 .blink-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1s infinite;flex-shrink:0;}
 
 /* TOKEN PRICE */
 .sc-price-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .sc-token{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;}
-.sc-price{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;
-  color:var(--green);transition:color 0.2s;}
-.sc-price.down{color:var(--red);}
+.sc-price{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--white);transition:color 0.2s;}
+.sc-price.down{color:var(--white);}
 .sc-chg{font-family:'Share Tech Mono',monospace;font-size:8px;
   padding:2px 7px;border-radius:6px;}
 .sc-chg.up{background:rgba(52,211,153,0.1);color:var(--green);}
@@ -114,22 +130,21 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
 .wm-bar-wrap{position:relative;height:28px;border-radius:8px;overflow:hidden;
   background:rgba(248,113,113,0.1);margin-bottom:4px;}
-.wm-bar-long{position:absolute;left:0;top:0;bottom:0;background:rgba(52,211,153,0.3);
-  transition:width 0.5s ease;display:flex;align-items:center;padding-left:8px;}
+.wm-bar-long{position:absolute;left:0;top:0;bottom:0;background:rgba(200,146,42,0.35);transition:width 0.5s ease;display:flex;align-items:center;padding-left:8px;}
 .wm-bar-short{position:absolute;right:0;top:0;bottom:0;background:rgba(248,113,113,0.3);
   display:flex;align-items:center;justify-content:flex-end;padding-right:8px;}
-.wm-long-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--green);white-space:nowrap;}
-.wm-short-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--red);white-space:nowrap;}
+.wm-long-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);white-space:nowrap;}
+.wm-short-lbl{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--white2);white-space:nowrap;}
 .wm-stats{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:7px;}
 .wm-multi{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
   padding:2px 6px;border-radius:4px;}
-.wm-multi.long{background:rgba(52,211,153,0.1);color:var(--green);}
-.wm-multi.short{background:rgba(248,113,113,0.1);color:var(--red);}
+.wm-multi.long{background:rgba(200,146,42,0.1);color:var(--gold2);}
+.wm-multi.short{background:rgba(168,152,128,0.1);color:var(--white2);}
 
 /* POOL & TIMER */
 .sc-bottom{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .sc-pool-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;}
-.sc-pool-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);}
+.sc-pool-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold2);}
 .sc-timer-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;}
 .sc-timer-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--text);}
 .sc-timer-val.urgent{color:var(--red);animation:blink 1s infinite;}
@@ -137,15 +152,13 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .sc-players-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;}
 
 /* JOIN FORM */
-.join-form{background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.15);
-  border-radius:10px;padding:10px;margin-bottom:10px;}
-.jf-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  color:var(--wave2);letter-spacing:1px;margin-bottom:8px;}
+.join-form{background:rgba(200,146,42,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px;margin-bottom:10px;}
+.jf-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--gold2);letter-spacing:1px;margin-bottom:8px;}
 .dir-row{display:flex;gap:6px;margin-bottom:8px;}
 .dir-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);
   background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
-.dir-btn.sel-long {border-color:rgba(52,211,153,0.5);background:rgba(52,211,153,0.08);}
-.dir-btn.sel-short{border-color:rgba(248,113,113,0.5);background:rgba(248,113,113,0.08);}
+.dir-btn.sel-long {border-color:rgba(200,146,42,0.5);background:rgba(200,146,42,0.08);}
+.dir-btn.sel-short{border-color:rgba(168,152,128,0.4);background:rgba(168,152,128,0.06);}
 .dir-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
 .dir-multi{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
 .input-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);
@@ -158,16 +171,14 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .btn-main{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;
   font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;
   transition:all 0.2s;margin-bottom:6px;}
-.btn-wave{background:linear-gradient(135deg,var(--wave4),var(--wave));color:white;}
+.btn-wave{background:linear-gradient(135deg,#5a3800,var(--gold2));color:var(--bg);}
 .btn-green{background:linear-gradient(135deg,#059669,var(--green));color:white;}
-.btn-outline{background:transparent;border:1px solid rgba(99,102,241,0.3);color:var(--wave2);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--white2);}
 .btn-main:disabled{opacity:0.4;cursor:not-allowed;}
 
 /* MY POSITION */
-.my-pos{background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);
-  border-radius:10px;padding:10px;margin-bottom:10px;}
-.mp-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  color:var(--wave2);letter-spacing:1px;margin-bottom:6px;}
+.my-pos{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;}
+.mp-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--gold2);letter-spacing:1px;margin-bottom:6px;}
 .mp-row{display:flex;justify-content:space-between;padding:3px 0;
   border-bottom:1px solid rgba(255,255,255,0.04);}
 .mp-row:last-child{border:none;}
@@ -175,8 +186,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .mp-val{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
 
 /* HISTORY */
-.hist-card{background:var(--card);border:1px solid var(--border);
-  border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;}
+.hist-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;}
 .hist-head{display:flex;justify-content:space-between;margin-bottom:6px;}
 .hist-id{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
 .hist-badge{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
@@ -186,22 +196,20 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .badge-draw{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
 
 /* WEEKLY PRIZE */
-.prize-card{background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.2);
-  border-radius:14px;padding:14px;margin-bottom:12px;animation:glow 3s infinite;}
-.prize-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
-  color:var(--gold);letter-spacing:1px;margin-bottom:10px;}
+.prize-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;}
+.prize-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 .prize-row{display:flex;justify-content:space-between;align-items:center;
   padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
 .prize-row:last-child{border:none;}
 .prize-rank{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;width:30px;}
 .prize-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text);flex:1;}
-.prize-wins{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--wave2);}
+.prize-wins{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--white2);}
 .prize-amt{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);}
 
 /* PANDUAN */
-.guide-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;}
+.guide-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;}
 .guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;}
-.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;}
 .guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
 .guide-arrow.open{transform:rotate(180deg);}
 .guide-body{display:none;padding:4px 16px 16px;}
@@ -214,11 +222,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .gs-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
 
 /* CHART BTN */
-.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:10px;
-  margin-bottom:10px;border-radius:10px;text-decoration:none;
-  background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.2);
-  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  color:var(--wave2);letter-spacing:1px;cursor:pointer;}
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:11px 11px 11px 16px;margin-bottom:10px;border-radius:8px;text-decoration:none;background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:1px;cursor:pointer;}
 
 /* EMPTY */
 .empty{text-align:center;padding:40px 20px;}
@@ -256,33 +260,85 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 /* BOTTOMNAV */
 .bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
-  background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:60px;}
+  background:rgba(8,8,8,0.99);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);display:flex;height:60px;}
 .bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:3px;cursor:pointer;text-decoration:none;
-  color:var(--muted);transition:color 0.2s;
-  font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;
+  color:var(--white3);transition:color 0.2s;
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
   border:none;background:transparent;}
-.bnav-item.active,.bnav-item:hover{color:var(--gold);}
-.bnav-icon{font-size:20px;}
-.bnav-icon{font-size:18px;}
+.bnav-item.active,.bnav-item:hover{color:var(--white2);}
+.bnav-icon{font-size:20px;display:none;}
 .bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+
+/* STATISTIK GLOBAL */
+.stats-global{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;position:relative;z-index:2;}
+.sg-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center;}
+.sg-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--white2);letter-spacing:1px;margin-bottom:4px;}
+.sg-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--white);}
+.sg-sub{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--white3);margin-top:2px;}
+
+
+/* LEADERBOARD */
+.leaderboard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;position:relative;z-index:2;}
+.lb-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border2);}
+.lb-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.lb-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);}
+.lb-list{padding:6px 0;}
+.lb-item{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(200,146,42,0.05);}
+.lb-item:last-child{border-bottom:none;}
+.lb-rank{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;width:22px;flex-shrink:0;text-align:center;}
+.lb-avatar{width:30px;height:30px;border-radius:6px;background:rgba(200,146,42,0.08);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);flex-shrink:0;}
+.lb-info{flex:1;min-width:0;}
+.lb-addr{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white);font-weight:600;}
+.lb-detail{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);margin-top:2px;}
+.lb-wr{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;flex-shrink:0;}
+.lb-wins{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white3);text-align:right;flex-shrink:0;}
+.lb-empty{padding:20px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);}
+
+/* LIVE FEED */
+.livefeed{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;position:relative;z-index:2;}
+.lf-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border2);}
+.lf-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.lf-live{display:flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white2);}
+.lf-dot{width:5px;height:5px;border-radius:50%;background:var(--white2);animation:pulse 1.5s infinite;}
+.lf-list{max-height:180px;overflow-y:auto;}
+.lf-item{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid rgba(200,146,42,0.05);font-family:'Share Tech Mono',monospace;font-size:8px;}
+.lf-item:last-child{border-bottom:none;}
+.lf-addr{color:var(--white2);flex:1;min-width:0;}
+.lf-sess{color:var(--white3);font-size:7px;flex-shrink:0;}
+.lf-dir{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;flex-shrink:0;}
+.lf-dir.long{color:var(--gold2);}
+.lf-dir.short{color:var(--white2);}
+.lf-amt{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;flex-shrink:0;}
+.lf-amt.win{color:var(--green);}
+.lf-amt.lose{color:var(--red);}
+.lf-amt.join{color:var(--white2);}
+.lf-time{color:var(--white3);font-size:7px;flex-shrink:0;}
+
+/* SECTION ICON BOXES */
+.sec-icon{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;background:rgba(245,240,232,0.07);border:1px solid rgba(245,240,232,0.15);overflow:visible;}
+.sec-icon svg{color:var(--white);}
+@keyframes signalPing{0%{opacity:0.6;transform:scale(1);}100%{opacity:0;transform:scale(2);}}
+.sec-icon .ring1{position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(245,240,232,0.25);animation:signalPing 2s ease-out infinite;}
+.sec-icon .ring2{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(245,240,232,0.12);animation:signalPing 2s ease-out 0.5s infinite;}
 </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
 
 <nav class="topnav">
   <div class="nav-left">
     <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
     <div>
       <div class="nav-brand">INDOCOIN</div>
-      <div class="nav-sub">🌊 WAVE TRADE</div>
+      <div class="nav-sub">▸ WAVE TRADE</div>
     </div>
   </div>
   <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
-    <span id="walletIcon">⚡</span>
     <span id="walletTxt">CONNECT</span>
   </button>
 </nav>
@@ -291,14 +347,14 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
   <!-- PAUSED BANNER -->
   <div class="paused-banner" id="pausedBanner">
-    <div class="pb-title">⚙️ PROGRAM SEDANG MAINTENANCE</div>
+    <div class="pb-title">PROGRAM SEDANG MAINTENANCE</div>
     <div class="pb-desc">Wave Trade sedang dalam persiapan. Akan segera aktif!</div>
   </div>
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge">🌊 MULTI PLAYER · CONTRARIAN · P2P</div>
-    <div class="hero-title">WAVE TRADE</div>
+    <div class="hero-badge">MULTI PLAYER · CONTRARIAN · P2P</div>
+    <div class="hero-title" style="background:none;-webkit-text-fill-color:var(--white);animation:none;">WAVE <span style="-webkit-text-fill-color:var(--gold2);">TRADE</span></div>
     <div class="hero-sub">LONG VS SHORT — BERANI MELAWAN ARUS!</div>
     <div class="hero-desc">"Minoritas yang benar dapat multiplier terbesar — semakin berani semakin besar reward!"</div>
   </div>
@@ -319,32 +375,84 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     </div>
   </div>
 
+  <!-- STATISTIK GLOBAL -->
+  <div class="stats-global">
+    <div class="sg-box">
+      <div class="sg-lbl">SESI AKTIF</div>
+      <div class="sg-val" id="sgActive">—</div>
+      <div class="sg-sub">Live</div>
+    </div>
+    <div class="sg-box">
+      <div class="sg-lbl">PESERTA</div>
+      <div class="sg-val" id="sgPlayers">—</div>
+      <div class="sg-sub">Hari ini</div>
+    </div>
+    <div class="sg-box">
+      <div class="sg-lbl">PRIZE POOL</div>
+      <div class="sg-val" id="sgPrize">—</div>
+      <div class="sg-sub">INDC</div>
+    </div>
+    <div class="sg-box">
+      <div class="sg-lbl">TOTAL SESI</div>
+      <div class="sg-val" id="sgTotal">—</div>
+      <div class="sg-sub">Semua waktu</div>
+    </div>
+  </div>
+
   <!-- MAIN TABS -->
   <div class="main-tabs">
-    <button class="tab-btn active" onclick="switchTab('sessions')" id="tab-sessions">🌊 SESI</button>
-    <button class="tab-btn"        onclick="switchTab('my')"       id="tab-my">📊 POSISIKU</button>
-    <button class="tab-btn"        onclick="switchTab('prize')"    id="tab-prize">🏆 PRIZE</button>
-    <button class="tab-btn"        onclick="switchTab('guide')"    id="tab-guide">📖 PANDUAN</button>
+    <button class="tab-btn active" onclick="switchTab('sessions')" id="tab-sessions">SESI</button>
+    <button class="tab-btn"        onclick="switchTab('my')"       id="tab-my">POSISIKU</button>
+    <button class="tab-btn"        onclick="switchTab('prize')"    id="tab-prize">PRIZE</button>
+    <button class="tab-btn"        onclick="switchTab('guide')"    id="tab-guide">PANDUAN</button>
   </div>
 
   <!-- ══ TAB SESI ══ -->
   <div id="sec-sessions">
     <a href="chart.html" class="btn-chart">
-      <span style="font-size:14px;">📊</span>
+      <div class="sec-icon" style="width:26px;height:26px;flex-shrink:0;"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="8" r="2" fill="currentColor"/></svg></div>
       <div><div>LIHAT LIVE CHART</div>
       <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);">Analisa sebelum vote</div></div>
-      <span style="margin-left:auto;">›</span>
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="margin-left:auto;flex-shrink:0;color:var(--white2);"><path d="M7 5l6 5-6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     <div id="sessionList">
-      <div class="empty"><div class="empty-icon">🌊</div>
+      <div class="empty"><div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><path d="M2 12c2-4 4-4 6 0s4 4 6 0" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round"/><path d="M2 8c2-4 4-4 6 0s4 4 6 0" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" opacity="0.5"/></svg></div>
       <div class="empty-txt">MEMUAT SESI...</div></div>
     </div>
+    <!-- LIVE FEED -->
+    <div class="livefeed" id="livefeedWrap">
+      <div class="lf-head">
+        <div class="lf-title">
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><circle cx="10" cy="10" r="2.5" fill="currentColor"/><path d="M6.5 10a3.5 3.5 0 017 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3.5 10a6.5 6.5 0 0113 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+          LIVE FEED
+        </div>
+        <div class="lf-live"><div class="lf-dot"></div>REAL-TIME</div>
+      </div>
+      <div class="lf-list" id="liveFeedList">
+        <div data-empty style="padding:16px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);">Belum ada aktivitas</div>
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="leaderboard">
+      <div class="lb-head">
+        <div class="lb-title">
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><path d="M10 2l1.8 4 4.2.6-3 3 .7 4.2L10 11.8l-3.7 2 .7-4.2-3-3 4.2-.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
+          PAPAN PEMIMPIN
+        </div>
+        <span class="lb-sub">Win rate tertinggi minggu ini</span>
+      </div>
+      <div class="lb-list" id="leaderboardList">
+        <div class="lb-empty">Memuat data...</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══ TAB POSISIKU ══ -->
   <div id="sec-my" style="display:none;">
     <div id="mySection">
-      <div class="empty"><div class="empty-icon">📊</div>
+      <div class="empty"><div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="empty-txt">CONNECT WALLET UNTUK LIHAT POSISI</div></div>
     </div>
   </div>
@@ -352,7 +460,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <!-- ══ TAB PRIZE ══ -->
   <div id="sec-prize" style="display:none;">
     <div class="prize-card">
-      <div class="prize-title">🏆 WEEKLY PRIZE POOL</div>
+      <div class="prize-title"><div class="sec-icon" style="animation-delay:0.3s;"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><path d="M5 3h10l-1 6H6L5 3z" stroke="currentColor" stroke-width="1.4"/><path d="M6 9c0 2.2 1.8 4 4 4s4-1.8 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 17h4M10 13v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div> WEEKLY PRIZE POOL</div>
       <div style="text-align:center;margin-bottom:10px;">
         <div class="ls-lbl">TOTAL PRIZE MINGGU INI</div>
         <div style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--gold);" id="prizeTotal">—</div>
@@ -383,7 +491,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <div class="guide-wrap">
       <div class="guide-head" onclick="toggleGuide()">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:15px">📖</span>
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>
           <span class="guide-head-title">PANDUAN CARA BERMAIN</span>
         </div>
         <span class="guide-arrow open" id="guideArrow">▼</span>
@@ -442,11 +550,26 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <!-- BOTTOMNAV -->
 <nav class="bottomnav">
-  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
-  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
-  <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
-  <a class="bnav-item" href="presale.html"><span class="bnav-icon">🚀</span>PRESALE</a>
-  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
+  <a class="bnav-item" href="dashboard.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+    HOME
+  </a>
+  <a class="bnav-item" href="earn.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    EARN
+  </a>
+  <a class="bnav-item active" href="trade.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 3h14v14H3z" stroke="currentColor" stroke-width="1.4"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    TRADE
+  </a>
+  <a class="bnav-item" href="presale.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    PRESALE
+  </a>
+  <a class="bnav-item" href="community.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    COMMUNITY
+  </a>
 </nav>
 
 <!-- ADMIN PANEL — hanya muncul untuk dev wallet -->
@@ -577,6 +700,7 @@ async function connectWallet() {
     contract     = new ethers.Contract(CONTRACT, ABI, signer);
     indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
     document.getElementById("walletTxt").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    trackPlayer(userAddr);
     document.getElementById("walletIcon").textContent = "✅";
     showToast("Wallet terhubung!","#34d399");
 
@@ -600,6 +724,163 @@ async function getRC() {
 }
 
 // ═══ LOAD SESSIONS ════════════════════════════════════════
+
+/* ═══ STATISTIK GLOBAL ═══ */
+function updateGlobalStats() {
+  // Update dari data yang sudah ada di activeSessions
+  const active = activeSessions.length;
+  let totalPlayers = 0;
+  activeSessions.forEach(s => { totalPlayers += s.playerCount || 0; });
+
+  document.getElementById("sgActive").textContent  = active;
+  document.getElementById("sgPlayers").textContent = totalPlayers;
+}
+
+
+/* ═══ LEADERBOARD ═══ */
+async function loadLeaderboard() {
+  const el = document.getElementById("leaderboardList");
+  if (!el) return;
+  try {
+    const c     = await getRC();
+    const total = Number(await c.sessionCount());
+    
+    // Kumpulkan semua unique player dari sesi terakhir
+    const playerSet = new Set();
+    const ids = await c.getActiveSessions(Math.max(1, total-50), 50);
+    
+    // Tambah dari sesi aktif
+    for (const id of ids) {
+      const sid = Number(id);
+      if (sid === 0) continue;
+      // Kita tidak bisa ambil list player dari contract langsung
+      // Gunakan event logs atau fallback ke weekly stats dari known addresses
+    }
+
+    // Ambil stats mingguan dari player yang diketahui (dari local storage jika ada)
+    const known = JSON.parse(localStorage.getItem("waveKnownPlayers") || "[]");
+    
+    let rankings = [];
+    for (const addr of known.slice(0, 20)) {
+      try {
+        const [wins, games, prize] = await c.getWeeklyStats(addr);
+        const w = Number(wins), g = Number(games);
+        if (g >= 3) {
+          rankings.push({
+            addr,
+            wins: w,
+            games: g,
+            wr: Math.round(w * 100 / g),
+            prize: Number(prize)
+          });
+        }
+      } catch(e) {}
+    }
+
+    // Sort by winrate
+    rankings.sort((a, b) => b.wr - a.wr || b.wins - a.wins);
+    rankings = rankings.slice(0, 5);
+
+    renderLeaderboard(rankings);
+  } catch(e) {
+    console.warn("loadLeaderboard:", e);
+    document.getElementById("leaderboardList").innerHTML =
+      '<div class="lb-empty">Belum ada data minggu ini</div>';
+  }
+}
+
+function renderLeaderboard(list) {
+  const el = document.getElementById("leaderboardList");
+  if (!el) return;
+
+  if (!list.length) {
+    el.innerHTML = '<div class="lb-empty">Belum ada data minggu ini<br><span style="font-size:7px;color:var(--white3)">Min 3 sesi untuk masuk papan</span></div>';
+    return;
+  }
+
+  const medals  = ["#f0b830","#a89880","#c8922a","#8a7060","#6b5a48"];
+  const rankSyms = ["1", "2", "3", "4", "5"];
+
+  el.innerHTML = list.map((p, i) => {
+    const short   = p.addr.slice(0,6)+"..."+p.addr.slice(-4);
+    const initial = p.addr.slice(2,4).toUpperCase();
+    const wrColor = p.wr >= 70 ? "var(--green)" : p.wr >= 50 ? "var(--gold2)" : "var(--white2)";
+    return `
+    <div class="lb-item">
+      <div class="lb-rank" style="color:${medals[i]}">${rankSyms[i]}</div>
+      <div class="lb-avatar" style="color:${medals[i]};border-color:${medals[i]}30;">${initial}</div>
+      <div class="lb-info">
+        <div class="lb-addr">${short}</div>
+        <div class="lb-detail">${p.wins} menang · ${p.games} sesi</div>
+      </div>
+      <div>
+        <div class="lb-wr" style="color:${wrColor}">${p.wr}%</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* Simpan player ke known list saat join */
+function trackPlayer(addr) {
+  if (!addr) return;
+  const known = JSON.parse(localStorage.getItem("waveKnownPlayers") || "[]");
+  if (!known.includes(addr)) {
+    known.unshift(addr);
+    localStorage.setItem("waveKnownPlayers", JSON.stringify(known.slice(0, 100)));
+  }
+}
+
+/* ═══ LIVE FEED ═══ */
+const feedItems = [];
+
+function addLiveFeed(addr, sessId, dir, amt, type) {
+  const el   = document.getElementById("liveFeedList");
+  if (!el) return;
+  // Hapus empty state
+  const empty = el.querySelector("[data-empty]");
+  if (empty) empty.remove();
+
+  const short = addr.slice(0,6)+"..."+addr.slice(-4);
+  const item  = document.createElement("div");
+  item.className = "lf-item";
+
+  let dirHtml = "", amtHtml = "", timeStr = "Baru saja";
+  if (type === "join") {
+    dirHtml = `<span class="lf-dir ${dir}">${dir === "long" ? "▲ LONG" : "▼ SHORT"}</span>`;
+    amtHtml = `<span class="lf-amt join">${(Number(amt)/1e9).toLocaleString("id",{maximumFractionDigits:0})} INDC</span>`;
+  } else if (type === "win") {
+    dirHtml = `<span class="lf-dir ${dir}">${dir === "long" ? "▲" : "▼"}</span>`;
+    amtHtml = `<span class="lf-amt win">+${(Number(amt)/1e9).toLocaleString("id",{maximumFractionDigits:0})}</span>`;
+  } else {
+    dirHtml = `<span class="lf-dir ${dir}">${dir === "long" ? "▲" : "▼"}</span>`;
+    amtHtml = `<span class="lf-amt lose">-${(Number(amt)/1e9).toLocaleString("id",{maximumFractionDigits:0})}</span>`;
+  }
+
+  item.innerHTML = `
+    <span class="lf-addr">${short}</span>
+    <span class="lf-sess">#${sessId}</span>
+    ${dirHtml}
+    ${amtHtml}
+    <span class="lf-time">${timeStr}</span>`;
+
+  el.insertBefore(item, el.firstChild);
+  if (el.children.length > 12) el.removeChild(el.lastChild);
+}
+
+/* Update waktu live feed tiap menit */
+function updateFeedTimes() {
+  // Hanya update label "Baru saja" → "1 mnt lalu" dll
+  const items = document.querySelectorAll(".lf-time");
+  items.forEach(el => {
+    if (el.textContent === "Baru saja") el.textContent = "1 mnt lalu";
+    else if (el.textContent.includes("mnt")) {
+      const n = parseInt(el.textContent);
+      if (!isNaN(n)) el.textContent = (n+1) + " mnt lalu";
+    }
+  });
+}
+setInterval(updateFeedTimes, 60000);
+
 async function loadSessions() {
   try {
     const c     = await getRC();
@@ -612,6 +893,8 @@ async function loadSessions() {
 
     document.getElementById("statTotal").textContent = total;
     document.getElementById("statPrize").textContent = fmtK(Number(prize)/1e9);
+    document.getElementById("sgTotal").textContent = total;
+    document.getElementById("sgPrize").textContent = fmtK(Number(prize)/1e9);
     document.getElementById("prizeTotal").textContent = fmtK(Number(prize)/1e9)+" INDC";
 
     // Ambil sesi aktif
@@ -638,6 +921,8 @@ async function loadSessions() {
     document.getElementById("statSess").textContent = activeSessions.length;
     renderSessions();
     startAllWS();
+    updateGlobalStats();
+    loadLeaderboard();
   } catch(e) { console.warn(e); }
 }
 
@@ -646,7 +931,7 @@ function renderSessions() {
   const now = Math.floor(Date.now()/1000);
 
   if (!activeSessions.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🌊</div>
+    el.innerHTML = `<div class="empty"><div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><path d="M2 12c2-4 4-4 6 0s4 4 6 0" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round"/><path d="M2 8c2-4 4-4 6 0s4 4 6 0" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" opacity="0.5"/></svg></div>
       <div class="empty-txt">BELUM ADA SESI AKTIF<br>Tunggu sesi baru dibuka!</div></div>`;
     return;
   }
@@ -783,6 +1068,7 @@ async function joinSession(sid) {
       await tx1.wait();
     }
     showToast("Join sesi...","#6366f1");
+    trackPlayer(userAddr);
     const tx = await contract.joinSession(sid, dir, betWei);
     await tx.wait();
     showToast("Berhasil join! 🌊","#34d399");
@@ -805,6 +1091,12 @@ async function openSession(sid) {
 }
 
 // ═══ CLAIM ════════════════════════════════════════════════
+// Hook live feed ke join & claim
+const _origJoin = window.joinSession;
+async function hookLiveFeed(sid, dir, amt) {
+  if (userAddr) addLiveFeed(userAddr, sid, dir===0?"long":"short", amt, "join");
+}
+
 async function claimReward(sid) {
   try {
     showToast("Klaim reward...","#6366f1");
@@ -882,7 +1174,7 @@ async function loadMyPosition() {
       count++;
     }
 
-    el.innerHTML = count>0 ? html : `<div class="empty"><div class="empty-icon">📊</div>
+    el.innerHTML = count>0 ? html : `<div class="empty"><div class="empty-icon" style="font-size:0;padding:10px 0;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="empty-txt">BELUM ADA POSISI</div></div>
       <div style="text-align:center;margin-top:10px;">
         <button class="btn-main btn-wave" style="width:auto;padding:10px 20px;" onclick="switchTab('sessions')">
