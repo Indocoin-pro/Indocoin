@@ -8,15 +8,32 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
-  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
-  --teal:#14b8a6;--teal2:#99f6e4;--teal3:#0d9488;
-  --gold:#facc15;--green:#34d399;--red:#f87171;
-  --muted:#64748b;--text:#e2e8f0;--border:rgba(20,184,166,0.15);
-  --card:rgba(15,23,42,0.97);
-  --ga:#38bdf8;--gb:#f97316;
+  --bg:    #080808;
+  --bg2:   #111111;
+  --bg3:   #1a1a1a;
+  --white:  #f5f0e8;
+  --white2: #a89880;
+  --white3: #6b5a48;
+  --gold:   #c8922a;
+  --gold2:  #e8a830;
+  --gold3:  #f5c842;
+  --green:  #2ea86a;
+  --red:    #c94040;
+  --border: rgba(200,146,42,0.18);
+  --border2:rgba(200,146,42,0.1);
+  /* alias compat */
+  --dark:  #080808; --dark2: #111111; --dark3: #1a1a1a;
+  --text:  #f5f0e8; --muted: #a89880;
+  --teal:  #e8a830; --teal2: #f5c842; --teal3: #c8922a;
+  --card:  #111111;
+  --ga:    #e8a830; --gb: #a89880;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.05) 1px,transparent 1px);background-size:36px 36px;}
+.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.07) 0%,transparent 65%);}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes pulseGreen{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.7)}70%{box-shadow:0 0 0 5px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
@@ -26,17 +43,12 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 @keyframes electric{0%,100%{text-shadow:0 0 10px #14b8a6,0 0 20px #14b8a6}50%{text-shadow:0 0 5px #14b8a6}}
 
 /* TOPNAV */
-.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
-  background:rgba(10,15,30,0.98);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
 .nav-left{display:flex;align-items:center;gap:8px;}
 .nav-logo{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover;}
-.nav-brand{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;}
-.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--teal);letter-spacing:1px;}
-.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;padding:7px 12px;
-  border:1px solid rgba(20,184,166,0.4);border-radius:20px;
-  background:rgba(20,184,166,0.08);color:var(--teal);cursor:pointer;
-  display:flex;align-items:center;gap:5px;transition:all 0.2s;}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.btn-wallet{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;padding:7px 14px;border:1px solid rgba(168,152,128,0.3);border-radius:4px;background:rgba(168,152,128,0.06);color:var(--white2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.2s;}
 
 .page{padding:12px;max-width:480px;margin:0 auto;padding-bottom:80px;}
 
@@ -55,30 +67,28 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 /* STATS */
 .live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
-.ls-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;}
+.ls-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;}
 .ls-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
-.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--teal);}
+.ls-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--white);}
 
 /* POOL INFO */
-.pool-card{background:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.2);
-  border-radius:12px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.pool-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
 .pc-item{text-align:center;}
 .pc-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;}
-.pc-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--teal);}
+.pc-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--white);}
 
 /* TABS */
-.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--card);
-  border:1px solid var(--border);border-radius:12px;padding:5px;}
+.main-tabs{display:flex;gap:5px;margin-bottom:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:5px;}
 .tab-btn{flex:1;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
   padding:8px 3px;border-radius:8px;border:none;background:transparent;
   color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;}
-.tab-btn.active{background:rgba(20,184,166,0.12);color:var(--teal);border:1px solid rgba(20,184,166,0.3);}
+.tab-btn.active{background:rgba(200,146,42,0.12);color:var(--gold2);border:1px solid rgba(200,146,42,0.3);}
 
 /* PANDUAN */
-.guide-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px;}
+.guide-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;}
 .guide-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;}
 .guide-head-left{display:flex;align-items:center;gap:8px;}
-.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.guide-head-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;}
 .guide-arrow{font-size:10px;color:var(--muted);transition:transform 0.3s;}
 .guide-arrow.open{transform:rotate(180deg);}
 .guide-body{display:none;padding:4px 16px 16px;}
@@ -91,34 +101,31 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .gs-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
 
 /* TOKEN SELECTION */
-.form-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
-.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--teal);letter-spacing:1px;margin-bottom:14px;}
+.form-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;box-shadow:0 0 0 1px rgba(200,146,42,0.08) inset;}
+.form-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 .sec-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;margin-top:12px;}
 
 /* GROUP TABS */
-.grp-tabs{display:flex;gap:6px;margin-bottom:10px;}
-.grp-tab{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);
-  background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
-.grp-tab.sel-a{border-color:rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);}
-.grp-tab.sel-b{border-color:rgba(249,115,22,0.5);background:rgba(249,115,22,0.08);}
-.grp-tab-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
-.grp-tab-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
+.grp-tabs{display:flex;gap:6px;margin-bottom:8px;}
+.grp-tab{flex:1;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-radius:8px;border:1px solid var(--border2);background:transparent;cursor:pointer;transition:all 0.2s;}
+.grp-tab.sel-a{border-color:rgba(168,152,128,0.4);background:rgba(168,152,128,0.06);}
+.grp-tab.sel-b{border-color:rgba(168,152,128,0.5);background:rgba(168,152,128,0.08);}
+.grp-tab-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--white2);}
+.grp-tab-arrow{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white3);transition:transform 0.25s;}.grp-tab.sel-a .grp-tab-arrow,.grp-tab.sel-b .grp-tab-arrow{transform:rotate(90deg);color:var(--white2);}
 
 /* TOKEN GRID */
-.token-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
-.tok-btn{padding:8px 4px;border-radius:8px;border:1px solid var(--border);
-  background:rgba(255,255,255,0.02);cursor:pointer;text-align:center;transition:all 0.2s;}
-.tok-btn.sel-a{border-color:rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);}
-.tok-btn.sel-b{border-color:rgba(249,115,22,0.5);background:rgba(249,115,22,0.1);}
+.token-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:10px;}
+.tok-btn{padding:5px 2px;border-radius:6px;border:1px solid var(--border2);background:rgba(200,146,42,0.02);cursor:pointer;text-align:center;transition:all 0.2s;}
+.tok-btn.sel-a{border-color:rgba(168,152,128,0.6);background:rgba(168,152,128,0.14);}
+.tok-btn.sel-b{border-color:rgba(168,152,128,0.6);background:rgba(168,152,128,0.14);}
 .tok-btn.disabled{opacity:0.3;cursor:not-allowed;}
-.tok-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;margin-bottom:2px;}
+.tok-sym{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;margin-bottom:1px;}
 .tok-price{font-family:'Share Tech Mono',monospace;font-size:6px;color:var(--muted);}
 
 /* SELECTED TOKENS */
 .sel-row{display:flex;gap:6px;margin-bottom:10px;}
-.sel-tok{flex:1;background:rgba(20,184,166,0.06);border:1px solid rgba(20,184,166,0.2);
-  border-radius:8px;padding:8px;text-align:center;}
-.sel-tok-sym{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--teal);}
+.sel-tok{flex:1;background:rgba(200,146,42,0.05);border:1px solid var(--border2);border-radius:8px;padding:8px;text-align:center;}
+.sel-tok-sym{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);}
 .sel-tok-price{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
 .sel-tok.empty{border-style:dashed;opacity:0.4;}
 
@@ -126,8 +133,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .dir-row{display:flex;gap:8px;margin-bottom:10px;}
 .dir-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);
   background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
-.dir-btn.sel-long{border-color:rgba(52,211,153,0.5);background:rgba(52,211,153,0.08);}
-.dir-btn.sel-short{border-color:rgba(248,113,113,0.5);background:rgba(248,113,113,0.08);}
+.dir-btn.sel-long{border-color:rgba(200,146,42,0.5);background:rgba(200,146,42,0.08);}
+.dir-btn.sel-short{border-color:rgba(168,152,128,0.4);background:rgba(168,152,128,0.06);}
 .dir-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
 .dir-desc{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
 
@@ -135,8 +142,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;}
 .dur-btn{padding:8px 4px;border-radius:8px;border:1px solid var(--border);
   background:transparent;cursor:pointer;text-align:center;transition:all 0.2s;}
-.dur-btn.sel{border-color:rgba(20,184,166,0.5);background:rgba(20,184,166,0.08);}
-.dur-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--teal);}
+.dur-btn.sel{border-color:rgba(200,146,42,0.5);background:rgba(200,146,42,0.08);}
+.dur-name{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--gold2);}
 .dur-time{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;}
 
 /* BET INPUT */
@@ -145,32 +152,26 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .input-field{flex:1;background:transparent;border:none;outline:none;
   font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text);}
 .input-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
-.max-bet-info{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);
-  padding:5px 8px;background:rgba(20,184,166,0.04);border-radius:6px;margin-bottom:8px;}
+.max-bet-info{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white2);padding:5px 8px;background:rgba(200,146,42,0.04);border-radius:6px;margin-bottom:8px;}
 
 /* MACHINE PREVIEW */
-.machine-preview{background:rgba(249,115,22,0.05);border:1px solid rgba(249,115,22,0.15);
-  border-radius:10px;padding:10px;margin-bottom:10px;}
-.mp-title{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gb);
-  letter-spacing:1px;margin-bottom:6px;}
+.machine-preview{background:rgba(168,152,128,0.04);border:1px solid rgba(168,152,128,0.15);border-radius:8px;padding:10px;margin-bottom:10px;}
+.mp-title{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--white2);letter-spacing:1px;margin-bottom:6px;}
 .mp-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.6;}
 
 /* BUTTONS */
 .btn-main{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
   font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;
   transition:all 0.2s;margin-bottom:8px;}
-.btn-teal{background:linear-gradient(135deg,var(--teal3),var(--teal));color:white;}
-.btn-outline{background:transparent;border:1px solid rgba(20,184,166,0.3);color:var(--teal);}
+.btn-teal{background:linear-gradient(135deg,#5a3800,var(--gold2));color:var(--bg);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--white2);}
 .btn-main:disabled{opacity:0.4;cursor:not-allowed;}
 
 /* ACTIVE SESSION */
-.sess-card{background:var(--card);border:1px solid rgba(20,184,166,0.2);
-  border-radius:14px;padding:14px;margin-bottom:10px;}
+.sess-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;}
 .sess-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--teal);}
-.sess-badge{font-family:'Share Tech Mono',monospace;font-size:7px;
-  padding:3px 8px;border-radius:8px;background:rgba(20,184,166,0.1);
-  color:var(--teal);border:1px solid rgba(20,184,166,0.2);}
+.sess-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold2);}
+.sess-badge{font-family:'Share Tech Mono',monospace;font-size:7px;padding:3px 8px;border-radius:8px;background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
 
 /* VS SECTION */
 .vs-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:12px;}
@@ -180,7 +181,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .vs-tok-row{display:flex;justify-content:space-between;align-items:center;}
 .vs-tok-sym{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;}
 .vs-tok-pct{font-family:'Share Tech Mono',monospace;font-size:8px;}
-.vs-mid{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold);text-align:center;}
+.vs-mid{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold2);text-align:center;}
 .vs-accum{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;margin-top:6px;}
 
 /* SCORE BAR */
@@ -188,8 +189,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .score-lbl{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;
   font-size:7px;margin-bottom:4px;}
 .score-track{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;display:flex;}
-.score-trader{height:100%;background:var(--teal);border-radius:4px 0 0 4px;transition:width 0.5s ease;}
-.score-machine{height:100%;background:var(--gb);border-radius:0 4px 4px 0;transition:width 0.5s ease;}
+.score-trader{height:100%;background:var(--gold2);border-radius:4px 0 0 4px;transition:width 0.5s ease;}
+.score-machine{height:100%;background:var(--white3);border-radius:0 4px 4px 0;transition:width 0.5s ease;}
 
 /* TIMER */
 .timer-wrap{text-align:center;background:rgba(255,255,255,0.03);border-radius:10px;padding:10px;margin-bottom:10px;}
@@ -198,11 +199,9 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .timer-val.urgent{color:var(--red);animation:pulse 1s infinite;}
 
 /* RESULT POPUP */
-.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;
-  display:flex;align-items:center;justify-content:center;padding:16px;}
+.popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
 .popup-overlay.hide{display:none;}
-.popup-box{background:var(--dark2);border-radius:20px;width:100%;max-width:420px;
-  padding:20px;border:1px solid rgba(20,184,166,0.3);animation:fadeUp 0.3s ease;max-height:90vh;overflow-y:auto;}
+.popup-box{background:var(--bg2);border-radius:12px;width:100%;max-width:420px;padding:20px;border:1px solid var(--border);animation:fadeUp 0.3s ease;max-height:90vh;overflow-y:auto;}
 .popup-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
   text-align:center;margin-bottom:16px;letter-spacing:2px;}
 .popup-vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;margin-bottom:14px;}
@@ -229,7 +228,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .badge-win{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
 .badge-lose{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2);}
 .badge-draw{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.2);}
-.badge-active{background:rgba(20,184,166,0.1);color:var(--teal);border:1px solid rgba(20,184,166,0.2);}
+.badge-active{background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
 .hist-tokens{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
 .hist-tok{font-family:'Share Tech Mono',monospace;font-size:7px;
   padding:2px 6px;border-radius:4px;background:rgba(255,255,255,0.04);}
@@ -238,11 +237,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 .hist-reward{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;}
 
 /* LIVE CHART BTN */
-.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:10px;
-  margin-bottom:10px;border-radius:10px;text-decoration:none;
-  background:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.2);
-  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
-  color:var(--teal);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+.btn-chart{display:flex;align-items:center;gap:8px;width:100%;padding:11px 11px 11px 16px;margin-bottom:10px;border-radius:8px;text-decoration:none;background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
 
 /* TOAST */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
@@ -258,22 +253,29 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 /* BOTTOMNAV */
 .bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
-  background:rgba(10,15,30,0.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(250,204,21,0.15);display:flex;height:60px;}
+  background:rgba(8,8,8,0.99);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);display:flex;height:60px;}
 .bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:3px;cursor:pointer;text-decoration:none;
-  color:var(--muted);transition:color 0.2s;
-  font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;
+  color:var(--white3);transition:color 0.2s;
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
   border:none;background:transparent;}
-.bnav-item.active,.bnav-item:hover{color:var(--gold);}
-.bnav-icon{font-size:20px;}
-.bnav-icon{font-size:18px;}
+.bnav-item.active,.bnav-item:hover{color:var(--white2);}
+.bnav-icon{font-size:20px;display:none;}
 .bnav-label{font-size:7px;font-weight:700;letter-spacing:0.8px;font-family:'Orbitron',sans-serif;}
+/* SEC ICON */
+.sec-icon{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;background:rgba(245,240,232,0.07);border:1px solid rgba(245,240,232,0.15);overflow:visible;}
+.sec-icon svg{color:var(--white);}
+@keyframes signalPing{0%{opacity:0.6;transform:scale(1);}100%{opacity:0;transform:scale(2);}}
+.sec-icon .ring1{position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(245,240,232,0.25);animation:signalPing 2s ease-out infinite;}
+.sec-icon .ring2{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(245,240,232,0.12);animation:signalPing 2s ease-out 0.5s infinite;}
 </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
 
 <!-- RESULT POPUP -->
 <div class="popup-overlay hide" id="resultPopup">
@@ -286,11 +288,10 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
     <div>
       <div class="nav-brand">INDOCOIN</div>
-      <div class="nav-sub">🔺 THREE TRADE</div>
+      <div class="nav-sub">▸ THREE TRADE</div>
     </div>
   </div>
   <button class="btn-wallet" id="walletBtn" onclick="connectWallet()">
-    <span id="walletIcon">⚡</span>
     <span id="walletTxt">CONNECT</span>
   </button>
 </nav>
@@ -299,8 +300,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge">🔺 TRADER VS MESIN · 3 TOKEN · TRANSPARAN</div>
-    <div class="hero-title">THREE<span>⚡</span>TRADE</div>
+    <div class="hero-badge">TRADER VS MESIN · 3 TOKEN · TRANSPARAN</div>
+    <div class="hero-title" style="animation:none;color:var(--white);">THREE <span style="color:var(--gold2);">TRADE</span></div>
     <div class="hero-sub">PILIH 3 TOKEN — LAWAN MESIN PLATFORM!</div>
     <div class="hero-desc">"Akumulasi % terbesar 3 token kamu vs 3 token mesin — siapa unggul dia menang!"</div>
   </div>
@@ -323,35 +324,35 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
   <!-- MAIN TABS -->
   <div class="main-tabs">
-    <button class="tab-btn active" onclick="switchTab('trade')"   id="tab-trade">⚡ TRADE</button>
-    <button class="tab-btn"        onclick="switchTab('active')"  id="tab-active"><span id="activeIndicator" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle;"></span>AKTIF</button>
-    <button class="tab-btn"        onclick="switchTab('history')" id="tab-history">📋 RIWAYAT</button>
-    <button class="tab-btn"        onclick="switchTab('guide')"   id="tab-guide">📖 PANDUAN</button>
+    <button class="tab-btn active" onclick="switchTab('trade')"   id="tab-trade">TRADE</button>
+    <button class="tab-btn"        onclick="switchTab('active')"  id="tab-active"><span id="activeIndicator" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gold2);margin-right:5px;vertical-align:middle;"></span>AKTIF</button>
+    <button class="tab-btn"        onclick="switchTab('history')" id="tab-history">RIWAYAT</button>
+    <button class="tab-btn"        onclick="switchTab('guide')"   id="tab-guide">PANDUAN</button>
   </div>
 
   <!-- ══ TAB TRADE ══ -->
   <div id="sec-trade">
 
     <!-- Form Trading -->
-    <div class="form-card">
-      <div class="form-title">🔺 BUAT SESI TRADING</div>
+    <div class="form-card" style="border:1px solid rgba(200,146,42,0.35);background:linear-gradient(180deg,rgba(200,146,42,0.04) 0%,transparent 40%);box-shadow:0 1px 20px rgba(200,146,42,0.06);">
+      <div class="form-title"><div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><path d="M10 3l7 14H3L10 3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 8v4M10 14h.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div> BUAT SESI TRADING</div>
 
       <!-- Pilih Grup -->
       <div class="sec-lbl">PILIH GRUP TOKEN (HARUS DARI 1 GRUP)</div>
       <div class="grp-tabs">
         <div class="grp-tab" id="grpA" onclick="selectGroup(0)">
-          <div class="grp-tab-name" style="color:var(--ga)">⬡ GRUP A</div>
-          <div class="grp-tab-desc">BTC · ETH · SOL · ADA · LTC · AVAX · BCH</div>
+          <span class="grp-tab-name">TIER-1</span>
+          <span class="grp-tab-arrow">›</span>
         </div>
         <div class="grp-tab" id="grpB" onclick="selectGroup(1)">
-          <div class="grp-tab-name" style="color:var(--gb)">⬡ GRUP B</div>
-          <div class="grp-tab-desc">BNB · XRP · CAKE · LINK · TRX · DOGE · AAVE</div>
+          <span class="grp-tab-name">TIER-2</span>
+          <span class="grp-tab-arrow">›</span>
         </div>
       </div>
 
       <!-- Token Grid -->
-      <div class="sec-lbl">PILIH 3 TOKEN (MAX 3)</div>
-      <div class="token-grid" id="tokenGrid">
+      <div class="sec-lbl" id="tokenGridLabel" style="display:none;">PILIH 3 TOKEN (MAX 3)</div>
+      <div class="token-grid" id="tokenGrid" style="display:none;">
         <!-- Diisi JS -->
       </div>
 
@@ -365,7 +366,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
       <!-- Machine Preview -->
       <div class="machine-preview">
-        <div class="mp-title">🤖 TOKEN MESIN (DIACAK BLOCKCHAIN)</div>
+        <div class="mp-title">TOKEN MESIN (DIACAK BLOCKCHAIN)</div>
         <div class="mp-info" id="machineInfo">
           Mesin akan pilih 3 token dari Grup berlawanan secara acak oleh blockchain.
           Token mesin baru terungkap saat sesi dimulai!
@@ -376,11 +377,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="sec-lbl">ARAH PREDIKSI</div>
       <div class="dir-row">
         <div class="dir-btn" id="dirLong" onclick="selDir(0)">
-          <div class="dir-name" style="color:var(--green)">📈 LONG</div>
+          <div class="dir-name" style="color:var(--gold2)">▲ LONG</div>
           <div class="dir-desc">Prediksi total % naik</div>
         </div>
         <div class="dir-btn" id="dirShort" onclick="selDir(1)">
-          <div class="dir-name" style="color:var(--red)">📉 SHORT</div>
+          <div class="dir-name" style="color:var(--white2)">▼ SHORT</div>
           <div class="dir-desc">Prediksi total % turun</div>
         </div>
       </div>
@@ -412,7 +413,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <input class="input-field" id="betInput" type="number" placeholder="1000" min="1000" oninput="updateEstimate()">
         <span class="input-unit">INDC</span>
       </div>
-      <div class="max-bet-info" id="maxBetInfo">⚡ Max bet: — INDC · Min: 1.000 INDC</div>
+      <div class="max-bet-info" id="maxBetInfo">Max bet: — INDC · Min: 1.000 INDC</div>
 
       <!-- Estimasi reward -->
       <div style="background:rgba(20,184,166,0.04);border:1px solid rgba(20,184,166,0.1);
@@ -439,7 +440,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div id="sec-active" style="display:none;">
     <div id="activeSection">
       <div class="empty">
-        <div class="empty-icon">📊</div>
+        <div style="font-size:0;padding:10px 0;text-align:center;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div class="empty-txt">CONNECT WALLET UNTUK LIHAT SESI AKTIF</div>
       </div>
     </div>
@@ -449,7 +450,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <div id="sec-history" style="display:none;">
     <div id="historySection">
       <div class="empty">
-        <div class="empty-icon">📋</div>
+        <div style="font-size:0;padding:10px 0;text-align:center;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><rect x="4" y="2" width="12" height="16" rx="2" stroke="var(--white3)" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="var(--white3)" stroke-width="1.3" stroke-linecap="round"/></svg></div>
         <div class="empty-txt">CONNECT WALLET UNTUK LIHAT RIWAYAT</div>
       </div>
     </div>
@@ -460,7 +461,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <div class="guide-wrap">
       <div class="guide-head" onclick="toggleGuide()">
         <div class="guide-head-left">
-          <span style="font-size:15px">📖</span>
+          <div class="sec-icon"><div class="ring1"></div><div class="ring2"></div><svg width="14" height="14" viewBox="0 0 20 20" fill="none" style="position:relative;z-index:1;"><rect x="4" y="2" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>
           <span class="guide-head-title">PANDUAN CARA BERMAIN</span>
         </div>
         <span class="guide-arrow" id="guideArrow">▼</span>
@@ -471,7 +472,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
           <div class="gs-num" style="background:rgba(20,184,166,0.12);color:var(--teal)">1</div>
           <div>
             <div class="gs-title" style="color:var(--teal)">PILIH GRUP TOKEN</div>
-            <div class="gs-desc">Pilih <b style="color:var(--ga)">Grup A</b> (BTC correlated: BTC,ETH,SOL,ADA,LTC,AVAX,BCH) atau <b style="color:var(--gb)">Grup B</b> (Independent: BNB,XRP,CAKE,LINK,TRX,DOGE,AAVE). <b style="color:var(--text)">Tidak boleh campur!</b></div>
+            <div class="gs-desc">Pilih <b style="color:var(--white2)">TIER-1</b> (BTC correlated: BTC, ETH, SOL, ADA, LTC, AVAX, BCH) atau <b style="color:var(--white2)">TIER-2</b> (Independent: BNB, XRP, CAKE, LINK, TRX, DOGE, AAVE). <b style="color:var(--white)">Tidak boleh campur antar tier!</b></div>
           </div>
         </div>
 
@@ -528,21 +529,31 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
     <!-- Info Grup -->
     <div class="form-card">
-      <div class="form-title" style="color:var(--ga);">⬡ GRUP A — BTC CORRELATED</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;">
-        Token yang cenderung bergerak mengikuti BTC. Cocok saat market sedang bullish/bearish bersamaan.
-        <br><br>
-        <b style="color:var(--text)">BTC · ETH · SOL · ADA · LTC · AVAX · BCH</b>
+      <div class="form-title" style="color:var(--white2);">TIER-1 — BTC CORRELATED</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">BTC</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">ETH</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">SOL</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">ADA</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">LTC</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">AVAX</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">BCH</span>
       </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);line-height:1.7;">Token yang cenderung bergerak mengikuti BTC. Cocok saat market sedang bullish/bearish bersamaan.</div>
     </div>
 
     <div class="form-card">
-      <div class="form-title" style="color:var(--gb);">⬡ GRUP B — INDEPENDENT</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.8;">
-        Token yang punya tren lebih mandiri dari BTC. Lebih dipengaruhi faktor ekosistem dan berita spesifik.
-        <br><br>
-        <b style="color:var(--text)">BNB · XRP · CAKE · LINK · TRX · DOGE · AAVE</b>
+      <div class="form-title">TIER-2 — INDEPENDENT</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">BNB</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">XRP</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.25);color:var(--white2);">CAKE</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">LINK</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">TRX</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">DOGE</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:4px 10px;border-radius:6px;background:rgba(107,90,72,0.1);border:1px solid rgba(107,90,72,0.2);color:var(--white3);">AAVE</span>
       </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white3);line-height:1.7;">Token dengan tren lebih mandiri dari BTC. Lebih dipengaruhi faktor ekosistem dan berita spesifik.</div>
     </div>
   </div>
 
@@ -550,11 +561,26 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 
 <!-- BOTTOMNAV -->
 <nav class="bottomnav">
-  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
-  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
-  <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
-  <a class="bnav-item" href="presale.html"><span class="bnav-icon">🚀</span>PRESALE</a>
-  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
+  <a class="bnav-item" href="dashboard.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+    HOME
+  </a>
+  <a class="bnav-item" href="earn.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    EARN
+  </a>
+  <a class="bnav-item active" href="trade.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 3h14v14H3z" stroke="currentColor" stroke-width="1.4"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    TRADE
+  </a>
+  <a class="bnav-item" href="presale.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    PRESALE
+  </a>
+  <a class="bnav-item" href="community.html">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    COMMUNITY
+  </a>
 </nav>
 
 <script>
@@ -566,7 +592,7 @@ const INDC_ADDR = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_RPC   = "https://bsc-dataseed.binance.org/";
 const INDC_DEC  = 9;
 
-// 14 token — index 0-6 Grup A, 7-13 Grup B
+// 14 token — index 0-6 TIER-1, 7-13 TIER-2
 const TOKENS = [
   {sym:"BTC", grp:0},{sym:"ETH", grp:0},{sym:"SOL", grp:0},{sym:"ADA",  grp:0},
   {sym:"LTC", grp:0},{sym:"AVAX",grp:0},{sym:"BCH", grp:0},
@@ -670,8 +696,10 @@ function selectGroup(grp) {
   selTokens = [];
   document.getElementById("grpA").className = "grp-tab"+(grp===0?" sel-a":"");
   document.getElementById("grpB").className = "grp-tab"+(grp===1?" sel-b":"");
-  checkOracleAll(); // cek oracle & render grid
-  // renderTokenGrid dipanggil di dalam checkOracleAll
+  // Tampilkan token grid
+  document.getElementById("tokenGrid").style.display = "flex";
+  document.getElementById("tokenGridLabel").style.display = "block";
+  checkOracleAll();
   updateMachineInfo();
   updateSelRow();
   checkCanCreate();
@@ -914,7 +942,7 @@ async function loadActiveSession() {
         if (!claimed) { renderClaimSession(i, c); return; }
       }
     }
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📊</div>
+    el.innerHTML = `<div class="empty"><div style="font-size:0;padding:10px 0;text-align:center;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><polyline points="2,14 6,9 9,11 13,6 18,8" stroke="var(--white3)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="empty-txt">TIDAK ADA SESI AKTIF</div></div>
       <div style="text-align:center;margin-top:10px;">
         <button class="btn-main btn-teal" style="width:auto;padding:10px 20px;" onclick="switchTab('trade')">
@@ -1482,7 +1510,7 @@ async function loadHistory() {
       </div>`;
       count++;
     }
-    el.innerHTML = count > 0 ? html : `<div class="empty"><div class="empty-icon">📋</div>
+    el.innerHTML = count > 0 ? html : `<div class="empty"><div style="font-size:0;padding:10px 0;text-align:center;"><svg width="36" height="36" viewBox="0 0 20 20" fill="none"><rect x="4" y="2" width="12" height="16" rx="2" stroke="var(--white3)" stroke-width="1.4"/><path d="M7 7h6M7 10h6M7 13h4" stroke="var(--white3)" stroke-width="1.3" stroke-linecap="round"/></svg></div>
       <div class="empty-txt">BELUM ADA RIWAYAT TRADING</div></div>`;
   } catch(e) { console.warn(e); }
 }
