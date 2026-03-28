@@ -458,7 +458,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <div class="ftier-btn" id="ftier-2" onclick="selectTier(2)"><div class="fn">💎 PRIME</div><div class="fr">3,000–4,000 USDT · 36 bln</div></div>
       <div class="ftier-btn" id="ftier-3" onclick="selectTier(3)"><div class="fn">🖤 BLACK PRIME</div><div class="fr">4,000–5,000 USDT · 48 bln</div></div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label class="form-label" style="margin:0;">Jumlah USDT</label><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balFormInput" style="color:var(--gold);">—</span></span></div>
+    <label class="form-label">Jumlah USDT</label>
     <input class="form-input" type="number" id="newAmt" placeholder="Contoh: 1000" oninput="calcStake(this.value)">
     <div class="form-calc" id="fCalc" style="display:none">
       <div class="fc-row"><span>Modal</span><strong id="fc-p">$0</strong></div>
@@ -522,22 +522,22 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <!-- 4 TIER CARDS -->
     <div class="section-label">PILIH TIER STAKING</div>
     <div class="tier-cards">
-      <div class="tier-card tc-silver tc-active" id="tc0" onclick="setTier(0)">
+      <div class="tier-card tc-silver tc-active" id="tc0" onclick="setActiveTier(0)">
         <div class="tc-name">CORE</div>
         <div class="tc-rate">1.1%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-gold" id="tc1" onclick="setTier(1)">
+      <div class="tier-card tc-gold" id="tc1" onclick="setActiveTier(1)">
         <div class="tc-name">EDGE</div>
         <div class="tc-rate">1.3%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-diamond" id="tc2" onclick="setTier(2)">
+      <div class="tier-card tc-diamond" id="tc2" onclick="setActiveTier(2)">
         <div class="tc-name">PRIME</div>
         <div class="tc-rate">1.5%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-bd" id="tc3" onclick="setTier(3)">
+      <div class="tier-card tc-bd" id="tc3" onclick="setActiveTier(3)">
         <div class="tc-name">ULTRA</div>
         <div class="tc-rate">1.7%</div>
         <div class="tc-rate-lbl">/ hari</div>
@@ -567,7 +567,29 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <button class="tis-btn" id="tisBtnStake" onclick="openFormTier(window._activeTier||0)">MULAI STAKING</button>
     </div>
 
-    
+    <!-- 4 STAT CARDS -->
+    <div class="stat-grid">
+      <div class="stat-card" style="animation-delay:0s">
+        <div class="stat-icon" id="poolStatIcon">🟢</div>
+        <div class="stat-val" id="poolStatVal">OPEN</div>
+        <div class="stat-lbl">POOL STATUS</div>
+      </div>
+      <div class="stat-card s-cyan" style="animation-delay:0.06s">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" id="statStaked">—</div>
+        <div class="stat-lbl">TOTAL STAKED</div>
+      </div>
+      <div class="stat-card s-yellow" style="animation-delay:0.12s">
+        <div class="stat-icon">📈</div>
+        <div class="stat-val">1.7%</div>
+        <div class="stat-lbl">APY MAKS/HARI</div>
+      </div>
+      <div class="stat-card s-green" style="animation-delay:0.18s">
+        <div class="stat-icon">💵</div>
+        <div class="stat-val" id="statSaldo">—</div>
+        <div class="stat-lbl">SALDO USDT</div>
+      </div>
+    </div>
 
     <!-- CONNECT WALLET PREMIUM -->
     <div class="connect-strip" id="connectStrip">
@@ -596,6 +618,16 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       </div>
 
       <div class="cs-secure">🛡️ &nbsp; BSC NETWORK &nbsp;·&nbsp; NON-CUSTODIAL &nbsp;·&nbsp; SMART CONTRACT</div>
+    </div>
+
+    <!-- CONNECTED STRIP -->
+    <button class="btn-fallback-small" id="btnFallbackSmall" onclick="doNavConnect()" style="display:none;width:100%;padding:10px;background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.3);color:var(--gold);border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-bottom:10px;">HUBUNGKAN WALLET</button>
+    <div class="wallet-connected-strip" id="connectedStrip">
+      <div class="wcs-left">
+        <div class="wcs-dot"></div>
+        <div class="wcs-addr" id="wcsAddr">0x…</div>
+      </div>
+      <div class="wcs-bal">USDT: <strong id="wcsBal">$0.00</strong></div>
     </div>
 
 
@@ -785,7 +817,6 @@ async function loadAll(){
     const bal=await usdtC.balanceOf(userAddr);
     const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
     document.getElementById('statSaldo').textContent=bf;
-    ['wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=bf;});
     document.getElementById('wcsBal').textContent=bf;
     const count=(await rC.getStakeCount(userAddr)).toNumber();
     stakesData=[];
@@ -864,13 +895,7 @@ function closeFormDirect(){document.getElementById('formOverlay').classList.remo
 async function doApprove(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;
-  const _min=_TIER_MINS[window._activeTier||0]||1000;
-  if(!amt||Number(amt)<_min){
-    const p=document.createElement('div');
-    p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
-    p.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier <b>'+_TIER_NAMES[window._activeTier||0]+'</b><br>Minimal: <b>$'+_min.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
-    document.body.appendChild(p);return;
-  }
+  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
   try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
 }
@@ -896,28 +921,38 @@ function toast(icon,msg){document.getElementById('toastIcon').textContent=icon;d
 
 window.addEventListener('load',()=>{checkPool();});
 
-/* ─ setTier ─ */
-function setTier(t){
-  window._activeTier=t;
-  for(let i=0;i<4;i++){const el=document.getElementById('tc'+i);if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}}
-  // Update tier info strip
-  const TIER_INFO=[
-    {name:'CORE',badge:'STARTER',rate:'1.1%/hari',min:'1,000 USDT',max:'2,000 USDT',lock:'12 Bulan'},
-    {name:'EDGE',badge:'GROWTH',rate:'1.3%/hari',min:'2,000 USDT',max:'3,000 USDT',lock:'24 Bulan'},
-    {name:'PRIME',badge:'PREMIUM',rate:'1.5%/hari',min:'3,000 USDT',max:'4,000 USDT',lock:'36 Bulan'},
-    {name:'ULTRA',badge:'ELITE',rate:'1.7%/hari',min:'4,000 USDT',max:'5,000 USDT',lock:'48 Bulan'},
+/* setActiveTier — highlight + update info strip */
+function setActiveTier(t){
+  window._activeTier = t;
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('tc'+i);
+    if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}
+  }
+  const INFO=[
+    {name:'CORE',  badge:'STARTER', min:'1,000 USDT', max:'2,000 USDT', lock:'12 Bulan'},
+    {name:'EDGE',  badge:'GROWTH',  min:'2,000 USDT', max:'3,000 USDT', lock:'24 Bulan'},
+    {name:'PRIME', badge:'PREMIUM', min:'3,000 USDT', max:'4,000 USDT', lock:'36 Bulan'},
+    {name:'ULTRA', badge:'ELITE',   min:'4,000 USDT', max:'5,000 USDT', lock:'48 Bulan'},
   ];
-  const info=TIER_INFO[t]||TIER_INFO[0];
-  const els={tisName:info.name,tisBadge:info.badge,tisMin:info.min,tisMax:info.max,tisLock:info.lock};
-  Object.keys(els).forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=els[id];});
+  const info=INFO[t]||INFO[0];
+  ['tisName','tisBadge','tisMin','tisMax','tisLock'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=info[id.replace('tis','').toLowerCase()]||info[Object.keys(info)[['Name','Badge','Min','Max','Lock'].indexOf(id.replace('tis',''))]];
+  });
+  if(document.getElementById('tisName')) document.getElementById('tisName').textContent=info.name;
+  if(document.getElementById('tisBadge')) document.getElementById('tisBadge').textContent=info.badge;
+  if(document.getElementById('tisMin')) document.getElementById('tisMin').textContent=info.min;
+  if(document.getElementById('tisMax')) document.getElementById('tisMax').textContent=info.max;
+  if(document.getElementById('tisLock')) document.getElementById('tisLock').textContent=info.lock;
 }
 
-/* ─ openFormTier tanpa PIN ─ */
+/* openFormTier — tanpa PIN */
 function openFormTier(t){
   if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
   window._activeTier=t;
-  setTier(t);
-  selTier=t; if(typeof selectTier==='function') selectTier(t);
+  setActiveTier(t);
+  selTier=t;
+  if(typeof selectTier==='function') selectTier(t);
   document.getElementById('newAmt').value='';
   document.getElementById('fCalc').style.display='none';
   document.getElementById('fStatus').textContent='';
@@ -930,11 +965,31 @@ function openFormTier(t){
   document.getElementById('formOverlay').classList.add('open');
 }
 
-/* ─ Popup min per tier ─ */
-const _TIER_MINS=[1000,2000,3000,4000];
-const _TIER_NAMES=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,000)'];
+/* hitungKalku — kalkulator reward */
+function hitungKalku(){
+  const amt=parseFloat(document.getElementById('kalkuAmt').value)||0;
+  const t=parseInt(document.getElementById('kalkuTier').value)||0;
+  const TDATA=[
+    {rate:1.1,lock:12,fee:10},{rate:1.3,lock:24,fee:20},
+    {rate:1.5,lock:36,fee:30},{rate:1.7,lock:48,fee:40}
+  ];
+  const td=TDATA[t];
+  const res=document.getElementById('kalkuResult');
+  if(!amt){if(res)res.style.display='none';return;}
+  const daily=(amt*td.rate/100).toFixed(4);
+  const cicilan=(amt*td.rate/100*30).toFixed(4);
+  const totalRwd=(amt*td.rate/100*td.lock*30).toFixed(2);
+  const fee=(parseFloat(totalRwd)*td.fee/100).toFixed(2);
+  const totalCair=(parseFloat(totalRwd)-parseFloat(fee)).toFixed(2);
+  if(document.getElementById('kRwdHari'))   document.getElementById('kRwdHari').textContent='$'+daily;
+  if(document.getElementById('kCicilan'))   document.getElementById('kCicilan').textContent='$'+cicilan+'/bln';
+  if(document.getElementById('kTotalRwd'))  document.getElementById('kTotalRwd').textContent='$'+totalRwd;
+  if(document.getElementById('kTotalCair')) document.getElementById('kTotalCair').textContent='$'+totalCair;
+  if(document.getElementById('kLock'))      document.getElementById('kLock').textContent=td.lock+' Bulan';
+  if(res) res.style.display='flex';
+}
 
-/* ─ Auto Connect ─ */
+/* autoConnect */
 (async function autoConnect(){
   const eth=window.ethereum;
   if(!eth)return;
@@ -953,49 +1008,14 @@ const _TIER_NAMES=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,0
     document.getElementById('wcsAddr').textContent=short;
     document.getElementById('walletChipNav').textContent=short;
     toast('✅','Wallet terhubung!');
-    // Ambil saldo DULU sebelum loadAll
     const uBal=await usdtC.balanceOf(userAddr);
     const uFmt='$'+parseFloat(ethers.utils.formatUnits(uBal,18)).toFixed(2);
-    ['statSaldo','wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
+    ['statSaldo','wcsBal'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
     await loadAll();
   }catch(e){console.warn('autoConnect:',e);}
   eth.on('accountsChanged',()=>location.reload());
   eth.on('chainChanged',()=>location.reload());
 })();
-  ];
-  const td=TDATA[t];
-  const resBox=document.getElementById('kalkuResult');
-  if(!amt||!resBox){return;}
-  const daily=(amt*td.rate/100).toFixed(4);
-  const total=(amt*td.rate/100*td.lock*30).toFixed(2);
-  resBox.innerHTML='<div style="display:flex;justify-content:space-between;padding:4px 0;font-family:\'Share Tech Mono\',monospace;font-size:9px;"><span style="color:var(--muted);">Reward/hari</span><strong style="color:var(--gold);">$'+daily+'</strong></div><div style="display:flex;justify-content:space-between;padding:4px 0;font-family:\'Share Tech Mono\',monospace;font-size:9px;"><span style="color:var(--muted);">Total reward</span><strong style="color:var(--gold);">$'+total+'</strong></div>';
-  resBox.style.display='block';
-}
-
-function hitungKalku(){
-  const amt = parseFloat(document.getElementById('kalkuAmt').value)||0;
-  const t   = parseInt(document.getElementById('kalkuTier').value)||0;
-  const TDATA=[
-    {rate:1.1, lock:12, fee:10},
-    {rate:1.3, lock:24, fee:20},
-    {rate:1.5, lock:36, fee:30},
-    {rate:1.7, lock:48, fee:40}
-  ];
-  const td = TDATA[t];
-  const res = document.getElementById('kalkuResult');
-  if(!amt){ if(res) res.style.display='none'; return; }
-  const daily     = (amt * td.rate / 100).toFixed(4);
-  const cicilan   = (amt * td.rate / 100 * 30).toFixed(4);
-  const totalRwd  = (amt * td.rate / 100 * td.lock * 30).toFixed(2);
-  const fee       = (parseFloat(totalRwd) * td.fee / 100).toFixed(2);
-  const totalCair = (parseFloat(totalRwd) - parseFloat(fee)).toFixed(2);
-  document.getElementById('kRwdHari').textContent   = '$' + daily;
-  document.getElementById('kCicilan').textContent   = '$' + cicilan + '/bln';
-  document.getElementById('kTotalRwd').textContent  = '$' + totalRwd;
-  document.getElementById('kTotalCair').textContent = '$' + totalCair;
-  document.getElementById('kLock').textContent      = td.lock + ' Bulan';
-  if(res) res.style.display = 'flex';
-}
 </script>
 
 
