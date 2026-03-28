@@ -815,7 +815,10 @@ async function doApprove(lv) {
   if (!indcContract) { showToast('','Connect wallet dulu!'); return; }
   const inp = document.getElementById('inp'+lv);
   const val = parseFloat(inp.value)||0;
+  const lvData = LEVELS[lv-1];
   if (val <= 0) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
+  if (val < lvData.minU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
+  if (val > lvData.maxU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
   try {
     const usdtContract = new ethers.Contract(USDT_ADDRESS, INDC_ABI, signer);
     const amt = ethers.utils.parseUnits(val.toString(), 18);
@@ -836,8 +839,8 @@ async function doStake(lv) {
   const inp = document.getElementById('inp'+lv);
   const val = parseFloat(inp.value)||0;
   const lvData = LEVELS[lv-1];
-  if (val < lvData.minU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
-  if (val > lvData.maxU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
+  if (val < lvData.minU) { setMsg(lv,`Min stake ${lvData.min}`,'err'); return; }
+  if (val > lvData.maxU) { setMsg(lv,`Max stake ${lvData.max}`,'err'); return; }
   try {
     const amt = ethers.utils.parseUnits(val.toString(), 18);
     // Cek allowance dulu
