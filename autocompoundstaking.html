@@ -552,31 +552,39 @@ const rC=new ethers.Contract(CA,ABI,rpc);
 
 // ═══ BUILD REF UI ═══
 function buildRefUI(){
-  // chain visual
-  document.getElementById('refChain').innerHTML=REF_DATA.map(r=>`
+  const refChain=document.getElementById('refChain');
+  if(refChain) refChain.innerHTML=REF_DATA.map(r=>`
     <div class="rc-node"><span class="rcn-l">L${r.l}</span><span class="rcn-p" style="color:${r.c}">${r.pct}</span></div>
     ${r.l<10?'<span class="rc-arrow">→</span>':''}`).join('');
-  // level list in referral panel
-  document.getElementById('refLevelList').innerHTML=REF_DATA.map(r=>`
+  const refLevelList=document.getElementById('refLevelList');
+  if(refLevelList) refLevelList.innerHTML=REF_DATA.map(r=>`
     <div class="ref-lv-row">
       <div class="rlr-badge" style="background:${r.c}18;color:${r.c};border:1px solid ${r.c}30">L${r.l}</div>
       <span class="rlr-src">dari reward harian downline</span>
       <span class="rlr-pct" style="color:${r.c}">${r.pct}</span>
     </div>`).join('');
-  // table in info panel
-  document.getElementById('refInfoTable').innerHTML=REF_DATA.map(r=>`
+  const refInfoTable=document.getElementById('refInfoTable');
+  if(refInfoTable) refInfoTable.innerHTML=REF_DATA.map(r=>`
     <div class="ref-lv-row">
       <div class="rlr-badge" style="background:${r.c}18;color:${r.c};border:1px solid ${r.c}30">Level ${r.l}</div>
       <span class="rlr-src">reward harian downline</span>
       <span class="rlr-pct" style="color:${r.c}">${r.pct}</span>
     </div>`).join('');
-  // KYC steps visual
   const steps=[{icon:"🪪",txt:"Upload KTM"},{icon:"🤳",txt:"Verifikasi Wajah"},{icon:"✅",txt:"Approve Admin"}];
-  document.getElementById('kycStepsVisual').innerHTML=steps.map(s=>`
+  const kycStepsVisual=document.getElementById('kycStepsVisual');
+  if(kycStepsVisual) kycStepsVisual.innerHTML=steps.map(s=>`
     <div class="ka-step" style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 6px;text-align:center">
       <div style="font-size:24px;margin-bottom:5px">${s.icon}</div>
       <div style="font-size:9px;color:var(--muted)">${s.txt}</div>
     </div>`).join('');
+  // floating formulas — guard
+  const w=document.getElementById('formulaWrap');
+  if(w){
+    const formulas=["A = P(1+r)^t","ROI = 1000%","r = 0.4%/hari","compound daily","P × 1.004^t","max 5 stakes","fee = 1%","penalti = 25%","BSC mainnet","auto compound ∞"];
+    formulas.forEach(f=>{const el=document.createElement('div');el.className='formula';el.textContent=f;const sz=Math.random()*10+12;el.style.cssText=`font-size:${sz}px;left:${Math.random()*90}%;animation-duration:${Math.random()*20+15}s;animation-delay:${Math.random()*15}s;`;w.appendChild(el);});
+  }
+  const dw=document.getElementById('dustWrap');
+  if(dw){for(let i=0;i<25;i++){const d=document.createElement('div');d.className='dust';const sz=Math.random()*4+2;d.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${Math.random()*6+4}s;animation-delay:${Math.random()*6}s;`;dw.appendChild(d);}}
 }
 
 // ═══ POOL CHECK ═══
@@ -584,12 +592,13 @@ async function checkPool(){
   try{
     const info=await rC.getPoolInfo();
     const open=info[2];
-    document.getElementById('pdot').className='pdot'+(open?'':' off');
-    document.getElementById('ptxt').textContent=open?'OPEN':'CLOSED';
-    document.getElementById('ptxt').style.color=open?'var(--green)':'var(--red)';
+    const pdot=document.getElementById('pdot');if(pdot){pdot.className='pdot'+(open?'':' off');}
+    const ptxt=document.getElementById('ptxt');if(ptxt){ptxt.textContent=open?'OPEN':'CLOSED';ptxt.style.color=open?'var(--green)':'var(--red)';}
     const p=+ethers.utils.formatUnits(info[0],18);
-    document.getElementById('cbnPool').textContent=p>=1000?'$'+(p/1000).toFixed(1)+'K':'$'+p.toFixed(2);
-    document.getElementById('cbnMem').textContent=info[1].toString();
+    const cbnPool=document.getElementById('cbnPool');if(cbnPool)cbnPool.textContent=p>=1000?'$'+(p/1000).toFixed(1)+'K':'$'+p.toFixed(2);
+    const cbnMem=document.getElementById('cbnMem');if(cbnMem)cbnMem.textContent=info[1].toString();
+    const heroTVL=document.getElementById('heroTVL');if(heroTVL)heroTVL.textContent=p>=1000?'$'+(p/1000).toFixed(1)+'K':'$'+p.toFixed(2);
+    const heroStakers=document.getElementById('heroStakers');if(heroStakers)heroStakers.textContent=info[1].toString();
   }catch(e){}
 }
 
@@ -610,11 +619,13 @@ async function initWallet(){
     const _wb=document.getElementById('walletBtn');if(_wb)_wb.textContent=short;
     const wBar=document.getElementById('walletBar');if(wBar)wBar.style.display='flex';
     const wbAddr=document.getElementById('wbAddr');if(wbAddr)wbAddr.textContent=short;
-    const refUrl=document.getElementById('refUrl');if(refUrl)refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
-    await loadAll();
     window.ethereum.on('accountsChanged',()=>location.reload());
     window.ethereum.on('chainChanged',()=>location.reload());
     toast('✅','Wallet terhubung!');
+    const bal=await cU.balanceOf(myAddr);
+    const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
+    const saldo=document.getElementById('heroSaldo');if(saldo)saldo.textContent=bf;
+    const wbBal=document.getElementById('wbBal');if(wbBal)wbBal.textContent=bf;
   }catch(e){console.warn(e);toast('❌','Gagal connect');}
 }
 
@@ -624,17 +635,16 @@ async function loadAll(){
   try{
     const bal=+ethers.utils.formatUnits(await cU.balanceOf(myAddr),18);
     const bs='$'+bal.toFixed(2);
-    document.getElementById('cbsSaldo').textContent=bs;
-    document.getElementById('wbBal').textContent=bs;
+    const heroSaldo=document.getElementById('heroSaldo');if(heroSaldo)heroSaldo.textContent=bs;
+    const wbBal=document.getElementById('wbBal');if(wbBal)wbBal.textContent=bs;
 
     const kyc=await rC.getKYCStatus(myAddr);
     kycApproved=kyc[0];kycPending=kyc[1];
     renderKYCBanner();renderKYCPanel();
 
     const rb=+ethers.utils.formatUnits(await rC.refBonus(myAddr),18);
-    document.getElementById('rbVal').textContent='$'+rb.toFixed(4);
-    document.getElementById('cbsBonus').textContent='$'+rb.toFixed(4);
-    document.getElementById('btnClaim').disabled=rb<=0;
+    const rbVal=document.getElementById('rbVal');if(rbVal)rbVal.textContent='$'+rb.toFixed(4);
+    const btnClaim=document.getElementById('btnClaim');if(btnClaim)btnClaim.disabled=rb<=0;
 
     const nxt=await rC.getNextStakeAvailable(myAddr);nextTs=nxt[0].toNumber();
     const cnt=(await rC.getStakeCount(myAddr)).toNumber();
@@ -650,12 +660,6 @@ async function loadAll(){
       stakesArr.push(s);
       if(s.active){an++;tv+=s.curVal;tp+=s.principal;}
     }
-    document.getElementById('cbsActive').textContent=an+'/5';
-    document.getElementById('cbsValue').textContent='$'+tv.toFixed(2);
-    document.getElementById('shCnt').textContent=an+'/5';
-    const avgROI=tp>0?((tv-tp)/tp)*100:0;
-    document.getElementById('heroROI').textContent=avgROI.toFixed(1)+'%';
-    document.getElementById('heroROIBar').style.width=Math.min(100,avgROI/10)+'%';
     renderStakes();
   }catch(e){console.warn(e);}
 }
@@ -663,6 +667,7 @@ async function loadAll(){
 // ═══ KYC BANNER ═══
 function renderKYCBanner(){
   const b=document.getElementById('kycBanner');
+  if(!b)return;
   if(kycApproved){
     b.innerHTML=`<div class="kyc-approved">
       <div class="ka-ok-left"><span class="ka-ok-icon">🎓</span>
@@ -694,6 +699,7 @@ function renderKYCBanner(){
 function renderKYCPanel(){
   const d=document.getElementById('kycStatusDetail');
   const btn=document.getElementById('btnKYCPanel');
+  if(!d)return;
   if(kycApproved){
     d.innerHTML=`<div style="background:rgba(0,255,136,.06);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px">
       <span style="font-size:28px">🎓</span>
@@ -714,7 +720,8 @@ function renderKYCPanel(){
 
 // ═══ RENDER STAKES ═══
 function renderStakes(){
-  const c=document.getElementById('stakeList');
+  const c=document.getElementById('stakesList');
+  if(!c)return;
   const active=stakesArr.filter(s=>s.active);
   if(!active.length){
     c.innerHTML=`<div class="stake-card" style="opacity:0.45;">
@@ -778,26 +785,11 @@ function renderStakes(){
 // ═══ FORM ═══
 function openSheet(){
   if(!myAddr){toast('🦊','Connect wallet dulu!');return;}
-  if(!kycApproved){
-    if(kycPending){
-      toast('⏳','KYC sedang diverifikasi. Tunggu 1×24 jam.');switchTab('kyc');
-    } else {
-      toast('🎓','Selesaikan KYC terlebih dahulu.');switchTab('kyc');
-    }
-    return;
-  }
-  const an=stakesArr.filter(s=>s.active).length;
-  if(an>=5){toast('❌','Sudah 5 stake aktif!');return;}
-  document.getElementById('fsSub').textContent=`Stake ke ${an+1} dari 5 · Jarak min 7 hari dari stake sebelumnya`;
-  const now=Math.floor(Date.now()/1000);const left=nextTs>now?nextTs-now:0;
-  if(left>0){document.getElementById('cdBar').style.display='block';startCd(left);}
-  else document.getElementById('cdBar').style.display='none';
-  document.getElementById('inpAmt').value='';
-  document.getElementById('pvBox').style.display='none';
-  document.getElementById('fmsg').textContent='';
-  document.getElementById('overlay').classList.add('on');
+  document.getElementById('stakeAmt').value='';
+  const fs=document.getElementById('formStatus');if(fs)fs.textContent='';
+  document.getElementById('formOverlay').classList.add('open');
 }
-function closeSheet(){document.getElementById('overlay').classList.remove('on');if(cdTimer)clearInterval(cdTimer);}
+function closeSheet(){document.getElementById('formOverlay').classList.remove('open');}
 function startCd(s){
   if(cdTimer)clearInterval(cdTimer);
   const upd=()=>{const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sc=s%60;
@@ -843,27 +835,39 @@ function showMinPopup(minAmt, maxAmt, label) {
 
 async function doApprove(){
   if(!signer){await initWallet();return;}
-  const a=document.getElementById('stakeAmt')||document.getElementById('inpAmt');
+  const a=document.getElementById('stakeAmt');
   const val=a?a.value:'';
   if(!val||+val<=0){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
   if(+val<1){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
   if(+val>10){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
-  try{setFM('Menunggu approval di MetaMask...','info');
+  try{
+    const fs=document.getElementById('formStatus');if(fs)fs.textContent='Menunggu approval di MetaMask...';
     const tx=await cU.approve(CA,ethers.utils.parseUnits(val,18));await tx.wait();
-    setFM('Approved ✅  Klik Mulai Compound!','ok');toast('✅','USDT Approved!');
-  }catch(e){setFM(e.code===4001?'Dibatalkan':'Gagal approve','err');}
+    const fs2=document.getElementById('formStatus');if(fs2)fs2.textContent='Approved ✅ Klik Mulai Staking!';
+    toast('✅','USDT Approved!');
+  }catch(e){
+    const fs=document.getElementById('formStatus');if(fs)fs.textContent=e.code===4001?'Dibatalkan':'Gagal approve';
+  }
+}
 }
 }
 async function doStake(){
   if(!signer){await initWallet();return;}
-  const a=document.getElementById('inpAmt').value;
-  if(!a){setFM('Masukkan jumlah','err');return;}
-  if(+a<1){setFM('Min $1','err');return;}
-  if(+a>10){setFM('Max $10','err');return;}
-  try{setFM('Konfirmasi di MetaMask...','info');
-    const tx=await cS.stake(ethers.utils.parseUnits(a,18));setFM('Diproses...','info');await tx.wait();
-    setFM('⚡ Compound dimulai!','ok');toast('⚡','Compound berhasil dimulai!');closeSheet();loadAll();
-  }catch(e){setFM(e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
+  const a=document.getElementById('stakeAmt');
+  const val=a?a.value:'';
+  if(!val){const fs=document.getElementById('formStatus');if(fs)fs.textContent='Masukkan jumlah';return;}
+  if(+val<1){const fs=document.getElementById('formStatus');if(fs)fs.textContent='Min $1';return;}
+  if(+val>10){const fs=document.getElementById('formStatus');if(fs)fs.textContent='Max $10';return;}
+  try{
+    const fs=document.getElementById('formStatus');if(fs)fs.textContent='Konfirmasi di MetaMask...';
+    const tx=await cS.stake(ethers.utils.parseUnits(val,18));
+    const fs2=document.getElementById('formStatus');if(fs2)fs2.textContent='Diproses...';
+    await tx.wait();
+    const fs3=document.getElementById('formStatus');if(fs3)fs3.textContent='⚡ Compound dimulai!';
+    toast('⚡','Compound berhasil dimulai!');closeForm();
+  }catch(e){
+    const fs=document.getElementById('formStatus');if(fs)fs.textContent=e.code===4001?'Dibatalkan':(e.reason||'Gagal');
+  }
 }
 async function doWD(idx){
   if(!signer)return;
@@ -893,7 +897,14 @@ function setFM(m,t){
   if(e){e.textContent=m;e.className='status-msg '+(t==='err'?'err':t==='ok'?'ok':'');}
 }
 function setMsg(i,m,t){const e=document.getElementById('msg-'+i);if(e){e.textContent=m;e.className='sk-msg '+t;}}
-function toast(ico,msg){document.getElementById('tIco').textContent=ico;document.getElementById('tTxt').textContent=msg;const el=document.getElementById('toast');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),3200);}
+function toast(ico,msg){
+  const iEl=document.getElementById('toastIcon');
+  const mEl=document.getElementById('toastMsg');
+  if(iEl)iEl.textContent=ico;
+  if(mEl)mEl.textContent=msg;
+  const el=document.getElementById('toast');
+  if(el){el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3200);}
+}
 
 setInterval(()=>{if(myAddr)loadAll();},30000);
 window.addEventListener('load',()=>{
@@ -919,9 +930,12 @@ window.addEventListener('load',()=>{
     const _wb=document.getElementById('walletBtn');if(_wb)_wb.textContent=short;
     const wBar=document.getElementById('walletBar');if(wBar)wBar.style.display='flex';
     const wbAddr=document.getElementById('wbAddr');if(wbAddr)wbAddr.textContent=short;
-    const refUrl=document.getElementById('refUrl');if(refUrl)refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
     toast('✅','Wallet terhubung!');
-    await loadAll();
+    // Load saldo
+    const bal=await cU.balanceOf(myAddr);
+    const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
+    const saldo=document.getElementById('heroSaldo');if(saldo)saldo.textContent=bf;
+    const wbBal=document.getElementById('wbBal');if(wbBal)wbBal.textContent=bf;
   }catch(e){console.warn('autoConnect:',e);}
   eth.on('accountsChanged',()=>location.reload());
   eth.on('chainChanged',()=>location.reload());
@@ -1004,26 +1018,7 @@ function hitungKompound(){
   res.style.display = 'grid';
 }
 
-/* ── AUTO CONNECT ── */
-window.addEventListener('load', ()=>{
-  if(typeof checkPool==='function') checkPool();
-});
-(async function autoConnect(){
-  if(!window.ethereum) return;
-  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length){
-    if(typeof connectWallet==='function') await connectWallet();
-    else if(typeof initWallet==='function') await initWallet();
-  } else {
-    if(typeof connectWallet==='function') await connectWallet();
-    else if(typeof initWallet==='function') await initWallet();
-  }
-})();
 
-/* NAV WALLET */
-function updateNavWallet(addr) {
-  const btn=document.getElementById('navWalletBtn');
-  if(btn){btn.textContent=addr.slice(0,6)+'\u2026'+addr.slice(-4);btn.onclick=function(){navigator.clipboard.writeText(addr).then(()=>{const o=btn.textContent;btn.textContent='Disalin!';setTimeout(()=>btn.textContent=o,1500);});};btn.style.color='var(--white)';btn.style.background='rgba(168,152,128,0.08)';btn.style.borderColor='rgba(168,152,128,0.25)';}
 }
 function doNavConnect(){if(!window.ethereum){alert('Install MetaMask!');return;}window.ethereum.request({method:'eth_requestAccounts'}).then(()=>location.reload()).catch(()=>{});}
 
