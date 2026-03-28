@@ -458,7 +458,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <div class="ftier-btn" id="ftier-2" onclick="selectTier(2)"><div class="fn">💎 PRIME</div><div class="fr">3,000–4,000 USDT · 36 bln</div></div>
       <div class="ftier-btn" id="ftier-3" onclick="selectTier(3)"><div class="fn">🖤 BLACK PRIME</div><div class="fr">4,000–5,000 USDT · 48 bln</div></div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label class="form-label" style="margin:0;">Jumlah USDT</label><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balFormInput" style="color:var(--gold);">—</span></span></div>
+    <label class="form-label">Jumlah USDT</label>
     <input class="form-input" type="number" id="newAmt" placeholder="Contoh: 1000" oninput="calcStake(this.value)">
     <div class="form-calc" id="fCalc" style="display:none">
       <div class="fc-row"><span>Modal</span><strong id="fc-p">$0</strong></div>
@@ -522,22 +522,22 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <!-- 4 TIER CARDS -->
     <div class="section-label">PILIH TIER STAKING</div>
     <div class="tier-cards">
-      <div class="tier-card tc-silver tc-active" id="tc0" onclick="setTier(0)">
+      <div class="tier-card tc-silver tc-active" id="tc0" onclick="openStakeForm(0)">
         <div class="tc-name">CORE</div>
         <div class="tc-rate">1.1%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-gold" id="tc1" onclick="setTier(1)">
+      <div class="tier-card tc-gold" id="tc1" onclick="openStakeForm(1)">
         <div class="tc-name">EDGE</div>
         <div class="tc-rate">1.3%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-diamond" id="tc2" onclick="setTier(2)">
+      <div class="tier-card tc-diamond" id="tc2" onclick="openStakeForm(2)">
         <div class="tc-name">PRIME</div>
         <div class="tc-rate">1.5%</div>
         <div class="tc-rate-lbl">/ hari</div>
       </div>
-      <div class="tier-card tc-bd" id="tc3" onclick="setTier(3)">
+      <div class="tier-card tc-bd" id="tc3" onclick="openStakeForm(3)">
         <div class="tc-name">ULTRA</div>
         <div class="tc-rate">1.7%</div>
         <div class="tc-rate-lbl">/ hari</div>
@@ -564,7 +564,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
           <div class="tis-val" id="tisLock">12 Bulan</div>
         </div>
       </div>
-      <button class="tis-btn" id="tisBtnStake" onclick="showPinPopup(window._activeTier||0)">MULAI STAKING</button>
+      <button class="tis-btn" id="tisBtnStake" onclick="openStakeForm(window._activeTier||0)">MULAI STAKING</button>
     </div>
 
     <!-- 4 STAT CARDS -->
@@ -817,7 +817,6 @@ async function loadAll(){
     const bal=await usdtC.balanceOf(userAddr);
     const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
     document.getElementById('statSaldo').textContent=bf;
-    ['wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=bf;});
     document.getElementById('wcsBal').textContent=bf;
     const count=(await rC.getStakeCount(userAddr)).toNumber();
     stakesData=[];
@@ -943,121 +942,142 @@ window.addEventListener('load',()=>{checkPool();});
     try{
       const uBal=await usdtC.balanceOf(userAddr);
       const uFmt='$'+parseFloat(ethers.utils.formatUnits(uBal,18)).toFixed(2);
-      ['statSaldo','wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
+      ['statSaldo','wcsBal'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
     }catch(e2){}
     await loadAll();
   }catch(e){console.warn('autoConnect:',e);}
   eth.on('accountsChanged',()=>location.reload());
   eth.on('chainChanged',()=>location.reload());
-})();</script>
-<script>
-/* ════════════════════════════════
-   PIN POPUP & APPROVE INDC FLOW
-   ════════════════════════════════ */
-const PIN_FEES_ARR     = [800, 1200, 1600, 2000];
-const TIER_NAMES_ARR   = ['CORE', 'EDGE', 'PRIME', 'ULTRA'];
-const INDC_CONTRACT    = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
-const STAKING_CA       = '0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504';
-let _pendingTier       = 0;
-let _indcApproved      = false;
+})();
 
-/* Tampilkan popup saat klik tier */
-function showPinPopup(tierIdx) {
-  _pendingTier = typeof tierIdx === 'number' ? tierIdx : 0;
-  _indcApproved = false;
-  const fee  = PIN_FEES_ARR[_pendingTier] || 800;
-  const name = TIER_NAMES_ARR[_pendingTier] || 'CORE';
-  document.getElementById('pinPopupTier').textContent   = 'TIER ' + name;
-  document.getElementById('pinPopupAmount').textContent = fee.toLocaleString('id-ID') + ' INDC';
-  document.getElementById('pinPopup').classList.add('open');
+const _TIERS=[
+  {name:'🥈 CORE',  rate:1.1, min:1000, max:2000, lock:12},
+  {name:'🥇 EDGE',  rate:1.3, min:2000, max:3000, lock:24},
+  {name:'💎 PRIME', rate:1.5, min:3000, max:4000, lock:36},
+  {name:'🖤 ULTRA', rate:1.7, min:4000, max:5000, lock:48},
+];
+
+function openStakeForm(t){
+  if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
+  window._activeTier=t;
+  // Update visual tier cards
+  for(let i=0;i<4;i++){const el=document.getElementById('tc'+i);if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}}
+  const tier=_TIERS[t]||_TIERS[0];
+  document.getElementById('sfTierBadge').textContent=tier.name+' STAKING';
+  document.getElementById('sfTierName').textContent=tier.name;
+  document.getElementById('sfTierRate').textContent=tier.rate+'%/hari · Lock '+tier.lock+' bln';
+  document.getElementById('sfTierRange').textContent='$'+tier.min.toLocaleString()+' – $'+tier.max.toLocaleString();
+  document.getElementById('sfAmt').placeholder='Min $'+tier.min.toLocaleString();
+  document.getElementById('sfAmt').value='';
+  document.getElementById('sfCalcBox').style.display='none';
+  document.getElementById('sfStatus').textContent='';
+  // Update saldo
+  if(usdtC&&userAddr){usdtC.balanceOf(userAddr).then(b=>{const f='$'+parseFloat(ethers.utils.formatUnits(b,18)).toFixed(2);document.getElementById('sfSaldo').textContent=f;}).catch(()=>{});}
+  const overlay=document.getElementById('stakeFormOverlay');
+  overlay.style.display='flex';
 }
 
-/* Klik SAYA MENGERTI — tutup popup, buka form */
-function onPinMengerti() {
-  document.getElementById('pinPopup').classList.remove('open');
-  if(typeof openFormTier === 'function') openFormTier(_pendingTier);
+function closeStakeForm(){
+  document.getElementById('stakeFormOverlay').style.display='none';
 }
 
-/* NAV WALLET */
-function updateNavWallet(addr) {
-  const btn = document.getElementById('navWalletBtn');
-  if(btn) {
-    btn.textContent = addr.slice(0,6)+'\u2026'+addr.slice(-4);
-    btn.onclick = function() {
-      navigator.clipboard.writeText(addr).then(()=>{
-        const old = btn.textContent;
-        btn.textContent = 'Disalin!';
-        setTimeout(()=>btn.textContent=old, 1500);
-      });
-    };
-    btn.style.color = 'var(--white)';
-    btn.style.background = 'rgba(168,152,128,0.08)';
-    btn.style.borderColor = 'rgba(168,152,128,0.25)';
+function sfCalc(){
+  const t=_TIERS[window._activeTier||0];
+  const amt=parseFloat(document.getElementById('sfAmt').value)||0;
+  if(amt<=0){document.getElementById('sfCalcBox').style.display='none';return;}
+  const daily=(amt*t.rate/100).toFixed(4);
+  const total=(amt*t.rate/100*t.lock*30).toFixed(2);
+  document.getElementById('sfDaily').textContent='$'+daily+'/hari';
+  document.getElementById('sfTotal').textContent='$'+total;
+  document.getElementById('sfCalcBox').style.display='block';
+}
+
+async function doSfApprove(){
+  const t=_TIERS[window._activeTier||0];
+  const amt=parseFloat(document.getElementById('sfAmt').value)||0;
+  if(!amt||amt<t.min){
+    const popup=document.createElement('div');
+    popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
+    popup.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier '+t.name+'<br>Minimal: <b>$'+t.min.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
+    document.body.appendChild(popup);
+    return;
+  }
+  const btn=document.getElementById('sfBtnApprove');
+  btn.textContent='⏳ Approving...';btn.disabled=true;
+  document.getElementById('sfStatus').textContent='Menunggu konfirmasi approve...';
+  document.getElementById('sfStatus').style.color='var(--gold)';
+  try{
+    const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt.toString(),18));
+    await tx.wait();
+    btn.textContent='✅ Approved!';
+    document.getElementById('sfStatus').textContent='Approved! Klik Mulai Staking.';
+    document.getElementById('sfStatus').style.color='var(--gold2)';
+  }catch(e){
+    btn.textContent='✓ APPROVE USDT';btn.disabled=false;
+    document.getElementById('sfStatus').textContent='Gagal: '+e.message;
+    document.getElementById('sfStatus').style.color='var(--red)';
   }
 }
 
-function scrollToTop() {
-  window.scrollTo({top: 0, behavior: 'smooth'});
+async function doSfStake(){
+  const t=_TIERS[window._activeTier||0];
+  const tierIdx=window._activeTier||0;
+  const amt=parseFloat(document.getElementById('sfAmt').value)||0;
+  if(!amt||amt<t.min){doSfApprove();return;}
+  const btn=document.getElementById('sfBtnStake');
+  btn.textContent='⏳ Staking...';btn.disabled=true;
+  document.getElementById('sfStatus').textContent='Menunggu konfirmasi stake...';
+  document.getElementById('sfStatus').style.color='var(--gold)';
+  try{
+    const tx=await stakingC.stake(tierIdx,ethers.utils.parseUnits(amt.toString(),18));
+    await tx.wait();
+    toast('✅','Stake berhasil!');
+    closeStakeForm();
+    await loadAll();
+  }catch(e){
+    btn.textContent='💎 MULAI STAKING';btn.disabled=false;
+    document.getElementById('sfStatus').textContent='Gagal: '+e.message;
+    document.getElementById('sfStatus').style.color='var(--red)';
+  }
 }
-
-function doNavConnect() {
-  if(!window.ethereum){ alert('Install MetaMask atau Trust Wallet!'); return; }
-  window.ethereum.request({method:'eth_requestAccounts'}).then(()=>location.reload()).catch(()=>{});
-}
-
-/* Override doApprove — INDC dulu, lalu USDT */
-document.addEventListener('DOMContentLoaded', function() {
-  const _origApprove = window.doApprove;
-  window.doApprove = async function() {
-    if(!signer) { await initWallet(); return; }
-    const statusEl = document.getElementById('fStatus');
-    const fee = PIN_FEES_ARR[_pendingTier] || 800;
-
-    function setStatus(msg, color) {
-      if(statusEl) { statusEl.textContent = msg; statusEl.style.color = color || 'var(--gold)'; }
-    }
-
-    try {
-      /* Step 1 — Approve INDC */
-      setStatus('Step 1/2: Approve INDC ' + fee.toLocaleString('id-ID') + ' INDC...', 'var(--gold)');
-      const INDC_ABI = ['function approve(address,uint256) returns(bool)', 'function allowance(address,address) view returns(uint256)'];
-      const indcC = new ethers.Contract(INDC_CONTRACT, INDC_ABI, signer);
-      const myAddr = await signer.getAddress();
-      const decimals = 9; // INDC 9 decimals
-      const feeWei = ethers.utils.parseUnits(fee.toString(), decimals);
-      const allowed = await indcC.allowance(myAddr, STAKING_CA);
-      if(allowed.lt(feeWei)) {
-        const tx1 = await indcC.approve(STAKING_CA, feeWei);
-        setStatus('Menunggu konfirmasi INDC...', 'var(--gold)');
-        await tx1.wait();
-      }
-      setStatus('✓ INDC approved! Step 2/2: Approve USDT...', 'var(--gold)');
-      _indcApproved = true;
-
-      /* Step 2 — Approve USDT (panggil fungsi asli) */
-      if(typeof _origApprove === 'function') await _origApprove();
-
-    } catch(e) {
-      setStatus('Gagal: ' + (e.reason || e.message || 'Error'), 'var(--red)');
-    }
-  };
-});
 </script>
 
-<!-- PIN POPUP -->
-<div class="pin-popup-overlay" id="pinPopup">
-  <div class="pin-popup">
-    <div class="pin-popup-icon">👑</div>
-    <div class="pin-popup-tier" id="pinPopupTier">TIER CORE</div>
-    <div class="pin-popup-title">AKSES PIN DIPERLUKAN</div>
-    <div class="pin-popup-amount" id="pinPopupAmount">800 INDC</div>
-    <div class="pin-popup-sub">Biaya akses selama stake aktif di tier ini</div>
-    <div class="pin-popup-note">
-      ▸ PIN cukup dibayar <strong style="color:var(--white);">satu kali</strong> selama stake kamu masih aktif.<br>
-      ▸ Apabila kamu melakukan <strong style="color:var(--white);">unstake</strong>, PIN akan <strong style="color:var(--white);">diminta kembali</strong> saat kamu ingin stake ulang.<br>
-      ▸ Pastikan saldo INDC tersedia. Approve INDC dilakukan terlebih dahulu sebelum approve USDT.
+
+
+</div>
+
+
+<!-- FORM STAKE OVERLAY -->
+<div class="form-overlay" id="stakeFormOverlay" onclick="if(event.target===this)closeStakeForm()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;align-items:flex-end;justify-content:center;">
+  <div class="form-sheet" style="width:100%;max-width:480px;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px 40px;">
+    <div class="sheet-handle" style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 16px;"></div>
+    <div id="sfTierBadge" style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);letter-spacing:2px;margin-bottom:14px;text-align:center;">💎 STAKE BARU</div>
+    <!-- Info tier terpilih -->
+    <div id="sfTierInfo" style="background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;">
+      <div>
+        <div id="sfTierName" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);">CORE</div>
+        <div id="sfTierRate" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">1.1%/hari · Lock 12 bln</div>
+      </div>
+      <div style="text-align:right;">
+        <div id="sfTierRange" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white2);">$1,000 – $2,000</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;">MIN – MAX USDT</div>
+      </div>
     </div>
-    <button class="btn-pin-mengerti" onclick="onPinMengerti()">SAYA MENGERTI</button>
+    <!-- Input jumlah -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <label style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;">JUMLAH USDT</label>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="sfSaldo" style="color:var(--gold);">—</span></span>
+    </div>
+    <input type="number" id="sfAmt" placeholder="Min $1,000" style="width:100%;padding:12px 14px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:white;font-family:'Rajdhani',sans-serif;font-size:15px;outline:none;margin-bottom:10px;" oninput="sfCalc()">
+    <!-- Preview kalkulasi -->
+    <div id="sfCalcBox" style="display:none;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:'Share Tech Mono',monospace;font-size:9px;">
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Reward/hari</span><strong id="sfDaily" style="color:var(--gold);">—</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Est. total reward</span><strong id="sfTotal" style="color:var(--gold);">—</strong></div>
+    </div>
+    <div id="sfStatus" style="font-family:'Share Tech Mono',monospace;font-size:9px;min-height:18px;margin-bottom:8px;text-align:center;"></div>
+    <button onclick="doSfApprove()" id="sfBtnApprove" style="width:100%;padding:14px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);border-radius:12px;color:var(--gold);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:8px;">✓ APPROVE USDT</button>
+    <button onclick="doSfStake()" id="sfBtnStake" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:12px;color:#000;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;letter-spacing:2px;cursor:pointer;margin-bottom:8px;">💎 MULAI STAKING</button>
+    <button onclick="closeStakeForm()" style="width:100%;padding:10px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:12px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;">BATAL</button>
   </div>
 </div>
 
