@@ -323,6 +323,7 @@ input:focus,select:focus,textarea:focus{border-color:rgba(255,255,255,0.85)!impo
       </div>
     </div>
     <div class="nav-right">
+      <span id="walletChipNav" style="display:none;font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(168,152,128,0.08);border:1px solid rgba(168,152,128,0.25);color:var(--white2);cursor:pointer;"></span>
       <button id="walletBtn" onclick="initWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;">CONNECT</button>
     </div>
   </nav>
@@ -495,8 +496,7 @@ input:focus,select:focus,textarea:focus{border-color:rgba(255,255,255,0.85)!impo
 </div>
 
 
-    <div style="display:flex;align-items:center;gap:10px;padding
-    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 80px;"><div style="width:28px;height:1px;background:rgba(200,146,42,0.4);"></div><span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:2px;color:#6b5a48;">INDOCOIN © 2026</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 0 80px;"><div style="width:28px;height:1px;background:rgba(200,146,42,0.4);"></div><span style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:2px;color:#6b5a48;">INDOCOIN © 2026</span></div>
   </div>
 </div>
 
@@ -608,11 +608,19 @@ async function initWallet(){
     cU=new ethers.Contract(USDT_CA,ERC20,signer);
     myAddr=await signer.getAddress();
     const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
-    document.getElementById('wBar').style.display='flex';
-    document.getElementById('wChip').style.display='block';
-    document.getElementById('wbAddr').textContent=short;
-    document.getElementById('wChip').textContent=short;
-    document.getElementById('refUrl').textContent=location.origin+location.pathname+'?ref='+myAddr;
+    // Update nav
+    const wBtn=document.getElementById('walletBtn');
+    const wChip=document.getElementById('walletChipNav');
+    if(wBtn) wBtn.style.display='none';
+    if(wChip){wChip.style.display='inline-block';wChip.textContent=short;}
+    // Update wallet bar
+    const wBar=document.getElementById('walletBar');
+    if(wBar) wBar.style.display='flex';
+    const wbAddr=document.getElementById('wbAddr');
+    if(wbAddr) wbAddr.textContent=short;
+    // Ref URL
+    const refUrl=document.getElementById('refUrl');
+    if(refUrl) refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
     await loadAll();
     window.ethereum.on('accountsChanged',()=>location.reload());
     toast('✅','Wallet terhubung!');
@@ -827,14 +835,33 @@ async function doKYC(){
     toast('✅','KYC tersubmit! Tunggu approve admin.');loadAll();
   }catch(e){toast('❌',e.code===4001?'Dibatalkan':'Gagal submit KYC');}
 }
+function showMinPopup(minAmt, maxAmt, label) {
+  const existing = document.getElementById('minStakePopup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+  popup.innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:10px;">BATAS STAKE</div>'
+    + (label ? '<div style="font-family:\'Share Tech Mono\',monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">' + label + '</div>' : '')
+    + '<div style="font-family:\'Share Tech Mono\',monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Min <b>$' + minAmt.toLocaleString() + ' USDT</b>'
+    + (maxAmt ? ' &mdash; Max <b>$' + maxAmt.toLocaleString() + ' USDT</b>' : '') + '</div>'
+    + '<button onclick="this.parentElement.remove()" style="font-family:\'Share Tech Mono\',monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#c8922a;cursor:pointer;letter-spacing:1px;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
 async function doApprove(){
   if(!signer){await initWallet();return;}
-  const a=document.getElementById('inpAmt').value;
-  if(!a||+a<1){setFM('Min $1','err');return;}
+  const a=document.getElementById('stakeAmt')||document.getElementById('inpAmt');
+  const val=a?a.value:'';
+  if(!val||+val<=0){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
+  if(+val<1){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
+  if(+val>10){ showMinPopup(1,10,'AUTO COMPOUND STAKING'); return; }
   try{setFM('Menunggu approval di MetaMask...','info');
-    const tx=await cU.approve(CA,ethers.utils.parseUnits(a,18));await tx.wait();
+    const tx=await cU.approve(CA,ethers.utils.parseUnits(val,18));await tx.wait();
     setFM('Approved ✅  Klik Mulai Compound!','ok');toast('✅','USDT Approved!');
   }catch(e){setFM(e.code===4001?'Dibatalkan':'Gagal approve','err');}
+}
 }
 async function doStake(){
   if(!signer){await initWallet();return;}
@@ -870,17 +897,24 @@ function switchTab(t){
 }
 function copyAddr(){if(myAddr){navigator.clipboard.writeText(myAddr);toast('📋','Alamat disalin!');}}
 function copyRef(){navigator.clipboard.writeText(document.getElementById('refUrl').textContent);toast('📋','Link referral disalin!');}
-function setFM(m,t){const e=document.getElementById('fmsg');e.textContent=m;e.className='fmsg '+t;}
+function setFM(m,t){
+  const e=document.getElementById('fmsg')||document.getElementById('formStatus');
+  if(e){e.textContent=m;e.className='status-msg '+(t==='err'?'err':t==='ok'?'ok':'');}
+}
 function setMsg(i,m,t){const e=document.getElementById('msg-'+i);if(e){e.textContent=m;e.className='sk-msg '+t;}}
 function toast(ico,msg){document.getElementById('tIco').textContent=ico;document.getElementById('tTxt').textContent=msg;const el=document.getElementById('toast');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),3200);}
 
 setInterval(()=>{if(myAddr)loadAll();},30000);
-window.addEventListener('load',()=>{
+window.addEventListener('load',async()=>{
   checkPool();buildRefUI();
   renderStakes(); // tampil skeleton sebelum connect
   const urlRef=new URLSearchParams(location.search).get('ref');
   if(urlRef)localStorage.setItem('indocoin_ref',urlRef);
-  if(window.ethereum)initWallet();
+  // Auto-connect silent (tanpa popup MetaMask)
+  if(window.ethereum){
+    const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+    if(accounts.length>0) initWallet();
+  }
 });
 
 
