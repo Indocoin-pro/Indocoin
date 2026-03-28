@@ -451,16 +451,14 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
   <div class="form-sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title">💎 STAKE BARU</div>
-    <div id="selectedTierInfo" style="background:rgba(0,0,0,0.25);border:1px solid rgba(200,146,42,0.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
-      <div><div id="stierName" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;">CORE</div>
-      <div id="stierRate" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">1.1%/hari · Lock 12 bln</div></div>
-      <div style="text-align:right;"><div id="stierRange" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white2);">$1,000 – $2,000</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px;">MIN – MAX USDT</div></div>
+    <label class="form-label">Pilih Tier</label>
+    <div class="form-tier-grid">
+      <div class="ftier-btn" id="ftier-0" onclick="selectTier(0)"><div class="fn">🥈 CORE</div><div class="fr">1,000–2,000 USDT · 12 bln</div></div>
+      <div class="ftier-btn" id="ftier-1" onclick="selectTier(1)"><div class="fn">🥇 EDGE</div><div class="fr">2,000–3,000 USDT · 24 bln</div></div>
+      <div class="ftier-btn" id="ftier-2" onclick="selectTier(2)"><div class="fn">💎 PRIME</div><div class="fr">3,000–4,000 USDT · 36 bln</div></div>
+      <div class="ftier-btn" id="ftier-3" onclick="selectTier(3)"><div class="fn">🖤 BLACK PRIME</div><div class="fr">4,000–5,000 USDT · 48 bln</div></div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <label class="form-label" style="margin:0;">Jumlah USDT</label>
-      <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balInput" style="color:var(--gold);">—</span></span>
-    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label class="form-label" style="margin:0;">Jumlah USDT</label><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balFormInput" style="color:var(--gold);">—</span></span></div>
     <input class="form-input" type="number" id="newAmt" placeholder="Contoh: 1000" oninput="calcStake(this.value)">
     <div class="form-calc" id="fCalc" style="display:none">
       <div class="fc-row"><span>Modal</span><strong id="fc-p">$0</strong></div>
@@ -622,7 +620,10 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <div class="cs-secure">🛡️ &nbsp; BSC NETWORK &nbsp;·&nbsp; NON-CUSTODIAL &nbsp;·&nbsp; SMART CONTRACT</div>
     </div>
 
+    <!-- CONNECTED STRIP -->
     
+      <div class="wcs-bal">USDT: <strong id="wcsBal">$0.00</strong></div>
+    </div>
 
 
     <!-- KALKULATOR DI LUAR -->
@@ -746,24 +747,9 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
 </div>
 
 <script>
-/* ─ setTier: klik tier card utama ─ */
 function setTier(t){
-  window._activeTier = t;
-  // Update visual tier cards
-  for(let i=0;i<4;i++){
-    const el=document.getElementById('tc'+i);
-    if(el) el.className=el.className.replace(' tc-active','')+(i===t?' tc-active':'');
-  }
-  // Update info tier (rate, min, dll)
-  const TIER_INFO=[
-    {name:'CORE',   rate:'0.5%', min:'800',  max:'1,200'},
-    {name:'EDGE',   rate:'0.8%', min:'1,200',max:'1,600'},
-    {name:'PRIME',  rate:'1.0%', min:'1,600',max:'2,000'},
-    {name:'ULTRA',  rate:'1.2%', min:'2,000',max:'3,000'},
-  ];
-  const info=TIER_INFO[t]||TIER_INFO[0];
-  const el=document.getElementById('tisBtnStake');
-  if(el) el.textContent='MULAI STAKING — '+info.name+' ('+info.rate+'/hari)';
+  window._activeTier=t;
+  for(let i=0;i<4;i++){const el=document.getElementById('tc'+i);if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}}
 }
 
 const CA="0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504";
@@ -831,8 +817,7 @@ async function loadAll(){
     const bal=await usdtC.balanceOf(userAddr);
     const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
     document.getElementById('statSaldo').textContent=bf;
-    const _bf2=document.getElementById('balFormInput');if(_bf2)_bf2.textContent=bf;
-    const _bf3=document.getElementById('wcsBal');if(_bf3)_bf3.textContent=bf;
+    ['wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=bf;});
     document.getElementById('wcsBal').textContent=bf;
     const count=(await rC.getStakeCount(userAddr)).toNumber();
     stakesData=[];
@@ -884,21 +869,10 @@ function renderCards(){
 function openFormTier(t){
   if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
   selTier=t;selectTier(t);
-  // Update info tier di form
-  const _tInfo=[
-    {name:'🥈 CORE',   rate:'1.1%/hari · Lock 12 bln', range:'$1,000 – $2,000'},
-    {name:'🥇 EDGE',   rate:'1.3%/hari · Lock 24 bln', range:'$2,000 – $3,000'},
-    {name:'💎 PRIME',  rate:'1.5%/hari · Lock 36 bln', range:'$3,000 – $4,000'},
-    {name:'🖤 ULTRA',  rate:'1.7%/hari · Lock 48 bln', range:'$4,000 – $5,000'},
-  ];
-  const info=_tInfo[t]||_tInfo[0];
-  const n=document.getElementById('stierName');if(n)n.textContent=info.name;
-  const r=document.getElementById('stierRate');if(r)r.textContent=info.rate;
-  const rg=document.getElementById('stierRange');if(rg)rg.textContent=info.range;
   document.getElementById('newAmt').value='';
   document.getElementById('fCalc').style.display='none';
   document.getElementById('fStatus').textContent='';
-  document.getElementById('formOverlay').classList.add('open');
+  document.getElementById('formOverlay').classList.add('show');
 }
 function selectTier(t){
   selTier=t;
@@ -922,16 +896,7 @@ function closeFormDirect(){document.getElementById('formOverlay').classList.remo
 async function doApprove(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;
-  const _tierMins=[1000,2000,3000,4000];
-  const _tierNames=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,000)'];
-  const _minAmt=_tierMins[typeof _pendingTier!=='undefined'?_pendingTier:0]||1000;
-  if(!amt||Number(amt)<_minAmt){
-    const popup=document.createElement('div');
-    popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
-    popup.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Minimal stake tier ini: <b>$'+_minAmt.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
-    document.body.appendChild(popup);
-    return;
-  }
+  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
   try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
 }
@@ -957,7 +922,6 @@ function toast(icon,msg){document.getElementById('toastIcon').textContent=icon;d
 
 window.addEventListener('load',()=>{checkPool();});
 
-/* ─ Auto Connect ─ */
 (async function autoConnect(){
   const eth=window.ethereum;
   if(!eth) return;
@@ -974,15 +938,12 @@ window.addEventListener('load',()=>{checkPool();});
     document.getElementById('connectStrip').style.display='none';
     document.getElementById('connectedStrip').style.display='flex';
     document.getElementById('wcsAddr').textContent=short;
+    document.getElementById('walletChipNav').textContent=short;
     toast('✅','Wallet terhubung!');
-    // Saldo USDT langsung
     try{
       const uBal=await usdtC.balanceOf(userAddr);
       const uFmt='$'+parseFloat(ethers.utils.formatUnits(uBal,18)).toFixed(2);
-      const el=document.getElementById('statSaldo');if(el)el.textContent=uFmt;
-      const el2=document.getElementById('wcsBal');if(el2)el2.textContent=uFmt;
-      const el3=document.getElementById('balInput');if(el3)el3.textContent=uFmt;
-      const el4=document.getElementById('balFormInput');if(el4)el4.textContent=uFmt;
+      ['statSaldo','wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
     }catch(e2){}
     await loadAll();
   }catch(e){console.warn('autoConnect:',e);}
@@ -1049,18 +1010,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const _origApprove = window.doApprove;
   window.doApprove = async function() {
     if(!signer) { await initWallet(); return; }
-    // Validasi min per tier
-    const _amt = parseFloat(document.getElementById('newAmt')?.value||0);
-    const _mins=[1000,2000,3000,4000];
-    const _names=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,000)'];
-    const _min=_mins[_pendingTier]||1000;
-    if(!_amt||_amt<_min){
-      const popup=document.createElement('div');
-      popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
-      popup.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier <b>'+_names[_pendingTier]+'</b><br>Minimal: <b>$'+_min.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
-      document.body.appendChild(popup);
-      return;
-    }
     const statusEl = document.getElementById('fStatus');
     const fee = PIN_FEES_ARR[_pendingTier] || 800;
 
