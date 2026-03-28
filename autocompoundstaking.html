@@ -323,8 +323,7 @@ input:focus,select:focus,textarea:focus{border-color:rgba(255,255,255,0.85)!impo
       </div>
     </div>
     <div class="nav-right">
-      <span id="walletChipNav" style="display:none;font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(168,152,128,0.08);border:1px solid rgba(168,152,128,0.25);color:var(--white2);cursor:pointer;"></span>
-      <button id="walletBtn" onclick="initWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;">CONNECT</button>
+      <button id="walletBtn" onclick="initWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;">CONNECT</button>
     </div>
   </nav>
 
@@ -608,21 +607,13 @@ async function initWallet(){
     cU=new ethers.Contract(USDT_CA,ERC20,signer);
     myAddr=await signer.getAddress();
     const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
-    // Update nav
-    const wBtn=document.getElementById('walletBtn');
-    const wChip=document.getElementById('walletChipNav');
-    if(wBtn) wBtn.style.display='none';
-    if(wChip){wChip.style.display='inline-block';wChip.textContent=short;}
-    // Update wallet bar
-    const wBar=document.getElementById('walletBar');
-    if(wBar) wBar.style.display='flex';
-    const wbAddr=document.getElementById('wbAddr');
-    if(wbAddr) wbAddr.textContent=short;
-    // Ref URL
-    const refUrl=document.getElementById('refUrl');
-    if(refUrl) refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
+    const _wb=document.getElementById('walletBtn');if(_wb)_wb.textContent=short;
+    const wBar=document.getElementById('walletBar');if(wBar)wBar.style.display='flex';
+    const wbAddr=document.getElementById('wbAddr');if(wbAddr)wbAddr.textContent=short;
+    const refUrl=document.getElementById('refUrl');if(refUrl)refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
     await loadAll();
     window.ethereum.on('accountsChanged',()=>location.reload());
+    window.ethereum.on('chainChanged',()=>location.reload());
     toast('✅','Wallet terhubung!');
   }catch(e){console.warn(e);toast('❌','Gagal connect');}
 }
@@ -905,17 +896,36 @@ function setMsg(i,m,t){const e=document.getElementById('msg-'+i);if(e){e.textCon
 function toast(ico,msg){document.getElementById('tIco').textContent=ico;document.getElementById('tTxt').textContent=msg;const el=document.getElementById('toast');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),3200);}
 
 setInterval(()=>{if(myAddr)loadAll();},30000);
-window.addEventListener('load',async()=>{
+window.addEventListener('load',()=>{
   checkPool();buildRefUI();
-  renderStakes(); // tampil skeleton sebelum connect
+  renderStakes();
   const urlRef=new URLSearchParams(location.search).get('ref');
   if(urlRef)localStorage.setItem('indocoin_ref',urlRef);
-  // Auto-connect silent (tanpa popup MetaMask)
-  if(window.ethereum){
-    const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-    if(accounts.length>0) initWallet();
-  }
 });
+
+/* autoConnect — silent, tanpa popup MetaMask */
+(async function autoConnect(){
+  const eth=window.ethereum;
+  if(!eth)return;
+  const accounts=await eth.request({method:'eth_accounts'}).catch(()=>[]);
+  if(!accounts.length)return;
+  try{
+    provider=new ethers.providers.Web3Provider(eth,'any');
+    signer=provider.getSigner();
+    cS=new ethers.Contract(CA,ABI,signer);
+    cU=new ethers.Contract(USDT_CA,ERC20,signer);
+    myAddr=await signer.getAddress();
+    const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
+    const _wb=document.getElementById('walletBtn');if(_wb)_wb.textContent=short;
+    const wBar=document.getElementById('walletBar');if(wBar)wBar.style.display='flex';
+    const wbAddr=document.getElementById('wbAddr');if(wbAddr)wbAddr.textContent=short;
+    const refUrl=document.getElementById('refUrl');if(refUrl)refUrl.textContent=location.origin+location.pathname+'?ref='+myAddr;
+    toast('✅','Wallet terhubung!');
+    await loadAll();
+  }catch(e){console.warn('autoConnect:',e);}
+  eth.on('accountsChanged',()=>location.reload());
+  eth.on('chainChanged',()=>location.reload());
+})();
 
 
 /* ── TAMBAHAN ── */
