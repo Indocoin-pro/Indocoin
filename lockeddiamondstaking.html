@@ -360,7 +360,7 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .kalku-row{display:flex;gap:8px;margin-bottom:8px;}
 .kalku-input{flex:1;padding:11px 14px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:var(--white);font-family:'Rajdhani',sans-serif;font-size:14px;outline:none;transition:border-color 0.3s;}
 .kalku-input:focus{border-color:rgba(255,255,255,0.9);}
-.kalku-select{padding:11px 8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:var(--gold);max-width:110px;font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;cursor:pointer;}
+.kalku-select{padding:11px 8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:var(--gold);font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;cursor:pointer;}
 .kalku-result{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
 .kalku-item{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px;text-align:center;min-width:0;overflow:hidden;}
 .kalku-item.full{grid-column:1/-1;border-color:rgba(255,255,255,0.65);}
@@ -371,8 +371,8 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .penalty-card{background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
 .penalty-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
 .penalty-row:last-child{border-bottom:none;padding-bottom:0;}
-.pen-tier{font-family:'Orbitron',sans-serif;font-size:8px;color:var(--white2);letter-spacing:1px;flex-shrink:0;}
-.pen-val{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--white);font-weight:700;word-break:break-word;text-align:right;flex-shrink:1;}
+.pen-tier{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--white2);letter-spacing:1px;}
+.pen-val{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--white);font-weight:700;}
 .pen-note{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:8px;line-height:1.5;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);}
 
 /* ── STAKE CARD ENHANCED ── */
@@ -458,7 +458,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <div class="ftier-btn" id="ftier-2" onclick="selectTier(2)"><div class="fn">💎 PRIME</div><div class="fr">3,000–4,000 USDT · 36 bln</div></div>
       <div class="ftier-btn" id="ftier-3" onclick="selectTier(3)"><div class="fn">🖤 BLACK PRIME</div><div class="fr">4,000–5,000 USDT · 48 bln</div></div>
     </div>
-    <label class="form-label">Jumlah USDT</label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><label class="form-label" style="margin:0;">Jumlah USDT</label><span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balFormInput" style="color:var(--gold);">—</span></span></div>
     <input class="form-input" type="number" id="newAmt" placeholder="Contoh: 1000" oninput="calcStake(this.value)">
     <div class="form-calc" id="fCalc" style="display:none">
       <div class="fc-row"><span>Modal</span><strong id="fc-p">$0</strong></div>
@@ -705,7 +705,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <div class="panel active" id="panel-stakes">
       <div class="stakes-header">
         <span class="stakes-title">STAKE AKTIF SAYA</span>
-        <button class="btn-new-stake" onclick="showPinPopup(0)">+ STAKE BARU</button>
+        <button class="btn-new-stake" onclick="openFormTier(window._activeTier||0)">+ STAKE BARU</button>
       </div>
       <div id="stakesList">
         <div class="empty-stakes">
@@ -752,11 +752,6 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
 </div>
 
 <script>
-function setTier(t){
-  window._activeTier=t;
-  for(let i=0;i<4;i++){const el=document.getElementById('tc'+i);if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}}
-}
-
 const CA="0x1eE2Ad01A0152bc665d4DAcf247f16370D2B3504";
 const USDT_ADDR="0x55d398326f99059fF775485246999027B3197955";
 const RPC="https://bsc-dataseed1.binance.org/";
@@ -822,7 +817,7 @@ async function loadAll(){
     const bal=await usdtC.balanceOf(userAddr);
     const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
     document.getElementById('statSaldo').textContent=bf;
-    const _wc=document.getElementById('wcsBal');if(_wc)_wc.textContent=bf;
+    ['wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=bf;});
     document.getElementById('wcsBal').textContent=bf;
     const count=(await rC.getStakeCount(userAddr)).toNumber();
     stakesData=[];
@@ -872,8 +867,6 @@ function renderCards(){
 }
 
 function openFormTier(t){
-  window._activeTier=t;
-  setTier(t);
   if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
   selTier=t;selectTier(t);
   document.getElementById('newAmt').value='';
@@ -903,7 +896,13 @@ function closeFormDirect(){document.getElementById('formOverlay').classList.remo
 async function doApprove(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;
-  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
+  const _min=_TIER_MINS[window._activeTier||0]||1000;
+  if(!amt||Number(amt)<_min){
+    const p=document.createElement('div');
+    p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
+    p.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier <b>'+_TIER_NAMES[window._activeTier||0]+'</b><br>Minimal: <b>$'+_min.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
+    document.body.appendChild(p);return;
+  }
   try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
 }
@@ -929,6 +928,35 @@ function toast(icon,msg){document.getElementById('toastIcon').textContent=icon;d
 
 window.addEventListener('load',()=>{checkPool();});
 
+/* ─ setTier ─ */
+function setTier(t){
+  window._activeTier=t;
+  for(let i=0;i<4;i++){const el=document.getElementById('tc'+i);if(el){el.classList.remove('tc-active');if(i===t)el.classList.add('tc-active');}}
+}
+
+/* ─ openFormTier tanpa PIN ─ */
+function openFormTier(t){
+  if(!userAddr){toast('🦊','Connect wallet dulu!');return;}
+  window._activeTier=t;
+  setTier(t);
+  selTier=t; if(typeof selectTier==='function') selectTier(t);
+  document.getElementById('newAmt').value='';
+  document.getElementById('fCalc').style.display='none';
+  document.getElementById('fStatus').textContent='';
+  if(usdtC&&userAddr){
+    usdtC.balanceOf(userAddr).then(b=>{
+      const f='$'+parseFloat(ethers.utils.formatUnits(b,18)).toFixed(2);
+      const el=document.getElementById('balFormInput');if(el)el.textContent=f;
+    }).catch(()=>{});
+  }
+  document.getElementById('formOverlay').classList.add('open');
+}
+
+/* ─ Popup min per tier ─ */
+const _TIER_MINS=[1000,2000,3000,4000];
+const _TIER_NAMES=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,000)'];
+
+/* ─ Auto Connect ─ */
 (async function autoConnect(){
   const eth=window.ethereum;
   if(!eth)return;
@@ -950,13 +978,14 @@ window.addEventListener('load',()=>{checkPool();});
     try{
       const uBal=await usdtC.balanceOf(userAddr);
       const uFmt='$'+parseFloat(ethers.utils.formatUnits(uBal,18)).toFixed(2);
-      ['statSaldo','wcsBal'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
+      ['statSaldo','wcsBal','balFormInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=uFmt;});
     }catch(e2){}
     await loadAll();
   }catch(e){console.warn('autoConnect:',e);}
   eth.on('accountsChanged',()=>location.reload());
   eth.on('chainChanged',()=>location.reload());
-})();</script>
+})();
+</script>
 
 
 
