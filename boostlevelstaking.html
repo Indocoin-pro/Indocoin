@@ -248,7 +248,10 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
   <div class="form-sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title"> STAKE BARU</div>
-    <label class="form-label">JUMLAH USDT (MIN $10 — MAX $1,000)</label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <label class="form-label" style="margin:0;">JUMLAH USDT (MIN $10 — MAX $1,000)</label>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">SALDO: <span id="balStake" style="color:var(--gold);">—</span></span>
+    </div>
     <input class="form-input" type="number" id="newStakeAmt" placeholder="Contoh: 100" oninput="calcNewStake(this.value)">
     <div class="form-calc" id="newCalc" style="display:none;">
       <div class="fc-row"><span>Modal stake</span><strong id="nc-raw">$0</strong></div>
@@ -301,9 +304,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <span class="nav-brand-sub">▸ BOOST LEVEL STAKING</span>
     </div>
   </div>
-  <div class="nav-right">
-    <button class="btn-wallet-nav" id="walletBtn" onclick="initWallet()">CONNECT</button>
-  </div>
+  <div class="nav-right"><button id="walletBtn" onclick="initWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;">CONNECT</button></div>
   </div>
 </nav>
 
@@ -558,6 +559,9 @@ async function initWallet(){
     stakingC = new ethers.Contract(CA, ABI, signer);
     usdtC    = new ethers.Contract(USDT_ADDR, ERC20, signer);
     userAddr = await signer.getAddress();
+    const _btn=document.getElementById('walletBtn');
+    if(_btn) _btn.textContent=userAddr.slice(0,6)+'…'+userAddr.slice(-4);
+    showToast('✓','Wallet terhubung!');
     await loadAll();
     eth.on('accountsChanged', ()=>location.reload());
     eth.on('chainChanged',    ()=>location.reload());
@@ -804,14 +808,32 @@ window.addEventListener('load', ()=>{
 });
 
 /* ─ Auto Connect ─ */
-(async function(){
-  if(!window.ethereum) return;
-  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length){
-    await initWallet();
-  }
-})();
-</script>
+(async function autoConnect(){
+  const eth = window.ethereum;
+  if(!eth) return;
+  const accounts = await eth.request({method:'eth_accounts'}).catch(()=>[]);
+  if(!accounts.length) return;
+  try{
+    provider = new ethers.providers.Web3Provider(eth,'any');
+    signer   = provider.getSigner();
+    stakingC = new ethers.Contract(CA, ABI, signer);
+    usdtC    = new ethers.Contract(USDT_ADDR, ERC20, signer);
+    userAddr = await signer.getAddress();
+    const _btn=document.getElementById('walletBtn');
+    if(_btn) _btn.textContent=userAddr.slice(0,6)+'…'+userAddr.slice(-4);
+    showToast('✓','Wallet terhubung!');
+    // Tampilkan saldo USDT langsung
+    try{
+      const uBal = await usdtC.balanceOf(userAddr);
+      const uFmt = '$'+parseFloat(ethers.utils.formatUnits(uBal,18)).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const elS = document.getElementById('balStake');
+      if(elS) elS.textContent = uFmt;
+    }catch(e2){}
+    await loadAll();
+  }catch(e){ console.warn('autoConnect:',e); }
+  eth.on('accountsChanged',()=>location.reload());
+  eth.on('chainChanged',()=>location.reload());
+})();</script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
