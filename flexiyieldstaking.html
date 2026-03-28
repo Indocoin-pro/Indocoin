@@ -498,13 +498,11 @@ async function connectWallet(){
       signer   = provider.getSigner();
     }
     myAddr   = await signer.getAddress();
-    const btn = document.getElementById('walletBtn');
-    if(btn) btn.textContent = shortAddr(myAddr);
     contract = new ethers.Contract(SC.STAKING, STAKING_ABI, signer);
     usdtC    = new ethers.Contract(SC.USDT,    ERC20_ABI,   signer);
     indcC    = new ethers.Contract(SC.INDC,    ERC20_ABI,   signer);
 
-    document.getElementById('btnConnect').textContent = shortAddr(myAddr);
+    const _btn=document.getElementById('walletBtn');if(_btn)_btn.textContent=shortAddr(myAddr);
     showToast('✓ Wallet terhubung!','var(--gold2)');
     await loadData();
     window.ethereum.on('accountsChanged', ()=>location.reload());
@@ -622,8 +620,6 @@ async function doPayPin(){
 /* ── Approve USDT (stake) ── */
 async function doApprove(){
   if(!myAddr){ await connectWallet(); return; }
-  const amt = parseFloat(document.getElementById('inpAmt')?.value||0);
-  if(amt < 50){ setMsg('msgStake','Min stake $50 USDT','var(--red)'); return; }
   const btn = document.getElementById('btnApprove');
   btn.textContent = '⏳ Approving...'; btn.disabled = true;
   setMsg('msgStake','Menunggu konfirmasi approve...','var(--gold)');
@@ -794,20 +790,22 @@ for(let i=0;i<45;i++){
   if(accounts.length) await connectWallet();
 })();
 
+/* ─ Auto Connect (tanpa popup) ─ */
 (async function autoConnect(){
   if(!window.ethereum) return;
   const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length){
-    // Wallet sudah terhubung — set langsung tanpa popup
-    try{
-      provider = new ethers.providers.Web3Provider(window.ethereum,'any');
-      signer   = provider.getSigner();
-      myAddr   = await signer.getAddress();
-      const btn = document.getElementById('walletBtn');
-      if(btn) btn.textContent = shortAddr(myAddr);
-      await loadData();
-    }catch(e){ console.warn('autoConnect error:',e); }
-  }
+  if(!accounts.length) return;
+  try{
+    provider = new ethers.providers.Web3Provider(window.ethereum,'any');
+    signer   = provider.getSigner();
+    myAddr   = await signer.getAddress();
+    contract = new ethers.Contract(SC.STAKING, STAKING_ABI, signer);
+    usdtC    = new ethers.Contract(SC.USDT,    ERC20_ABI,   signer);
+    indcC    = new ethers.Contract(SC.INDC,    ERC20_ABI,   signer);
+    const _btn=document.getElementById('walletBtn');
+    if(_btn) _btn.textContent=shortAddr(myAddr);
+    await loadData();
+  }catch(e){ console.warn('autoConnect:',e); }
   window.ethereum.on('accountsChanged',()=>location.reload());
   window.ethereum.on('chainChanged',()=>location.reload());
 })();</script>
