@@ -827,7 +827,18 @@ function closeFormDirect(){document.getElementById('formOverlay').classList.remo
 async function doApprove(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;
-  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
+  const _mins=[1000,2000,3000,4000];
+  const _names=['CORE','EDGE','PRIME','ULTRA'];
+  const _minAmt=_mins[window._activeTier||0];
+  if(!amt||Number(amt)<_minAmt){
+    const p=document.createElement('div');
+    p.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;box-sizing:border-box;';
+    p.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div>'
+      +'<div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier <b>'+_names[window._activeTier||0]+'</b><br>Minimal: <b>$'+_minAmt.toLocaleString()+' USDT</b></div>'
+      +'<button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
+    document.body.appendChild(p);
+    return;
+  }
   try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
 }
