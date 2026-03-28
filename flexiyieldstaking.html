@@ -208,9 +208,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       <span class="nav-brand-sub" style="white-space:nowrap;">FLEXI YIELD STAKING</span>
     </div>
   </div>
-  <div class="nav-right">
-    <button id="walletBtn" onclick="connectWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;">CONNECT</button>
-  </div>
+  <div class="nav-right"><button id="walletBtn" onclick="connectWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;">CONNECT</button></div>
 </nav>
 
 <div class="main">
@@ -500,6 +498,8 @@ async function connectWallet(){
       signer   = provider.getSigner();
     }
     myAddr   = await signer.getAddress();
+    const btn = document.getElementById('walletBtn');
+    if(btn) btn.textContent = shortAddr(myAddr);
     contract = new ethers.Contract(SC.STAKING, STAKING_ABI, signer);
     usdtC    = new ethers.Contract(SC.USDT,    ERC20_ABI,   signer);
     indcC    = new ethers.Contract(SC.INDC,    ERC20_ABI,   signer);
@@ -791,7 +791,16 @@ for(let i=0;i<45;i++){
   const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
   if(accounts.length) await connectWallet();
 })();
-</script>
+
+(async function autoConnect(){
+  if(!window.ethereum) return;
+  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(accounts.length){
+    await connectWallet();
+  } else {
+    await connectWallet();
+  }
+})();</script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => {
