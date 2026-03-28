@@ -438,6 +438,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
 .pin-popup-note{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:1.6;margin-bottom:16px;text-align:left;}
 .btn-pin-mengerti{width:100%;padding:13px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;letter-spacing:2px;cursor:pointer;}
 
+.wallet-addr-nav{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white2);cursor:pointer;padding:4px 10px;border-radius:4px;background:rgba(168,152,128,0.08);border:1px solid rgba(168,152,128,0.25);letter-spacing:1px;}
 </style>
 </head>
 <body>
@@ -489,7 +490,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
       </div>
     </div>
     <div class="nav-right">
-      <button class="btn-wallet-nav" id="navWalletBtn" onclick="doNavConnect()">CONNECT</button>
+      <span class="wallet-addr-nav" id="walletAddrNav"></span>
     </div>
   </nav>
 
@@ -1014,6 +1015,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 });
+
+/* AUTO CONNECT */
+function showWalletAddrNav(addr){
+  const el=document.getElementById('walletAddrNav');
+  if(!el)return;
+  el.textContent=addr.slice(0,6)+'…'+addr.slice(-4);
+  el.title=addr;
+  el.style.display='inline-block';
+  el.onclick=function(){
+    navigator.clipboard.writeText(addr).then(()=>{
+      const o=el.textContent;el.textContent='Disalin!';
+      setTimeout(()=>el.textContent=o,1500);
+    });
+  };
+}
+(async function autoConnect(){
+  if(!window.ethereum)return;
+  const acc=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(acc.length){
+    showWalletAddrNav(acc[0]);
+    try{ await initWallet(); }catch(e){}
+  }
+  window.ethereum.on('accountsChanged',()=>location.reload());
+})();
 </script>
 
 <!-- PIN POPUP -->
