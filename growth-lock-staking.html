@@ -526,6 +526,21 @@ function shortAddr(a){ return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
 function fromWei(v){ return (Number(BigInt(v.toString())) / 1e18).toFixed(4); }
 function toWei(v){ return ethers.utils.parseUnits(String(parseFloat(v)||0), 18); }
 
+function showMinPopup(minAmt, maxAmt, label) {
+  const existing = document.getElementById('minStakePopup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+  popup.innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div>'
+    + (label ? '<div style="font-family:\'Share Tech Mono\',monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">' + label + '</div>' : '')
+    + '<div style="font-family:\'Share Tech Mono\',monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Min <b>$' + minAmt.toLocaleString() + ' USDT</b>'
+    + (maxAmt ? ' &mdash; Max <b>$' + maxAmt.toLocaleString() + ' USDT</b>' : '') + '</div>'
+    + '<button onclick="this.parentElement.remove()" style="font-family:\'Share Tech Mono\',monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#c8922a;cursor:pointer;letter-spacing:1px;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
 function setMsg(id, txt, color=''){
   const el = document.getElementById('msg'+id);
   if(el){ el.textContent = txt; el.style.color = color || ''; }
@@ -595,8 +610,8 @@ async function approveUSDT(opsiId) {
 async function doStake(opsiId, days) {
   if(!_wallet){ await connectWallet(); return; }
   const val = document.getElementById('inp'+opsiId).value;
-  if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah USDT terlebih dahulu','var(--red)'); return; }
-  if(parseFloat(val) < 10){ setMsg(opsiId,'Minimum stake $10 USDT','var(--red)'); return; }
+  if(!val || parseFloat(val) <= 0){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
+  if(parseFloat(val) < 10){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
   const btn = document.getElementById('btnStake'+opsiId);
   btn.textContent = '⏳ Staking...'; btn.disabled = true;
   setMsg(opsiId, 'Menunggu konfirmasi transaksi...', 'var(--gold)');

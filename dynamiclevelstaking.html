@@ -815,7 +815,7 @@ async function doApprove(lv) {
   if (!indcContract) { showToast('','Connect wallet dulu!'); return; }
   const inp = document.getElementById('inp'+lv);
   const val = parseFloat(inp.value)||0;
-  if (val <= 0) { setMsg(lv,'Masukkan jumlah USDT','err'); return; }
+  if (val <= 0) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
   try {
     const usdtContract = new ethers.Contract(USDT_ADDRESS, INDC_ABI, signer);
     const amt = ethers.utils.parseUnits(val.toString(), 18);
@@ -836,8 +836,8 @@ async function doStake(lv) {
   const inp = document.getElementById('inp'+lv);
   const val = parseFloat(inp.value)||0;
   const lvData = LEVELS[lv-1];
-  if (val < lvData.minU) { setMsg(lv,`Min stake ${lvData.min}`,'err'); return; }
-  if (val > lvData.maxU) { setMsg(lv,`Max stake ${lvData.max}`,'err'); return; }
+  if (val < lvData.minU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
+  if (val > lvData.maxU) { showMinPopup(lvData.minU, lvData.maxU, 'LEVEL ' + lv); return; }
   try {
     const amt = ethers.utils.parseUnits(val.toString(), 18);
     // Cek allowance dulu
@@ -896,6 +896,21 @@ async function doEarlyWithdraw(idx) {
 }
 
 // ── Helpers ──
+function showMinPopup(minAmt, maxAmt, label) {
+  const existing = document.getElementById('minStakePopup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+  popup.innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div>'
+    + (label ? '<div style="font-family:\'Share Tech Mono\',monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">' + label + '</div>' : '')
+    + '<div style="font-family:\'Share Tech Mono\',monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Min <b>$' + minAmt.toLocaleString() + ' USDT</b>'
+    + (maxAmt ? ' &mdash; Max <b>$' + maxAmt.toLocaleString() + ' USDT</b>' : '') + '</div>'
+    + '<button onclick="this.parentElement.remove()" style="font-family:\'Share Tech Mono\',monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#c8922a;cursor:pointer;letter-spacing:1px;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
 function setMsg(lv, msg, type) {
   const el = document.getElementById('msg'+lv);
   if (el) { el.textContent = msg; el.className = 'status-msg '+type; }
