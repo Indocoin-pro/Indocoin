@@ -832,6 +832,8 @@ async function loadAll(){
     const bal=await usdtC.balanceOf(userAddr);
     const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
     document.getElementById('statSaldo').textContent=bf;
+    const _bf2=document.getElementById('balFormInput');if(_bf2)_bf2.textContent=bf;
+    const _bf3=document.getElementById('wcsBal');if(_bf3)_bf3.textContent=bf;
     document.getElementById('wcsBal').textContent=bf;
     const count=(await rC.getStakeCount(userAddr)).toNumber();
     stakesData=[];
@@ -1037,6 +1039,18 @@ document.addEventListener('DOMContentLoaded', function() {
   const _origApprove = window.doApprove;
   window.doApprove = async function() {
     if(!signer) { await initWallet(); return; }
+    // Validasi min per tier
+    const _amt = parseFloat(document.getElementById('newAmt')?.value||0);
+    const _mins=[1000,2000,3000,4000];
+    const _names=['CORE ($1,000)','EDGE ($2,000)','PRIME ($3,000)','ULTRA ($4,000)'];
+    const _min=_mins[_pendingTier]||1000;
+    if(!_amt||_amt<_min){
+      const popup=document.createElement('div');
+      popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
+      popup.innerHTML='<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Tier <b>'+_names[_pendingTier]+'</b><br>Minimal: <b>$'+_min.toLocaleString()+' USDT</b></div><button onclick="this.parentElement.remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
+      document.body.appendChild(popup);
+      return;
+    }
     const statusEl = document.getElementById('fStatus');
     const fee = PIN_FEES_ARR[_pendingTier] || 800;
 
