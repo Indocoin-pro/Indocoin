@@ -824,10 +824,24 @@ function calcStake(v){
 }
 function closeFormDirect(){document.getElementById('formOverlay').classList.remove('show');}
 
+function showMinPopup(minAmt, maxAmt, tierName){
+  const existing = document.getElementById('minStakePopup');
+  if(existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;';
+  popup.innerHTML = '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MINIMUM STAKE</div><div style="font-family:Share Tech Mono,monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">Tier <b>'+tierName+'</b></div><div style="font-family:Share Tech Mono,monospace;font-size:12px;color:#f5f0e8;margin-bottom:16px;">Min <b>$'+minAmt.toLocaleString()+' USDT</b> &mdash; Max <b>$'+maxAmt.toLocaleString()+' USDT</b></div><button onclick="document.getElementById(\'minStakePopup\').remove()" style="font-family:Share Tech Mono,monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:var(--gold);cursor:pointer;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
 async function doApprove(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;
-  if(!amt||Number(amt)<100){setFS('fStatus','Min 100 USDT','err');return;}
+  const t=TIERS[selTier];
+  if(!amt||Number(amt)<t.min||Number(amt)>t.max){
+    showMinPopup(t.min, t.max, t.name);
+    return;
+  }
   try{setFS('fStatus','Menunggu approval...','info');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,18));await tx.wait();setFS('fStatus','Approved ✅ Klik Mulai Staking!','ok');toast('✅','USDT Approved!');}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':'Gagal','err');}
 }
@@ -835,8 +849,10 @@ async function doStake(){
   if(!signer){await initWallet();return;}
   const amt=document.getElementById('newAmt').value;if(!amt){setFS('fStatus','Masukkan jumlah','err');return;}
   const t=TIERS[selTier];
-  if(Number(amt)<t.min){setFS('fStatus','Min '+t.min.toLocaleString()+' USDT','err');return;}
-  if(Number(amt)>t.max){setFS('fStatus','Max '+t.max.toLocaleString()+' USDT','err');return;}
+  if(Number(amt)<t.min||Number(amt)>t.max){
+    showMinPopup(t.min, t.max, t.name);
+    return;
+  }
   try{setFS('fStatus','Konfirmasi di wallet...','info');const tx=await stakingC.stake(selTier,ethers.utils.parseUnits(amt,18));setFS('fStatus','Diproses...','info');await tx.wait();setFS('fStatus','💎 Staking dimulai!','ok');toast('💎','Staking berhasil!');closeFormDirect();await loadAll();}
   catch(e){setFS('fStatus',e.code===4001?'Dibatalkan':(e.reason||'Gagal'),'err');}
 }
