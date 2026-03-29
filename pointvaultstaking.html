@@ -513,15 +513,30 @@ let selectedItemId = null;
 let itemsCache = [];
 
 // ═══ CONNECT WALLET ═══
-/* connectWallet replaced by patch */
+async function connectWallet() {
+  if (!window.ethereum) { toast('❌ Install MetaMask!'); return; }
+  try {
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    web3 = new Web3(window.ethereum);
+    const accounts = await web3.eth.getAccounts();
+    account = accounts[0];
+    const chainId = await web3.eth.getChainId();
+    if (Number(chainId) !== 56) {
+      try { await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]}); }
+      catch(e) {}
+      web3 = new Web3(window.ethereum);
+      const accs = await web3.eth.getAccounts();
+      account = accs[0];
+    }
     contract     = new web3.eth.Contract(ABI, CA);
     indcContract = new web3.eth.Contract(INDC_ABI, INDC_ADDR);
 
-    document.getElementById('walletAddr').textContent = account.slice(0,6)+'...'+account.slice(-4);
-    document.getElementById('btnConnect').textContent = '✅ TERHUBUNG';
+    const short = account.slice(0,6)+'…'+account.slice(-4);
+    const _wb = document.getElementById('walletBtn');
+    if (_wb) _wb.textContent = short;
 
     isAdmin = ADMIN_WALLETS.map(a=>a.toLowerCase()).includes(account.toLowerCase());
-    if (isAdmin) { document.getElementById('btnAdmin').style.display='block'; toast('👑 Selamat datang Admin!'); }
+    if (isAdmin) { const ba=document.getElementById('btnAdmin'); if(ba) ba.style.display='block'; toast('👑 Selamat datang Admin!'); }
     else toast('✅ Wallet terhubung!');
 
     await loadGlobalStats();
@@ -708,10 +723,26 @@ async function loadRedeemHistory() {
 }
 
 // ═══ USER ACTIONS ═══
+function showMinPopup(minAmt, maxAmt, label) {
+  const existing = document.getElementById('minStakePopup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+  popup.innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:10px;">BATAS PEMBELIAN</div>'
+    + (label ? '<div style="font-family:\'Share Tech Mono\',monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">' + label + '</div>' : '')
+    + '<div style="font-family:\'Share Tech Mono\',monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Min <b>' + minAmt + ' POINT</b>'
+    + (maxAmt ? ' &mdash; Max <b>' + maxAmt + ' POINT</b>' : '') + '</div>'
+    + '<button onclick="this.parentElement.remove()" style="font-family:\'Share Tech Mono\',monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#c8922a;cursor:pointer;letter-spacing:1px;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
 async function buyPin() {
   if (!account) { toast('❌ Connect wallet!'); return; }
   const amt = parseInt(document.getElementById('buyAmt').value)||1;
-  if (amt < 1) { toast('❌ Min 1 POINT!'); return; }
+  if (amt < 1) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
+  if (amt > configData.maxPin) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
   try {
     const totalCost = BigInt(Math.floor(configData.price * amt * 1e18)).toString();
     const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
@@ -948,11 +979,13 @@ function toast(msg) {
   toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
 }
 
-document.getElementById('btnConnect').addEventListener('click',()=>{
-  if (!window.Web3) { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js'; s.onload=connectWallet; document.head.appendChild(s); }
-  else connectWallet();
-});
-window.addEventListener('load',()=>{
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('btnConnect');
+  if(btn) btn.addEventListener('click',()=>{
+    if (!window.Web3) { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js'; s.onload=connectWallet; document.head.appendChild(s); }
+    else connectWallet();
+  });
+  // Load web3 quietly on start
   const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js'; document.head.appendChild(s);
 });
 
@@ -997,7 +1030,8 @@ function doApproveINDC() {
 
 function doBuyPoint() {
   const qty = selPkg === 0 ? parseInt(document.getElementById('customAmt').value)||0 : selPkg;
-  if(qty < 1) { showToast('❌','Pilih jumlah poin dulu!'); return; }
+  if(qty < 1) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
+  if(qty > configData.maxPin) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
   buyPoints(qty);
 }
 
@@ -1027,67 +1061,21 @@ function loadRiwayat() {
   loadRedeemHistory();
 }
 
-/* Patch connectWallet untuk update nav & show pointHero */
-const _origConnect = connectWallet;
-async function connectWallet() {
-  await _origConnect();
-  if(account) {
-    showWalletAddrNav(account); chip.onclick=()=>navigator.clipboard.writeText(account).then(()=>showToast('✓','Disalin!')); }
-    const ws = document.getElementById('walletStrip');
-    const wa = document.getElementById('wsAddr');
-    if(ws) ws.style.display='flex';
-    if(wa) wa.textContent=short;
-    const cs = document.getElementById('connectStrip');
-    if(cs) cs.style.display='none';
-    const ph = document.getElementById('pointHero');
-    if(ph) ph.style.display='block';
-  }
-}
-
-/* ── AUTO CONNECT ── */
-window.addEventListener('load', async ()=>{
-  // Load public stats
-  try {
-    const w3 = new Web3('https://bsc-dataseed1.binance.org/');
-    const c  = new w3.eth.Contract(CONTRACT_ABI, CA);
-    const [tm, tp, ti] = await Promise.all([
-      c.methods.totalMembers().call(),
-      c.methods.totalPoints().call(),
-      c.methods.totalItems().call(),
-    ]);
-    document.getElementById('g-members').textContent = tm;
-    document.getElementById('g-points').textContent  = Number(tp).toLocaleString();
-    document.getElementById('g-items').textContent   = ti+' item';
-  } catch(e) { console.warn(e); }
-});
-
+/* autoConnect */
 (async function autoConnect(){
   if(!window.ethereum) return;
   const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length) connectWalletPV();
-})();
-
-function showWalletAddrNav(addr){
-  const el=document.getElementById('walletAddrNav');
-  if(!el)return;
-  el.textContent=addr.slice(0,6)+'…'+addr.slice(-4);
-  el.title=addr;el.style.display='inline-block';
-  el.onclick=function(){navigator.clipboard.writeText(addr).then(()=>{const o=el.textContent;el.textContent='Disalin!';setTimeout(()=>el.textContent=o,1500);});};
-}
-function copyWalletAddr(){
-  const el=document.getElementById('walletAddrNav');
-  if(el&&el.title)navigator.clipboard.writeText(el.title).then(()=>{const o=el.textContent;el.textContent='Disalin!';setTimeout(()=>el.textContent=o,1500);});
-}
-(async function autoConnect(){
-  if(!window.ethereum)return;
-  const acc=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(acc.length){
-    showWalletAddrNav(acc[0]);
-    const cs=document.getElementById('connectStrip');if(cs)cs.style.display='none';
-    if(typeof initWallet==='function')try{await initWallet();}catch(e){}
-    else if(typeof connectWallet==='function')try{await connectWallet();}catch(e){}
+  if(!accounts.length) return;
+  if(!window.Web3){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js';
+    s.onload=()=>connectWallet();
+    document.head.appendChild(s);
+  } else {
+    connectWallet();
   }
   window.ethereum.on('accountsChanged',()=>location.reload());
+  window.ethereum.on('chainChanged',()=>location.reload());
 })();
 </script>
 </body>
