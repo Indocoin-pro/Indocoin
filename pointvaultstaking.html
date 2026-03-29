@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>INDOCOIN — POINT VAULT STAKING</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.3.0/web3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <style>
 :root{
   --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
@@ -507,7 +507,7 @@ const INDC_ABI = [
   {"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"}
 ];
 
-let web3, contract, indcContract, account;
+let provider, signer, contract, indcContract, account;
 let isAdmin = false, adminVisible = false;
 let configData = { price:100, ppd:700, maxPin:5 };
 let selectedItemId = null;
@@ -518,23 +518,20 @@ async function connectWallet() {
   if (!window.ethereum) { toast('❌ Install MetaMask!'); return; }
   try {
     await window.ethereum.request({method:'eth_requestAccounts'});
-    web3 = new Web3(window.ethereum);
-    const accounts = await web3.eth.getAccounts();
-    account = accounts[0];
-    const chainId = await web3.eth.getChainId();
-    if (Number(chainId) !== 56) {
-      try { await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]}); }
-      catch(e) {}
-      web3 = new Web3(window.ethereum);
-      const accs = await web3.eth.getAccounts();
-      account = accs[0];
+    provider = new ethers.providers.Web3Provider(window.ethereum,'any');
+    signer   = provider.getSigner();
+    const cid = parseInt(await window.ethereum.request({method:'eth_chainId'}),16);
+    if (cid !== 56) {
+      try { await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]}); } catch(e){}
+      provider = new ethers.providers.Web3Provider(window.ethereum,'any');
+      signer   = provider.getSigner();
     }
-    contract     = new web3.eth.Contract(ABI, CA);
-    indcContract = new web3.eth.Contract(INDC_ABI, INDC_ADDR);
+    contract     = new ethers.Contract(CA, ABI, signer);
+    indcContract = new ethers.Contract(INDC_ADDR, INDC_ABI, signer);
+    account      = await signer.getAddress();
 
     const short = account.slice(0,6)+'…'+account.slice(-4);
-    const _wb = document.getElementById('walletBtn');
-    if (_wb) _wb.textContent = short;
+    const _wb = document.getElementById('walletBtn'); if(_wb) _wb.textContent = short;
 
     isAdmin = ADMIN_WALLETS.map(a=>a.toLowerCase()).includes(account.toLowerCase());
     if (isAdmin) { const ba=document.getElementById('btnAdmin'); if(ba) ba.style.display='block'; toast('👑 Selamat datang Admin!'); }
@@ -552,28 +549,26 @@ async function loadGlobalStats() {
   if (!contract) return;
   try {
     const [tm,tp,tpts,price] = await Promise.all([
-      contract.methods.totalMembers().call(),
-      contract.methods.totalPinSold().call(),
-      contract.methods.totalPointsDistributed().call(),
-      contract.methods.pinPriceINDC().call()
+      contract.totalMembers(),
+      contract.totalPinSold(),
+      contract.totalPointsDistributed(),
+      contract.pinPriceINDC()
     ]);
-    document.getElementById('s-members').textContent = tm;
-    document.getElementById('s-points').textContent    = tp;
-    document.getElementById('s-points').textContent  = Number(tpts).toLocaleString();
-    document.getElementById('s-price').textContent   = (Number(price)/1e18).toFixed(0);
-    document.getElementById('a-members').textContent = tm;
-    document.getElementById('a-points').textContent    = tp;
-    document.getElementById('a-points').textContent  = Number(tpts).toLocaleString();
+    document.getElementById('s-members').textContent = tm.toString();
+    document.getElementById('s-points').textContent  = Number(tpts.toString()).toLocaleString();
+    document.getElementById('s-price').textContent   = parseFloat(ethers.utils.formatUnits(price,18)).toFixed(0);
+    const asm = document.getElementById('a-members'); if(asm) asm.textContent = tm.toString();
+    const asp = document.getElementById('a-points');  if(asp) asp.textContent = Number(tpts.toString()).toLocaleString();
 
-    const bal = await indcContract.methods.balanceOf(account).call();
-    document.getElementById('indcBal').textContent = (Number(bal)/1e18).toFixed(2);
+    const bal = await indcContract.balanceOf(account);
+    document.getElementById('indcBal').textContent = parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
   } catch(e){}
 }
 
 async function loadConfig() {
   if (!contract) return;
   try {
-    const cfg = await contract.methods.getConfig().call();
+    const cfg = await contract.getConfig();
     configData = { price: Number(cfg.price)/1e18, ppd: Number(cfg.ppd), maxPin: Number(cfg.maxPin) };
     document.getElementById('b-price').textContent = configData.price.toFixed(0);
     document.getElementById('b-ppd').textContent   = configData.ppd;
@@ -585,15 +580,15 @@ async function loadConfig() {
 async function loadUserData() {
   if (!account || !contract) return;
   try {
-    const reg = await contract.methods.isRegistered(account).call();
+    const reg = await contract.isRegistered(account);
     if (!reg) return;
 
     document.getElementById('pointHero').style.display = 'block';
     document.getElementById('pinSection').style.display = 'block';
 
     const [info, pending] = await Promise.all([
-      contract.methods.getUserInfo(account).call(),
-      contract.methods.getPendingPointsToday(account).call()
+      contract.getUserInfo(account),
+      contract.getPendingPointsToday(account)
     ]);
 
     const total = Number(info.totalPoints);
@@ -621,12 +616,12 @@ async function loadUserData() {
 }
 
 async function loadPinCards() {
-  const count = await contract.methods.getPinCount(account).call();
+  const count = await contract.getPinCount(account);
   const n = Number(count);
   const grid = document.getElementById('pinGrid');
   let html = '';
   for (let i=0; i<n; i++) {
-    const p = await contract.methods.getPinInfo(account, i).call();
+    const p = await contract.getPinInfo(account, i);
     const active = p.isActive && block_timestamp_approx() < Number(p.expireTime);
     const dl = Number(p.daysLeft);
     const exp = new Date(Number(p.expireTime)*1000).toLocaleDateString('id-ID');
@@ -651,11 +646,11 @@ function block_timestamp_approx() { return Math.floor(Date.now()/1000); }
 async function loadShopItems() {
   if (!contract) return;
   try {
-    const totalItems = await contract.methods.totalItems().call();
+    const totalItems = await contract.totalItems();
     const n = Number(totalItems);
     itemsCache = [];
     for (let i=0; i<n; i++) {
-      const item = await contract.methods.getItem(i).call();
+      const item = await contract.getItem(i);
       itemsCache.push({ id:i, name:item.name, category:item.category, pointCost:Number(item.pointCost), isActive:item.isActive });
     }
 
@@ -701,11 +696,11 @@ async function loadAdminItems() {
 async function loadRedeemHistory() {
   if (!contract || !account) return;
   try {
-    const total = await contract.methods.totalRedeemRequests().call();
+    const total = await contract.totalRedeemRequests();
     const n = Number(total);
     let html='';
     for (let i=n-1; i>=0 && i>=n-20; i--) {
-      const r = await contract.methods.getRedeemRequest(i).call();
+      const r = await contract.getRedeemRequest(i);
       if (r.user.toLowerCase() !== account.toLowerCase()) continue;
       const item = itemsCache[Number(r.itemId)] || {name:'Item #'+r.itemId};
       const st=Number(r.status);
@@ -745,12 +740,12 @@ async function buyPin() {
   if (amt < 1) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
   if (amt > configData.maxPin) { showMinPopup(1, configData.maxPin, 'BELI POINT'); return; }
   try {
-    const totalCost = BigInt(Math.floor(configData.price * amt * 1e18)).toString();
-    const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    const totalCost = ethers.utils.parseUnits((configData.price * amt).toFixed(18), 18);
+    const max = ethers.constants.MaxUint256;
     toast('⏳ Approve INDC...');
-    await indcContract.methods.approve(CA, max).send({ from:account });
+    const tx1 = await indcContract.approve(CA, max); await tx1.wait();
     toast('⏳ Beli POINT...');
-    await contract.methods.buyPin(amt).send({ from:account });
+    const tx2 = await contract.buyPin(amt); await tx2.wait();
     toast('✅ '+amt+' POINT berhasil dibeli! Point akan masuk besok.');
     await loadGlobalStats(); await loadConfig(); await loadUserData();
   } catch(e) { toast('❌ '+(e.message||'Gagal')); }
@@ -760,7 +755,7 @@ async function claimPoints() {
   if (!account) { toast('❌ Connect wallet!'); return; }
   try {
     toast('⏳ Klaim point...');
-    await contract.methods.claimDailyPoints().send({ from:account });
+    const tx = await contract.claimDailyPoints(); await tx.wait();
     toast('✅ Point berhasil diklaim!');
     await loadUserData();
   } catch(e) { toast('❌ '+(e.message?.slice(0,80)||'Gagal')); }
@@ -790,7 +785,7 @@ async function confirmRedeem() {
   if (selectedItemId === null) return;
   try {
     toast('⏳ Request tukar point...');
-    await contract.methods.requestRedeem(selectedItemId, detail).send({ from:account });
+    const tx = await contract.requestRedeem(selectedItemId, detail); await tx.wait();
     toast('✅ Request terkirim! Admin akan proses dalam 24 jam.');
     closeModal();
     await loadUserData();
@@ -804,17 +799,17 @@ async function setConfig(type) {
     if (type==='price') {
       const v = parseFloat(document.getElementById('cfg-price').value);
       if (!v) { toast('❌ Isi harga!'); return; }
-      toast('⏳...'); await contract.methods.setPinPrice(BigInt(Math.floor(v*1e18)).toString()).send({from:account});
+      toast('⏳...'); const tx1=await contract.setPinPrice(ethers.utils.parseUnits(v.toString(),18)); await tx1.wait();
       toast('✅ Harga POINT diupdate!');
     } else if (type==='ppd') {
       const v = parseInt(document.getElementById('cfg-ppd').value);
       if (!v) { toast('❌ Isi point!'); return; }
-      toast('⏳...'); await contract.methods.setPointPerPinPerDay(v).send({from:account});
+      toast("23F3..."); const _tx=await contract.setPointPerPinPerDay(v); await _tx.wait();
       toast('✅ Point/hari diupdate!');
     } else if (type==='max') {
       const v = parseInt(document.getElementById('cfg-max').value);
       if (!v) { toast('❌ Isi max!'); return; }
-      toast('⏳...'); await contract.methods.setMaxPinPerWallet(v).send({from:account});
+      toast("23F3..."); const _tx=await contract.setMaxPinPerWallet(v); await _tx.wait();
       toast('✅ Max POINT diupdate!');
     }
     await loadConfig();
@@ -827,7 +822,7 @@ async function adminAddPoints() {
   const reason = document.getElementById('m-reason').value.trim()||'Admin bonus';
   if (!addr||!pts) { toast('❌ Lengkapi data!'); return; }
   try {
-    toast('⏳...'); await contract.methods.adminAddPoints(addr, pts, reason).send({from:account});
+    toast("23F3..."); const _tx=await contract.adminAddPoints(addr, pts, reason); await _tx.wait();
     toast('✅ Point ditambahkan!');
   } catch(e) { toast('❌ '+e.message); }
 }
@@ -839,7 +834,7 @@ async function adminBatchClaim() {
   if (!addrs.length) { toast('❌ Format salah!'); return; }
   try {
     toast(`⏳ Klaim untuk ${addrs.length} user...`);
-    await contract.methods.adminClaimForUsers(addrs).send({from:account});
+    const _txb = await contract.adminClaimForUsers(addrs); await _txb.wait();
     toast('✅ Batch klaim berhasil!');
   } catch(e) { toast('❌ '+e.message); }
 }
@@ -847,11 +842,11 @@ async function adminBatchClaim() {
 async function loadRedeemRequests(statusFilter) {
   if (!contract) return;
   try {
-    const total = await contract.methods.totalRedeemRequests().call();
+    const total = await contract.totalRedeemRequests();
     const n = Number(total);
     let html='', count=0;
     for (let i=n-1; i>=0; i--) {
-      const r = await contract.methods.getRedeemRequest(i).call();
+      const r = await contract.getRedeemRequest(i);
       if (Number(r.status) !== statusFilter) continue;
       count++;
       const item = itemsCache[Number(r.itemId)]||{name:'Item #'+r.itemId};
@@ -883,7 +878,7 @@ async function processReq(id, status) {
   const note = status===1 ? prompt('Catatan admin (opsional):') : prompt('Alasan reject:');
   if (status===2 && !note) { toast('❌ Isi alasan reject!'); return; }
   try {
-    toast('⏳...'); await contract.methods.processRedeem(id, status, note||'').send({from:account});
+    toast("23F3..."); const _tx=await contract.processRedeem(id, status, note||''); await _tx.wait();
     toast(status===1?'✅ Request diproses!':'✅ Request direject!');
     await loadRedeemRequests(0);
   } catch(e) { toast('❌ '+e.message); }
@@ -895,7 +890,7 @@ async function addItem() {
   const cost = parseInt(document.getElementById('i-cost').value);
   if (!name||!cost) { toast('❌ Lengkapi data!'); return; }
   try {
-    toast('⏳...'); await contract.methods.addItem(name, cat, cost).send({from:account});
+    toast("23F3..."); const _tx=await contract.addItem(name, cat, cost); await _tx.wait();
     toast('✅ Item ditambahkan!');
     await loadShopItems();
   } catch(e) { toast('❌ '+e.message); }
@@ -904,7 +899,7 @@ async function addItem() {
 async function toggleItem(id, currentActive) {
   const item = itemsCache[id];
   try {
-    toast('⏳...'); await contract.methods.updateItem(id, item.name, item.pointCost, !currentActive).send({from:account});
+    toast("23F3..."); const _tx=await contract.updateItem(id, item.name, item.pointCost, !currentActive); await _tx.wait();
     toast('✅ Status item diupdate!'); await loadShopItems();
   } catch(e) { toast('❌ '+e.message); }
 }
@@ -914,9 +909,9 @@ async function checkMember() {
   if (!addr||!contract) return;
   try {
     const [reg, info, pending] = await Promise.all([
-      contract.methods.isRegistered(addr).call(),
-      contract.methods.getUserInfo(addr).call(),
-      contract.methods.getPendingPointsToday(addr).call()
+      contract.isRegistered(addr),
+      contract.getUserInfo(addr),
+      contract.getPendingPointsToday(addr)
     ]);
     if (!reg) { document.getElementById('memberInfo').textContent='Belum terdaftar'; return; }
     document.getElementById('memberInfo').innerHTML=`
