@@ -7,6 +7,13 @@
 <title>INDOCOIN — AUTO COMPOUND STAKING</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script>
+(async function autoConnect(){
+  if(!window.ethereum) return;
+  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(accounts.length){ await initWallet(); }
+})();
+</script>
 <style>
 
 :root{
@@ -910,32 +917,7 @@ window.addEventListener('load',()=>{
   if(urlRef)localStorage.setItem('indocoin_ref',urlRef);
 });
 
-/* autoConnect — silent, tanpa popup MetaMask */
-(async function autoConnect(){
-  const eth=window.ethereum;
-  if(!eth)return;
-  const accounts=await eth.request({method:'eth_accounts'}).catch(()=>[]);
-  if(!accounts.length)return;
-  try{
-    provider=new ethers.providers.Web3Provider(eth,'any');
-    signer=provider.getSigner();
-    cS=new ethers.Contract(CA,ABI,signer);
-    cU=new ethers.Contract(USDT_CA,ERC20,signer);
-    myAddr=await signer.getAddress();
-    const short=myAddr.slice(0,6)+'…'+myAddr.slice(-4);
-    const _wb=document.getElementById('walletBtn');if(_wb)_wb.textContent=short;
-    const wBar=document.getElementById('walletBar');if(wBar)wBar.style.display='flex';
-    const wbAddr=document.getElementById('wbAddr');if(wbAddr)wbAddr.textContent=short;
-    toast('✅','Wallet terhubung!');
-    // Load saldo
-    const bal=await cU.balanceOf(myAddr);
-    const bf='$'+parseFloat(ethers.utils.formatUnits(bal,18)).toFixed(2);
-    const saldo=document.getElementById('heroSaldo');if(saldo)saldo.textContent=bf;
-    const wbBal=document.getElementById('wbBal');if(wbBal)wbBal.textContent=bf;
-  }catch(e){console.warn('autoConnect:',e);}
-  eth.on('accountsChanged',()=>location.reload());
-  eth.on('chainChanged',()=>location.reload());
-})();
+
 
 
 /* ── TAMBAHAN ── */
