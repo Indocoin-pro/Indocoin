@@ -736,7 +736,7 @@ async function createRoom(){
     const tx=await cGame.createRoom(feeWei,selectedCat,qIdx,selectedLang);
     const receipt=await tx.wait();
 
-    // Ambil blockchainId dari event
+    // Ambil blockchainId dari event atau totalRooms
     let blockchainId=null;
     try{
       const iface=new ethers.Interface(GAME_ABI);
@@ -750,6 +750,14 @@ async function createRoom(){
         }catch(e){}
       }
     }catch(e){}
+    // Fallback: ambil dari totalRooms contract
+    if(!blockchainId){
+      try{
+        const cTotal=new ethers.Contract(GAME_CA,
+          ["function totalRooms() view returns (uint256)"],signer);
+        blockchainId=Number(await cTotal.totalRooms());
+      }catch(e){}
+    }
 
     // Baru simpan ke Firebase
     const roomRef=db.ref('brainclash/rooms').push();
