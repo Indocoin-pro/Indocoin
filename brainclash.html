@@ -453,6 +453,15 @@ async function refreshVault(){
 
 // ─── AUTO CONNECT ─────────────────────────────────────────────
 window.addEventListener('load',async()=>{
+  // Cek Firebase auth session
+  firebase.auth().onAuthStateChanged(async(user)=>{
+    if(!user){
+      // Belum login — redirect ke halaman login
+      showToast('⚠️ Login ke Indocoin dulu!');
+      setTimeout(()=>window.location.href='landing.html',2000);
+    }
+  });
+
   if(window.ethereum){
     try{
       const acc=await window.ethereum.request({method:'eth_accounts'});
@@ -629,7 +638,7 @@ function updateFee(v){
 async function createRoom(){
   if(!userAddr){showToast('⚠️ Connect wallet dulu!');return;}
   const fee=parseInt(document.getElementById('feeRange').value);
-  const feeWei=BigInt(fee)*BigInt(1e9);
+  const feeWei=BigInt(fee)*1000000000n;
 
   if(vaultBal<feeWei){showToast('❌ Vault tidak cukup!');return;}
 
@@ -638,7 +647,11 @@ async function createRoom(){
 
   try{
     // Simpan ke Firebase dulu
-    const user=firebase.auth().currentUser;
+    // Pastikan Firebase auth
+    let user=firebase.auth().currentUser;
+    if(!user){
+      try{ const cred=await firebase.auth().signInAnonymously(); user=cred.user; }catch(e){}
+    }
     const creatorName=user?.displayName||user?.email?.split('@')[0]||userAddr.slice(0,8);
 
     const roomRef=db.ref('brainclash/rooms').push();
