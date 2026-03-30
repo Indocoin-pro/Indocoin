@@ -510,6 +510,10 @@ function renderMedan(){
     </div>`).join("");
 }
 
+// ═══ SW TRANSACTION GUARD ═══
+function swPause(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_start"); }
+function swResume(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_end"); }
+
 // ═══ STATE ROOM ═══
 let currentRoomId=null;
 let roomPollInterval=null;
@@ -539,12 +543,14 @@ async function doReady(){
   }
 
   showProc("MENCARI ROOM...","Mengecek room yang tersedia di blockchain...");
+  swPause();
   try{
     // Cek apakah player sudah di room
     const stats=await cGame.getPlayerStats(userAddr);
     if(stats.currentRoom>0n){
       currentRoomId=stats.currentRoom;
       hideProc();
+      swResume();
       showToast(`✅ Sudah di Room #${currentRoomId}! Menunggu player lain...`);
       sessionStorage.setItem("sanjaya_roomId", currentRoomId.toString());
       sessionStorage.setItem("sanjaya_fee", fee.toString());
@@ -617,6 +623,7 @@ async function doReady(){
     sessionStorage.setItem("sanjaya_fee", fee.toString());
 
     hideProc();
+    swResume();
     LOBBY_PLAYERS[0].ready=true; renderLobby();
     document.getElementById("btnReady").textContent="⏳ MENUNGGU PEMAIN LAIN...";
     document.getElementById("btnReady").disabled=true;
@@ -626,6 +633,7 @@ async function doReady(){
 
   }catch(e){
     hideProc();
+    swResume();
     if(e.code===4001||e.code==="ACTION_REJECTED")
       showToast("❌ Transaksi dibatalkan");
     else
