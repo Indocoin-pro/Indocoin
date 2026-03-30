@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SINGGASANA SANJAYA — Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+:root{
+  --gold:#f5c842;--gold2:#e8a020;--dark:#0a0705;--dark2:#130e08;
+  --crimson:#8b1a1a;--text:#f0e0c0;--muted:#8a7060;
+  --border:rgba(245,200,66,0.2);--card:rgba(19,14,8,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',serif;min-height:100vh;}
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgba(139,26,26,0.25) 0%,transparent 55%),
+  linear-gradient(180deg,#0a0705 0%,#130e08 100%);}
+.batik{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.04;
+  background-image:repeating-linear-gradient(45deg,var(--gold) 0,var(--gold) 1px,transparent 0,transparent 50%),
+  repeating-linear-gradient(-45deg,var(--gold) 0,var(--gold) 1px,transparent 0,transparent 50%);
+  background-size:20px 20px;}
+.wrap{position:relative;z-index:2;max-width:480px;margin:0 auto;padding:0 0 30px;}
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(5,3,2,0.97);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(245,200,66,0.25);position:sticky;top:0;z-index:100;}
+.btn-back{font-family:'Share Tech Mono',monospace;font-size:9px;padding:7px 14px;
+  border:1px solid rgba(245,200,66,0.35);border-radius:20px;
+  background:rgba(245,200,66,0.06);color:var(--gold);cursor:pointer;
+  display:flex;align-items:center;gap:5px;text-decoration:none;}
+.nav-brand{font-family:'Cinzel Decorative',serif;font-size:13px;font-weight:900;
+  color:var(--gold);letter-spacing:2px;}
+.page{padding:16px;}
+.sec{font-family:'Cinzel',serif;font-size:10px;color:var(--muted);letter-spacing:3px;
+  margin:16px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+.room-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:10px;}
+.room-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.room-id{font-family:'Cinzel',serif;font-size:12px;color:var(--gold);font-weight:700;}
+.room-status{font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 10px;
+  border-radius:20px;background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.3);color:var(--gold);}
+.room-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.ri-item{background:rgba(245,200,66,0.04);border:1px solid rgba(245,200,66,0.1);
+  border-radius:8px;padding:8px 10px;}
+.ri-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;}
+.ri-val{font-family:'Cinzel',serif;font-size:13px;color:var(--text);font-weight:700;margin-top:2px;}
+.btn-join{width:100%;padding:11px;background:linear-gradient(135deg,rgba(139,26,26,0.3),rgba(245,200,66,0.1));
+  border:1px solid rgba(245,200,66,0.4);color:var(--gold);border-radius:8px;
+  font-family:'Cinzel',serif;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px;}
+.btn-join:hover{background:linear-gradient(135deg,rgba(139,26,26,0.5),rgba(245,200,66,0.2));}
+.empty-state{text-align:center;padding:48px 20px;}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty-title{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);margin-bottom:6px;}
+.empty-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.7;}
+.btn-refresh{margin-top:16px;padding:10px 24px;background:rgba(245,200,66,0.08);
+  border:1px solid rgba(245,200,66,0.3);color:var(--gold);border-radius:20px;
+  font-family:'Cinzel',serif;font-size:10px;cursor:pointer;}
+.loading{text-align:center;padding:48px 20px;font-family:'Share Tech Mono',monospace;
+  font-size:10px;color:var(--muted);letter-spacing:2px;}
+</style>
+</head>
+<body>
+<div class="bg-layer"></div>
+<div class="batik"></div>
+<div class="wrap">
+  <nav class="topnav">
+    <a href="sanjaya.html" class="btn-back">← KEMBALI</a>
+    <div class="nav-brand">⚔️ ARENA</div>
+    <div style="width:80px"></div>
+  </nav>
+  <div class="page">
+    <div class="sec">⚔️ ROOM AKTIF</div>
+    <div id="roomList"><div class="loading">⏳ MEMUAT DATA...</div></div>
+  </div>
+</div>
+<script>
+const VAULT_CA="0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const INDC_CA="0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const GAME_CA="0x38b461351E0D4f6C35B50BA051F99DC5b3013a60";
+const BSC_RPC="https://bsc-dataseed1.binance.org/";
+let INDC_DEC=9;
+
+const GAME_ABI=[
+  "function getOpenRooms() view returns(uint256[])",
+  "function getRoom(uint256) view returns(uint256,uint256,uint256,uint8,uint8,address,uint256,uint256)"
+];
+
+async function loadRooms(){
+  const list=document.getElementById("roomList");
+  try{
+    const provider=new ethers.JsonRpcProvider(BSC_RPC);
+    const cGame=new ethers.Contract(GAME_CA,GAME_ABI,provider);
+    const openRooms=await cGame.getOpenRooms();
+    if(!openRooms.length){
+      list.innerHTML=`<div class="empty-state">
+        <div class="empty-icon">🏰</div>
+        <div class="empty-title">Belum Ada Room Aktif</div>
+        <div class="empty-sub">Belum ada ksatria yang membuka tantangan.<br>Jadilah yang pertama!</div>
+        <button class="btn-refresh" onclick="loadRooms()">🔄 REFRESH</button>
+      </div>`;
+      return;
+    }
+    const rooms=await Promise.all(openRooms.map(id=>cGame.getRoom(id)));
+    list.innerHTML=rooms.map((r,i)=>{
+      const fee=parseFloat(ethers.formatUnits(r[1],INDC_DEC)).toLocaleString('id-ID');
+      const pot=parseFloat(ethers.formatUnits(r[1]*4n*95n/100n,INDC_DEC)).toLocaleString('id-ID');
+      const cnt=Number(r[3]);
+      return `<div class="room-card">
+        <div class="room-top">
+          <div class="room-id">👑 ROOM #${openRooms[i]}</div>
+          <div class="room-status">⚔️ ${cnt}/4 PEMAIN</div>
+        </div>
+        <div class="room-info">
+          <div class="ri-item"><div class="ri-lbl">ENTRY FEE</div><div class="ri-val">${fee} INDC</div></div>
+          <div class="ri-item"><div class="ri-lbl">HADIAH</div><div class="ri-val">${pot} INDC</div></div>
+        </div>
+        <button class="btn-join" onclick="window.location.href='sanjaya.html'">⚔️ BERGABUNG</button>
+      </div>`;
+    }).join('');
+  }catch(e){
+    list.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">Gagal Memuat Data</div>
+      <div class="empty-sub">${e.message||'Coba lagi'}</div>
+      <button class="btn-refresh" onclick="loadRooms()">🔄 COBA LAGI</button>
+    </div>`;
+  }
+}
+loadRooms();
+</script>
+</body>
+</html>

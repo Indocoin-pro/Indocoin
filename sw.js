@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "39.9";
+const VERSION = "40.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -37,6 +37,9 @@ const CACHE_FILES = [
   "/sanjaya.html",
   "/sanjaya-race.html",
   "/sanjaya-result.html",
+  "/sanjaya-arena.html",
+  "/sanjaya-rank.html",
+  "/sanjaya-history.html",
   "/leaderboard.html",
   "/landing.html",
   "/kolaborasi.html",
@@ -115,8 +118,7 @@ self.addEventListener("activate", (event) => {
     })
   );
   // Ambil kontrol semua tab yang sudah terbuka
-  // Ditunda 3 detik agar tidak ganggu transaksi yang sedang berjalan
-  setTimeout(() => self.clients.claim(), 3000);
+  self.clients.claim();
 });
 
 // ── FETCH: Network first, fallback ke cache ──
