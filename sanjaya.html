@@ -174,6 +174,13 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
 .bnav-item.active,.bnav-item:hover{color:var(--gold);}
 .bnav-icon{font-size:17px;} .bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Cinzel',serif;}
 
+/* ── COUNTDOWN TUNGGU ── */
+.wait-countdown{background:rgba(139,26,26,0.15);border:1px solid rgba(139,26,26,0.4);border-radius:12px;padding:10px 14px;margin-top:10px;display:none;align-items:center;justify-content:space-between;}
+.wait-countdown.show{display:flex;}
+.wcd-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;}
+.wcd-timer{font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--gold);letter-spacing:3px;}
+.wcd-timer.urgent{color:var(--crimson2);animation:blink .5s infinite;}
+
 .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(19,14,8,0.97);border:1px solid var(--border);border-radius:22px;padding:9px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);z-index:999;white-space:nowrap;animation:fadeUp .3s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
@@ -271,6 +278,14 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
       <div class="sec">👥 PEMAIN DI LOBBY</div>
       <div class="players-grid" id="playersGrid"></div>
 
+      <div class="wait-countdown" id="waitCountdown">
+        <div>
+          <div class="wcd-label">⏳ MENUNGGU PEMAIN LAIN</div>
+          <div class="wcd-label" style="margin-top:2px;">Room akan dibatalkan jika habis</div>
+        </div>
+        <div class="wcd-timer" id="wcdTimer">10:00</div>
+      </div>
+
       <button class="btn-royal ready" id="btnReady" onclick="doReady()">⚔️ SIAP BERANGKAT!</button>
     </div>
   </div>
@@ -332,11 +347,11 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
 </div>
 
 <nav class="bottomnav">
-  <a href="dashboard.html"    class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
-  <a href="battle-arena.html" class="bnav-item"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
-  <a href="leaderboard.html"  class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">RANKING</span></a>
-  <a href="wallet.html"       class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">WALLET</span></a>
-  <a href="profile.html"      class="bnav-item"><span class="bnav-icon">👤</span><span class="bnav-label">PROFIL</span></a>
+  <a href="sanjaya.html"      class="bnav-item active"><span class="bnav-icon">🏠</span><span class="bnav-label">LOBBY</span></a>
+  <a href="sanjaya-arena.html" class="bnav-item"><span class="bnav-icon">⚔️</span><span class="bnav-label">ARENA</span></a>
+  <a href="sanjaya-rank.html"  class="bnav-item"><span class="bnav-icon">👑</span><span class="bnav-label">RANKING</span></a>
+  <a href="wallet.html"        class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">VAULT</span></a>
+  <a href="sanjaya-result.html" class="bnav-item"><span class="bnav-icon">📜</span><span class="bnav-label">RIWAYAT</span></a>
 </nav>
 
 <script>
@@ -510,6 +525,44 @@ function renderMedan(){
     </div>`).join("");
 }
 
+// ═══ SW TRANSACTION GUARD ═══
+function swPause(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_start"); }
+function swResume(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_end"); }
+
+// ═══ COUNTDOWN TUNGGU 10 MENIT ═══
+let waitCountdownInterval=null;
+function startWaitCountdown(){
+  const el=document.getElementById("waitCountdown");
+  const timer=document.getElementById("wcdTimer");
+  if(el) el.classList.add("show");
+  let seconds=600; // 10 menit
+  if(waitCountdownInterval) clearInterval(waitCountdownInterval);
+  waitCountdownInterval=setInterval(()=>{
+    seconds--;
+    const m=Math.floor(seconds/60);
+    const s=seconds%60;
+    if(timer){
+      timer.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if(seconds<=60) timer.classList.add("urgent");
+    }
+    if(seconds<=0){
+      clearInterval(waitCountdownInterval);
+      // Auto cancel room
+      if(currentRoomId){
+        showToast("⏰ Waktu habis! Room dibatalkan...");
+        if(roomPollInterval) clearInterval(roomPollInterval);
+        try{ cGame.cancelRoom(currentRoomId); }catch(e){}
+        setTimeout(()=>location.reload(),2000);
+      }
+    }
+  },1000);
+}
+function stopWaitCountdown(){
+  if(waitCountdownInterval) clearInterval(waitCountdownInterval);
+  const el=document.getElementById("waitCountdown");
+  if(el) el.classList.remove("show");
+}
+
 // ═══ STATE ROOM ═══
 let currentRoomId=null;
 let roomPollInterval=null;
@@ -618,7 +671,7 @@ async function doReady(){
     document.getElementById("btnReady").textContent="⏳ MENUNGGU PEMAIN LAIN...";
     document.getElementById("btnReady").disabled=true;
     showToast(`✅ Room #${currentRoomId} siap! Menunggu pemain bergabung...`);
-
+    startWaitCountdown();
     startRoomPolling(fee);
 
   }catch(e){
@@ -698,6 +751,7 @@ async function startRoomPolling(fee){
         }
         showToast("🎉 Semua pemain siap! Ekspedisi dimulai!");
         if(window.SanjayaSound) window.SanjayaSound.sfx.gong();
+        stopWaitCountdown();
         // Hapus room dari Firestore (tidak perlu notif lagi)
         if(window.SanjayaNotif){
           const fsRoomId=sessionStorage.getItem("sanjaya_fsroom_"+currentRoomId.toString());
