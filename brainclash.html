@@ -209,6 +209,16 @@ body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backgr
     </div>
   </div>
 
+  <!-- ACTIVE ROOM BANNER -->
+  <div id="activeRoomBanner" style="display:none;margin:10px 16px 0;background:rgba(0,255,65,0.08);border:1px solid rgba(0,255,65,0.4);border-radius:12px;padding:12px 14px;">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">⚡ KAMU MASIH DI ROOM AKTIF</div>
+    <div id="activeRoomInfo" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--green);margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="goToActiveRoom()" style="flex:1;padding:9px;background:rgba(0,255,65,0.15);border:1px solid var(--green);color:var(--green);border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:1px;">▶ LANJUT KE ROOM</button>
+      <button onclick="cancelActiveRoom()" id="cancelActiveBrainclash" style="flex:1;padding:9px;background:rgba(255,65,65,0.1);border:1px solid rgba(255,65,65,0.4);color:#ff4141;border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:1px;">✕ BATALKAN</button>
+    </div>
+  </div>
+
   <!-- HERO -->
   <div class="hero">
     <div class="hero-title">BRAIN<span>CLASH</span></div>
@@ -456,7 +466,6 @@ window.addEventListener('load',async()=>{
   // Cek Firebase auth session
   firebase.auth().onAuthStateChanged(async(user)=>{
     if(!user){
-      // Belum login — redirect ke halaman login
       showToast('⚠️ Login ke Indocoin dulu!');
       setTimeout(()=>window.location.href='landing.html',2000);
     }
@@ -465,11 +474,77 @@ window.addEventListener('load',async()=>{
   if(window.ethereum){
     try{
       const acc=await window.ethereum.request({method:'eth_accounts'});
-      if(acc.length)await connectWallet();
+      if(acc.length){
+        await connectWallet();
+        // Cek room aktif di blockchain
+        checkActiveRoom();
+      }
     }catch(e){}
   }
   loadRooms();
 });
+
+let activeRoomFirebaseId=null;
+
+async function checkActiveRoom(){
+  if(!cGame||!userAddr) return;
+  try{
+    // Cek di blockchain
+    const blockchainRoomId=await cGame.getStats(userAddr).then(s=>s[0]);
+    if(blockchainRoomId>0n){
+      // Cari di Firebase
+      const snap=await db.ref('brainclash/rooms').orderByChild('creator').equalTo(userAddr).get();
+      let found=null;
+      snap.forEach(child=>{
+        const r=child.val();
+        if(r&&r.status==='waiting'){ found={id:child.key,...r}; }
+      });
+      if(found){
+        activeRoomFirebaseId=found.id;
+        const fee=Math.floor((found.entryFee||0)/1e9);
+        document.getElementById('activeRoomInfo').textContent=`Room #${blockchainRoomId} · ${CATS[found.categoryId]||'Sains'} · ${fee} INDC`;
+        document.getElementById('activeRoomBanner').style.display='block';
+      }
+    }
+  }catch(e){}
+}
+
+function goToActiveRoom(){
+  if(activeRoomFirebaseId) window.location.href=`brainclash-room.html?id=${activeRoomFirebaseId}`;
+}
+
+async function cancelActiveRoom(){
+  const btn=document.getElementById('cancelActiveBrainclash');
+  if(btn){ btn.disabled=true; btn.textContent='MEMBATALKAN...'; }
+  try{
+    // Cek jumlah pemain
+    if(activeRoomFirebaseId){
+      const snap=await db.ref(`brainclash/rooms/${activeRoomFirebaseId}`).get();
+      const room=snap.val();
+      if(room&&room.playerCount>=2){
+        showToast('❌ Tidak bisa cancel — sudah ada pemain lain!');
+        if(btn){ btn.disabled=false; btn.textContent='✕ BATALKAN'; }
+        return;
+      }
+    }
+    // Panggil refundRoom di blockchain
+    const blockchainRoomId=await cGame.getStats(userAddr).then(s=>s[0]);
+    if(blockchainRoomId>0n){
+      const tx=await cGame.refundRoom(blockchainRoomId);
+      await tx.wait();
+    }
+    // Update Firebase
+    if(activeRoomFirebaseId){
+      await db.ref(`brainclash/rooms/${activeRoomFirebaseId}`).update({status:'cancelled'});
+    }
+    document.getElementById('activeRoomBanner').style.display='none';
+    showToast('✅ Room dibatalkan! INDC dikembalikan ke Vault.');
+    await refreshVault();
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='✕ BATALKAN'; }
+    showToast('❌ '+(e.reason||e.message||'Gagal').slice(0,60));
+  }
+}
 
 // ─── ROOMS ────────────────────────────────────────────────────
 function loadRooms(){
@@ -524,7 +599,9 @@ function roomCard(r){
   const creator=r.creatorName||(r.creator?r.creator.slice(0,6)+'...'+r.creator.slice(-4):'???');
   const langs=['🇮🇩','🇬🇧'];
 
-  return `<div class="room-card${isFull?' full':''}" onclick="${!isFull&&!isPlaying?'joinRoom(\''+r.id+'\')':''}">
+  const isMyRoom=userAddr&&r.creator&&r.creator.toLowerCase()===userAddr.toLowerCase();
+  const clickFn=isMyRoom?`goToActiveRoom()`:(!isFull&&!isPlaying?`joinRoom('${r.id}')`:``);
+  return `<div class="room-card${isFull?' full':''}" onclick="${clickFn}">
     <div class="room-top">
       <div>
         <div class="room-cat">${cat}</div>
@@ -655,8 +732,6 @@ async function createRoom(){
 
     // Konversi jumlah soal ke index (0=20soal, 1=50soal, 2=100soal)
     const qIdx = selectedQ===50?1:selectedQ===100?2:0;
-    showToast(`🔍 fee=${feeWei} vault=${vaultBal} cat=${selectedCat} q=${qIdx} lang=${selectedLang}`);
-    await new Promise(r=>setTimeout(r,2000));
     const tx=await cGame.createRoom(feeWei,selectedCat,qIdx,selectedLang);
     const receipt=await tx.wait();
 
