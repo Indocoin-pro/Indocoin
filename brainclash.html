@@ -646,7 +646,6 @@ async function createRoom(){
   btn.disabled=true;btn.textContent='MEMPROSES...';
 
   try{
-    // Simpan ke Firebase dulu
     // Pastikan Firebase auth
     let user=firebase.auth().currentUser;
     if(!user){
@@ -654,9 +653,30 @@ async function createRoom(){
     }
     const creatorName=user?.displayName||user?.email?.split('@')[0]||userAddr.slice(0,8);
 
+    // Panggil contract DULU
+    const tx=await cGame.createRoom(feeWei,selectedCat,selectedQ,selectedLang);
+    const receipt=await tx.wait();
+
+    // Ambil blockchainId dari event
+    let blockchainId=null;
+    try{
+      const iface=new ethers.Interface(GAME_ABI);
+      for(const log of receipt.logs){
+        try{
+          const parsed=iface.parseLog(log);
+          if(parsed&&parsed.name==="RoomCreated"){
+            blockchainId=Number(parsed.args.id);
+            break;
+          }
+        }catch(e){}
+      }
+    }catch(e){}
+
+    // Baru simpan ke Firebase
     const roomRef=db.ref('brainclash/rooms').push();
     const roomData={
       id:roomRef.key,
+      blockchainId,
       creator:userAddr,
       creatorName,
       entryFee:fee*1e9,
@@ -670,23 +690,6 @@ async function createRoom(){
       createdAt:Date.now()/1000
     };
     await roomRef.set(roomData);
-
-    // Panggil contract
-    const tx=await cGame.createRoom(feeWei,selectedCat,selectedQ,selectedLang);
-    const receipt=await tx.wait();
-    // Simpan blockchain room ID ke Firebase
-    try{
-      const iface=new ethers.Interface(GAME_ABI);
-      for(const log of receipt.logs){
-        try{
-          const parsed=iface.parseLog(log);
-          if(parsed&&parsed.name==="RoomCreated"){
-            await roomRef.update({blockchainId:Number(parsed.args.id)});
-            break;
-          }
-        }catch(e){}
-      }
-    }catch(e){}
 
     closeCreate();
     showToast('✅ Room dibuat! Menunggu player...');
