@@ -406,15 +406,18 @@ window.addEventListener('load',async()=>{
       name,score:0,joined:Date.now(),disconnected:false
     });
   }
+  let timerStarted=false;
   // Listen room changes
   db.ref(`brainclash/rooms/${roomId}`).on('value',snap=>{
     const r=snap.val();
     if(!r){window.location.href='brainclash.html';return;}
     roomData=r;
     handleRoomState(r);
+    if(!timerStarted && r.status==='waiting'){
+      timerStarted=true;
+      startWaitTimer();
+    }
   });
-  // Start wait timer
-  startWaitTimer();
 });
 
 // ─── ROOM STATE MACHINE ───────────────────────────────────────
@@ -426,8 +429,6 @@ function handleRoomState(r){
   if(r.status==='waiting'){
     showScreen('waitScreen');
     gamePhase='wait';
-    // Show cancel btn only for creator
-    if(r.creator===userAddr) document.getElementById('cancelBtn').style.display='block';
   } else if(r.status==='countdown'&&gamePhase==='wait'){
     gamePhase='countdown';
     runCountdown();
