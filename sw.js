@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "38.7";
+const VERSION = "38.5";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -112,19 +112,11 @@ self.addEventListener("activate", (event) => {
             return caches.delete(key);
           })
       );
-    }).then(async () => {
-      // Tunggu transaksi selesai sebelum claim kontrol tab
-      if (txInProgress) {
-        await new Promise(resolve => {
-          const check = setInterval(() => {
-            if (!txInProgress) { clearInterval(check); resolve(); }
-          }, 500);
-        });
-      }
-      // Ambil kontrol semua tab yang sudah terbuka
-      return self.clients.claim();
     })
   );
+  // Ambil kontrol semua tab yang sudah terbuka
+  // Ditunda 3 detik agar tidak ganggu transaksi yang sedang berjalan
+  setTimeout(() => self.clients.claim(), 3000);
 });
 
 // ── FETCH: Network first, fallback ke cache ──
@@ -157,16 +149,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 // ── MESSAGE: force update dari halaman ──
-let txInProgress = false;
-
 self.addEventListener("message", (event) => {
   if (event.data === "skipWaiting") {
     self.skipWaiting();
-  }
-  if (event.data === "tx_start") {
-    txInProgress = true;
-  }
-  if (event.data === "tx_end") {
-    txInProgress = false;
   }
 });
