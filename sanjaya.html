@@ -436,7 +436,42 @@ async function connectWallet(){
 async function addBSC(){await window.ethereum.request({method:"wallet_addEthereumChain",params:[{chainId:BSC_ID,chainName:"BNB Smart Chain",nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},rpcUrls:["https://bsc-dataseed1.binance.org/"],blockExplorerUrls:["https://bscscan.com"]}]});}
 document.getElementById("walletBtn").addEventListener("click",connectWallet);
 window.addEventListener("load",async()=>{
-  if(window.ethereum){try{const acc=await window.ethereum.request({method:"eth_accounts"});if(acc.length){provider=new ethers.BrowserProvider(window.ethereum);signer=await provider.getSigner();userAddr=await signer.getAddress();cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);cINDC=new ethers.Contract(INDC_CA,INDC_ABI,signer);cGame=new ethers.Contract(GAME_CA,GAME_ABI,signer);document.getElementById("walletBtnText").textContent=userAddr.slice(0,6)+"..."+userAddr.slice(-4);document.getElementById("walletBtn").classList.add("on");document.getElementById("walletDot").classList.add("on");await getIndcDecimals();vaultBal=await cVault.getGameBalance(userAddr);document.getElementById("vaultBal").textContent=Math.floor(fmtIndc(vaultBal)).toLocaleString()+" INDC";}}catch(e){}}
+  if(window.ethereum){
+    try{
+      const acc=await window.ethereum.request({method:"eth_accounts"});
+      if(acc.length){
+        provider=new ethers.BrowserProvider(window.ethereum);
+        signer=await provider.getSigner();
+        userAddr=await signer.getAddress();
+        cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
+        cINDC=new ethers.Contract(INDC_CA,INDC_ABI,signer);
+        cGame=new ethers.Contract(GAME_CA,GAME_ABI,signer);
+        document.getElementById("walletBtnText").textContent=userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+        document.getElementById("walletBtn").classList.add("on");
+        document.getElementById("walletDot").classList.add("on");
+        await getIndcDecimals();
+        vaultBal=await cVault.getGameBalance(userAddr);
+        document.getElementById("vaultBal").textContent=Math.floor(fmtIndc(vaultBal)).toLocaleString()+" INDC";
+
+        // ── Cek apakah ada room aktif ──
+        const stats=await cGame.getPlayerStats(userAddr);
+        if(stats.currentRoom>0n){
+          currentRoomId=stats.currentRoom;
+          // Tampilkan tombol batalkan & info room aktif
+          const btnCancel=document.getElementById("btnCancel");
+          const btnReady=document.getElementById("btnReady");
+          if(btnCancel) btnCancel.style.display="block";
+          if(btnReady){
+            btnReady.textContent="⏳ MENUNGGU PEMAIN LAIN...";
+            btnReady.disabled=true;
+          }
+          showToast(`⚔️ Kamu masih di Room #${currentRoomId}`);
+          startWaitCountdown();
+          startRoomPolling(parseFloat(document.getElementById("feeInput").value)||200);
+        }
+      }
+    }catch(e){}
+  }
   renderAll();
 });
 if(window.ethereum){window.ethereum.on("accountsChanged",()=>location.reload());window.ethereum.on("chainChanged",()=>location.reload());}
