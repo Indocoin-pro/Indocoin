@@ -283,7 +283,7 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
           <div class="wcd-label">⏳ MENUNGGU PEMAIN LAIN</div>
           <div class="wcd-label" style="margin-top:2px;">Room akan dibatalkan jika habis</div>
         </div>
-        <div class="wcd-timer" id="wcdTimer">10:00</div>
+        <div class="wcd-timer" id="wcdTimer">05:00</div>
       </div>
 
       <button class="btn-royal ready" id="btnReady" onclick="doReady()">⚔️ SIAP BERANGKAT!</button>
@@ -536,7 +536,7 @@ function startWaitCountdown(){
   const el=document.getElementById("waitCountdown");
   const timer=document.getElementById("wcdTimer");
   if(el) el.classList.add("show");
-  let seconds=600; // 10 menit
+  let seconds=300; // 5 menit
   if(waitCountdownInterval) clearInterval(waitCountdownInterval);
   waitCountdownInterval=setInterval(()=>{
     seconds--;
@@ -773,6 +773,15 @@ async function startRoomPolling(fee){
 async function doCancelRoom(){
   if(!currentRoomId){ showToast("❌ Tidak ada room aktif"); return; }
   if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  // Cek jumlah pemain dulu
+  try{
+    const room=await cGame.getRoom(currentRoomId);
+    const cnt=Number(room.playerCount);
+    if(cnt>=2){
+      showToast("❌ Tidak bisa cancel — sudah ada pemain lain yang bergabung!");
+      return;
+    }
+  }catch(e){ showToast("❌ Gagal cek room"); return; }
   const btn=document.getElementById("btnCancel");
   if(btn){ btn.disabled=true; btn.textContent="⏳ Membatalkan..."; }
   showProc("MEMBATALKAN ROOM...","Konfirmasi transaksi di wallet kamu");
