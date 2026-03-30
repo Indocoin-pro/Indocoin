@@ -659,7 +659,7 @@ async function createRoom(){
     await roomRef.set(roomData);
 
     // Panggil contract
-    const tx=await cGame.createRoom(feeWei,selectedQ,selectedCat,selectedLang);
+    const tx=await cGame.createRoom(feeWei,selectedCat,selectedQ,selectedLang);
     await tx.wait();
 
     closeCreate();
@@ -667,7 +667,10 @@ async function createRoom(){
     await refreshVault();
     window.location.href=`brainclash-room.html?id=${roomRef.key}`;
   }catch(e){
-    showToast('❌ '+e.message.slice(0,50));
+    console.error('createRoom error:', e);
+    showToast('❌ '+(e.reason||e.message||'Unknown error').slice(0,80));
+    // Hapus room dari Firebase jika contract gagal
+    try{ await roomRef.delete(); }catch(ex){}
   }finally{
     btn.disabled=false;btn.textContent='⚗️ BUAT ROOM & TANTANG';
   }
