@@ -200,7 +200,7 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
     <img src="sanjaya-icon.png" class="nav-logo" alt="SINGGASANA SANJAYA">
     <div>
       <div class="nav-brand" style="line-height:1.1">SINGGASANA<br>SANJAYA</div>
-      <div class="nav-sub">👑 JELAJAHI · TEMUKAN · MENANG</div>
+      <div class="nav-sub">👑 REBUT SINGGASANA RAJA</div>
     </div>
   </div>
   <button class="btn-w" id="walletBtn"><span class="wdot" id="walletDot"></span><span id="walletBtnText">CONNECT</span></button>
@@ -510,20 +510,13 @@ function renderMedan(){
     </div>`).join("");
 }
 
-// ═══ SW TRANSACTION GUARD ═══
-function swPause(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_start"); }
-function swResume(){ if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("tx_end"); }
-
 // ═══ STATE ROOM ═══
 let currentRoomId=null;
 let roomPollInterval=null;
 
 async function doReady(){
-  // ── 1. CEK LOGIN FIREBASE — tunggu sampai auth selesai ──
-  let firebaseUser = null;
-  if (window.SanjayaNotif) {
-    firebaseUser = await window.SanjayaNotif.waitForUser();
-  }
+  // ── 1. CEK LOGIN FIREBASE (harus member Indocoin) ──
+  const firebaseUser = window.SanjayaNotif ? window.SanjayaNotif.getUser() : null;
   if(!firebaseUser){
     showGate("❌ BELUM LOGIN","Kamu harus login ke platform Indocoin dulu untuk ikut ekspedisi!","LOGIN SEKARANG",()=>{ window.location.href="landing.html"; });
     return;
@@ -543,14 +536,12 @@ async function doReady(){
   }
 
   showProc("MENCARI ROOM...","Mengecek room yang tersedia di blockchain...");
-  swPause();
   try{
     // Cek apakah player sudah di room
     const stats=await cGame.getPlayerStats(userAddr);
     if(stats.currentRoom>0n){
       currentRoomId=stats.currentRoom;
       hideProc();
-      swResume();
       showToast(`✅ Sudah di Room #${currentRoomId}! Menunggu player lain...`);
       sessionStorage.setItem("sanjaya_roomId", currentRoomId.toString());
       sessionStorage.setItem("sanjaya_fee", fee.toString());
@@ -623,7 +614,6 @@ async function doReady(){
     sessionStorage.setItem("sanjaya_fee", fee.toString());
 
     hideProc();
-    swResume();
     LOBBY_PLAYERS[0].ready=true; renderLobby();
     document.getElementById("btnReady").textContent="⏳ MENUNGGU PEMAIN LAIN...";
     document.getElementById("btnReady").disabled=true;
@@ -633,7 +623,6 @@ async function doReady(){
 
   }catch(e){
     hideProc();
-    swResume();
     if(e.code===4001||e.code==="ACTION_REJECTED")
       showToast("❌ Transaksi dibatalkan");
     else
@@ -811,7 +800,7 @@ if("serviceWorker" in navigator){
         newSW.addEventListener("statechange", () => {
           if(newSW.state === "installed" && navigator.serviceWorker.controller){
             newSW.postMessage("skipWaiting");
-            // Auto reload dihapus — SW aktif saat user buka halaman berikutnya
+            // reload dihapus
           }
         });
       });
