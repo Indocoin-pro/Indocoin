@@ -363,6 +363,7 @@ const BACKUP_QUESTIONS = {
 
 // ─── STATE ────────────────────────────────────────────────────
 let provider,signer,userAddr,cVault,cGame;
+let blockchainRoomId=null;
 let roomId,roomData,questions=[],currentQ=0,myScore=0;
 let timerInterval,waitTimerInterval;
 let answered=false,gamePhase='wait'; // wait|playing|sudden|result
@@ -388,7 +389,12 @@ window.addEventListener('load',async()=>{
         signer=await provider.getSigner();
         userAddr=await signer.getAddress();
         cVault=new ethers.Contract(VAULT_CA,VAULT_ABI,signer);
-        cGame=new ethers.Contract(GAME_CA,["function refundRoom(uint256 id) external"],signer);
+        cGame=new ethers.Contract(GAME_CA,["function refundRoom(uint256 id) external","function getStats(address) view returns (uint256,uint256,uint256,uint256,uint256)"],signer);
+        // Ambil blockchainRoomId seperti Sanjaya
+        try{
+          const stats=await cGame.getStats(userAddr);
+          blockchainRoomId=stats[0];
+        }catch(e){}
       }
     }catch(e){}
   }
@@ -801,42 +807,26 @@ async function claimPrize(){
 }
 
 async function cancelRoom(){
-  if(!confirm('Batalkan room? Entry fee akan dikembalikan ke Vault.'))return;
+  if(!blockchainRoomId||blockchainRoomId===0n){ showToast('❌ Tidak ada room aktif'); return; }
   const btn=document.getElementById('cancelBtn');
   if(btn){ btn.disabled=true; btn.textContent='MEMBATALKAN...'; }
+  showToast('🔄 Konfirmasi di wallet kamu...');
   try{
-    // Pastikan wallet connect
-    if(!signer||!userAddr){
-      if(window.ethereum){
-        provider=new ethers.BrowserProvider(window.ethereum);
-        signer=await provider.getSigner();
-        userAddr=await signer.getAddress();
-        cGame=new ethers.Contract(GAME_CA,["function refundRoom(uint256 id) external"],signer);
-      }
-    }
-    const snap=await db.ref(`brainclash/rooms/${roomId}`).get();
-    const room=snap.val();
-    if(room && room.playerCount >= 2){
-      showToast('❌ Tidak bisa cancel — sudah ada pemain lain!');
-      if(btn){ btn.disabled=false; btn.textContent='🚫 BATALKAN ROOM'; }
-      return;
-    }
-    // Ambil blockchainRoomId dari contract
-    const cStats=new ethers.Contract(GAME_CA,
-      ["function getStats(address) view returns (uint256,uint256,uint256,uint256,uint256)"],
-      signer);
-    const stats=await cStats.getStats(userAddr);
-    const blockchainRoomId=BigInt(stats[0]);
-    if(blockchainRoomId>0n){
-      const tx=await cGame.refundRoom(blockchainRoomId);
-      await tx.wait();
-    }
+    // Cek jumlah pemain dari blockchain
+    const room=await cGame.getRoomA ? await cGame.getRoomA(blockchainRoomId) : null;
+    // Langsung cancel seperti Sanjaya
+    const tx=await cGame.refundRoom(blockchainRoomId);
+    await tx.wait();
+    // Update Firebase
     await db.ref(`brainclash/rooms/${roomId}`).update({status:'cancelled'});
     showToast('✅ Room dibatalkan! INDC dikembalikan ke Vault.');
     setTimeout(()=>window.location.href='brainclash.html', 2000);
   }catch(e){
     if(btn){ btn.disabled=false; btn.textContent='🚫 BATALKAN ROOM'; }
-    showToast('❌ '+(e.reason||e.message||'Gagal').slice(0,60));
+    if(e.code===4001||e.code==='ACTION_REJECTED')
+      showToast('❌ Dibatalkan oleh user');
+    else
+      showToast('❌ '+(e.reason||e.message||'Gagal').slice(0,60));
   }
 }
 
