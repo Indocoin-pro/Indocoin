@@ -805,6 +805,15 @@ async function cancelRoom(){
   const btn=document.getElementById('cancelBtn');
   if(btn){ btn.disabled=true; btn.textContent='MEMBATALKAN...'; }
   try{
+    // Pastikan wallet connect
+    if(!signer||!userAddr){
+      if(window.ethereum){
+        provider=new ethers.BrowserProvider(window.ethereum);
+        signer=await provider.getSigner();
+        userAddr=await signer.getAddress();
+        cGame=new ethers.Contract(GAME_CA,["function refundRoom(uint256 id) external"],signer);
+      }
+    }
     const snap=await db.ref(`brainclash/rooms/${roomId}`).get();
     const room=snap.val();
     if(room && room.playerCount >= 2){
@@ -812,7 +821,7 @@ async function cancelRoom(){
       if(btn){ btn.disabled=false; btn.textContent='🚫 BATALKAN ROOM'; }
       return;
     }
-    // Ambil blockchainRoomId dari contract langsung
+    // Ambil blockchainRoomId dari contract
     const cStats=new ethers.Contract(GAME_CA,
       ["function getStats(address) view returns (uint256,uint256,uint256,uint256,uint256)"],
       signer);
