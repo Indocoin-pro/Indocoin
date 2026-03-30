@@ -287,6 +287,7 @@ html,body{background:var(--dark);color:var(--text);font-family:'Crimson Text',se
       </div>
 
       <button class="btn-royal ready" id="btnReady" onclick="doReady()">⚔️ SIAP BERANGKAT!</button>
+      <button id="btnCancel" onclick="doCancelRoom()" style="display:none;width:100%;margin-top:8px;padding:12px;background:rgba(139,26,26,0.15);border:1px solid rgba(192,57,43,0.4);color:#c0392b;border-radius:10px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px;">🚫 BATALKAN ROOM</button>
     </div>
   </div>
 
@@ -672,6 +673,9 @@ async function doReady(){
     document.getElementById("btnReady").disabled=true;
     showToast(`✅ Room #${currentRoomId} siap! Menunggu pemain bergabung...`);
     startWaitCountdown();
+    // Tampilkan tombol cancel
+    const btnCancel=document.getElementById("btnCancel");
+    if(btnCancel) btnCancel.style.display="block";
     startRoomPolling(fee);
 
   }catch(e){
@@ -752,6 +756,8 @@ async function startRoomPolling(fee){
         showToast("🎉 Semua pemain siap! Ekspedisi dimulai!");
         if(window.SanjayaSound) window.SanjayaSound.sfx.gong();
         stopWaitCountdown();
+        const btnCancel=document.getElementById("btnCancel");
+        if(btnCancel) btnCancel.style.display="none";
         // Hapus room dari Firestore (tidak perlu notif lagi)
         if(window.SanjayaNotif){
           const fsRoomId=sessionStorage.getItem("sanjaya_fsroom_"+currentRoomId.toString());
@@ -762,6 +768,32 @@ async function startRoomPolling(fee){
 
     }catch(e){ console.warn("Poll error:",e.message); }
   },3000);
+}
+
+async function doCancelRoom(){
+  if(!currentRoomId){ showToast("❌ Tidak ada room aktif"); return; }
+  if(!userAddr){ showToast("❌ Connect wallet dulu!"); return; }
+  const btn=document.getElementById("btnCancel");
+  if(btn){ btn.disabled=true; btn.textContent="⏳ Membatalkan..."; }
+  showProc("MEMBATALKAN ROOM...","Konfirmasi transaksi di wallet kamu");
+  try{
+    const tx=await cGame.cancelRoom(currentRoomId);
+    showProc("MEMPROSES...","Menunggu konfirmasi blockchain...");
+    await tx.wait();
+    hideProc();
+    stopWaitCountdown();
+    if(roomPollInterval) clearInterval(roomPollInterval);
+    currentRoomId=null;
+    showToast("✅ Room dibatalkan! INDC dikembalikan ke Vault.");
+    setTimeout(()=>location.reload(), 2000);
+  }catch(e){
+    hideProc();
+    if(btn){ btn.disabled=false; btn.textContent="🚫 BATALKAN ROOM"; }
+    if(e.code===4001||e.code==="ACTION_REJECTED")
+      showToast("❌ Dibatalkan oleh user");
+    else
+      showToast("❌ Gagal: "+(e.reason||e.message||"Error"));
+  }
 }
 
 function startRace(fee){
