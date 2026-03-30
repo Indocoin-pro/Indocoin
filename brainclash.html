@@ -673,7 +673,20 @@ async function createRoom(){
 
     // Panggil contract
     const tx=await cGame.createRoom(feeWei,selectedCat,selectedQ,selectedLang);
-    await tx.wait();
+    const receipt=await tx.wait();
+    // Simpan blockchain room ID ke Firebase
+    try{
+      const iface=new ethers.Interface(GAME_ABI);
+      for(const log of receipt.logs){
+        try{
+          const parsed=iface.parseLog(log);
+          if(parsed&&parsed.name==="RoomCreated"){
+            await roomRef.update({blockchainId:Number(parsed.args.id)});
+            break;
+          }
+        }catch(e){}
+      }
+    }catch(e){}
 
     closeCreate();
     showToast('✅ Room dibuat! Menunggu player...');
