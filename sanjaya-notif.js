@@ -393,7 +393,20 @@ window.SanjayaNotif = {
 
   // Akses db & currentUser
   getDb: () => db,
-  getUser: () => currentUser
+  getUser: () => currentUser,
+
+  // Tunggu sampai Firebase Auth selesai cek session (max 5 detik)
+  waitForUser: () => new Promise(resolve => {
+    if (currentUser !== null) { resolve(currentUser); return; }
+    let tries = 0;
+    const interval = setInterval(() => {
+      tries++;
+      if (currentUser !== null || tries >= 25) {
+        clearInterval(interval);
+        resolve(currentUser);
+      }
+    }, 200);
+  })
 };
 
 // ═══ START ═══
