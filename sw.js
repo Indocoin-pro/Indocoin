@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "43.0";
+const VERSION = "44.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -86,6 +86,9 @@ const CACHE_FILES = [
   "/brainclash-history.html",
   "/brainclash-notif.js",
   "/brainclash-icon.svg",
+  "/airdrop.html",
+  "/airdrop-widget.js",
+  "/airdrop-questions.js",
   "/indc-staking.html",
   "/dev-panel.html",
 ];

@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>INDOCOIN — AIRDROP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="airdrop-questions.js"></script>
+<style>
+:root{
+  --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
+  --white:#f5f0e8;--white2:#a89880;--white3:#6b5a48;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#2ea86a;--red:#c94040;--blue:#4a9eff;
+  --border:rgba(200,146,42,0.18);--border2:rgba(200,146,42,0.1);
+  --text:#f5f0e8;--muted:#a89880;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.05) 1px,transparent 1px);background-size:36px 36px;}
+.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.07) 0%,transparent 65%);}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes progressFill{from{width:0}to{width:var(--pw)}}
+
+/* ── TOPNAV ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex-shrink:0;box-shadow:0 0 12px rgba(255,255,255,0.15);}
+.nav-brand{display:flex;flex-direction:column;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.wallet-badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:4px;letter-spacing:1px;display:flex;align-items:center;gap:5px;background:rgba(168,152,128,0.08);border:1px solid rgba(168,152,128,0.3);color:var(--white2);cursor:pointer;}
+.wallet-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite;}
+.wallet-dot.off{background:var(--red);animation:none;}
+
+/* ── LAYOUT ── */
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 120px;max-width:480px;margin:0 auto;width:100%;}
+
+/* ── HERO BANNER ── */
+.hero{background:linear-gradient(135deg,rgba(200,146,42,0.15),rgba(0,0,0,0.6));border:2px solid rgba(200,146,42,0.4);border-radius:18px;padding:20px 16px;margin-bottom:16px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'🪂';font-size:60px;position:absolute;right:-10px;top:-10px;opacity:0.08;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--gold3);letter-spacing:3px;text-shadow:0 0 20px rgba(245,200,66,0.4);}
+.hero-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--white2);letter-spacing:2px;margin-top:4px;}
+.hero-earn{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--white);margin-top:10px;}
+.hero-earn span{color:var(--gold3);}
+
+/* ── POOL PROGRESS ── */
+.pool-card{background:rgba(0,0,0,0.5);border:2px solid rgba(200,146,42,0.3);border-radius:14px;padding:14px;margin-bottom:14px;}
+.pool-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.pool-title{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:1px;}
+.pool-phase{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);border:1px solid rgba(46,168,106,0.4);padding:3px 8px;border-radius:4px;}
+.pool-bar-wrap{background:rgba(255,255,255,0.06);border-radius:6px;height:10px;overflow:hidden;margin-bottom:8px;}
+.pool-bar{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));border-radius:6px;transition:width 1s ease;min-width:2px;}
+.pool-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.pool-stat{text-align:center;}
+.pool-stat-val{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);font-weight:700;}
+.pool-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+
+/* ── WALLET INFO ── */
+.wallet-card{background:var(--bg2);border:2px solid rgba(255,255,255,0.12);border-radius:14px;padding:14px;margin-bottom:14px;}
+.wc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.wc-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.wc-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold);}
+.wc-wd-status{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:9px;}
+.wd-dot{width:8px;height:8px;border-radius:50%;background:var(--red);}
+.wd-dot.open{background:var(--green);box-shadow:0 0 6px var(--green);}
+.streak-row{background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.2);border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;}
+.streak-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.streak-val{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold3);font-weight:700;}
+
+/* ── CONNECT WALL ── */
+.connect-wall{background:rgba(0,0,0,0.4);border:2px dashed rgba(200,146,42,0.3);border-radius:14px;padding:30px 16px;text-align:center;margin-bottom:14px;}
+.connect-wall p{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
+.btn-connect{padding:14px 32px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;}
+.btn-connect:hover{box-shadow:0 4px 30px rgba(250,204,21,0.5);transform:translateY(-1px);}
+
+/* ── AIRDROP WIDGET ── */
+.widget-card{background:var(--bg2);border:2px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;margin-bottom:14px;animation:fadeUp 0.4s ease both;}
+.widget-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.widget-title::after{content:'';flex:1;height:1px;background:rgba(200,146,42,0.2);}
+.step-badge{font-family:'Share Tech Mono',monospace;font-size:9px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);color:var(--gold);padding:3px 8px;border-radius:4px;letter-spacing:1px;}
+.step-done{background:rgba(46,168,106,0.15);border-color:rgba(46,168,106,0.4);color:var(--green);}
+
+/* ── SOSMED TASK ── */
+.task-card{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;margin-bottom:10px;}
+.task-platform{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--white);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.task-desc{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--white2);margin-bottom:12px;line-height:1.4;}
+.task-link{display:block;padding:10px;background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.3);border-radius:8px;color:var(--gold2);font-family:'Share Tech Mono',monospace;font-size:10px;text-align:center;text-decoration:none;margin-bottom:10px;letter-spacing:1px;}
+.task-link:hover{background:rgba(200,146,42,0.15);}
+.upload-area{border:2px dashed rgba(255,255,255,0.2);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all 0.3s;margin-bottom:8px;}
+.upload-area:hover{border-color:rgba(200,146,42,0.4);background:rgba(200,146,42,0.04);}
+.upload-area p{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.upload-preview{max-width:100%;border-radius:8px;margin-top:8px;display:none;}
+.btn-verify{width:100%;padding:11px;background:rgba(74,158,255,0.12);border:1px solid rgba(74,158,255,0.4);color:var(--blue);border-radius:8px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-verify:hover{background:rgba(74,158,255,0.2);}
+.task-skip{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-top:8px;cursor:pointer;text-decoration:underline;}
+.task-skip:hover{color:var(--white2);}
+
+/* ── QUIZ ── */
+.quiz-card{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px;margin-bottom:10px;}
+.quiz-category{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:2px;margin-bottom:8px;}
+.quiz-q{font-family:'Rajdhani',sans-serif;font-size:15px;color:var(--white);line-height:1.5;margin-bottom:14px;font-weight:600;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-opt{padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:8px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:14px;color:var(--white2);transition:all 0.25s;display:flex;align-items:center;gap:10px;}
+.quiz-opt:hover{background:rgba(200,146,42,0.08);border-color:rgba(200,146,42,0.3);color:var(--white);}
+.quiz-opt.selected{background:rgba(200,146,42,0.12);border-color:rgba(200,146,42,0.5);color:var(--gold);}
+.quiz-opt.correct{background:rgba(46,168,106,0.15);border-color:rgba(46,168,106,0.5);color:var(--green);}
+.quiz-opt.wrong{background:rgba(201,64,64,0.12);border-color:rgba(201,64,64,0.4);color:var(--red);}
+.quiz-opt.disabled{pointer-events:none;}
+.quiz-opt-idx{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);width:16px;flex-shrink:0;}
+.quiz-result{margin-top:10px;padding:10px 12px;border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:10px;line-height:1.5;display:none;}
+.quiz-result.ok{background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.3);color:var(--green);}
+.quiz-result.fail{background:rgba(201,64,64,0.1);border:1px solid rgba(201,64,64,0.3);color:var(--red);}
+
+/* ── CLAIM BUTTON ── */
+.claim-wrap{margin-top:16px;}
+.btn-claim{width:100%;padding:16px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;cursor:pointer;transition:all 0.3s;animation:pulse 2s infinite;}
+.btn-claim:hover{box-shadow:0 6px 40px rgba(250,204,21,0.6);transform:translateY(-2px);}
+.btn-claim:disabled{background:rgba(255,255,255,0.08);color:var(--muted);animation:none;cursor:not-allowed;transform:none;box-shadow:none;}
+.claim-note{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.6;}
+
+/* ── CLAIMED STATE ── */
+.claimed-box{background:rgba(46,168,106,0.1);border:2px solid rgba(46,168,106,0.3);border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;}
+.claimed-icon{font-size:36px;margin-bottom:8px;}
+.claimed-title{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--green);letter-spacing:2px;}
+.claimed-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:6px;line-height:1.6;}
+.countdown-box{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;margin-top:10px;}
+.countdown-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.countdown-val{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--gold);font-weight:700;margin-top:4px;}
+
+/* ── SOSMED LINKS ── */
+.sosmed-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;}
+.sosmed-title{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:2px;margin-bottom:12px;}
+.sosmed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.sosmed-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;text-decoration:none;transition:all 0.25s;cursor:pointer;}
+.sosmed-btn:hover{background:rgba(200,146,42,0.08);border-color:rgba(200,146,42,0.3);}
+.sosmed-icon{font-size:20px;}
+.sosmed-name{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;}
+
+/* ── UNLOCK SCREEN ── */
+.unlock-card{background:linear-gradient(135deg,rgba(74,158,255,0.08),rgba(0,0,0,0.5));border:2px solid rgba(74,158,255,0.3);border-radius:18px;padding:20px;text-align:center;margin-bottom:14px;}
+.unlock-title{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--blue);letter-spacing:2px;margin-bottom:8px;}
+.unlock-desc{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:16px;}
+.unlock-rules{text-align:left;background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;margin-bottom:16px;}
+.unlock-rule{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white2);margin-bottom:6px;display:flex;align-items:flex-start;gap:6px;line-height:1.5;}
+
+/* ── STATUS MSG ── */
+.status-msg{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;margin-top:8px;min-height:16px;transition:all 0.3s;}
+.status-ok{color:var(--green);}
+.status-err{color:var(--red);}
+.status-info{color:var(--muted);}
+
+/* ── BOTTOM NAV ── */
+.bnav{position:fixed;bottom:0;left:0;right:0;height:60px;background:rgba(8,8,8,0.98);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;z-index:200;backdrop-filter:blur(20px);}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none;color:var(--muted);transition:color 0.2s;}
+.bnav-item.active{color:var(--gold);}
+.bnav-icon{font-size:20px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:1px;font-family:'Orbitron',sans-serif;}
+
+/* ── LOADING ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(8,8,8,0.85);z-index:500;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+.loading-spin{width:40px;height:40px;border:3px solid rgba(200,146,42,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spin"></div>
+  <div class="loading-txt">MEMUAT AIRDROP...</div>
+</div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="INDC">
+    <div class="nav-brand">
+      <span class="nav-brand-main">INDOCOIN</span>
+      <span class="nav-brand-sub">🪂 AIRDROP SYSTEM</span>
+    </div>
+  </div>
+  <div class="wallet-badge" onclick="connectWallet()" id="walletBadge">
+    <span class="wallet-dot off" id="walletDot"></span>
+    <span id="walletTxt">CONNECT</span>
+  </div>
+</nav>
+
+<div class="layout">
+<div class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-title">🪂 AIRDROP</div>
+    <div class="hero-sub">INDOCOIN FREE TOKEN PROGRAM</div>
+    <div class="hero-earn">Kerjakan tugas → Claim <span>1 INDC</span> per halaman</div>
+  </div>
+
+  <!-- POOL PROGRESS -->
+  <div class="pool-card">
+    <div class="pool-header">
+      <span class="pool-title">🏦 PHASE 1 POOL</span>
+      <span class="pool-phase" id="poolPhaseLabel">AKTIF</span>
+    </div>
+    <div class="pool-bar-wrap">
+      <div class="pool-bar" id="poolBar" style="width:0%"></div>
+    </div>
+    <div class="pool-stats">
+      <div class="pool-stat">
+        <div class="pool-stat-val" id="poolClaimed">-</div>
+        <div class="pool-stat-lbl">TERKLAIM</div>
+      </div>
+      <div class="pool-stat">
+        <div class="pool-stat-val" id="poolRemain">-</div>
+        <div class="pool-stat-lbl">TERSISA</div>
+      </div>
+      <div class="pool-stat">
+        <div class="pool-stat-val" id="poolPct">0%</div>
+        <div class="pool-stat-lbl">PROGRES</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONNECT WALL (tampil jika belum connect) -->
+  <div class="connect-wall" id="connectWall">
+    <p>Connect wallet MetaMask untuk mulai klaim INDC gratis setiap hari.<br>Pastikan jaringan BNB Smart Chain aktif.</p>
+    <button class="btn-connect" onclick="connectWallet()">🔗 CONNECT WALLET</button>
+  </div>
+
+  <!-- WALLET INFO (tampil jika sudah connect) -->
+  <div class="wallet-card" id="walletInfoCard" style="display:none;">
+    <div class="wc-row">
+      <span class="wc-lbl">💰 SALDO AIRDROP</span>
+      <span class="wc-val" id="userBalance">0 INDC</span>
+    </div>
+    <div class="wc-row" style="margin-bottom:10px;">
+      <span class="wc-lbl">STATUS WD</span>
+      <div class="wc-wd-status">
+        <span class="wd-dot" id="wdDot"></span>
+        <span id="wdStatus">BELUM DIBUKA</span>
+      </div>
+    </div>
+    <div class="streak-row">
+      <span class="streak-lbl">🔥 STREAK HARI INI</span>
+      <span class="streak-val" id="streakVal">0 HARI</span>
+    </div>
+  </div>
+
+  <!-- AIRDROP WIDGET UTAMA -->
+  <div id="mainWidget">
+
+    <!-- STATE: CLAIMED HARI INI -->
+    <div class="claimed-box" id="claimedBox" style="display:none;">
+      <div class="claimed-icon">✅</div>
+      <div class="claimed-title">SUDAH DIKLAIM</div>
+      <div class="claimed-sub">Kamu sudah klaim halaman ini hari ini.<br>Kembali besok setelah reset 00:00.</div>
+      <div class="countdown-box">
+        <div class="countdown-lbl">RESET DALAM</div>
+        <div class="countdown-val" id="countdownVal">--:--:--</div>
+      </div>
+    </div>
+
+    <!-- STATE: UNLOCK REQUIRED (halaman 16-39) -->
+    <div class="unlock-card" id="unlockCard" style="display:none;">
+      <div class="unlock-title">🔒 UNLOCK DIPERLUKAN</div>
+      <div class="unlock-desc">Kamu telah menyelesaikan 15 halaman pertama.<br>Upload bukti share INDOCOIN untuk membuka akses lanjutan.</div>
+      <div class="unlock-rules">
+        <div class="unlock-rule"><span>✅</span>Ada tulisan INDOCOIN atau INDC terlihat jelas</div>
+        <div class="unlock-rule"><span>✅</span>Terlihat sudah dikirim / diposting di sosmed</div>
+        <div class="unlock-rule"><span>✅</span>Bukan duplikat dari bukti sebelumnya</div>
+      </div>
+      <div class="upload-area" onclick="document.getElementById('unlockFileInput').click()">
+        <p>📸 Tap untuk upload screenshot</p>
+        <img id="unlockPreview" class="upload-preview" alt="">
+      </div>
+      <input type="file" id="unlockFileInput" accept="image/*" style="display:none" onchange="handleUnlockUpload(event)">
+      <button class="btn-verify" onclick="submitUnlock()" id="btnSubmitUnlock" disabled>🔓 SUBMIT BUKTI UNLOCK</button>
+      <div class="status-msg" id="unlockStatus"></div>
+    </div>
+
+    <!-- STATE: TUGAS AKTIF -->
+    <div id="taskArea" style="display:none;">
+
+      <!-- TUGAS 1: SOSMED TASK -->
+      <div id="sosmedSection">
+        <div class="widget-card">
+          <div class="widget-title">
+            <span class="step-badge" id="stepSosmedBadge">TUGAS 1</span>
+            📱 SOSMED TASK
+          </div>
+          <div class="task-card" id="sosmedTaskCard">
+            <div class="task-platform" id="taskPlatform">⏳ Memuat task...</div>
+            <div class="task-desc" id="taskDesc"></div>
+            <a href="#" class="task-link" id="taskLink" target="_blank" rel="noopener">🔗 BUKA HALAMAN</a>
+            <div class="upload-area" onclick="document.getElementById('sosmedFileInput').click()">
+              <p id="uploadHint">📸 Upload screenshot bukti</p>
+              <img id="sosmedPreview" class="upload-preview" alt="">
+            </div>
+            <input type="file" id="sosmedFileInput" accept="image/*" style="display:none" onchange="handleSosmedUpload(event)">
+            <button class="btn-verify" onclick="verifySosmed()" id="btnVerifySosmed" disabled>✅ VERIFIKASI BUKTI</button>
+            <div class="task-skip" onclick="skipSosmedTask()" id="skipBtn">Ganti task (sisa: <span id="skipRemain">2</span>x)</div>
+          </div>
+          <div class="status-msg" id="sosmedStatus"></div>
+        </div>
+      </div>
+
+      <!-- TUGAS 2: SOAL EDUKASI -->
+      <div class="widget-card">
+        <div class="widget-title">
+          <span class="step-badge" id="stepEduBadge">TUGAS 2</span>
+          🧠 SOAL EDUKASI
+        </div>
+        <div class="quiz-card">
+          <div class="quiz-category">📚 BLOCKCHAIN / DEFI / WEB3</div>
+          <div class="quiz-q" id="quizEduQ">Memuat soal...</div>
+          <div class="quiz-options" id="quizEduOpts"></div>
+          <div class="quiz-result" id="quizEduResult"></div>
+        </div>
+      </div>
+
+      <!-- TUGAS 3: SOAL PLATFORM -->
+      <div class="widget-card">
+        <div class="widget-title">
+          <span class="step-badge" id="stepPlatBadge">TUGAS 3</span>
+          🏛️ SOAL PLATFORM
+        </div>
+        <div class="quiz-card">
+          <div class="quiz-category">🪙 PLATFORM INDOCOIN</div>
+          <div class="quiz-q" id="quizPlatQ">Memuat soal...</div>
+          <div class="quiz-options" id="quizPlatOpts"></div>
+          <div class="quiz-result" id="quizPlatResult"></div>
+        </div>
+      </div>
+
+      <!-- TOMBOL CLAIM -->
+      <div class="claim-wrap">
+        <button class="btn-claim" id="btnClaim" disabled onclick="doClaim()">
+          🪂 CLAIM 1 INDC
+        </button>
+        <div class="claim-note" id="claimNote">Selesaikan semua tugas untuk unlock tombol claim</div>
+        <div class="status-msg" id="claimStatus"></div>
+      </div>
+
+    </div><!-- end taskArea -->
+
+  </div><!-- end mainWidget -->
+
+  <!-- SOSMED LINKS -->
+  <div class="sosmed-card">
+    <div class="sosmed-title">🌐 IKUTI KAMI</div>
+    <div class="sosmed-grid">
+      <a href="https://www.instagram.com/indocoin_indc" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">📸</span>
+        <span class="sosmed-name">INSTAGRAM</span>
+      </a>
+      <a href="https://www.threads.com/@indocoin_indc" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">🧵</span>
+        <span class="sosmed-name">THREADS</span>
+      </a>
+      <a href="https://www.facebook.com/share/1NaUZBDiyS/" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">👍</span>
+        <span class="sosmed-name">FACEBOOK</span>
+      </a>
+      <a href="https://x.com/Indocoin_INDC" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">✖️</span>
+        <span class="sosmed-name">X / TWITTER</span>
+      </a>
+      <a href="https://t.me/+CzjgvwApDscwMGM1" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">✈️</span>
+        <span class="sosmed-name">TELEGRAM</span>
+      </a>
+      <a href="https://youtube.com/@indocoin_defi_web3" target="_blank" class="sosmed-btn">
+        <span class="sosmed-icon">📺</span>
+        <span class="sosmed-name">YOUTUBE</span>
+      </a>
+    </div>
+  </div>
+
+</div><!-- end main -->
+</div><!-- end layout -->
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
+  <a class="bnav-item active" href="airdrop.html"><span class="bnav-icon">🪂</span><span class="bnav-label">AIRDROP</span></a>
+  <a class="bnav-item" href="assets.html"><span class="bnav-icon">💼</span><span class="bnav-label">ASSETS</span></a>
+  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span><span class="bnav-label">COMMUNITY</span></a>
+</nav>
+
+<script>
+// ============================================================
+//  INDOCOIN AIRDROP — airdrop.html
+//  Smart Contract: AirdropINDC
+//  Address: 0x3532c81dD148b46de0b04Aad9476C9093Ea19835
+//  Network: BNB Smart Chain (Chain ID: 56)
+// ============================================================
+
+// ── CONFIG ──────────────────────────────────────────────────
+const AIRDROP_CONTRACT = '0x3532c81dD148b46de0b04Aad9476C9093Ea19835';
+const BSC_CHAIN_ID     = 56;
+const PAGE_ID          = 0; // Halaman hub airdrop = pageId 0
+const DECIMALS         = 9;
+
+const AIRDROP_ABI = [
+  "function claim(uint256 pageId) external",
+  "function hasClaimedPage(address user, uint256 pageId) external view returns (bool)",
+  "function getUserInfo(address user) external view returns (uint256 balance, uint256 totalEarned, uint256 totalWithdrawn, uint256 streakCount, uint256 refBonusEarned, uint256 todayWithdrawnAmt, bool canWithdraw)",
+  "function getPoolInfo() external view returns (uint256 phase1Total, uint256 claimed, uint256 remaining, uint256 percentClaimed)",
+  "function getWithdrawInfo() external view returns (bool isOpen, uint256 minWD, uint256 maxWDToday, uint256 userWithdrawnToday, uint256 userAvailableWD)",
+  "function withdrawOpen() external view returns (bool)",
+  "event Claimed(address indexed user, uint256 pageId, uint256 amount, uint256 day)"
+];
+
+// ── SOSMED TASK POOL ─────────────────────────────────────────
+const SOSMED_TASKS = [
+  { id:'yt_sub',   platform:'📺 YouTube',   desc:'Subscribe channel INDOCOIN di YouTube.',              link:'https://youtube.com/@indocoin_defi_web3' },
+  { id:'yt_like',  platform:'📺 YouTube',   desc:'Like video terbaru di channel INDOCOIN YouTube.',     link:'https://youtube.com/@indocoin_defi_web3' },
+  { id:'yt_komen', platform:'📺 YouTube',   desc:'Komen kata "INDOCOIN" di video terbaru YouTube.',     link:'https://youtube.com/@indocoin_defi_web3' },
+  { id:'ig_follow',platform:'📸 Instagram', desc:'Follow akun Instagram @indocoin_indc.',               link:'https://www.instagram.com/indocoin_indc' },
+  { id:'ig_like',  platform:'📸 Instagram', desc:'Like postingan terbaru di Instagram INDOCOIN.',       link:'https://www.instagram.com/indocoin_indc' },
+  { id:'ig_story', platform:'📸 Instagram', desc:'Share postingan INDOCOIN ke Instagram Story kamu.',   link:'https://www.instagram.com/indocoin_indc' },
+  { id:'tg_join',  platform:'✈️ Telegram',  desc:'Gabung group Telegram resmi INDOCOIN.',               link:'https://t.me/+CzjgvwApDscwMGM1' },
+  { id:'fb_like',  platform:'👍 Facebook',  desc:'Like halaman Facebook resmi INDOCOIN.',               link:'https://www.facebook.com/share/1NaUZBDiyS/' },
+  { id:'fb_share', platform:'👍 Facebook',  desc:'Share postingan INDOCOIN ke timeline Facebook kamu.', link:'https://www.facebook.com/share/1NaUZBDiyS/' },
+  { id:'x_follow', platform:'✖️ X / Twitter','desc':'Follow akun X (Twitter) @Indocoin_INDC.',          link:'https://x.com/Indocoin_INDC' },
+  { id:'x_rt',     platform:'✖️ X / Twitter','desc':'Retweet / Repost tweet terbaru @Indocoin_INDC.',   link:'https://x.com/Indocoin_INDC' },
+  { id:'td_follow',platform:'🧵 Threads',   desc:'Follow akun Threads @indocoin_indc.',                 link:'https://www.threads.com/@indocoin_indc' },
+  { id:'wa_share', platform:'💬 WhatsApp',  desc:'Screenshot share ajakan bergabung INDOCOIN ke WA Group / Story.', link:null },
+  { id:'qr_share', platform:'📱 Share QR',  desc:'Screenshot QR code wallet kamu dan share ke teman sebagai bukti aktif di INDOCOIN.', link:null },
+  { id:'sosmed_any',platform:'📣 Sosmed Bebas','desc':'Screenshot share konten INDOCOIN di platform manapun (WA, IG Story, FB, TG, dll).', link:null },
+];
+
+// ── STATE ────────────────────────────────────────────────────
+let provider, signer, contract, userAddress;
+let skipRemain    = 2;
+let sosmedDone    = false;
+let eduDone       = false;
+let platDone      = false;
+let currentTask   = null;
+let sosmedImgData = null;
+let currentEduQ   = null;
+let currentPlatQ  = null;
+let claimLevel    = 1; // 1 = 2 pilihan, 2 = 4 pilihan
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  generateStars();
+  await loadPoolInfo();
+  await tryAutoConnect();
+  document.getElementById('loadingOverlay').style.display = 'none';
+  startCountdown();
+});
+
+function generateStars() {
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `left:${Math.random()*100}vw;top:${Math.random()*100}vh;width:${Math.random()*2+1}px;height:${Math.random()*2+1}px;--d:${Math.random()*4+2}s;`;
+    document.body.appendChild(s);
+  }
+}
+
+// ── AUTO CONNECT ─────────────────────────────────────────────
+async function tryAutoConnect() {
+  if (typeof window.ethereum === 'undefined') return;
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts && accounts.length > 0) await initWallet(accounts[0]);
+  } catch(e) {}
+}
+
+// ── CONNECT WALLET ───────────────────────────────────────────
+window.connectWallet = async function() {
+  if (typeof window.ethereum === 'undefined') {
+    alert('MetaMask tidak ditemukan. Install MetaMask terlebih dahulu.');
+    return;
+  }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    await initWallet(accounts[0]);
+  } catch(e) {
+    showStatus('claimStatus', '❌ ' + (e.message || 'Connect wallet gagal'), 'err');
+  }
+};
+
+async function initWallet(address) {
+  try {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    const network = await provider.getNetwork();
+    if (network.chainId !== BSC_CHAIN_ID) {
+      // Auto switch ke BSC
+      try {
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+      } catch(e) {
+        showStatus('claimStatus', '⚠️ Ganti jaringan ke BNB Smart Chain', 'err');
+        return;
+      }
+    }
+    signer      = provider.getSigner();
+    contract    = new ethers.Contract(AIRDROP_CONTRACT, AIRDROP_ABI, signer);
+    userAddress = address;
+
+    // Update UI
+    document.getElementById('walletDot').classList.remove('off');
+    document.getElementById('walletTxt').textContent = address.slice(0,6)+'...'+address.slice(-4);
+    document.getElementById('connectWall').style.display   = 'none';
+    document.getElementById('walletInfoCard').style.display = 'block';
+
+    // Simpan ke localStorage (auto-connect pattern)
+    localStorage.setItem('indocoin_wallet', address.toLowerCase());
+
+    await loadUserInfo();
+    await checkAndRenderWidget();
+
+    // Listen account change
+    window.ethereum.on('accountsChanged', (accs) => {
+      if (accs.length > 0) initWallet(accs[0]);
+      else location.reload();
+    });
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// ── LOAD POOL INFO ───────────────────────────────────────────
+async function loadPoolInfo() {
+  try {
+    // Gunakan read-only provider untuk load pool tanpa connect wallet
+    const roProv = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/bsc');
+    const roCon  = new ethers.Contract(AIRDROP_CONTRACT, AIRDROP_ABI, roProv);
+    const info   = await roCon.getPoolInfo();
+
+    const total   = parseFloat(ethers.utils.formatUnits(info[0], DECIMALS));
+    const claimed = parseFloat(ethers.utils.formatUnits(info[1], DECIMALS));
+    const remain  = parseFloat(ethers.utils.formatUnits(info[2], DECIMALS));
+    const pct     = info[3].toNumber();
+
+    document.getElementById('poolBar').style.width    = Math.min(pct, 100) + '%';
+    document.getElementById('poolClaimed').textContent = formatNum(claimed);
+    document.getElementById('poolRemain').textContent  = formatNum(remain);
+    document.getElementById('poolPct').textContent     = pct + '%';
+
+    if (pct >= 100) {
+      document.getElementById('poolPhaseLabel').textContent  = 'HABIS';
+      document.getElementById('poolPhaseLabel').style.color  = 'var(--red)';
+    }
+  } catch(e) { console.warn('Pool info error:', e); }
+}
+
+// ── LOAD USER INFO ───────────────────────────────────────────
+async function loadUserInfo() {
+  if (!contract || !userAddress) return;
+  try {
+    const info = await contract.getUserInfo(userAddress);
+    const bal  = parseFloat(ethers.utils.formatUnits(info[0], DECIMALS));
+    const streak = info[3].toNumber();
+    const canWD  = info[6];
+
+    document.getElementById('userBalance').textContent = bal.toFixed(2) + ' INDC';
+    document.getElementById('streakVal').textContent   = streak + ' HARI' + (streak >= 7 ? ' 🔥' : '');
+
+    // WD status
+    const wdDot  = document.getElementById('wdDot');
+    const wdStat = document.getElementById('wdStatus');
+    if (canWD) {
+      wdDot.classList.add('open');
+      wdStat.textContent = 'TERBUKA 🟢';
+      wdStat.style.color = 'var(--green)';
+    } else {
+      wdStat.textContent = 'BELUM DIBUKA';
+    }
+  } catch(e) { console.warn('User info error:', e); }
+}
+
+// ── CEK DAN RENDER WIDGET ────────────────────────────────────
+async function checkAndRenderWidget() {
+  if (!contract || !userAddress) return;
+
+  const walletKey = userAddress.toLowerCase();
+
+  try {
+    // Cek apakah halaman ini sudah diklaim hari ini
+    const claimed = await contract.hasClaimedPage(userAddress, PAGE_ID);
+    if (claimed) {
+      document.getElementById('claimedBox').style.display = 'block';
+      document.getElementById('taskArea').style.display   = 'none';
+      document.getElementById('unlockCard').style.display = 'none';
+      return;
+    }
+
+    // Cek level user (halaman ke berapa yang sudah diklaim)
+    const claimedPages = parseInt(localStorage.getItem(`indc_claimed_pages_${walletKey}`) || '0');
+    claimLevel = claimedPages >= 15 ? 2 : 1;
+
+    // Cek apakah perlu unlock (halaman 16-39)
+    if (claimLevel === 2) {
+      const unlocked = localStorage.getItem(`indc_unlocked_${walletKey}`) === 'true';
+      if (!unlocked) {
+        document.getElementById('unlockCard').style.display = 'block';
+        document.getElementById('taskArea').style.display   = 'none';
+        return;
+      }
+    }
+
+    // Tampilkan task area
+    document.getElementById('unlockCard').style.display = 'none';
+    document.getElementById('taskArea').style.display   = 'block';
+
+    // Cek apakah sosmed sudah selesai hari ini atau selamanya
+    const sosmedAllDone = localStorage.getItem(`indc_sosmed_all_${walletKey}`) === 'true';
+    const sosmedTodayDone = localStorage.getItem(`indc_sosmed_today_${walletKey}_${todayKey()}`) === 'true';
+
+    if (sosmedAllDone || sosmedTodayDone) {
+      sosmedDone = true;
+      document.getElementById('sosmedSection').style.display = 'none';
+      markStepDone('stepSosmedBadge', 'TUGAS 1 ✅');
+    } else {
+      loadSosmedTask();
+    }
+
+    // Load soal quiz
+    loadQuizQuestions();
+    updateClaimButton();
+
+  } catch(e) {
+    console.error('Widget error:', e);
+  }
+}
+
+// ── SOSMED TASK ──────────────────────────────────────────────
+function loadSosmedTask() {
+  const walletKey = userAddress.toLowerCase();
+  const doneTasks = JSON.parse(localStorage.getItem(`indc_sosmed_done_${walletKey}`) || '[]');
+
+  // Ambil task yang belum pernah diselesaikan
+  const available = SOSMED_TASKS.filter(t => !doneTasks.includes(t.id));
+
+  if (available.length === 0) {
+    // Semua task selesai
+    localStorage.setItem(`indc_sosmed_all_${walletKey}`, 'true');
+    sosmedDone = true;
+    document.getElementById('sosmedSection').style.display = 'none';
+    markStepDone('stepSosmedBadge', 'TUGAS 1 ✅');
+    updateClaimButton();
+    return;
+  }
+
+  // Acak dari yang tersedia
+  currentTask = available[Math.floor(Math.random() * available.length)];
+
+  document.getElementById('taskPlatform').textContent = currentTask.platform;
+  document.getElementById('taskDesc').textContent     = currentTask.desc;
+  document.getElementById('skipRemain').textContent   = skipRemain;
+
+  const link = document.getElementById('taskLink');
+  if (currentTask.link) {
+    link.href = currentTask.link;
+    link.style.display = 'block';
+  } else {
+    link.style.display = 'none';
+  }
+}
+
+function skipSosmedTask() {
+  if (skipRemain <= 0) {
+    showStatus('sosmedStatus', '⚠️ Batas skip sudah habis hari ini', 'err');
+    return;
+  }
+  skipRemain--;
+  sosmedImgData = null;
+  document.getElementById('sosmedPreview').style.display = 'none';
+  document.getElementById('btnVerifySosmed').disabled = true;
+  loadSosmedTask();
+}
+
+function handleSosmedUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    sosmedImgData = ev.target.result;
+    const prev = document.getElementById('sosmedPreview');
+    prev.src = sosmedImgData;
+    prev.style.display = 'block';
+    document.getElementById('uploadHint').textContent = '✅ Screenshot siap diverifikasi';
+    document.getElementById('btnVerifySosmed').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function verifySosmed() {
+  if (!sosmedImgData) {
+    showStatus('sosmedStatus', '⚠️ Upload screenshot terlebih dahulu', 'err');
+    return;
+  }
+  showStatus('sosmedStatus', '⏳ Memverifikasi...', 'info');
+
+  // Verifikasi otomatis: cek ukuran file (heuristik dasar)
+  setTimeout(() => {
+    const walletKey = userAddress.toLowerCase();
+    const imgSize   = sosmedImgData.length;
+
+    if (imgSize < 5000) {
+      showStatus('sosmedStatus', '❌ Screenshot terlalu kecil / tidak valid', 'err');
+      return;
+    }
+
+    // Cek duplikat hash
+    const imgHash = simpleHash(sosmedImgData);
+    const usedHashes = JSON.parse(localStorage.getItem(`indc_img_hashes_${walletKey}`) || '[]');
+    if (usedHashes.includes(imgHash)) {
+      showStatus('sosmedStatus', '❌ Screenshot ini sudah pernah digunakan', 'err');
+      return;
+    }
+
+    // Simpan hash
+    usedHashes.push(imgHash);
+    localStorage.setItem(`indc_img_hashes_${walletKey}`, JSON.stringify(usedHashes));
+
+    // Tandai task selesai
+    const doneTasks = JSON.parse(localStorage.getItem(`indc_sosmed_done_${walletKey}`) || '[]');
+    if (!doneTasks.includes(currentTask.id)) doneTasks.push(currentTask.id);
+    localStorage.setItem(`indc_sosmed_done_${walletKey}`, JSON.stringify(doneTasks));
+    localStorage.setItem(`indc_sosmed_today_${walletKey}_${todayKey()}`, 'true');
+
+    // Cek apakah semua task sudah selesai
+    if (doneTasks.length >= SOSMED_TASKS.length) {
+      localStorage.setItem(`indc_sosmed_all_${walletKey}`, 'true');
+    }
+
+    sosmedDone = true;
+    markStepDone('stepSosmedBadge', 'TUGAS 1 ✅');
+    document.getElementById('sosmedSection').style.display = 'none';
+    showStatus('sosmedStatus', '✅ Task sosmed terverifikasi!', 'ok');
+    updateClaimButton();
+  }, 1200);
+}
+
+// ── QUIZ ─────────────────────────────────────────────────────
+function loadQuizQuestions() {
+  if (!userAddress || typeof AIRDROP_QUESTIONS === 'undefined') return;
+  const qs = getAirdropQuestion(userAddress, PAGE_ID, claimLevel);
+  currentEduQ  = qs.edukasi;
+  currentPlatQ = qs.platform;
+  renderQuiz('quizEduQ',   'quizEduOpts',  'quizEduResult',  currentEduQ);
+  renderQuiz('quizPlatQ',  'quizPlatOpts', 'quizPlatResult', currentPlatQ);
+}
+
+function renderQuiz(qId, optsId, resultId, soal) {
+  if (!soal) return;
+  document.getElementById(qId).textContent = soal.q;
+  const optsEl = document.getElementById(optsId);
+  optsEl.innerHTML = '';
+
+  const labels = ['A','B','C','D'];
+  soal.p.forEach((opt, idx) => {
+    const btn = document.createElement('div');
+    btn.className = 'quiz-opt';
+    btn.innerHTML = `<span class="quiz-opt-idx">${labels[idx]}</span>${opt}`;
+    btn.onclick = () => answerQuiz(soal.id, idx, optsId, resultId, qId === 'quizEduQ' ? 'edu' : 'plat');
+    optsEl.appendChild(btn);
+  });
+}
+
+function answerQuiz(soalId, idx, optsId, resultId, type) {
+  const result = checkAnswer(soalId, idx, claimLevel);
+  const opts   = document.getElementById(optsId).querySelectorAll('.quiz-opt');
+  const resEl  = document.getElementById(resultId);
+
+  opts.forEach(o => o.classList.add('disabled'));
+  opts[result.benar ? idx : idx].classList.add(result.benar ? 'correct' : 'wrong');
+  if (!result.benar) {
+    // Tunjukkan jawaban benar
+    const pool = [...AIRDROP_QUESTIONS.level1, ...AIRDROP_QUESTIONS.level2];
+    const soal = pool.find(s => s.id === soalId);
+    if (soal) opts[soal.j].classList.add('correct');
+  }
+
+  resEl.style.display = 'block';
+  resEl.className     = 'quiz-result ' + (result.benar ? 'ok' : 'fail');
+  resEl.textContent   = (result.benar ? '✅ Benar! ' : '❌ Salah. ') + result.penjelasan;
+
+  if (type === 'edu')  { eduDone  = result.benar; markStepDone('stepEduBadge',  result.benar ? 'TUGAS 2 ✅' : 'TUGAS 2 ❌'); }
+  if (type === 'plat') { platDone = result.benar; markStepDone('stepPlatBadge', result.benar ? 'TUGAS 3 ✅' : 'TUGAS 3 ❌'); }
+
+  updateClaimButton();
+}
+
+// ── CLAIM BUTTON STATE ────────────────────────────────────────
+function updateClaimButton() {
+  const btn  = document.getElementById('btnClaim');
+  const note = document.getElementById('claimNote');
+
+  // Sosmed hanya diperlukan jika belum pernah selesai hari ini
+  const walletKey = userAddress ? userAddress.toLowerCase() : '';
+  const sosmedAllDone   = localStorage.getItem(`indc_sosmed_all_${walletKey}`) === 'true';
+  const sosmedTodayDone = localStorage.getItem(`indc_sosmed_today_${walletKey}_${todayKey()}`) === 'true';
+  const sosmedOk = sosmedDone || sosmedAllDone || sosmedTodayDone;
+
+  const allDone = sosmedOk && eduDone && platDone;
+
+  btn.disabled = !allDone;
+  if (allDone) {
+    note.textContent = '🎉 Semua tugas selesai! Klik untuk claim 1 INDC';
+    note.style.color = 'var(--green)';
+  } else {
+    const pending = [];
+    if (!sosmedOk) pending.push('Tugas Sosmed');
+    if (!eduDone)  pending.push('Soal Edukasi');
+    if (!platDone) pending.push('Soal Platform');
+    note.textContent = 'Belum selesai: ' + pending.join(', ');
+    note.style.color = 'var(--muted)';
+  }
+}
+
+// ── DO CLAIM ─────────────────────────────────────────────────
+async function doClaim() {
+  if (!contract || !userAddress) return;
+  const btn = document.getElementById('btnClaim');
+  btn.disabled  = true;
+  btn.textContent = '⏳ MEMPROSES...';
+  showStatus('claimStatus', '⏳ Mengirim transaksi...', 'info');
+
+  try {
+    const tx = await contract.claim(PAGE_ID);
+    showStatus('claimStatus', '⏳ Menunggu konfirmasi blockchain...', 'info');
+    await tx.wait();
+
+    // Update pages claimed count
+    const walletKey = userAddress.toLowerCase();
+    const claimedPages = parseInt(localStorage.getItem(`indc_claimed_pages_${walletKey}`) || '0');
+    localStorage.setItem(`indc_claimed_pages_${walletKey}`, claimedPages + 1);
+
+    showStatus('claimStatus', '✅ Berhasil! +1 INDC masuk ke wallet airdrop', 'ok');
+    btn.textContent = '✅ CLAIMED!';
+
+    // Refresh info
+    await loadUserInfo();
+    await loadPoolInfo();
+
+    setTimeout(() => {
+      document.getElementById('taskArea').style.display   = 'none';
+      document.getElementById('claimedBox').style.display = 'block';
+    }, 2000);
+
+  } catch(e) {
+    btn.disabled  = false;
+    btn.textContent = '🪂 CLAIM 1 INDC';
+    const msg = e.reason || e.message || 'Transaksi gagal';
+    showStatus('claimStatus', '❌ ' + msg.slice(0, 60), 'err');
+  }
+}
+
+// ── UNLOCK (halaman 16-39) ────────────────────────────────────
+function handleUnlockUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const prev = document.getElementById('unlockPreview');
+    prev.src = ev.target.result;
+    prev.style.display = 'block';
+    document.getElementById('btnSubmitUnlock').disabled = false;
+    document.getElementById('btnSubmitUnlock').dataset.img = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitUnlock() {
+  const imgData = document.getElementById('btnSubmitUnlock').dataset.img;
+  if (!imgData) return;
+  showStatus('unlockStatus', '⏳ Memverifikasi bukti...', 'info');
+
+  setTimeout(() => {
+    if (imgData.length < 5000) {
+      showStatus('unlockStatus', '❌ Screenshot tidak valid', 'err');
+      return;
+    }
+    // Check keyword INDOCOIN di nama file atau data (heuristik ringan)
+    const walletKey = userAddress.toLowerCase();
+    localStorage.setItem(`indc_unlocked_${walletKey}`, 'true');
+    showStatus('unlockStatus', '✅ Unlock berhasil! Akses halaman 16-39 terbuka', 'ok');
+
+    setTimeout(() => {
+      document.getElementById('unlockCard').style.display = 'none';
+      document.getElementById('taskArea').style.display   = 'block';
+      loadSosmedTask();
+      loadQuizQuestions();
+      updateClaimButton();
+    }, 1500);
+  }, 1200);
+}
+
+// ── COUNTDOWN TO 00:00 ───────────────────────────────────────
+function startCountdown() {
+  function tick() {
+    const now  = new Date();
+    const next = new Date();
+    next.setHours(24,0,0,0);
+    const diff = next - now;
+    const h = String(Math.floor(diff/3600000)).padStart(2,'0');
+    const m = String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
+    const s = String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+    const el = document.getElementById('countdownVal');
+    if (el) el.textContent = h+':'+m+':'+s;
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function markStepDone(badgeId, text) {
+  const el = document.getElementById(badgeId);
+  if (el) { el.textContent = text; el.classList.add('step-done'); }
+}
+
+function showStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent  = msg;
+  el.className    = 'status-msg status-' + type;
+}
+
+function formatNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(2) + 'M';
+  if (n >= 1000)    return (n/1000).toFixed(1) + 'K';
+  return n.toFixed(0);
+}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}${d.getMonth()}${d.getDate()}`;
+}
+
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < Math.min(str.length, 500); i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return h.toString(16);
+}
+</script>
+</body>
+</html>
