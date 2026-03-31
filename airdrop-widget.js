@@ -906,19 +906,55 @@
     return h.toString(16);
   }
 
-  // ── AUTO INIT ─────────────────────────────────────────────
+  // ── AUTO INIT (dengan retry otomatis) ────────────────────
   async function autoInit() {
-    if (!window.ethereum) return;
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-    if (accounts && accounts.length > 0) await initWidget(accounts[0]);
+    if (!window.ethereum) {
+      // Tunggu ethereum inject (mobile browser / WalletConnect)
+      let waited = 0;
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          waited += 200;
+          if (window.ethereum || waited >= 3000) { clearInterval(check); resolve(); }
+        }, 200);
+      });
+      if (!window.ethereum) return;
+    }
+
+    // Retry sampai 5x dengan interval 600ms
+    const MAX_TRY = 5;
+    for (let i = 0; i < MAX_TRY; i++) {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+      if (accounts && accounts.length > 0) {
+        await initWidget(accounts[0]);
+        return;
+      }
+      await new Promise(r => setTimeout(r, 600));
+    }
   }
 
   // ── START ─────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { buildWidget(); setTimeout(autoInit, 800); });
-  } else {
+  function startWidget() {
     buildWidget();
-    setTimeout(autoInit, 800);
+    setTimeout(autoInit, 300);
+
+    // Listener: kalau user ganti/connect wallet setelah halaman load
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', async (accounts) => {
+        if (accounts && accounts.length > 0 && !walletAddr) {
+          await initWidget(accounts[0]);
+        } else if (!accounts || accounts.length === 0) {
+          walletAddr = null;
+          const panel = document.getElementById('indc-aw-panel');
+          if (panel && panel.classList.contains('open')) renderConnectPrompt();
+        }
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startWidget);
+  } else {
+    startWidget();
   }
 
 })();
