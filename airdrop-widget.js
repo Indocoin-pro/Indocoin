@@ -434,13 +434,40 @@
     document.body.appendChild(wrap);
   }
 
-  window._awToggle = function() {
+  window._awToggle = async function() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('indc-aw-panel');
     if (panelOpen) {
       panel.classList.add('open');
-      if (!walletAddr) renderConnectPrompt();
-      else renderWidget();
+
+      // Kalau walletAddr belum ada, coba ambil dulu sekarang
+      if (!walletAddr) {
+        // Cek semua sumber yang mungkin
+        const addr =
+          (window.ethereum && window.ethereum.selectedAddress) ||
+          window.userAddr || window.userAddress ||
+          window.walletAddress || window.account ||
+          window.currentAccount || window.connectedWallet || null;
+
+        if (addr && addr.startsWith('0x')) {
+          await initWidget(addr);
+          return; // initWidget sudah panggil renderWidget
+        }
+
+        // Coba eth_accounts sekali lagi
+        if (window.ethereum) {
+          const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+          if (accs && accs.length > 0) {
+            await initWidget(accs[0]);
+            return;
+          }
+        }
+
+        // Benar-benar belum connect
+        renderConnectPrompt();
+      } else {
+        renderWidget();
+      }
     } else {
       panel.classList.remove('open');
     }
