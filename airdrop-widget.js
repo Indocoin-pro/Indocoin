@@ -906,39 +906,58 @@
     return h.toString(16);
   }
 
-  // ── AUTO INIT (dengan retry otomatis) ────────────────────
+  // ── AUTO INIT ─────────────────────────────────────────────
   async function autoInit() {
+    // Tunggu ethereum tersedia (max 3 detik)
     if (!window.ethereum) {
-      // Tunggu ethereum inject (mobile browser / WalletConnect)
-      let waited = 0;
       await new Promise(resolve => {
-        const check = setInterval(() => {
-          waited += 200;
-          if (window.ethereum || waited >= 3000) { clearInterval(check); resolve(); }
+        let t = 0;
+        const iv = setInterval(() => {
+          t += 200;
+          if (window.ethereum || t >= 3000) { clearInterval(iv); resolve(); }
         }, 200);
       });
       if (!window.ethereum) return;
     }
 
-    // Retry sampai 5x dengan interval 600ms
-    const MAX_TRY = 5;
-    for (let i = 0; i < MAX_TRY; i++) {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-      if (accounts && accounts.length > 0) {
-        await initWidget(accounts[0]);
+    // Coba ambil akun dengan semua cara yang tersedia
+    async function getAddr() {
+      // Cara 1: selectedAddress — langsung tersedia di MetaMask tanpa perlu approve
+      if (window.ethereum.selectedAddress) return window.ethereum.selectedAddress;
+
+      // Cara 2: eth_accounts — silent, tidak trigger popup
+      const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+      if (accs && accs.length > 0) return accs[0];
+
+      // Cara 3: cek variabel global halaman (userAddr, userAddress, walletAddress, account)
+      const globals = ['userAddr','userAddress','walletAddress','account','currentAccount','connectedWallet'];
+      for (const g of globals) {
+        if (window[g] && typeof window[g] === 'string' && window[g].startsWith('0x')) return window[g];
+      }
+
+      return null;
+    }
+
+    // Polling — cek setiap 500ms sampai 6 detik
+    // Ini handle kasus di mana halaman connect wallet SETELAH widget load
+    const MAX_WAIT = 12; // 12 x 500ms = 6 detik
+    for (let i = 0; i < MAX_WAIT; i++) {
+      const addr = await getAddr();
+      if (addr) {
+        await initWidget(addr);
         return;
       }
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 500));
     }
   }
 
   // ── START ─────────────────────────────────────────────────
   function startWidget() {
     buildWidget();
-    setTimeout(autoInit, 300);
+    setTimeout(autoInit, 500);
 
-    // Listener: kalau user ganti/connect wallet setelah halaman load
     if (window.ethereum) {
+      // Listener: wallet connect/ganti setelah halaman load
       window.ethereum.on('accountsChanged', async (accounts) => {
         if (accounts && accounts.length > 0 && !walletAddr) {
           await initWidget(accounts[0]);
