@@ -169,21 +169,21 @@
 
   // ── SOSMED POOL ───────────────────────────────────────────
   const SOSMED = [
-    { id:'yt_sub',    pl:'📺', desc:'Subscribe channel INDOCOIN di YouTube',          link:null },
-    { id:'yt_like',   pl:'📺', desc:'Like video INDOCOIN di YouTube',                 link:null },
-    { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube',  link:null },
-    { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',             link:null },
-    { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',           link:null },
-    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',              link:null },
-    { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                 link:null },
-    { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',           link:null },
-    { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',           link:null },
-    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',                link:null },
-    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',               link:null },
-    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',            link:null },
-    { id:'wa_group',  pl:'💬', desc:'Share ajakan INDOCOIN ke WA Group',              link:null },
-    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',              link:null },
-    { id:'wa_chat',   pl:'💬', desc:'Kirim ajakan INDOCOIN ke 3 kontak WA',           link:null },
+    { id:'yt_sub',    pl:'📺', desc:'Subscribe channel INDOCOIN di YouTube',         info:'youtube.com/@indocoin_defi_web3', link:null },
+    { id:'yt_like',   pl:'📺', desc:'Like video INDOCOIN di YouTube',                info:'youtube.com/@indocoin_defi_web3', link:null },
+    { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube', info:'youtube.com/@indocoin_defi_web3', link:null },
+    { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',            info:'instagram.com/indocoin_indc',     link:null },
+    { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',          info:'instagram.com/indocoin_indc',     link:null },
+    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',             info:'instagram.com/indocoin_indc',     link:null },
+    { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                info:'facebook.com — cari: INDOCOIN',   link:null },
+    { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',          info:'facebook.com — cari: INDOCOIN',   link:null },
+    { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',          info:'x.com/Indocoin_INDC',             link:null },
+    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',               info:'x.com/Indocoin_INDC',             link:null },
+    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',              info:'threads.com/@indocoin_indc',      link:null },
+    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'t.me/+CzjgvwApDscwMGM1',         link:null },
+    { id:'wa_group',  pl:'💬', desc:'Share ajakan INDOCOIN ke WA Group',              info:'',                               link:null },
+    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',              info:'',                               link:null },
+    { id:'wa_chat',   pl:'💬', desc:'Kirim ajakan INDOCOIN ke 3 kontak WA',           info:'',                               link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
