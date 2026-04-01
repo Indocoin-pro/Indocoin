@@ -169,21 +169,21 @@
 
   // ── SOSMED POOL ───────────────────────────────────────────
   const SOSMED = [
-    { id:'yt_sub',    pl:'📺', desc:'Subscribe channel INDOCOIN di YouTube',         info:'youtube.com/@indocoin_defi_web3', link:null },
-    { id:'yt_like',   pl:'📺', desc:'Like video INDOCOIN di YouTube',                info:'youtube.com/@indocoin_defi_web3', link:null },
-    { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube', info:'youtube.com/@indocoin_defi_web3', link:null },
-    { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',            info:'instagram.com/indocoin_indc',     link:null },
-    { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',          info:'instagram.com/indocoin_indc',     link:null },
-    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',             info:'instagram.com/indocoin_indc',     link:null },
-    { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                info:'facebook.com — cari: INDOCOIN',   link:null },
-    { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',          info:'facebook.com — cari: INDOCOIN',   link:null },
-    { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',          info:'x.com/Indocoin_INDC',             link:null },
-    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',               info:'x.com/Indocoin_INDC',             link:null },
-    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',              info:'threads.com/@indocoin_indc',      link:null },
-    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'t.me/+CzjgvwApDscwMGM1',         link:null },
-    { id:'wa_group',  pl:'💬', desc:'Share ajakan INDOCOIN ke WA Group',              info:'',                               link:null },
-    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',              info:'',                               link:null },
-    { id:'wa_chat',   pl:'💬', desc:'Kirim ajakan INDOCOIN ke 3 kontak WA',           info:'',                               link:null },
+    { id:'yt_sub',    pl:'📺', desc:'Subscribe channel INDOCOIN di YouTube',         info:'Nama channel: @indocoin_defi_web3', link:null },
+    { id:'yt_like',   pl:'📺', desc:'Like video INDOCOIN di YouTube',                info:'Nama channel: @indocoin_defi_web3', link:null },
+    { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube', info:'Nama channel: @indocoin_defi_web3', link:null },
+    { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',            info:'Akun Instagram: @indocoin_indc',    link:null },
+    { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',          info:'Akun Instagram: @indocoin_indc',    link:null },
+    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',             info:'Akun Instagram: @indocoin_indc',    link:null },
+    { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                info:'Halaman Facebook: INDOCOIN',        link:null },
+    { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',          info:'Halaman Facebook: INDOCOIN',        link:null },
+    { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',          info:'Akun X/Twitter: @Indocoin_INDC',    link:null },
+    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',               info:'Akun X/Twitter: @Indocoin_INDC',    link:null },
+    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',              info:'Akun Threads: @indocoin_indc',      link:null },
+    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'Grup Telegram: INDOCOIN Community', link:null },
+    { id:'wa_group',  pl:'💬', desc:'Share ajakan INDOCOIN ke WA Group',             info:'',                                  link:null },
+    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',             info:'',                                  link:null },
+    { id:'wa_chat',   pl:'💬', desc:'Kirim ajakan INDOCOIN ke 3 kontak WA',          info:'',                                  link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
@@ -707,42 +707,40 @@
 
   // ── CLAIM ─────────────────────────────────────────────────
   window._awClaim = async function() {
-    if (!contract2 || !walletAddr) return;
+    if (!walletAddr) return;
     const btn = document.getElementById('aw-btn-claim');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ MEMPROSES...'; }
-    setStatus('aw-claim-status', '⏳ Mengirim transaksi ke BSC...', 'info');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ MENYIMPAN...'; }
+    setStatus('aw-claim-status', '⏳ Menyimpan ke wallet...', 'info');
 
     try {
-      const tx = await contract2.claim(PAGE_ID);
-      setStatus('aw-claim-status', '⏳ Menunggu konfirmasi...', 'info');
-      await tx.wait();
+      const wk      = walletAddr.toLowerCase();
+      const todayStr = todayKey();
 
-      // Update pages count
-      const wk = walletAddr.toLowerCase();
-      const cp = parseInt(localStorage.getItem(`indc_claimed_pages_${wk}`) || '0');
-      localStorage.setItem(`indc_claimed_pages_${wk}`, cp + 1);
+      // Simpan pageId ke pending claims (localStorage) — GRATIS, tidak ke BSC
+      const pending = JSON.parse(localStorage.getItem('indc_pending_claims_' + wk) || '[]');
+      if (!pending.includes(PAGE_ID)) {
+        pending.push(PAGE_ID);
+        localStorage.setItem('indc_pending_claims_' + wk, JSON.stringify(pending));
+      }
+
+      // Tandai halaman ini sudah diklaim hari ini
+      localStorage.setItem('indc_claimed_' + wk + '_page_' + PAGE_ID + '_' + todayStr, '1');
 
       isClaimed = true;
+      setStatus('aw-claim-status', '✅ +1 INDC masuk ke TERKUMPUL!', 'ok');
 
-      // Simpan klaim hari ini ke localStorage
-      const todayStr = todayKey();
-      localStorage.setItem('indc_claimed_' + walletAddr.toLowerCase() + '_page_' + PAGE_ID + '_' + todayStr, '1');
-
-      setStatus('aw-claim-status', '✅ +1 INDC berhasil diklaim!', 'ok');
-      updateTrigger();
-
-      // Reset state untuk sesi berikutnya
+      // Reset state
       eduDone = false; platDone = false; sosmedDone = false;
 
-      // Tampilkan sukses sebentar lalu sembunyikan widget
+      // Tampilkan sukses lalu sembunyikan widget
       setTimeout(() => {
         renderClaimed();
-        // Setelah 2 detik sembunyikan seluruh widget
         setTimeout(() => hideWidget(), 2000);
-      }, 1500);
+      }, 1000);
+
     } catch(e) {
       if (btn) { btn.disabled = false; btn.textContent = '🪂 CLAIM 1 INDC'; }
-      const msg = e.reason || e.message || 'Transaksi gagal';
+      const msg = e.reason || e.message || 'Gagal menyimpan';
       setStatus('aw-claim-status', '❌ ' + msg.slice(0,50), 'err');
     }
   };
