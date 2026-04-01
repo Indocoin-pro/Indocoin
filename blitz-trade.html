@@ -1657,10 +1657,32 @@ window.addEventListener("load", async () => {
   }
 });
 </script>
-
   <!-- ═══ INDOCOIN AIRDROP WIDGET ═══ -->
   <script src="airdrop-questions.js"></script>
   <script src="airdrop-widget.js"></script>
+  <script>
+  /* INDOCOIN AIRDROP — Wallet Hook untuk Trade Pages */
+  (function(){
+    // Hook fungsi initWallet halaman agar widget ikut tahu
+    var _orig = window.initWallet;
+    window.initWallet = async function(addr) {
+      if (_orig) await _orig.apply(this, arguments);
+      if (addr && window._awSetWallet) window._awSetWallet(addr);
+    };
+    // Polling backup — cek variable lokal halaman setiap detik
+    var n = 0;
+    var t = setInterval(function() {
+      n++;
+      var addr = window.userAddr || window.userAddress ||
+                 window.currentAddr || window.connectedAddr || null;
+      if (addr && window._awSetWallet) {
+        window._awSetWallet(addr);
+        clearInterval(t);
+      }
+      if (n >= 20) clearInterval(t);
+    }, 800);
+  })();
+  </script>
   <!-- ══════════════════════════════════ -->
 </body>
 </html>

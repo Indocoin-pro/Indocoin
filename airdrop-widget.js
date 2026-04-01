@@ -408,27 +408,30 @@
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
-  // Jika airdrop-questions.js belum dimuat, load sendiri secara dinamis
   function ensureQuestions(callback) {
-    if (window.AIRDROP_QUESTIONS) {
-      callback();
+    if (window.AIRDROP_QUESTIONS) { callback(); return; }
+
+    // Sudah pernah dicoba load — tunggu saja
+    if (window._awQLoading) {
+      const wait = setInterval(() => {
+        if (window.AIRDROP_QUESTIONS) { clearInterval(wait); callback(); }
+      }, 300);
       return;
     }
-    // Belum ada — load sekarang
+    window._awQLoading = true;
+
     const s = document.createElement('script');
-    // Deteksi base path otomatis
-    const base = (function() {
-      const scripts = document.querySelectorAll('script[src]');
-      for (let sc of scripts) {
-        if (sc.src && sc.src.includes('airdrop-widget')) {
-          return sc.src.replace('airdrop-widget.js', '');
-        }
-      }
-      return '';
-    })();
-    s.src = base + 'airdrop-questions.js';
-    s.onload  = () => { if (callback) callback(); };
-    s.onerror = () => console.warn('[AW] Gagal load airdrop-questions.js dari:', s.src);
+    // Gunakan path relatif dari halaman saat ini
+    const pagePath = window.location.href.replace(/\/[^\/]*$/, '/');
+    s.src = pagePath + 'airdrop-questions.js?v=' + Date.now();
+    s.onload = () => {
+      window._awQLoading = false;
+      if (window.AIRDROP_QUESTIONS && callback) callback();
+    };
+    s.onerror = () => {
+      window._awQLoading = false;
+      console.warn('[AW] Gagal load questions dari:', s.src);
+    };
     document.head.appendChild(s);
   }
 
@@ -462,26 +465,35 @@
   window._awToggle = function() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('indc-aw-panel');
-    if (panelOpen) {
-      panel.classList.add('open');
-      // Pastikan soal tersedia dulu, baru render
-      ensureQuestions(() => {
-        if (!walletAddr) {
-          const saved = localStorage.getItem('indocoin_wallet');
-          if (saved && window.ethereum) {
-            initWidget(saved).then(() => {
-              if (!walletAddr) renderConnectPrompt();
-            });
-          } else {
-            renderConnectPrompt();
-          }
-        } else {
-          renderWidget();
-        }
-      });
-    } else {
-      panel.classList.remove('open');
+    if (!panelOpen) { panel.classList.remove('open'); return; }
+
+    panel.classList.add('open');
+
+    // Tampilkan loading sementara
+    setContent('<div style="text-align:center;padding:16px;font-family:'Share Tech Mono',monospace;font-size:9px;color:#a89880;">⏳ Memuat...</div>');
+
+    // Pastikan wallet ada
+    async function getWallet() {
+      if (walletAddr) return walletAddr;
+      // Coba eth_accounts
+      if (window.ethereum) {
+        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+        if (accs && accs.length > 0) return accs[0];
+      }
+      // Coba localStorage
+      return localStorage.getItem('indocoin_wallet');
     }
+
+    getWallet().then(async (addr) => {
+      if (addr && !walletAddr) {
+        localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+        await initWidget(addr);
+      }
+      // Load questions lalu render
+      ensureQuestions(() => {
+        if (panelOpen) renderWidget();
+      });
+    });
   };
 
   // ── RENDER: CONNECT PROMPT ────────────────────────────────
@@ -958,47 +970,67 @@
   // Baca wallet dari localStorage indocoin_wallet atau langsung dari MetaMask
   // Retry sampai 10x dengan interval 800ms agar tidak miss timing
   async function autoInit() {
-    // Strategi: baca eth_accounts dari MetaMask langsung
-    // eth_accounts tidak minta popup — hanya return akun yang sudah diizinkan
-    // Ini paling reliable karena tidak tergantung localStorage atau variable halaman
+    // Hook MetaMask events — deteksi kapanpun wallet connect
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', async (accs) => {
+        if (accs && accs.length > 0 && !walletAddr) {
+          localStorage.setItem('indocoin_wallet', accs[0].toLowerCase());
+          await initWidget(accs[0]);
+          if (panelOpen) renderWidget();
+        }
+      });
+      window.ethereum.on('connect', async () => {
+        if (walletAddr) return;
+        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+        if (accs && accs.length > 0) {
+          localStorage.setItem('indocoin_wallet', accs[0].toLowerCase());
+          await initWidget(accs[0]);
+          if (panelOpen) renderWidget();
+        }
+      });
+    }
 
+    // Polling agresif: cek setiap 800ms sampai 15 detik
     let attempts = 0;
-    const MAX    = 12; // retry sampai ~6 detik
-
-    async function tryConnect() {
+    const timer = setInterval(async () => {
       attempts++;
+      if (walletAddr || attempts > 19) { clearInterval(timer); return; }
 
       let addr = null;
 
-      // Prioritas 1: MetaMask eth_accounts (selalu akurat)
+      // Cara 1: MetaMask eth_accounts
       if (window.ethereum) {
-        const accs = await window.ethereum
-          .request({ method: 'eth_accounts' })
-          .catch(() => []);
+        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
         if (accs && accs.length > 0) addr = accs[0];
       }
 
-      // Prioritas 2: localStorage indocoin_wallet (backup)
+      // Cara 2: localStorage
+      if (!addr) addr = localStorage.getItem('indocoin_wallet');
+
+      // Cara 3: variable global halaman (berbeda tiap halaman)
       if (!addr) {
-        addr = localStorage.getItem('indocoin_wallet');
+        addr = window.userAddr || window.userAddress ||
+               window.currentAddr || window.connectedAddr || null;
       }
 
       if (addr) {
-        // Simpan/update localStorage agar sesi berikutnya lebih cepat
+        clearInterval(timer);
         localStorage.setItem('indocoin_wallet', addr.toLowerCase());
         await initWidget(addr);
-        return;
+        if (panelOpen) renderWidget();
       }
-
-      // Belum connect — coba lagi
-      if (attempts < MAX) {
-        setTimeout(tryConnect, 500);
-      }
-    }
-
-    // Mulai setelah sedikit delay agar MetaMask inject dulu
-    setTimeout(tryConnect, 600);
+    }, 800);
   }
+
+  // ── EXPOSE API untuk halaman ─────────────────────────────
+  // Halaman bisa panggil window._awSetWallet(addr) setelah connect
+  window._awSetWallet = async function(addr) {
+    if (!addr || walletAddr) return;
+    localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+    await initWidget(addr);
+    if (panelOpen) renderWidget();
+    updateTrigger();
+  };
 
   // ── START ─────────────────────────────────────────────────
   if (document.readyState === 'loading') {
