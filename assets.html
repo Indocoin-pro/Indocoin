@@ -1076,7 +1076,11 @@ function showConnected() {
 }
 
 /* ═══ AUTO CONNECT ═══ */
+let _autoConnectDone = false;
+
 async function tryAutoConnect() {
+  if (_autoConnectDone) return; // Jangan double-connect
+
   // Coba beberapa provider yang umum di DApps wallet
   const eth = window.ethereum || window.web3?.currentProvider;
   if (!eth) {
@@ -1086,24 +1090,43 @@ async function tryAutoConnect() {
   try {
     const accounts = await eth.request({ method: "eth_accounts" });
     if (accounts && accounts.length > 0) {
+      _autoConnectDone = true;
       provider    = new ethers.BrowserProvider(eth);
       signer      = await provider.getSigner();
       userAddress = await signer.getAddress();
+      // Sembunyikan notConnected dulu sebelum load data
+      document.getElementById("notConnected").classList.remove("show");
       await loadWalletData();
       showConnected();
       return;
     }
   } catch(e) { console.warn("auto-connect err:", e); }
-  document.getElementById("notConnected").classList.add("show");
+  // Hanya tampilkan notConnected jika belum connect
+  if (!_autoConnectDone) {
+    document.getElementById("notConnected").classList.add("show");
+  }
 }
 
 // Jalankan auto-connect: saat load, dan dengan delay sebagai fallback
-// (beberapa DApps wallet inject ethereum setelah load event)
+// (beberapa DApps wallet inject ethereum SETELAH load event)
 window.addEventListener("load", () => {
   tryAutoConnect();
-  setTimeout(tryAutoConnect, 800);
-  setTimeout(tryAutoConnect, 2000);
+  setTimeout(tryAutoConnect, 500);
+  setTimeout(tryAutoConnect, 1500);
+  setTimeout(tryAutoConnect, 3000);
+  setTimeout(tryAutoConnect, 5000); // fallback untuk wallet lambat
 });
+
+// Juga coba saat ethereum provider baru muncul (Trust Wallet, MetaMask mobile)
+if (typeof window.ethereum === 'undefined') {
+  Object.defineProperty(window, 'ethereum', {
+    configurable: true,
+    set(val) {
+      Object.defineProperty(window, 'ethereum', { value: val, writable: true, configurable: true });
+      tryAutoConnect();
+    }
+  });
+}
 
 // Pasang event listener setelah DOM ready
 window.addEventListener("DOMContentLoaded", () => {
@@ -1111,6 +1134,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const cBtn = document.getElementById("connectBigBtn");
   if (wBtn) wBtn.addEventListener("click", connectWallet);
   if (cBtn) cBtn.addEventListener("click", connectWallet);
+  // Juga coba auto-connect di DOMContentLoaded (lebih awal dari load)
+  tryAutoConnect();
 });
 
 // Fallback onclick langsung di elemen (untuk DApps browser yang strict)
