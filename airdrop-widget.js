@@ -421,16 +421,20 @@
     window._awQLoading = true;
 
     const s = document.createElement('script');
-    // Gunakan path relatif dari halaman saat ini
-    const pagePath = window.location.href.replace(/\/[^\/]*$/, '/');
-    s.src = pagePath + 'airdrop-questions.js?v=' + Date.now();
+    // Gunakan path absolut dari root domain — paling reliable
+    const origin = window.location.origin;
+    s.src = origin + '/airdrop-questions.js';
     s.onload = () => {
       window._awQLoading = false;
       if (window.AIRDROP_QUESTIONS && callback) callback();
     };
     s.onerror = () => {
       window._awQLoading = false;
-      console.warn('[AW] Gagal load questions dari:', s.src);
+      // Fallback: coba path relatif
+      const s2 = document.createElement('script');
+      s2.src = 'airdrop-questions.js';
+      s2.onload = () => { window._awQLoading = false; if (window.AIRDROP_QUESTIONS && callback) callback(); };
+      document.head.appendChild(s2);
     };
     document.head.appendChild(s);
   }
