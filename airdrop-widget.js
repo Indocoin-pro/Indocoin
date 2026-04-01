@@ -279,7 +279,7 @@
     let retryCount = 0;
     const retryInterval = setInterval(async () => {
       retryCount++;
-      if (walletAddr || retryCount > 10) { clearInterval(retryInterval); return; }
+      if (walletAddr || retryCount > 20) { clearInterval(retryInterval); return; }
       let addr = null;
       if (window.ethereum) {
         const acc = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
@@ -298,23 +298,38 @@
   // ── INIT WIDGET ───────────────────────────────────────────
   async function initWidget(address) {
     try {
-      provider2 = new ethers.providers.Web3Provider(window.ethereum);
-      const net = await provider2.getNetwork();
-      if (net.chainId !== BSC_CHAIN_ID) {
-        try {
-          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
-          provider2 = new ethers.providers.Web3Provider(window.ethereum);
-        } catch(e) { return; }
+      // Support ethers v5 dan v6
+      if (ethers.BrowserProvider) {
+        // ethers v6
+        provider2 = new ethers.BrowserProvider(window.ethereum);
+        const net = await provider2.getNetwork();
+        const chainId = Number(net.chainId);
+        if (chainId !== BSC_CHAIN_ID) {
+          try {
+            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+            provider2 = new ethers.BrowserProvider(window.ethereum);
+          } catch(e) { return; }
+        }
+        signer2 = await provider2.getSigner();
+      } else {
+        // ethers v5
+        provider2 = new ethers.providers.Web3Provider(window.ethereum);
+        const net = await provider2.getNetwork();
+        if (net.chainId !== BSC_CHAIN_ID) {
+          try {
+            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+            provider2 = new ethers.providers.Web3Provider(window.ethereum);
+          } catch(e) { return; }
+        }
+        signer2 = provider2.getSigner();
       }
-      signer2    = provider2.getSigner();
+
       contract2  = new ethers.Contract(AIRDROP_CONTRACT, WIDGET_ABI, signer2);
       walletAddr = address;
-
-      // Simpan wallet
       localStorage.setItem('indocoin_wallet', address.toLowerCase());
 
       await checkClaimed();
-    } catch(e) { console.error('[AW]', e); }
+    } catch(e) { console.error('[AW] initWidget error:', e); }
   }
 
   async function checkClaimed() {
