@@ -319,6 +319,14 @@
 
   async function checkClaimed() {
     if (!contract2 || !walletAddr) return;
+    // Cek localStorage dulu — lebih cepat, tidak perlu tunggu RPC
+    if (isClaimedToday()) {
+      isClaimed = true;
+      const widget = document.getElementById('indc-airdrop-widget');
+      if (widget) widget.style.display = 'none';
+      return;
+    }
+
     try {
       isClaimed = await contract2.hasClaimedPage(walletAddr, PAGE_ID);
 
@@ -712,13 +720,23 @@
       localStorage.setItem(`indc_claimed_pages_${wk}`, cp + 1);
 
       isClaimed = true;
+
+      // Simpan klaim hari ini ke localStorage
+      const todayStr = todayKey();
+      localStorage.setItem('indc_claimed_' + walletAddr.toLowerCase() + '_page_' + PAGE_ID + '_' + todayStr, '1');
+
       setStatus('aw-claim-status', '✅ +1 INDC berhasil diklaim!', 'ok');
       updateTrigger();
 
       // Reset state untuk sesi berikutnya
       eduDone = false; platDone = false; sosmedDone = false;
 
-      setTimeout(() => renderClaimed(), 1500);
+      // Tampilkan sukses sebentar lalu sembunyikan widget
+      setTimeout(() => {
+        renderClaimed();
+        // Setelah 2 detik sembunyikan seluruh widget
+        setTimeout(() => hideWidget(), 2000);
+      }, 1500);
     } catch(e) {
       if (btn) { btn.disabled = false; btn.textContent = '🪂 CLAIM 1 INDC'; }
       const msg = e.reason || e.message || 'Transaksi gagal';
@@ -727,6 +745,26 @@
   };
 
   // ── HELPERS ───────────────────────────────────────────────
+
+  // Sembunyikan seluruh widget setelah klaim sukses
+  function hideWidget() {
+    const widget = document.getElementById('indc-airdrop-widget');
+    if (!widget) return;
+    widget.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    widget.style.opacity    = '0';
+    widget.style.transform  = 'translateY(10px)';
+    setTimeout(() => {
+      widget.style.display = 'none';
+    }, 500);
+  }
+
+  // Cek apakah sudah klaim hari ini (dari localStorage — backup jika contract lambat)
+  function isClaimedToday() {
+    if (!walletAddr) return false;
+    const todayStr = todayKey();
+    return localStorage.getItem('indc_claimed_' + walletAddr.toLowerCase() + '_page_' + PAGE_ID + '_' + todayStr) === '1';
+  }
+
   function updateClaimBtn() {
     const btn  = document.getElementById('aw-btn-claim');
     if (!btn) return;
