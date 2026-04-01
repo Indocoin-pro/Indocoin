@@ -155,7 +155,7 @@
   // ── STATE ─────────────────────────────────────────────────
   let provider2, signer2, contract2, walletAddr;
   let panelOpen   = false;
-  let skipLeft    = 2;
+  let skipLeft    = 99;
   let sosmedDone  = false;
   let eduDone     = false;
   let platDone    = false;
@@ -536,7 +536,7 @@
       <button class="aw-btn aw-btn-verify" id="aw-btn-verify" disabled
         onclick="window._awVerifySosmed()">✅ VERIFIKASI BUKTI</button>
       <button class="aw-btn aw-btn-skip" onclick="window._awSkip()">
-        Ganti task (sisa: <span id="aw-skip-n">${skipLeft}</span>x)
+        🔄 Ganti task
       </button>
       <div class="aw-status" id="aw-sosmed-status"></div>
       <div class="aw-divider"></div>`;
