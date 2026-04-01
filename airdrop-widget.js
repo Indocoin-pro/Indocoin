@@ -185,7 +185,7 @@
   .aw-btn-verify:hover { background:#bfdbfe; }
   .aw-btn-verify:disabled { opacity:0.4; cursor:not-allowed; }
   .aw-btn-skip { background:transparent; border:1px solid #e7e5e4; color:#a8a29e; font-size:9px; font-family:'Share Tech Mono',monospace; }
-  .aw-btn-skip:hover { border-color:#d6d3d1; color:#78716c; }
+  .aw-btn-skip:hover { border-color:#d6d3d1; color:#78716c; background:#fafaf9; }
 
   /* Status & misc */
   .aw-status { font-family:'Share Tech Mono',monospace; font-size:9px; text-align:center; min-height:12px; margin-top:4px; }
@@ -617,9 +617,14 @@
         onchange="window._awSosmedUpload(event)">
       <button class="aw-btn aw-btn-verify" id="aw-btn-verify" disabled
         onclick="window._awVerifySosmed()">✅ VERIFIKASI BUKTI</button>
-      <button class="aw-btn aw-btn-skip" onclick="window._awSkip()">
-        Ganti task (sisa: <span id="aw-skip-n">${skipLeft}</span>x)
-      </button>
+      <div style="display:flex;gap:6px;margin-bottom:5px;">
+        <button class="aw-btn aw-btn-skip" style="flex:1;" onclick="window._awSkip()">
+          🔄 Ganti task (sisa: <span id="aw-skip-n">${skipLeft}</span>x)
+        </button>
+        <button class="aw-btn aw-btn-skip" style="flex:0 0 auto;padding:8px 12px;" onclick="window._awToggle()" title="Tutup panel">
+          ✕ Tutup
+        </button>
+      </div>
       <div class="aw-status" id="aw-sosmed-status"></div>
       <div class="aw-divider"></div>`;
 
