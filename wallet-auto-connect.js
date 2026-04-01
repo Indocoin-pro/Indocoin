@@ -83,29 +83,60 @@ if (window.ethereum) {
 }
 
 
-// ── INTERCEPTOR GLOBAL ──────────────────────────────────────
-// Tangkap wallet kapanpun halaman connect, simpan ke localStorage
-// Ini memastikan airdrop widget selalu dapat wallet address
+// ── INTERCEPTOR GLOBAL v2 ────────────────────────────────────
+// Tangkap wallet dari SEMUA halaman termasuk halaman trade
 (function() {
-  if (!window.ethereum) return;
+  if (!window.ethereum) {
+    // Coba lagi setelah ethereum tersedia
+    window.addEventListener('load', function() {
+      if (window.ethereum) setupInterceptor();
+    });
+    return;
+  }
+  setupInterceptor();
 
-  // Override eth_requestAccounts agar selalu simpan wallet
-  const _origRequest = window.ethereum.request.bind(window.ethereum);
-  window.ethereum.request = async function(args) {
-    const result = await _origRequest(args);
-    if (args && args.method === 'eth_requestAccounts' && result && result.length > 0) {
-      localStorage.setItem('indocoin_wallet', result[0].toLowerCase());
-    }
-    if (args && args.method === 'eth_accounts' && result && result.length > 0) {
-      localStorage.setItem('indocoin_wallet', result[0].toLowerCase());
-    }
-    return result;
-  };
+  function setupInterceptor() {
+    // 1. Override eth_requestAccounts & eth_accounts
+    const _orig = window.ethereum.request.bind(window.ethereum);
+    window.ethereum.request = async function(args) {
+      const result = await _orig(args);
+      if (args && (args.method === 'eth_requestAccounts' || args.method === 'eth_accounts')) {
+        if (result && result.length > 0) {
+          localStorage.setItem('indocoin_wallet', result[0].toLowerCase());
+        }
+      }
+      return result;
+    };
 
-  // Dengarkan event accountsChanged
-  window.ethereum.on('accountsChanged', function(accounts) {
-    if (accounts && accounts.length > 0) {
-      localStorage.setItem('indocoin_wallet', accounts[0].toLowerCase());
-    }
-  });
+    // 2. Event accountsChanged
+    window.ethereum.on('accountsChanged', function(accounts) {
+      if (accounts && accounts.length > 0) {
+        localStorage.setItem('indocoin_wallet', accounts[0].toLowerCase());
+      }
+    });
+
+    // 3. Patch initWallet jika ada di halaman — jalankan setelah DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Coba ambil wallet yang sudah tersimpan dan patch fungsi initWallet
+      const _origInit = window.initWallet;
+      if (typeof _origInit === 'function') {
+        window.initWallet = async function(addr) {
+          if (addr) localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+          return _origInit.apply(this, arguments);
+        };
+      }
+
+      // Coba baca eth_accounts langsung saat halaman load
+      setTimeout(async function() {
+        try {
+          if (window.ethereum) {
+            const accs = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accs && accs.length > 0) {
+              localStorage.setItem('indocoin_wallet', accs[0].toLowerCase());
+            }
+          }
+        } catch(e) {}
+      }, 1000);
+    });
+  }
 })();

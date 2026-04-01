@@ -823,6 +823,19 @@
   // Baca wallet dari localStorage indocoin_wallet atau langsung dari MetaMask
   // Retry sampai 10x dengan interval 800ms agar tidak miss timing
   async function autoInit() {
+    // Patch initWallet halaman trade agar simpan ke localStorage
+    const _origInit = window.initWallet;
+    if (typeof _origInit === 'function') {
+      window.initWallet = async function(addr) {
+        if (addr) {
+          localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+          // Trigger widget re-init jika wallet baru
+          if (!walletAddr) setTimeout(() => autoInit(), 500);
+        }
+        return _origInit.apply(this, arguments);
+      };
+    }
+
     // Strategi: baca eth_accounts dari MetaMask langsung
     // eth_accounts tidak minta popup — hanya return akun yang sudah diizinkan
     // Ini paling reliable karena tidak tergantung localStorage atau variable halaman
