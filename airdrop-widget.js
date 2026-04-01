@@ -434,37 +434,21 @@
     document.body.appendChild(wrap);
   }
 
-  window._awToggle = async function() {
+  window._awToggle = function() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('indc-aw-panel');
     if (panelOpen) {
       panel.classList.add('open');
-
-      // Kalau walletAddr belum ada, coba ambil dulu sekarang
+      // Coba baca wallet terbaru sebelum render
       if (!walletAddr) {
-        // Cek semua sumber yang mungkin
-        const addr =
-          (window.ethereum && window.ethereum.selectedAddress) ||
-          window.userAddr || window.userAddress ||
-          window.walletAddress || window.account ||
-          window.currentAccount || window.connectedWallet || null;
-
-        if (addr && addr.startsWith('0x')) {
-          await initWidget(addr);
-          return; // initWidget sudah panggil renderWidget
+        const saved = localStorage.getItem('indocoin_wallet');
+        if (saved && window.ethereum) {
+          initWidget(saved).then(() => {
+            if (!walletAddr) renderConnectPrompt();
+          });
+        } else {
+          renderConnectPrompt();
         }
-
-        // Coba eth_accounts sekali lagi
-        if (window.ethereum) {
-          const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-          if (accs && accs.length > 0) {
-            await initWidget(accs[0]);
-            return;
-          }
-        }
-
-        // Benar-benar belum connect
-        renderConnectPrompt();
       } else {
         renderWidget();
       }
@@ -474,30 +458,24 @@
   };
 
   // ── RENDER: CONNECT PROMPT ────────────────────────────────
+  // Tidak tampilkan prompt besar — cukup info kecil
+  // Semua halaman sudah handle connect wallet sendiri
   function renderConnectPrompt() {
     setContent(`
-      <div style="text-align:center;padding:14px 0;">
-        <div style="font-size:28px;margin-bottom:8px;">🔗</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#e8a830;letter-spacing:2px;margin-bottom:8px;">
-          CONNECT WALLET
+      <div style="text-align:center;padding:12px 0;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;line-height:1.7;">
+          ⏳ Menunggu wallet connect...<br>
+          Connect wallet di halaman ini terlebih dahulu.
         </div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;line-height:1.7;margin-bottom:14px;">
-          Connect MetaMask untuk claim 1 INDC gratis<br>di halaman ini setiap hari.
-        </div>
-        <button class="aw-btn aw-btn-claim" onclick="window._awConnect()">
-          🔗 CONNECT WALLET
-        </button>
       </div>
     `);
+    // Coba auto detect setiap 1.5 detik kalau user baru connect
+    setTimeout(async () => {
+      if (walletAddr) return;
+      const acc = await window.ethereum?.request({ method: 'eth_accounts' }).catch(() => []);
+      if (acc && acc.length > 0) await initWidget(acc[0]);
+    }, 1500);
   }
-
-  window._awConnect = async function() {
-    if (!window.ethereum) { alert('Install MetaMask terlebih dahulu.'); return; }
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      await initWidget(accounts[0]);
-    } catch(e) {}
-  };
 
   // ── INIT WIDGET ───────────────────────────────────────────
   async function initWidget(address) {
@@ -934,73 +912,31 @@
   }
 
   // ── AUTO INIT ─────────────────────────────────────────────
+  // Baca wallet dari localStorage indocoin_wallet (sudah diset oleh sistem halaman)
+  // Tidak perlu connect prompt — semua halaman sudah auto-connect sendiri
   async function autoInit() {
-    // Tunggu ethereum tersedia (max 3 detik)
-    if (!window.ethereum) {
-      await new Promise(resolve => {
-        let t = 0;
-        const iv = setInterval(() => {
-          t += 200;
-          if (window.ethereum || t >= 3000) { clearInterval(iv); resolve(); }
-        }, 200);
-      });
-      if (!window.ethereum) return;
-    }
+    if (!window.ethereum) return;
 
-    // Coba ambil akun dengan semua cara yang tersedia
-    async function getAddr() {
-      // Cara 1: selectedAddress — langsung tersedia di MetaMask tanpa perlu approve
-      if (window.ethereum.selectedAddress) return window.ethereum.selectedAddress;
+    // Cara 1: baca dari localStorage yang diset wallet-auto-connect.js
+    const saved = localStorage.getItem('indocoin_wallet');
 
-      // Cara 2: eth_accounts — silent, tidak trigger popup
-      const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-      if (accs && accs.length > 0) return accs[0];
+    // Cara 2: baca langsung dari MetaMask (tanpa popup)
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
 
-      // Cara 3: cek variabel global halaman (userAddr, userAddress, walletAddress, account)
-      const globals = ['userAddr','userAddress','walletAddress','account','currentAccount','connectedWallet'];
-      for (const g of globals) {
-        if (window[g] && typeof window[g] === 'string' && window[g].startsWith('0x')) return window[g];
-      }
+    const addr = (accounts && accounts.length > 0)
+      ? accounts[0]
+      : saved || null;
 
-      return null;
-    }
-
-    // Polling — cek setiap 500ms sampai 6 detik
-    // Ini handle kasus di mana halaman connect wallet SETELAH widget load
-    const MAX_WAIT = 12; // 12 x 500ms = 6 detik
-    for (let i = 0; i < MAX_WAIT; i++) {
-      const addr = await getAddr();
-      if (addr) {
-        await initWidget(addr);
-        return;
-      }
-      await new Promise(r => setTimeout(r, 500));
-    }
+    if (addr) await initWidget(addr);
+    // Kalau tidak ada wallet → widget diam saja, tidak tampilkan prompt
   }
 
   // ── START ─────────────────────────────────────────────────
-  function startWidget() {
-    buildWidget();
-    setTimeout(autoInit, 500);
-
-    if (window.ethereum) {
-      // Listener: wallet connect/ganti setelah halaman load
-      window.ethereum.on('accountsChanged', async (accounts) => {
-        if (accounts && accounts.length > 0 && !walletAddr) {
-          await initWidget(accounts[0]);
-        } else if (!accounts || accounts.length === 0) {
-          walletAddr = null;
-          const panel = document.getElementById('indc-aw-panel');
-          if (panel && panel.classList.contains('open')) renderConnectPrompt();
-        }
-      });
-    }
-  }
-
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startWidget);
+    document.addEventListener('DOMContentLoaded', () => { buildWidget(); setTimeout(autoInit, 800); });
   } else {
-    startWidget();
+    buildWidget();
+    setTimeout(autoInit, 800);
   }
 
 })();
