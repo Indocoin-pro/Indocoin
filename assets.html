@@ -240,30 +240,44 @@ async function connectWallet(){
 
 // Auto-connect dengan retry — handle DApp browser yang inject ethereum telat
 async function tryAutoConnect() {
-  const saved = localStorage.getItem('indocoin_wallet');
-  if (!saved) return;
+  // Tunggu ethereum tersedia
   if (!window.ethereum) {
-    // Retry sampai ethereum tersedia
     setTimeout(tryAutoConnect, 500);
     return;
   }
   try {
-    const accs = await window.ethereum.request({method:'eth_accounts'});
+    // Coba eth_accounts dulu (silent)
+    let accs = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+
+    // Jika kosong tapi ada saved wallet, coba requestAccounts (auto-approve di DApp browser)
+    if (!accs.length) {
+      const saved = localStorage.getItem('indocoin_wallet');
+      if (saved) {
+        accs = await window.ethereum.request({method:'eth_requestAccounts'}).catch(()=>[]);
+      }
+    }
+
     if (accs.length > 0) {
       provider    = new ethers.BrowserProvider(window.ethereum);
+      const net   = await provider.getNetwork();
+      if (Number(net.chainId) !== BSC_CHAIN_NUM) {
+        try { await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN_ID}]}); provider = new ethers.BrowserProvider(window.ethereum); } catch(e) {}
+      }
       signer      = await provider.getSigner();
       userAddress = accs[0];
+      localStorage.setItem('indocoin_wallet', userAddress.toLowerCase());
       showConnected();
       loadAllData();
     }
   } catch(e) { console.warn('autoConnect:', e); }
 }
-window.addEventListener('load', () => setTimeout(tryAutoConnect, 300));
 
-// Fallback: jika 3 detik masih belum connect, coba lagi
-setTimeout(() => {
-  if (!userAddress) tryAutoConnect();
-}, 3000);
+// Jalankan saat load dan setelah 1 detik sebagai fallback
+window.addEventListener('load', () => {
+  tryAutoConnect();
+  setTimeout(tryAutoConnect, 1000);
+  setTimeout(tryAutoConnect, 3000);
+});
 
 function showConnected(){
   document.getElementById('notConnected').style.display='none';
