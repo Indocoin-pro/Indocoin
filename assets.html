@@ -256,7 +256,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 <div class="page">
 
   <!-- NOT CONNECTED -->
-  <div class="not-connected show" id="notConnected">
+  <div class="not-connected" id="notConnected">
     <div class="nc-icon">💼</div>
     <div class="nc-title">WALLET BELUM TERHUBUNG</div>
     <div class="nc-desc">Hubungkan wallet untuk melihat<br>portfolio & aset INDC Anda</div>
@@ -1079,14 +1079,9 @@ function showConnected() {
 let _autoConnectDone = false;
 
 async function tryAutoConnect() {
-  if (_autoConnectDone) return; // Jangan double-connect
-
-  // Coba beberapa provider yang umum di DApps wallet
+  if (_autoConnectDone) return;
   const eth = window.ethereum || window.web3?.currentProvider;
-  if (!eth) {
-    document.getElementById("notConnected").classList.add("show");
-    return;
-  }
+  if (!eth) return; // belum inject, tunggu retry berikutnya
   try {
     const accounts = await eth.request({ method: "eth_accounts" });
     if (accounts && accounts.length > 0) {
@@ -1094,39 +1089,29 @@ async function tryAutoConnect() {
       provider    = new ethers.BrowserProvider(eth);
       signer      = await provider.getSigner();
       userAddress = await signer.getAddress();
-      // Sembunyikan notConnected dulu sebelum load data
-      document.getElementById("notConnected").classList.remove("show");
       await loadWalletData();
       showConnected();
       return;
     }
   } catch(e) { console.warn("auto-connect err:", e); }
-  // Hanya tampilkan notConnected jika belum connect
+}
+
+// Setelah semua retry habis, baru tampilkan "belum terhubung" jika masih belum konek
+function showNotConnectedIfNeeded() {
   if (!_autoConnectDone) {
     document.getElementById("notConnected").classList.add("show");
   }
 }
 
-// Jalankan auto-connect: saat load, dan dengan delay sebagai fallback
-// (beberapa DApps wallet inject ethereum SETELAH load event)
+// Jalankan auto-connect bertahap — wallet mobile kadang inject lambat
 window.addEventListener("load", () => {
   tryAutoConnect();
   setTimeout(tryAutoConnect, 500);
   setTimeout(tryAutoConnect, 1500);
   setTimeout(tryAutoConnect, 3000);
-  setTimeout(tryAutoConnect, 5000); // fallback untuk wallet lambat
+  // Baru tampilkan "belum terhubung" setelah semua retry selesai
+  setTimeout(showNotConnectedIfNeeded, 3500);
 });
-
-// Juga coba saat ethereum provider baru muncul (Trust Wallet, MetaMask mobile)
-if (typeof window.ethereum === 'undefined') {
-  Object.defineProperty(window, 'ethereum', {
-    configurable: true,
-    set(val) {
-      Object.defineProperty(window, 'ethereum', { value: val, writable: true, configurable: true });
-      tryAutoConnect();
-    }
-  });
-}
 
 // Pasang event listener setelah DOM ready
 window.addEventListener("DOMContentLoaded", () => {
@@ -1134,8 +1119,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const cBtn = document.getElementById("connectBigBtn");
   if (wBtn) wBtn.addEventListener("click", connectWallet);
   if (cBtn) cBtn.addEventListener("click", connectWallet);
-  // Juga coba auto-connect di DOMContentLoaded (lebih awal dari load)
-  tryAutoConnect();
 });
 
 // Fallback onclick langsung di elemen (untuk DApps browser yang strict)
