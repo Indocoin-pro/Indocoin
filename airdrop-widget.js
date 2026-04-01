@@ -80,292 +80,71 @@
 
   // ── CSS WIDGET ────────────────────────────────────────────
   const CSS = `
-  #indc-airdrop-widget {
-    position: fixed;
-    bottom: 64px;
-    left: 0;
-    right: 0;
-    z-index: 999;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-    padding: 0 12px;
-  }
-  #indc-aw-inner {
-    pointer-events: all;
-    width: 100%;
-    max-width: 480px;
-  }
-
-  /* ── TOMBOL TRIGGER ── */
-  #indc-aw-trigger {
-    width: 100%;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, rgba(10,10,10,0.97), rgba(20,15,5,0.97));
-    border: 1.5px solid rgba(200,146,42,0.5);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
-    backdrop-filter: blur(12px);
-  }
-  #indc-aw-trigger:hover {
-    border-color: rgba(200,146,42,0.8);
-    box-shadow: 0 4px 30px rgba(200,146,42,0.2);
-  }
-  #indc-aw-trigger.claimed {
-    border-color: rgba(46,168,106,0.4);
-    opacity: 0.6;
-    cursor: default;
-  }
-  .aw-left { display: flex; align-items: center; gap: 10px; }
-  .aw-icon { font-size: 22px; }
-  .aw-info { display: flex; flex-direction: column; }
-  .aw-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    color: #f5c842;
-    letter-spacing: 1px;
-  }
-  .aw-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: #a89880;
-    letter-spacing: 1px;
-    margin-top: 1px;
-  }
-  .aw-badge {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    background: rgba(200,146,42,0.15);
-    border: 1px solid rgba(200,146,42,0.4);
-    color: #e8a830;
-    letter-spacing: 1px;
-    white-space: nowrap;
-  }
-  .aw-badge.green {
-    background: rgba(46,168,106,0.12);
-    border-color: rgba(46,168,106,0.3);
-    color: #2ea86a;
-  }
-  .aw-badge.muted {
-    background: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.1);
-    color: #6b5a48;
-  }
-
-  /* ── PANEL DROPDOWN ── */
-  #indc-aw-panel {
-    background: rgba(10,10,10,0.98);
-    border: 1.5px solid rgba(200,146,42,0.3);
-    border-radius: 12px;
-    margin-top: 6px;
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.4s ease, opacity 0.3s ease;
-    opacity: 0;
-    backdrop-filter: blur(20px);
-  }
-  #indc-aw-panel.open {
-    max-height: 600px;
-    opacity: 1;
-  }
-  .aw-panel-inner { padding: 14px; }
-
-  /* Steps */
-  .aw-steps {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 12px;
-  }
-  .aw-step {
-    flex: 1;
-    padding: 6px 4px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    text-align: center;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px;
-    color: #6b5a48;
-    letter-spacing: 0.5px;
-    transition: all 0.3s;
-  }
-  .aw-step.active {
-    border-color: rgba(200,146,42,0.4);
-    color: #e8a830;
-    background: rgba(200,146,42,0.06);
-  }
-  .aw-step.done {
-    border-color: rgba(46,168,106,0.4);
-    color: #2ea86a;
-    background: rgba(46,168,106,0.06);
-  }
-
-  /* Quiz */
-  .aw-quiz-cat {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 8px;
-    color: #c8922a;
-    letter-spacing: 1.5px;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-  }
-  .aw-quiz-q {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #f5f0e8;
-    line-height: 1.4;
-    margin-bottom: 10px;
-  }
-  .aw-opts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .aw-opt {
-    padding: 10px 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 7px;
-    cursor: pointer;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    color: #a89880;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .aw-opt:hover { background: rgba(200,146,42,0.08); border-color: rgba(200,146,42,0.3); color: #f5f0e8; }
-  .aw-opt.correct { background: rgba(46,168,106,0.12); border-color: rgba(46,168,106,0.4); color: #2ea86a; }
-  .aw-opt.wrong { background: rgba(201,64,64,0.1); border-color: rgba(201,64,64,0.3); color: #c94040; }
-  .aw-opt.disabled { pointer-events: none; }
-  .aw-opt-lbl { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #6b5a48; width: 14px; flex-shrink: 0; }
-  .aw-result {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    line-height: 1.5;
-    display: none;
-  }
-  .aw-result.ok { background: rgba(46,168,106,0.1); border: 1px solid rgba(46,168,106,0.3); color: #2ea86a; }
-  .aw-result.fail { background: rgba(201,64,64,0.08); border: 1px solid rgba(201,64,64,0.25); color: #c94040; }
-  .aw-divider { height: 1px; background: rgba(200,146,42,0.1); margin: 10px 0; }
-
-  /* Upload area */
-  .aw-upload {
-    border: 1.5px dashed rgba(255,255,255,0.15);
-    border-radius: 8px;
-    padding: 10px;
-    text-align: center;
-    cursor: pointer;
-    margin-bottom: 8px;
-    transition: all 0.3s;
-  }
-  .aw-upload:hover { border-color: rgba(200,146,42,0.4); }
-  .aw-upload p { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #6b5a48; }
-  .aw-upload img { max-width: 100%; border-radius: 6px; margin-top: 6px; display: none; max-height: 80px; object-fit: cover; }
-
-  /* Buttons */
-  .aw-btn {
-    width: 100%;
-    padding: 11px;
-    border: none;
-    border-radius: 8px;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin-bottom: 6px;
-  }
-  .aw-btn-claim {
-    background: linear-gradient(135deg, #5a3800, #e8a830);
-    color: #080808;
-  }
-  .aw-btn-claim:hover { box-shadow: 0 4px 20px rgba(250,204,21,0.4); transform: translateY(-1px); }
-  .aw-btn-claim:disabled { background: rgba(255,255,255,0.07); color: #6b5a48; transform: none; box-shadow: none; cursor: not-allowed; }
-  .aw-btn-verify {
-    background: rgba(74,158,255,0.1);
-    border: 1px solid rgba(74,158,255,0.35);
-    color: #4a9eff;
-  }
-  .aw-btn-verify:hover { background: rgba(74,158,255,0.18); }
-  .aw-btn-verify:disabled { opacity: 0.4; cursor: not-allowed; }
-  .aw-btn-skip {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #6b5a48;
-    font-size: 9px;
-  }
-  .aw-btn-skip:hover { color: #a89880; }
-
-  /* Status */
-  .aw-status {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    text-align: center;
-    min-height: 14px;
-    margin-top: 4px;
-    transition: all 0.3s;
-  }
-  .aw-ok { color: #2ea86a; }
-  .aw-err { color: #c94040; }
-  .aw-info { color: #a89880; }
-
-  /* Claimed state */
-  .aw-claimed {
-    text-align: center;
-    padding: 16px 10px;
-  }
-  .aw-claimed-icon { font-size: 28px; margin-bottom: 6px; }
-  .aw-claimed-title {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 12px;
-    color: #2ea86a;
-    letter-spacing: 2px;
-    margin-bottom: 4px;
-  }
-  .aw-claimed-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: #6b5a48;
-    line-height: 1.6;
-  }
-  .aw-countdown {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 14px;
-    color: #c8922a;
-    margin-top: 8px;
-  }
-
-  /* Sosmed task link */
-  .aw-task-link {
-    display: block;
-    padding: 9px;
-    background: rgba(200,146,42,0.07);
-    border: 1px solid rgba(200,146,42,0.25);
-    border-radius: 7px;
-    color: #e8a830;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    text-align: center;
-    text-decoration: none;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    transition: all 0.2s;
-  }
-  .aw-task-link:hover { background: rgba(200,146,42,0.14); }
-
-  @keyframes aw-fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-  .aw-fadein { animation: aw-fadein 0.3s ease both; }
+  #indc-airdrop-widget{position:fixed;bottom:62px;left:0;right:0;z-index:999;display:flex;justify-content:center;pointer-events:none;padding:0 10px;}
+  #indc-aw-inner{pointer-events:all;width:100%;max-width:480px;}
+  #indc-aw-trigger{background:#fff;border:1.5px solid rgba(200,146,42,0.5);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 16px rgba(0,0,0,0.4);transition:all 0.2s;}
+  #indc-aw-trigger:hover{box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 0 2px rgba(200,146,42,0.3);}
+  .aw-left{display:flex;align-items:center;gap:8px;}
+  .aw-icon{font-size:18px;line-height:1;}
+  .aw-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#92400e;letter-spacing:1px;line-height:1;}
+  .aw-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;letter-spacing:0.5px;margin-top:1px;}
+  .aw-badge{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;padding:4px 10px;border-radius:5px;background:linear-gradient(135deg,#92400e,#d97706);color:#fff;letter-spacing:0.5px;white-space:nowrap;}
+  .aw-badge.green{background:linear-gradient(135deg,#065f46,#059669);}
+  .aw-badge.muted{background:#e7e5e4;color:#a8a29e;}
+  #indc-aw-panel{background:#fff;border:1.5px solid rgba(200,146,42,0.3);border-radius:10px;margin-top:4px;overflow:hidden;max-height:0;transition:max-height 0.35s ease,opacity 0.25s ease;opacity:0;box-shadow:0 4px 24px rgba(0,0,0,0.3);}
+  #indc-aw-panel.open{max-height:520px;opacity:1;}
+  .aw-panel-inner{padding:12px;max-height:400px;overflow-y:auto;}
+  .aw-steps{display:flex;gap:4px;margin-bottom:10px;}
+  .aw-step{flex:1;padding:5px 4px;border-radius:5px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:0.5px;background:#f5f5f4;border:1px solid #e7e5e4;color:#a8a29e;transition:all 0.2s;}
+  .aw-step.active{background:#fef3c7;border-color:#d97706;color:#92400e;font-weight:700;}
+  .aw-step.done{background:#d1fae5;border-color:#059669;color:#065f46;font-weight:700;}
+  .aw-quiz-cat{font-family:'Share Tech Mono',monospace;font-size:8px;color:#92400e;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
+  .aw-quiz-q{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:#1c1917;line-height:1.4;margin-bottom:8px;}
+  .aw-opts{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;}
+  .aw-opt{padding:9px 11px;background:#fff;border:1.5px solid #e7e5e4;border-radius:6px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;transition:all 0.2s;display:flex;align-items:center;gap:8px;}
+  .aw-opt:hover{background:#fffbeb;border-color:#d97706;color:#1c1917;}
+  .aw-opt.correct{background:#d1fae5;border-color:#059669;color:#065f46;}
+  .aw-opt.wrong{background:#fee2e2;border-color:#dc2626;color:#991b1b;}
+  .aw-opt.disabled{pointer-events:none;}
+  .aw-opt-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a8a29e;width:14px;flex-shrink:0;font-weight:700;}
+  .aw-result{margin-top:7px;padding:8px 10px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;line-height:1.5;display:none;}
+  .aw-result.ok{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;}
+  .aw-result.fail{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;}
+  .aw-divider{height:1px;background:#f5f5f4;margin:8px 0;}
+  .aw-task-wrap{background:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;padding:10px;margin-bottom:8px;}
+  .aw-task-link{display:block;padding:7px 10px;background:#fef3c7;border:1px solid #d97706;border-radius:6px;color:#92400e;font-family:'Share Tech Mono',monospace;font-size:9px;text-align:center;text-decoration:none;letter-spacing:0.5px;margin-bottom:7px;transition:all 0.2s;}
+  .aw-task-link:hover{background:#fde68a;}
+  .aw-upload{border:1.5px dashed #d6d3d1;border-radius:7px;padding:10px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:7px;background:#fafaf9;}
+  .aw-upload:hover{border-color:#d97706;background:#fffbeb;}
+  .aw-upload p{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a8a29e;}
+  .aw-upload img{max-width:100%;border-radius:5px;margin-top:6px;display:none;max-height:70px;object-fit:cover;}
+  .aw-btn{width:100%;border:none;border-radius:6px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;margin-bottom:5px;padding:8px;}
+  .aw-btn-claim{padding:12px;font-size:12px;letter-spacing:2px;background:linear-gradient(135deg,#92400e,#d97706);color:#fff;box-shadow:0 2px 12px rgba(217,119,6,0.3);}
+  .aw-btn-claim:hover{box-shadow:0 4px 20px rgba(217,119,6,0.5);transform:translateY(-1px);}
+  .aw-btn-claim:disabled{background:#e7e5e4;color:#a8a29e;box-shadow:none;transform:none;cursor:not-allowed;}
+  .aw-btn-verify{background:#dbeafe;border:1px solid #3b82f6;color:#1d4ed8;}
+  .aw-btn-verify:hover{background:#bfdbfe;}
+  .aw-btn-verify:disabled{opacity:0.4;cursor:not-allowed;}
+  .aw-btn-skip{background:transparent;border:1px solid #e7e5e4;color:#a8a29e;font-size:9px;font-family:'Share Tech Mono',monospace;}
+  .aw-btn-skip:hover{border-color:#d6d3d1;color:#78716c;}
+  .aw-status{font-family:'Share Tech Mono',monospace;font-size:9px;text-align:center;min-height:12px;margin-top:4px;}
+  .aw-ok{color:#059669;} .aw-err{color:#dc2626;} .aw-info{color:#a8a29e;}
+  .aw-claim-note{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a8a29e;text-align:center;margin-top:4px;}
+  .aw-claimed{text-align:center;padding:14px 10px;}
+  .aw-claimed-icon{font-size:26px;margin-bottom:6px;}
+  .aw-claimed-title{font-family:'Orbitron',sans-serif;font-size:11px;color:#059669;letter-spacing:2px;margin-bottom:4px;}
+  .aw-claimed-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:#a8a29e;line-height:1.6;}
+  .aw-countdown{font-family:'Orbitron',sans-serif;font-size:14px;color:#d97706;margin-top:6px;}
+  @keyframes aw-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .aw-fadein{animation:aw-in 0.25s ease both;}
+  /* LIST TASK */
+  .aw-task-list{margin-bottom:8px;}
+  .aw-task-list-title{font-family:'Share Tech Mono',monospace;font-size:8px;color:#92400e;letter-spacing:1.5px;margin-bottom:6px;}
+  .aw-task-item{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:6px;margin-bottom:4px;cursor:pointer;transition:all 0.2s;}
+  .aw-task-item:hover{background:#fffbeb;border-color:#d97706;}
+  .aw-task-item.selected{background:#fef3c7;border-color:#d97706;}
+  .aw-task-item-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+  .aw-task-item-text{font-family:'Rajdhani',sans-serif;font-size:12px;color:#44403c;line-height:1.3;}
   `;
 
   // ── INJECT CSS ────────────────────────────────────────────
@@ -390,21 +169,21 @@
 
   // ── SOSMED POOL ───────────────────────────────────────────
   const SOSMED = [
-    { id:'yt_sub',    pl:'📺 YouTube',    desc:'Screenshot bukti Subscribe channel INDOCOIN di YouTube.',        link:null },
-    { id:'yt_like',   pl:'📺 YouTube',    desc:'Screenshot bukti Like video INDOCOIN di YouTube.',               link:null },
-    { id:'yt_komen',  pl:'📺 YouTube',    desc:'Screenshot komentar positif kamu di video INDOCOIN di YouTube.', link:null },
-    { id:'ig_follow', pl:'📸 Instagram',  desc:'Screenshot bukti Follow @indocoin_indc di Instagram.',           link:null },
-    { id:'ig_like',   pl:'📸 Instagram',  desc:'Screenshot bukti Like postingan INDOCOIN di Instagram.',         link:null },
-    { id:'ig_story',  pl:'📸 Instagram',  desc:'Screenshot Story kamu yang share konten INDOCOIN.',              link:null },
-    { id:'fb_like',   pl:'👍 Facebook',   desc:'Screenshot bukti Like halaman Facebook INDOCOIN.',               link:null },
-    { id:'fb_share',  pl:'👍 Facebook',   desc:'Screenshot postingan share INDOCOIN di Facebook kamu.',          link:null },
-    { id:'x_follow',  pl:'✖️ X/Twitter',  desc:'Screenshot bukti Follow @Indocoin_INDC di X (Twitter).',        link:null },
-    { id:'x_rt',      pl:'✖️ X/Twitter',  desc:'Screenshot Retweet atau Repost postingan INDOCOIN di X.',        link:null },
-    { id:'td_follow', pl:'🧵 Threads',    desc:'Screenshot bukti Follow @indocoin_indc di Threads.',             link:null },
-    { id:'tg_join',   pl:'✈️ Telegram',   desc:'Screenshot bukti sudah bergabung di grup Telegram INDOCOIN.',    link:null },
-    { id:'wa_group',  pl:'💬 WhatsApp',   desc:'Screenshot share ajakan INDOCOIN ke WA Group kamu.',             link:null },
-    { id:'wa_story',  pl:'💬 WhatsApp',   desc:'Screenshot share info INDOCOIN ke WA Status/Story kamu.',        link:null },
-    { id:'wa_chat',   pl:'💬 WhatsApp',   desc:'Screenshot kirim ajakan INDOCOIN ke minimal 3 kontak WA.',       link:null },
+    { id:'yt_sub',    pl:'📺', desc:'Subscribe channel INDOCOIN di YouTube',          link:null },
+    { id:'yt_like',   pl:'📺', desc:'Like video INDOCOIN di YouTube',                 link:null },
+    { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube',  link:null },
+    { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',             link:null },
+    { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',           link:null },
+    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',              link:null },
+    { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                 link:null },
+    { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',           link:null },
+    { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',           link:null },
+    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',                link:null },
+    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',               link:null },
+    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',            link:null },
+    { id:'wa_group',  pl:'💬', desc:'Share ajakan INDOCOIN ke WA Group',              link:null },
+    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',              link:null },
+    { id:'wa_chat',   pl:'💬', desc:'Kirim ajakan INDOCOIN ke 3 kontak WA',           link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
@@ -737,9 +516,8 @@
     const sosmedHTML = hideSosmed ? '' : `
       <div class="aw-quiz-cat">📱 TUGAS SOSMED</div>
       <div class="aw-quiz-q">${currentTask?.pl || ''}: ${currentTask?.desc || ''}</div>
-      ${currentTask?.link ? `<a href="${currentTask.link}" target="_blank" class="aw-task-link">🔗 BUKA HALAMAN</a>` : ''}
       <div class="aw-upload" onclick="document.getElementById('aw-sosmed-file').click()">
-        <p id="aw-upload-hint">📸 Upload screenshot (pastikan jam HP terlihat di atas layar)</p>
+        <p id="aw-upload-hint">📸 Upload screenshot bukti (pastikan jam HP terlihat)</p>
         <img id="aw-sosmed-prev" alt="">
       </div>
       <input type="file" id="aw-sosmed-file" accept="image/*" style="display:none"
@@ -811,64 +589,65 @@
       return;
     }
     setStatus('aw-sosmed-status', '⏳ Memverifikasi screenshot...', 'info');
-
-    // Cek duplikat hash
-    const wk     = walletAddr.toLowerCase();
-    const h      = simpleHash(imgData);
-    const hashes = JSON.parse(localStorage.getItem(`indc_img_hashes_${wk}`) || '[]');
-    if (hashes.includes(h)) {
-      setStatus('aw-sosmed-status', '❌ Screenshot ini sudah pernah digunakan sebelumnya', 'err');
-      return;
-    }
-
-    // Cek kemiripan dengan screenshot sebelumnya (anti repost)
-    const lastPrefix = localStorage.getItem(`indc_last_img_${wk}`) || '';
-    const curPrefix  = imgData.substring(100, 400);
-    if (lastPrefix && curPrefix === lastPrefix) {
-      setStatus('aw-sosmed-status', '❌ Screenshot terlalu mirip dengan sebelumnya. Upload screenshot berbeda.', 'err');
-      return;
-    }
-
-    // Cek waktu upload — simpan waktu saat file dipilih
-    const uploadKey  = 'indc_upload_time_' + h.substring(0, 8);
-    const savedTime  = parseInt(localStorage.getItem(uploadKey) || '0');
-    const now        = Date.now();
-
-    if (savedTime === 0) {
-      // Pertama kali — simpan waktu sekarang
-      localStorage.setItem(uploadKey, now.toString());
-    } else {
-      // Sudah pernah dipilih sebelumnya — cek umurnya
-      const ageMins = (now - savedTime) / 60000;
-      if (ageMins > 30) {
-        setStatus('aw-sosmed-status', '⚠️ Screenshot terlalu lama! Pastikan jam HP terlihat dan kirim screenshot terbaru.', 'err');
-        imgData = null;
-        const prev = document.getElementById('aw-sosmed-prev');
-        if (prev) { prev.src = ''; prev.style.display = 'none'; }
-        const btn = document.getElementById('aw-btn-verify');
-        if (btn) btn.disabled = true;
-        const hint = document.getElementById('aw-upload-hint');
-        if (hint) hint.textContent = '📸 Upload screenshot baru (pastikan jam HP terlihat)';
+    setTimeout(() => {
+      const wk     = walletAddr.toLowerCase();
+      const h      = simpleHash(imgData);
+      const hashes = JSON.parse(localStorage.getItem('indc_img_hashes_'+wk) || '[]');
+      if (hashes.includes(h)) {
+        setStatus('aw-sosmed-status', '❌ Screenshot ini sudah pernah digunakan', 'err');
         return;
       }
-    }
+      const lastPrefix = localStorage.getItem('indc_last_img_'+wk) || '';
+      const curPrefix  = imgData.substring(100, 400);
+      if (lastPrefix && curPrefix === lastPrefix) {
+        setStatus('aw-sosmed-status', '❌ Screenshot terlalu mirip sebelumnya. Upload screenshot berbeda.', 'err');
+        return;
+      }
+      const uploadKey = 'indc_utime_' + h.substring(0,8);
+      const savedTime = parseInt(localStorage.getItem(uploadKey) || '0');
+      const now       = Date.now();
+      if (savedTime === 0) {
+        localStorage.setItem(uploadKey, now.toString());
+      } else if ((now - savedTime) / 60000 > 30) {
+        setStatus('aw-sosmed-status', '⚠️ Screenshot terlalu lama! Upload screenshot terbaru dengan jam HP terlihat.', 'err');
+        imgData = null;
+        const prev = document.getElementById('aw-sosmed-prev');
+        if (prev) { prev.src=''; prev.style.display='none'; }
+        const btn = document.getElementById('aw-btn-verify');
+        if (btn) btn.disabled = true;
+        return;
+      }
+      hashes.push(h);
+      localStorage.setItem('indc_img_hashes_'+wk, JSON.stringify(hashes));
+      localStorage.setItem('indc_last_img_'+wk, curPrefix);
+      const done = JSON.parse(localStorage.getItem('indc_sosmed_done_'+wk) || '[]');
+      if (currentTask && !done.includes(currentTask.id)) done.push(currentTask.id);
+      localStorage.setItem('indc_sosmed_done_'+wk, JSON.stringify(done));
+      localStorage.setItem('indc_sosmed_today_'+wk+'_'+todayKey(), 'true');
+      if (done.length >= SOSMED.length) localStorage.setItem('indc_sosmed_all_'+wk, 'true');
+      sosmedDone = true;
+      setStatus('aw-sosmed-status', '✅ Screenshot terverifikasi! Task selesai.', 'ok');
+      updateStepBadge('aw-step-sosmed', true);
+      imgData = null;
+      updateClaimBtn();
+    }, 1000);
+  };
 
-    // Semua OK — simpan
-    hashes.push(h);
-    localStorage.setItem(`indc_img_hashes_${wk}`, JSON.stringify(hashes));
-    localStorage.setItem(`indc_last_img_${wk}`, curPrefix);
-
-    const done = JSON.parse(localStorage.getItem(`indc_sosmed_done_${wk}`) || '[]');
-    if (currentTask && !done.includes(currentTask.id)) done.push(currentTask.id);
-    localStorage.setItem(`indc_sosmed_done_${wk}`, JSON.stringify(done));
-    localStorage.setItem(`indc_sosmed_today_${wk}_${todayKey()}`, 'true');
-    if (done.length >= SOSMED.length) localStorage.setItem(`indc_sosmed_all_${wk}`, 'true');
-
-    sosmedDone = true;
-    setStatus('aw-sosmed-status', '✅ Screenshot terverifikasi! Task selesai.', 'ok');
-    updateStepBadge('aw-step-sosmed', true);
+  window._awSelectTask = function(idx) {
+    if (idx < 0 || idx >= SOSMED.length) return;
+    currentTask = SOSMED[idx];
+    // Re-render task area dengan task yang dipilih
+    const items = document.querySelectorAll('.aw-task-item');
+    items.forEach((el,i) => el.classList.toggle('selected', i === idx));
+    // Reset upload state
     imgData = null;
-    updateClaimBtn();
+    const prev = document.getElementById('aw-sosmed-prev');
+    if (prev) { prev.src=''; prev.style.display='none'; }
+    const btn = document.getElementById('aw-btn-verify');
+    if (btn) btn.disabled = true;
+    const hint = document.getElementById('aw-upload-hint');
+    if (hint) hint.textContent = '📸 Upload screenshot bukti (pastikan jam HP terlihat)';
+    setStatus('aw-sosmed-status', '', 'info');
   };
 
   window._awSkip = function() {
