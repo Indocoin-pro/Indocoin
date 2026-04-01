@@ -526,6 +526,11 @@
     const sosmedHTML = hideSosmed ? '' : `
       <div class="aw-quiz-cat">📱 TUGAS SOSMED</div>
       <div class="aw-quiz-q">${currentTask?.pl || ''}: ${currentTask?.desc || ''}</div>
+      ${currentTask?.info ? `<div onclick="navigator.clipboard&&navigator.clipboard.writeText('${currentTask?.info||''}')" style="display:flex;align-items:center;gap:5px;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:6px;padding:5px 9px;margin-bottom:7px;cursor:pointer;" title="Tap untuk copy">
+        <span style="font-size:10px;">📌</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;letter-spacing:0.5px;flex:1;">\${currentTask.info}</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#a8a29e;">tap copy</span>
+      </div>` : ''}
       <div class="aw-upload" onclick="document.getElementById('aw-sosmed-file').click()">
         <p id="aw-upload-hint">📸 Upload screenshot bukti (pastikan jam HP terlihat)</p>
         <img id="aw-sosmed-prev" alt="">
