@@ -81,3 +81,31 @@ if (window.ethereum) {
     location.reload();
   });
 }
+
+
+// ── INTERCEPTOR GLOBAL ──────────────────────────────────────
+// Tangkap wallet kapanpun halaman connect, simpan ke localStorage
+// Ini memastikan airdrop widget selalu dapat wallet address
+(function() {
+  if (!window.ethereum) return;
+
+  // Override eth_requestAccounts agar selalu simpan wallet
+  const _origRequest = window.ethereum.request.bind(window.ethereum);
+  window.ethereum.request = async function(args) {
+    const result = await _origRequest(args);
+    if (args && args.method === 'eth_requestAccounts' && result && result.length > 0) {
+      localStorage.setItem('indocoin_wallet', result[0].toLowerCase());
+    }
+    if (args && args.method === 'eth_accounts' && result && result.length > 0) {
+      localStorage.setItem('indocoin_wallet', result[0].toLowerCase());
+    }
+    return result;
+  };
+
+  // Dengarkan event accountsChanged
+  window.ethereum.on('accountsChanged', function(accounts) {
+    if (accounts && accounts.length > 0) {
+      localStorage.setItem('indocoin_wallet', accounts[0].toLowerCase());
+    }
+  });
+})();
