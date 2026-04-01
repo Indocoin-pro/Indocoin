@@ -319,7 +319,7 @@
 
   async function checkClaimed() {
     if (!contract2 || !walletAddr) return;
-    // Cek localStorage dulu — lebih cepat, tidak perlu tunggu RPC
+    // Cek localStorage — jika sudah klaim hari ini langsung sembunyikan
     if (isClaimedToday()) {
       isClaimed = true;
       const widget = document.getElementById('indc-airdrop-widget');
@@ -327,8 +327,20 @@
       return;
     }
 
+    // Cek pending claims — jika PAGE_ID sudah ada di pending, berarti sudah diklaim
+    const wkCheck = walletAddr.toLowerCase();
+    const pendingCheck = JSON.parse(localStorage.getItem('indc_pending_claims_' + wkCheck) || '[]');
+    if (pendingCheck.includes(PAGE_ID)) {
+      isClaimed = true;
+      // Simpan juga ke claimed today agar konsisten
+      localStorage.setItem('indc_claimed_' + wkCheck + '_page_' + PAGE_ID + '_' + todayKey(), '1');
+      const widget = document.getElementById('indc-airdrop-widget');
+      if (widget) widget.style.display = 'none';
+      return;
+    }
+
     try {
-      isClaimed = await contract2.hasClaimedPage(walletAddr, PAGE_ID);
+      isClaimed = false; // sistem baru — tidak cek contract lagi
 
       // Hitung level
       const wk = walletAddr.toLowerCase();
