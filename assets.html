@@ -238,15 +238,27 @@ async function connectWallet(){
   }catch(e){console.error(e);}
 }
 
-window.addEventListener('load',async()=>{
-  const saved=localStorage.getItem('indocoin_wallet');
-  if(saved&&window.ethereum){
-    try{
-      const accs=await window.ethereum.request({method:'eth_accounts'});
-      if(accs.length>0){provider=new ethers.BrowserProvider(window.ethereum);signer=await provider.getSigner();userAddress=accs[0];showConnected();loadAllData();}
-    }catch(e){}
+// Auto-connect dengan retry — handle DApp browser yang inject ethereum telat
+async function tryAutoConnect() {
+  const saved = localStorage.getItem('indocoin_wallet');
+  if (!saved) return;
+  if (!window.ethereum) {
+    // Retry sampai ethereum tersedia
+    setTimeout(tryAutoConnect, 500);
+    return;
   }
-});
+  try {
+    const accs = await window.ethereum.request({method:'eth_accounts'});
+    if (accs.length > 0) {
+      provider    = new ethers.BrowserProvider(window.ethereum);
+      signer      = await provider.getSigner();
+      userAddress = accs[0];
+      showConnected();
+      loadAllData();
+    }
+  } catch(e) { console.warn('autoConnect:', e); }
+}
+window.addEventListener('load', () => setTimeout(tryAutoConnect, 300));
 
 function showConnected(){
   document.getElementById('notConnected').style.display='none';
