@@ -347,10 +347,12 @@
     if (!badge) return;
 
     if (isClaimed) {
-      badge.textContent = '✅ CLAIMED';
-      badge.className   = 'aw-badge green';
-      sub.textContent   = 'Sudah diklaim hari ini — kembali besok';
-      document.getElementById('indc-aw-trigger').classList.add('claimed');
+      // Simpan ke localStorage
+      if (walletAddr) {
+        localStorage.setItem('indc_claimed_' + walletAddr.toLowerCase() + '_page_' + PAGE_ID + '_' + todayKey(), '1');
+      }
+      // Sembunyikan widget langsung
+      hideWidget();
     } else {
       badge.textContent = '🎁 1 INDC';
       badge.className   = 'aw-badge';
