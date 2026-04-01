@@ -82,132 +82,290 @@
   const CSS = `
   #indc-airdrop-widget {
     position: fixed;
-    bottom: 62px;
-    left: 0; right: 0;
+    bottom: 64px;
+    left: 0;
+    right: 0;
     z-index: 999;
     display: flex;
     justify-content: center;
     pointer-events: none;
-    padding: 0 10px;
+    padding: 0 12px;
   }
-  #indc-aw-inner { pointer-events: all; width: 100%; max-width: 480px; }
+  #indc-aw-inner {
+    pointer-events: all;
+    width: 100%;
+    max-width: 480px;
+  }
 
-  /* ── TRIGGER ── */
+  /* ── TOMBOL TRIGGER ── */
   #indc-aw-trigger {
-    background: #ffffff;
+    width: 100%;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(10,10,10,0.97), rgba(20,15,5,0.97));
     border: 1.5px solid rgba(200,146,42,0.5);
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.4);
-    transition: all 0.2s;
+    transition: all 0.3s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
   }
-  #indc-aw-trigger:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 2px rgba(200,146,42,0.3); }
-  #indc-aw-trigger.claimed { opacity: 0.7; }
-  .aw-left { display: flex; align-items: center; gap: 8px; }
-  .aw-icon { font-size: 18px; line-height: 1; }
-  .aw-info {}
-  .aw-title { font-family:'Orbitron',sans-serif; font-size:10px; font-weight:700; color:#92400e; letter-spacing:1px; line-height:1; }
-  .aw-sub   { font-family:'Share Tech Mono',monospace; font-size:8px; color:#78716c; letter-spacing:0.5px; margin-top:1px; }
-  .aw-badge { font-family:'Orbitron',sans-serif; font-size:9px; font-weight:700; padding:4px 10px; border-radius:5px; background:linear-gradient(135deg,#92400e,#d97706); color:#fff; letter-spacing:0.5px; white-space:nowrap; }
-  .aw-badge.green { background:linear-gradient(135deg,#065f46,#059669); }
-  .aw-badge.muted { background:#e7e5e4; color:#a8a29e; }
+  #indc-aw-trigger:hover {
+    border-color: rgba(200,146,42,0.8);
+    box-shadow: 0 4px 30px rgba(200,146,42,0.2);
+  }
+  #indc-aw-trigger.claimed {
+    border-color: rgba(46,168,106,0.4);
+    opacity: 0.6;
+    cursor: default;
+  }
+  .aw-left { display: flex; align-items: center; gap: 10px; }
+  .aw-icon { font-size: 22px; }
+  .aw-info { display: flex; flex-direction: column; }
+  .aw-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f5c842;
+    letter-spacing: 1px;
+  }
+  .aw-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #a89880;
+    letter-spacing: 1px;
+    margin-top: 1px;
+  }
+  .aw-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: rgba(200,146,42,0.15);
+    border: 1px solid rgba(200,146,42,0.4);
+    color: #e8a830;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .aw-badge.green {
+    background: rgba(46,168,106,0.12);
+    border-color: rgba(46,168,106,0.3);
+    color: #2ea86a;
+  }
+  .aw-badge.muted {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+    color: #6b5a48;
+  }
 
-  /* ── PANEL ── */
+  /* ── PANEL DROPDOWN ── */
   #indc-aw-panel {
-    background: #ffffff;
+    background: rgba(10,10,10,0.98);
     border: 1.5px solid rgba(200,146,42,0.3);
-    border-radius: 10px;
-    margin-top: 4px;
+    border-radius: 12px;
+    margin-top: 6px;
     overflow: hidden;
     max-height: 0;
-    transition: max-height 0.35s ease, opacity 0.25s ease;
+    transition: max-height 0.4s ease, opacity 0.3s ease;
     opacity: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    backdrop-filter: blur(20px);
   }
-  #indc-aw-panel.open { max-height: 520px; opacity: 1; }
-  .aw-panel-inner { padding: 12px; max-height: 400px; overflow-y: auto; }
+  #indc-aw-panel.open {
+    max-height: 600px;
+    opacity: 1;
+  }
+  .aw-panel-inner { padding: 14px; }
 
   /* Steps */
-  .aw-steps { display:flex; gap:4px; margin-bottom:10px; }
-  .aw-step { flex:1; padding:5px 4px; border-radius:5px; text-align:center; font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:0.5px; background:#f5f5f4; border:1px solid #e7e5e4; color:#a8a29e; transition:all 0.2s; }
-  .aw-step.active { background:#fef3c7; border-color:#d97706; color:#92400e; font-weight:700; }
-  .aw-step.done   { background:#d1fae5; border-color:#059669; color:#065f46; font-weight:700; }
-
-  /* Task Sosmed */
-  .aw-quiz-cat { font-family:'Share Tech Mono',monospace; font-size:8px; color:#92400e; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:5px; }
-  .aw-quiz-q   { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:600; color:#1c1917; line-height:1.4; margin-bottom:8px; }
-  .aw-opts { display:flex; flex-direction:column; gap:5px; margin-bottom:6px; }
-  .aw-opt {
-    padding: 9px 11px;
-    background: #ffffff;
-    border: 1.5px solid #e7e5e4;
+  .aw-steps {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .aw-step {
+    flex: 1;
+    padding: 6px 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: #6b5a48;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+  }
+  .aw-step.active {
+    border-color: rgba(200,146,42,0.4);
+    color: #e8a830;
+    background: rgba(200,146,42,0.06);
+  }
+  .aw-step.done {
+    border-color: rgba(46,168,106,0.4);
+    color: #2ea86a;
+    background: rgba(46,168,106,0.06);
+  }
+
+  /* Quiz */
+  .aw-quiz-cat {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: #c8922a;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .aw-quiz-q {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #f5f0e8;
+    line-height: 1.4;
+    margin-bottom: 10px;
+  }
+  .aw-opts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .aw-opt {
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
     cursor: pointer;
-    font-family: 'Rajdhani',sans-serif;
+    font-family: 'Rajdhani', sans-serif;
     font-size: 13px;
-    color: #44403c;
+    color: #a89880;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  .aw-opt:hover   { background:#fffbeb; border-color:#d97706; color:#1c1917; }
-  .aw-opt.correct { background:#d1fae5; border-color:#059669; color:#065f46; }
-  .aw-opt.wrong   { background:#fee2e2; border-color:#dc2626; color:#991b1b; }
-  .aw-opt.disabled { pointer-events:none; }
-  .aw-opt-lbl { font-family:'Share Tech Mono',monospace; font-size:9px; color:#a8a29e; width:14px; flex-shrink:0; font-weight:700; }
-  .aw-result { margin-top:7px; padding:8px 10px; border-radius:6px; font-family:'Share Tech Mono',monospace; font-size:9px; line-height:1.5; display:none; }
-  .aw-result.ok   { background:#d1fae5; border:1px solid #6ee7b7; color:#065f46; }
-  .aw-result.fail { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; }
-  .aw-divider { height:1px; background:#f5f5f4; margin:8px 0; }
+  .aw-opt:hover { background: rgba(200,146,42,0.08); border-color: rgba(200,146,42,0.3); color: #f5f0e8; }
+  .aw-opt.correct { background: rgba(46,168,106,0.12); border-color: rgba(46,168,106,0.4); color: #2ea86a; }
+  .aw-opt.wrong { background: rgba(201,64,64,0.1); border-color: rgba(201,64,64,0.3); color: #c94040; }
+  .aw-opt.disabled { pointer-events: none; }
+  .aw-opt-lbl { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #6b5a48; width: 14px; flex-shrink: 0; }
+  .aw-result {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+    display: none;
+  }
+  .aw-result.ok { background: rgba(46,168,106,0.1); border: 1px solid rgba(46,168,106,0.3); color: #2ea86a; }
+  .aw-result.fail { background: rgba(201,64,64,0.08); border: 1px solid rgba(201,64,64,0.25); color: #c94040; }
+  .aw-divider { height: 1px; background: rgba(200,146,42,0.1); margin: 10px 0; }
 
-  /* Task area */
-  .aw-task-box { background:#fafaf9; border:1px solid #e7e5e4; border-radius:8px; padding:10px; margin-bottom:8px; }
-  .aw-task-link { display:block; padding:7px 10px; background:#fef3c7; border:1px solid #d97706; border-radius:6px; color:#92400e; font-family:'Share Tech Mono',monospace; font-size:9px; text-align:center; text-decoration:none; letter-spacing:0.5px; margin-bottom:7px; transition:all 0.2s; }
-  .aw-task-link:hover { background:#fde68a; }
-
-  /* Upload */
-  .aw-upload { border:1.5px dashed #d6d3d1; border-radius:7px; padding:10px; text-align:center; cursor:pointer; transition:all 0.2s; margin-bottom:7px; background:#fafaf9; }
-  .aw-upload:hover { border-color:#d97706; background:#fffbeb; }
-  .aw-upload p { font-family:'Share Tech Mono',monospace; font-size:9px; color:#a8a29e; }
-  .aw-upload img { max-width:100%; border-radius:5px; margin-top:6px; display:none; max-height:70px; object-fit:cover; }
+  /* Upload area */
+  .aw-upload {
+    border: 1.5px dashed rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+  }
+  .aw-upload:hover { border-color: rgba(200,146,42,0.4); }
+  .aw-upload p { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #6b5a48; }
+  .aw-upload img { max-width: 100%; border-radius: 6px; margin-top: 6px; display: none; max-height: 80px; object-fit: cover; }
 
   /* Buttons */
-  .aw-btn { width:100%; border:none; border-radius:6px; font-family:'Orbitron',sans-serif; font-size:9px; font-weight:700; letter-spacing:0.5px; cursor:pointer; transition:all 0.2s; margin-bottom:5px; padding:8px; }
-  .aw-btn-claim { padding:12px; font-size:12px; letter-spacing:2px; background:linear-gradient(135deg,#92400e,#d97706); color:#fff; box-shadow:0 2px 12px rgba(217,119,6,0.3); }
-  .aw-btn-claim:hover { box-shadow:0 4px 20px rgba(217,119,6,0.5); transform:translateY(-1px); }
-  .aw-btn-claim:disabled { background:#e7e5e4; color:#a8a29e; box-shadow:none; transform:none; cursor:not-allowed; }
-  .aw-btn-verify { background:#dbeafe; border:1px solid #3b82f6; color:#1d4ed8; }
-  .aw-btn-verify:hover { background:#bfdbfe; }
-  .aw-btn-verify:disabled { opacity:0.4; cursor:not-allowed; }
-  .aw-btn-skip { background:transparent; border:1px solid #e7e5e4; color:#a8a29e; font-size:9px; font-family:'Share Tech Mono',monospace; }
-  .aw-btn-skip:hover { border-color:#d6d3d1; color:#78716c; background:#fafaf9; }
+  .aw-btn {
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 6px;
+  }
+  .aw-btn-claim {
+    background: linear-gradient(135deg, #5a3800, #e8a830);
+    color: #080808;
+  }
+  .aw-btn-claim:hover { box-shadow: 0 4px 20px rgba(250,204,21,0.4); transform: translateY(-1px); }
+  .aw-btn-claim:disabled { background: rgba(255,255,255,0.07); color: #6b5a48; transform: none; box-shadow: none; cursor: not-allowed; }
+  .aw-btn-verify {
+    background: rgba(74,158,255,0.1);
+    border: 1px solid rgba(74,158,255,0.35);
+    color: #4a9eff;
+  }
+  .aw-btn-verify:hover { background: rgba(74,158,255,0.18); }
+  .aw-btn-verify:disabled { opacity: 0.4; cursor: not-allowed; }
+  .aw-btn-skip {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #6b5a48;
+    font-size: 9px;
+  }
+  .aw-btn-skip:hover { color: #a89880; }
 
-  /* Status & misc */
-  .aw-status { font-family:'Share Tech Mono',monospace; font-size:9px; text-align:center; min-height:12px; margin-top:4px; }
-  .aw-ok   { color:#059669; }
-  .aw-err  { color:#dc2626; }
-  .aw-info { color:#a8a29e; }
-  .aw-claim-note { font-family:'Share Tech Mono',monospace; font-size:9px; color:#a8a29e; text-align:center; margin-top:4px; }
+  /* Status */
+  .aw-status {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    text-align: center;
+    min-height: 14px;
+    margin-top: 4px;
+    transition: all 0.3s;
+  }
+  .aw-ok { color: #2ea86a; }
+  .aw-err { color: #c94040; }
+  .aw-info { color: #a89880; }
 
   /* Claimed state */
-  .aw-claimed { text-align:center; padding:14px 10px; }
-  .aw-claimed-icon { font-size:26px; margin-bottom:6px; }
-  .aw-claimed-title { font-family:'Orbitron',sans-serif; font-size:11px; color:#059669; letter-spacing:2px; margin-bottom:4px; }
-  .aw-claimed-sub { font-family:'Share Tech Mono',monospace; font-size:9px; color:#a8a29e; line-height:1.6; }
-  .aw-countdown { font-family:'Orbitron',sans-serif; font-size:14px; color:#d97706; margin-top:6px; }
+  .aw-claimed {
+    text-align: center;
+    padding: 16px 10px;
+  }
+  .aw-claimed-icon { font-size: 28px; margin-bottom: 6px; }
+  .aw-claimed-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    color: #2ea86a;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .aw-claimed-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #6b5a48;
+    line-height: 1.6;
+  }
+  .aw-countdown {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    color: #c8922a;
+    margin-top: 8px;
+  }
 
-  /* Unlock */
-  .aw-unlock { text-align:center; padding:12px 8px; }
-  .aw-unlock-title { font-family:'Orbitron',sans-serif; font-size:11px; color:#1d4ed8; letter-spacing:2px; margin:6px 0; }
-  .aw-unlock-desc { font-family:'Share Tech Mono',monospace; font-size:9px; color:#78716c; line-height:1.6; margin-bottom:12px; }
+  /* Sosmed task link */
+  .aw-task-link {
+    display: block;
+    padding: 9px;
+    background: rgba(200,146,42,0.07);
+    border: 1px solid rgba(200,146,42,0.25);
+    border-radius: 7px;
+    color: #e8a830;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    text-align: center;
+    text-decoration: none;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+  }
+  .aw-task-link:hover { background: rgba(200,146,42,0.14); }
 
-  @keyframes aw-in { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-  .aw-fadein { animation:aw-in 0.25s ease both; }
+  @keyframes aw-fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .aw-fadein { animation: aw-fadein 0.3s ease both; }
   `;
 
   // ── INJECT CSS ────────────────────────────────────────────
@@ -231,66 +389,46 @@
   let countdownTimer = null;
 
   // ── SOSMED POOL ───────────────────────────────────────────
-  // ── TASK SOSMED ─────────────────────────────────────────────
-  // Diurutkan dari TERMUDAH ke TERSULIT
-  // User dapat task acak dari atas — skip akan ambil task berikutnya
   const SOSMED = [
-
-    // ── LEVEL 1: PALING MUDAH — tidak butuh login, cukup screenshot ──
-    { id:'wa_group',  pl:'💬 WhatsApp',    desc:'Share ajakan bergabung INDOCOIN ke WA Group kamu. Screenshot bukti kirim.',         link:null },
-    { id:'wa_story',  pl:'💬 WhatsApp',    desc:'Share info INDOCOIN ke WA Status/Story. Screenshot sebelum dikirim.',              link:null },
-    { id:'wa_chat',   pl:'💬 WhatsApp',    desc:'Kirim pesan ajakan INDOCOIN ke 3 kontak WA. Screenshot percakapan.',               link:null },
-    { id:'tg_join',   pl:'✈️ Telegram',   desc:'Gabung group Telegram INDOCOIN dan screenshot halaman grupnya.',                   link:'https://t.me/+CzjgvwApDscwMGM1' },
-    { id:'tg_share',  pl:'✈️ Telegram',   desc:'Forward info INDOCOIN ke grup atau kontak Telegram. Screenshot bukti.',            link:'https://t.me/+CzjgvwApDscwMGM1' },
-    { id:'qr_share',  pl:'📱 Share QR',   desc:'Screenshot QR wallet airdrop kamu dan share ke teman sebagai ajakan bergabung.',    link:null },
-
-    // ── LEVEL 2: MUDAH — buka halaman, screenshot, tidak butuh login ──
-    { id:'yt_visit',  pl:'📺 YouTube',     desc:'Buka channel INDOCOIN di YouTube dan screenshot halaman channelnya.',             link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'ig_visit',  pl:'📸 Instagram',   desc:'Buka profil @indocoin_indc di Instagram dan screenshot halaman profilnya.',       link:'https://www.instagram.com/indocoin_indc' },
-    { id:'fb_visit',  pl:'👍 Facebook',    desc:'Buka halaman Facebook INDOCOIN dan screenshot halaman utamanya.',                 link:'https://www.facebook.com/share/1NaUZBDiyS/' },
-    { id:'x_visit',   pl:'✖️ X/Twitter',   desc:'Buka profil @Indocoin_INDC di X dan screenshot halaman profilnya.',               link:'https://x.com/Indocoin_INDC' },
-    { id:'td_visit',  pl:'🧵 Threads',     desc:'Buka profil @indocoin_indc di Threads dan screenshot halaman profilnya.',         link:'https://www.threads.com/@indocoin_indc' },
-
-    // ── LEVEL 3: SEDANG — butuh akun, tapi mudah jika sudah login ──
-    { id:'ig_story',  pl:'📸 Instagram',   desc:'Share postingan INDOCOIN ke IG Story kamu. Screenshot sebelum diposting.',        link:'https://www.instagram.com/indocoin_indc' },
-    { id:'fb_share',  pl:'👍 Facebook',    desc:'Share postingan INDOCOIN ke timeline Facebook kamu. Screenshot bukti.',           link:'https://www.facebook.com/share/1NaUZBDiyS/' },
-    { id:'x_share',   pl:'✖️ X/Twitter',   desc:'Quote tweet atau repost @Indocoin_INDC. Screenshot bukti.',                       link:'https://x.com/Indocoin_INDC' },
-
-    // ── LEVEL 4: BUTUH LOGIN — YouTube Subscribe/Like/Komen ──
-    { id:'yt_sub',    pl:'📺 YouTube',     desc:'Subscribe channel INDOCOIN di YouTube. Screenshot bukti subscribe.',              link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'yt_like',   pl:'📺 YouTube',     desc:'Like video terbaru di channel INDOCOIN YouTube. Screenshot bukti.',               link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'yt_komen',  pl:'📺 YouTube',     desc:'Komen kata positif tentang INDOCOIN di video YouTube. Screenshot komentar.',      link:'https://youtube.com/@indocoin_defi_web3' },
+    { id:'yt_sub',    pl:'📺 YouTube',    desc:'Screenshot bukti Subscribe channel INDOCOIN di YouTube.',        link:null },
+    { id:'yt_like',   pl:'📺 YouTube',    desc:'Screenshot bukti Like video INDOCOIN di YouTube.',               link:null },
+    { id:'yt_komen',  pl:'📺 YouTube',    desc:'Screenshot komentar positif kamu di video INDOCOIN di YouTube.', link:null },
+    { id:'ig_follow', pl:'📸 Instagram',  desc:'Screenshot bukti Follow @indocoin_indc di Instagram.',           link:null },
+    { id:'ig_like',   pl:'📸 Instagram',  desc:'Screenshot bukti Like postingan INDOCOIN di Instagram.',         link:null },
+    { id:'ig_story',  pl:'📸 Instagram',  desc:'Screenshot Story kamu yang share konten INDOCOIN.',              link:null },
+    { id:'fb_like',   pl:'👍 Facebook',   desc:'Screenshot bukti Like halaman Facebook INDOCOIN.',               link:null },
+    { id:'fb_share',  pl:'👍 Facebook',   desc:'Screenshot postingan share INDOCOIN di Facebook kamu.',          link:null },
+    { id:'x_follow',  pl:'✖️ X/Twitter',  desc:'Screenshot bukti Follow @Indocoin_INDC di X (Twitter).',        link:null },
+    { id:'x_rt',      pl:'✖️ X/Twitter',  desc:'Screenshot Retweet atau Repost postingan INDOCOIN di X.',        link:null },
+    { id:'td_follow', pl:'🧵 Threads',    desc:'Screenshot bukti Follow @indocoin_indc di Threads.',             link:null },
+    { id:'tg_join',   pl:'✈️ Telegram',   desc:'Screenshot bukti sudah bergabung di grup Telegram INDOCOIN.',    link:null },
+    { id:'wa_group',  pl:'💬 WhatsApp',   desc:'Screenshot share ajakan INDOCOIN ke WA Group kamu.',             link:null },
+    { id:'wa_story',  pl:'💬 WhatsApp',   desc:'Screenshot share info INDOCOIN ke WA Status/Story kamu.',        link:null },
+    { id:'wa_chat',   pl:'💬 WhatsApp',   desc:'Screenshot kirim ajakan INDOCOIN ke minimal 3 kontak WA.',       link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
+  // Jika airdrop-questions.js belum dimuat, load sendiri secara dinamis
   function ensureQuestions(callback) {
-    if (window.AIRDROP_QUESTIONS) { callback(); return; }
-
-    // Sudah pernah dicoba load — tunggu saja
-    if (window._awQLoading) {
-      const wait = setInterval(() => {
-        if (window.AIRDROP_QUESTIONS) { clearInterval(wait); callback(); }
-      }, 300);
+    if (window.AIRDROP_QUESTIONS) {
+      callback();
       return;
     }
-    window._awQLoading = true;
-
+    // Belum ada — load sekarang
     const s = document.createElement('script');
-    // Gunakan path absolut dari root domain — paling reliable
-    const origin = window.location.origin;
-    s.src = origin + '/airdrop-questions.js';
-    s.onload = () => {
-      window._awQLoading = false;
-      if (window.AIRDROP_QUESTIONS && callback) callback();
-    };
-    s.onerror = () => {
-      window._awQLoading = false;
-      // Fallback: coba path relatif
-      const s2 = document.createElement('script');
-      s2.src = 'airdrop-questions.js';
-      s2.onload = () => { window._awQLoading = false; if (window.AIRDROP_QUESTIONS && callback) callback(); };
-      document.head.appendChild(s2);
-    };
+    // Deteksi base path otomatis
+    const base = (function() {
+      const scripts = document.querySelectorAll('script[src]');
+      for (let sc of scripts) {
+        if (sc.src && sc.src.includes('airdrop-widget')) {
+          return sc.src.replace('airdrop-widget.js', '');
+        }
+      }
+      return '';
+    })();
+    s.src = base + 'airdrop-questions.js';
+    s.onload  = () => { if (callback) callback(); };
+    s.onerror = () => console.warn('[AW] Gagal load airdrop-questions.js dari:', s.src);
     document.head.appendChild(s);
   }
 
@@ -324,35 +462,26 @@
   window._awToggle = function() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('indc-aw-panel');
-    if (!panelOpen) { panel.classList.remove('open'); return; }
-
-    panel.classList.add('open');
-
-    // Tampilkan loading sementara
-    setContent('<div style="text-align:center;padding:16px;font-family:monospace;font-size:9px;color:#a89880;">⏳ Memuat...</div>');
-
-    // Pastikan wallet ada
-    async function getWallet() {
-      if (walletAddr) return walletAddr;
-      // Coba eth_accounts
-      if (window.ethereum) {
-        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-        if (accs && accs.length > 0) return accs[0];
-      }
-      // Coba localStorage
-      return localStorage.getItem('indocoin_wallet');
-    }
-
-    getWallet().then(async (addr) => {
-      if (addr && !walletAddr) {
-        localStorage.setItem('indocoin_wallet', addr.toLowerCase());
-        await initWidget(addr);
-      }
-      // Load questions lalu render
+    if (panelOpen) {
+      panel.classList.add('open');
+      // Pastikan soal tersedia dulu, baru render
       ensureQuestions(() => {
-        if (panelOpen) renderWidget();
+        if (!walletAddr) {
+          const saved = localStorage.getItem('indocoin_wallet');
+          if (saved && window.ethereum) {
+            initWidget(saved).then(() => {
+              if (!walletAddr) renderConnectPrompt();
+            });
+          } else {
+            renderConnectPrompt();
+          }
+        } else {
+          renderWidget();
+        }
       });
-    });
+    } else {
+      panel.classList.remove('open');
+    }
   };
 
   // ── RENDER: CONNECT PROMPT ────────────────────────────────
@@ -610,21 +739,16 @@
       <div class="aw-quiz-q">${currentTask?.pl || ''}: ${currentTask?.desc || ''}</div>
       ${currentTask?.link ? `<a href="${currentTask.link}" target="_blank" class="aw-task-link">🔗 BUKA HALAMAN</a>` : ''}
       <div class="aw-upload" onclick="document.getElementById('aw-sosmed-file').click()">
-        <p id="aw-upload-hint">📸 Upload screenshot bukti</p>
+        <p id="aw-upload-hint">📸 Upload screenshot (pastikan jam HP terlihat di atas layar)</p>
         <img id="aw-sosmed-prev" alt="">
       </div>
       <input type="file" id="aw-sosmed-file" accept="image/*" style="display:none"
         onchange="window._awSosmedUpload(event)">
       <button class="aw-btn aw-btn-verify" id="aw-btn-verify" disabled
         onclick="window._awVerifySosmed()">✅ VERIFIKASI BUKTI</button>
-      <div style="display:flex;gap:6px;margin-bottom:5px;">
-        <button class="aw-btn aw-btn-skip" style="flex:1;" onclick="window._awSkip()">
-          🔄 Ganti task (sisa: <span id="aw-skip-n">${skipLeft}</span>x)
-        </button>
-        <button class="aw-btn aw-btn-skip" style="flex:0 0 auto;padding:8px 12px;" onclick="window._awToggle()" title="Tutup panel">
-          ✕ Tutup
-        </button>
-      </div>
+      <button class="aw-btn aw-btn-skip" onclick="window._awSkip()">
+        Ganti task (sisa: <span id="aw-skip-n">${skipLeft}</span>x)
+      </button>
       <div class="aw-status" id="aw-sosmed-status"></div>
       <div class="aw-divider"></div>`;
 
@@ -683,33 +807,68 @@
 
   window._awVerifySosmed = function() {
     if (!imgData || imgData.length < 5000) {
-      setStatus('aw-sosmed-status', '❌ Screenshot tidak valid', 'err');
+      setStatus('aw-sosmed-status', '❌ Screenshot tidak valid atau terlalu kecil', 'err');
       return;
     }
-    setStatus('aw-sosmed-status', '⏳ Memverifikasi...', 'info');
-    setTimeout(() => {
-      const wk     = walletAddr.toLowerCase();
-      const h      = simpleHash(imgData);
-      const hashes = JSON.parse(localStorage.getItem(`indc_img_hashes_${wk}`) || '[]');
-      if (hashes.includes(h)) {
-        setStatus('aw-sosmed-status', '❌ Screenshot sudah pernah digunakan', 'err');
+    setStatus('aw-sosmed-status', '⏳ Memverifikasi screenshot...', 'info');
+
+    // Cek duplikat hash
+    const wk     = walletAddr.toLowerCase();
+    const h      = simpleHash(imgData);
+    const hashes = JSON.parse(localStorage.getItem(`indc_img_hashes_${wk}`) || '[]');
+    if (hashes.includes(h)) {
+      setStatus('aw-sosmed-status', '❌ Screenshot ini sudah pernah digunakan sebelumnya', 'err');
+      return;
+    }
+
+    // Cek kemiripan dengan screenshot sebelumnya (anti repost)
+    const lastPrefix = localStorage.getItem(`indc_last_img_${wk}`) || '';
+    const curPrefix  = imgData.substring(100, 400);
+    if (lastPrefix && curPrefix === lastPrefix) {
+      setStatus('aw-sosmed-status', '❌ Screenshot terlalu mirip dengan sebelumnya. Upload screenshot berbeda.', 'err');
+      return;
+    }
+
+    // Cek waktu upload — simpan waktu saat file dipilih
+    const uploadKey  = 'indc_upload_time_' + h.substring(0, 8);
+    const savedTime  = parseInt(localStorage.getItem(uploadKey) || '0');
+    const now        = Date.now();
+
+    if (savedTime === 0) {
+      // Pertama kali — simpan waktu sekarang
+      localStorage.setItem(uploadKey, now.toString());
+    } else {
+      // Sudah pernah dipilih sebelumnya — cek umurnya
+      const ageMins = (now - savedTime) / 60000;
+      if (ageMins > 30) {
+        setStatus('aw-sosmed-status', '⚠️ Screenshot terlalu lama! Pastikan jam HP terlihat dan kirim screenshot terbaru.', 'err');
+        imgData = null;
+        const prev = document.getElementById('aw-sosmed-prev');
+        if (prev) { prev.src = ''; prev.style.display = 'none'; }
+        const btn = document.getElementById('aw-btn-verify');
+        if (btn) btn.disabled = true;
+        const hint = document.getElementById('aw-upload-hint');
+        if (hint) hint.textContent = '📸 Upload screenshot baru (pastikan jam HP terlihat)';
         return;
       }
-      hashes.push(h);
-      localStorage.setItem(`indc_img_hashes_${wk}`, JSON.stringify(hashes));
+    }
 
-      const done = JSON.parse(localStorage.getItem(`indc_sosmed_done_${wk}`) || '[]');
-      if (currentTask && !done.includes(currentTask.id)) done.push(currentTask.id);
-      localStorage.setItem(`indc_sosmed_done_${wk}`, JSON.stringify(done));
-      localStorage.setItem(`indc_sosmed_today_${wk}_${todayKey()}`, 'true');
-      if (done.length >= SOSMED.length) localStorage.setItem(`indc_sosmed_all_${wk}`, 'true');
+    // Semua OK — simpan
+    hashes.push(h);
+    localStorage.setItem(`indc_img_hashes_${wk}`, JSON.stringify(hashes));
+    localStorage.setItem(`indc_last_img_${wk}`, curPrefix);
 
-      sosmedDone = true;
-      setStatus('aw-sosmed-status', '✅ Task sosmed berhasil!', 'ok');
-      updateStepBadge('aw-step-sosmed', true);
-      imgData = null;
-      updateClaimBtn();
-    }, 1000);
+    const done = JSON.parse(localStorage.getItem(`indc_sosmed_done_${wk}`) || '[]');
+    if (currentTask && !done.includes(currentTask.id)) done.push(currentTask.id);
+    localStorage.setItem(`indc_sosmed_done_${wk}`, JSON.stringify(done));
+    localStorage.setItem(`indc_sosmed_today_${wk}_${todayKey()}`, 'true');
+    if (done.length >= SOSMED.length) localStorage.setItem(`indc_sosmed_all_${wk}`, 'true');
+
+    sosmedDone = true;
+    setStatus('aw-sosmed-status', '✅ Screenshot terverifikasi! Task selesai.', 'ok');
+    updateStepBadge('aw-step-sosmed', true);
+    imgData = null;
+    updateClaimBtn();
   };
 
   window._awSkip = function() {
@@ -834,67 +993,47 @@
   // Baca wallet dari localStorage indocoin_wallet atau langsung dari MetaMask
   // Retry sampai 10x dengan interval 800ms agar tidak miss timing
   async function autoInit() {
-    // Hook MetaMask events — deteksi kapanpun wallet connect
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', async (accs) => {
-        if (accs && accs.length > 0 && !walletAddr) {
-          localStorage.setItem('indocoin_wallet', accs[0].toLowerCase());
-          await initWidget(accs[0]);
-          if (panelOpen) renderWidget();
-        }
-      });
-      window.ethereum.on('connect', async () => {
-        if (walletAddr) return;
-        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-        if (accs && accs.length > 0) {
-          localStorage.setItem('indocoin_wallet', accs[0].toLowerCase());
-          await initWidget(accs[0]);
-          if (panelOpen) renderWidget();
-        }
-      });
-    }
+    // Strategi: baca eth_accounts dari MetaMask langsung
+    // eth_accounts tidak minta popup — hanya return akun yang sudah diizinkan
+    // Ini paling reliable karena tidak tergantung localStorage atau variable halaman
 
-    // Polling agresif: cek setiap 800ms sampai 15 detik
     let attempts = 0;
-    const timer = setInterval(async () => {
+    const MAX    = 12; // retry sampai ~6 detik
+
+    async function tryConnect() {
       attempts++;
-      if (walletAddr || attempts > 19) { clearInterval(timer); return; }
 
       let addr = null;
 
-      // Cara 1: MetaMask eth_accounts
+      // Prioritas 1: MetaMask eth_accounts (selalu akurat)
       if (window.ethereum) {
-        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+        const accs = await window.ethereum
+          .request({ method: 'eth_accounts' })
+          .catch(() => []);
         if (accs && accs.length > 0) addr = accs[0];
       }
 
-      // Cara 2: localStorage
-      if (!addr) addr = localStorage.getItem('indocoin_wallet');
-
-      // Cara 3: variable global halaman (berbeda tiap halaman)
+      // Prioritas 2: localStorage indocoin_wallet (backup)
       if (!addr) {
-        addr = window.userAddr || window.userAddress ||
-               window.currentAddr || window.connectedAddr || null;
+        addr = localStorage.getItem('indocoin_wallet');
       }
 
       if (addr) {
-        clearInterval(timer);
+        // Simpan/update localStorage agar sesi berikutnya lebih cepat
         localStorage.setItem('indocoin_wallet', addr.toLowerCase());
         await initWidget(addr);
-        if (panelOpen) renderWidget();
+        return;
       }
-    }, 800);
-  }
 
-  // ── EXPOSE API untuk halaman ─────────────────────────────
-  // Halaman bisa panggil window._awSetWallet(addr) setelah connect
-  window._awSetWallet = async function(addr) {
-    if (!addr || walletAddr) return;
-    localStorage.setItem('indocoin_wallet', addr.toLowerCase());
-    await initWidget(addr);
-    if (panelOpen) renderWidget();
-    updateTrigger();
-  };
+      // Belum connect — coba lagi
+      if (attempts < MAX) {
+        setTimeout(tryConnect, 500);
+      }
+    }
+
+    // Mulai setelah sedikit delay agar MetaMask inject dulu
+    setTimeout(tryConnect, 600);
+  }
 
   // ── START ─────────────────────────────────────────────────
   if (document.readyState === 'loading') {
