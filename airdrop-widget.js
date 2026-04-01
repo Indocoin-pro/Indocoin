@@ -469,12 +469,24 @@
         </div>
       </div>
     `);
-    // Coba auto detect setiap 1.5 detik kalau user baru connect
-    setTimeout(async () => {
-      if (walletAddr) return;
-      const acc = await window.ethereum?.request({ method: 'eth_accounts' }).catch(() => []);
-      if (acc && acc.length > 0) await initWidget(acc[0]);
-    }, 1500);
+    // Retry deteksi wallet setiap 800ms
+    let retryCount = 0;
+    const retryInterval = setInterval(async () => {
+      retryCount++;
+      if (walletAddr || retryCount > 10) { clearInterval(retryInterval); return; }
+      let addr = null;
+      if (window.ethereum) {
+        const acc = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+        if (acc && acc.length > 0) addr = acc[0];
+      }
+      if (!addr) addr = localStorage.getItem('indocoin_wallet');
+      if (addr) {
+        clearInterval(retryInterval);
+        localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+        await initWidget(addr);
+        if (panelOpen) renderWidget();
+      }
+    }, 800);
   }
 
   // ── INIT WIDGET ───────────────────────────────────────────
@@ -912,23 +924,49 @@
   }
 
   // ── AUTO INIT ─────────────────────────────────────────────
-  // Baca wallet dari localStorage indocoin_wallet (sudah diset oleh sistem halaman)
-  // Tidak perlu connect prompt — semua halaman sudah auto-connect sendiri
+  // Baca wallet dari localStorage indocoin_wallet atau langsung dari MetaMask
+  // Retry sampai 10x dengan interval 800ms agar tidak miss timing
   async function autoInit() {
-    if (!window.ethereum) return;
+    // Strategi: baca eth_accounts dari MetaMask langsung
+    // eth_accounts tidak minta popup — hanya return akun yang sudah diizinkan
+    // Ini paling reliable karena tidak tergantung localStorage atau variable halaman
 
-    // Cara 1: baca dari localStorage yang diset wallet-auto-connect.js
-    const saved = localStorage.getItem('indocoin_wallet');
+    let attempts = 0;
+    const MAX    = 12; // retry sampai ~6 detik
 
-    // Cara 2: baca langsung dari MetaMask (tanpa popup)
-    const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+    async function tryConnect() {
+      attempts++;
 
-    const addr = (accounts && accounts.length > 0)
-      ? accounts[0]
-      : saved || null;
+      let addr = null;
 
-    if (addr) await initWidget(addr);
-    // Kalau tidak ada wallet → widget diam saja, tidak tampilkan prompt
+      // Prioritas 1: MetaMask eth_accounts (selalu akurat)
+      if (window.ethereum) {
+        const accs = await window.ethereum
+          .request({ method: 'eth_accounts' })
+          .catch(() => []);
+        if (accs && accs.length > 0) addr = accs[0];
+      }
+
+      // Prioritas 2: localStorage indocoin_wallet (backup)
+      if (!addr) {
+        addr = localStorage.getItem('indocoin_wallet');
+      }
+
+      if (addr) {
+        // Simpan/update localStorage agar sesi berikutnya lebih cepat
+        localStorage.setItem('indocoin_wallet', addr.toLowerCase());
+        await initWidget(addr);
+        return;
+      }
+
+      // Belum connect — coba lagi
+      if (attempts < MAX) {
+        setTimeout(tryConnect, 500);
+      }
+    }
+
+    // Mulai setelah sedikit delay agar MetaMask inject dulu
+    setTimeout(tryConnect, 600);
   }
 
   // ── START ─────────────────────────────────────────────────
