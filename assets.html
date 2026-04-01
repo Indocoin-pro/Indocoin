@@ -961,14 +961,17 @@ async function renderLocked(indc) {
 }
 
 /* ═══ TARGET ALERT ═══ */
-document.getElementById("setTargetBtn").addEventListener("click", () => {
-  const token = document.getElementById("targetToken").value;
-  const price = parseFloat(document.getElementById("targetPrice").value);
-  if (!price) return;
-  targets.push({ token, price });
-  renderTargets();
-  document.getElementById("targetPrice").value = "";
-});
+const _setTargetBtn = document.getElementById("setTargetBtn");
+if (_setTargetBtn) {
+  _setTargetBtn.addEventListener("click", () => {
+    const token = document.getElementById("targetToken").value;
+    const price = parseFloat(document.getElementById("targetPrice").value);
+    if (!price) return;
+    targets.push({ token, price });
+    renderTargets();
+    document.getElementById("targetPrice").value = "";
+  });
+}
 
 function renderTargets() {
   document.getElementById("targetList").innerHTML = targets.map((t,i)=>`
@@ -1081,7 +1084,7 @@ let _autoConnectDone = false;
 async function tryAutoConnect() {
   if (_autoConnectDone) return;
   const eth = window.ethereum || window.web3?.currentProvider;
-  if (!eth) return; // belum inject, tunggu retry berikutnya
+  if (!eth) return; // belum inject, tunggu retry
   try {
     const accounts = await eth.request({ method: "eth_accounts" });
     if (accounts && accounts.length > 0) {
@@ -1096,21 +1099,19 @@ async function tryAutoConnect() {
   } catch(e) { console.warn("auto-connect err:", e); }
 }
 
-// Setelah semua retry habis, baru tampilkan "belum terhubung" jika masih belum konek
 function showNotConnectedIfNeeded() {
   if (!_autoConnectDone) {
     document.getElementById("notConnected").classList.add("show");
   }
 }
 
-// Jalankan auto-connect bertahap — wallet mobile kadang inject lambat
+// Jalankan auto-connect bertahap
 window.addEventListener("load", () => {
   tryAutoConnect();
   setTimeout(tryAutoConnect, 500);
   setTimeout(tryAutoConnect, 1500);
   setTimeout(tryAutoConnect, 3000);
-  // Baru tampilkan "belum terhubung" setelah semua retry selesai
-  setTimeout(showNotConnectedIfNeeded, 3500);
+  setTimeout(showNotConnectedIfNeeded, 4000); // baru tampilkan gagal setelah semua retry
 });
 
 // Pasang event listener setelah DOM ready
