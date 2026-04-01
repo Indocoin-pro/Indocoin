@@ -231,22 +231,35 @@
   let countdownTimer = null;
 
   // ── SOSMED POOL ───────────────────────────────────────────
+  // ── TASK SOSMED ─────────────────────────────────────────────
+  // Diurutkan dari TERMUDAH ke TERSULIT
+  // User dapat task acak dari atas — skip akan ambil task berikutnya
   const SOSMED = [
-    { id:'yt_sub',    pl:'📺 YouTube',       desc:'Subscribe channel @indocoin_defi_web3',          link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'yt_like',   pl:'📺 YouTube',       desc:'Like video terbaru INDOCOIN di YouTube',          link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'ig_follow', pl:'📸 Instagram',     desc:'Follow @indocoin_indc di Instagram',             link:'https://www.instagram.com/indocoin_indc' },
-    { id:'ig_like',   pl:'📸 Instagram',     desc:'Like postingan terbaru @indocoin_indc',          link:'https://www.instagram.com/indocoin_indc' },
-    { id:'tg_join',   pl:'✈️ Telegram',      desc:'Gabung group Telegram resmi INDOCOIN',           link:'https://t.me/+CzjgvwApDscwMGM1' },
-    { id:'fb_like',   pl:'👍 Facebook',      desc:'Like halaman Facebook resmi INDOCOIN',           link:'https://www.facebook.com/share/1NaUZBDiyS/' },
-    { id:'x_follow',  pl:'✖️ X / Twitter',   desc:'Follow @Indocoin_INDC di X (Twitter)',           link:'https://x.com/Indocoin_INDC' },
-    { id:'td_follow', pl:'🧵 Threads',       desc:'Follow @indocoin_indc di Threads',               link:'https://www.threads.com/@indocoin_indc' },
-    { id:'wa_share',  pl:'💬 WhatsApp',      desc:'Share ajakan bergabung INDOCOIN ke WA Group',    link:null },
-    { id:'sosmed_any',pl:'📣 Share Bebas',   desc:'Share konten INDOCOIN di platform manapun',      link:null },
-    { id:'ig_story',  pl:'📸 Instagram',     desc:'Share postingan INDOCOIN ke IG Story',           link:'https://www.instagram.com/indocoin_indc' },
-    { id:'fb_share',  pl:'👍 Facebook',      desc:'Share postingan INDOCOIN ke timeline Facebook',  link:'https://www.facebook.com/share/1NaUZBDiyS/' },
-    { id:'x_rt',      pl:'✖️ X / Twitter',   desc:'Retweet tweet terbaru @Indocoin_INDC',           link:'https://x.com/Indocoin_INDC' },
-    { id:'yt_komen',  pl:'📺 YouTube',       desc:'Komen kata "INDOCOIN" di video YouTube',         link:'https://youtube.com/@indocoin_defi_web3' },
-    { id:'qr_share',  pl:'📱 Share QR',      desc:'Screenshot QR wallet kamu dan share ke teman',   link:null },
+
+    // ── LEVEL 1: PALING MUDAH — tidak butuh login, cukup screenshot ──
+    { id:'wa_group',  pl:'💬 WhatsApp',    desc:'Share ajakan bergabung INDOCOIN ke WA Group kamu. Screenshot bukti kirim.',         link:null },
+    { id:'wa_story',  pl:'💬 WhatsApp',    desc:'Share info INDOCOIN ke WA Status/Story. Screenshot sebelum dikirim.',              link:null },
+    { id:'wa_chat',   pl:'💬 WhatsApp',    desc:'Kirim pesan ajakan INDOCOIN ke 3 kontak WA. Screenshot percakapan.',               link:null },
+    { id:'tg_join',   pl:'✈️ Telegram',   desc:'Gabung group Telegram INDOCOIN dan screenshot halaman grupnya.',                   link:'https://t.me/+CzjgvwApDscwMGM1' },
+    { id:'tg_share',  pl:'✈️ Telegram',   desc:'Forward info INDOCOIN ke grup atau kontak Telegram. Screenshot bukti.',            link:'https://t.me/+CzjgvwApDscwMGM1' },
+    { id:'qr_share',  pl:'📱 Share QR',   desc:'Screenshot QR wallet airdrop kamu dan share ke teman sebagai ajakan bergabung.',    link:null },
+
+    // ── LEVEL 2: MUDAH — buka halaman, screenshot, tidak butuh login ──
+    { id:'yt_visit',  pl:'📺 YouTube',     desc:'Buka channel INDOCOIN di YouTube dan screenshot halaman channelnya.',             link:'https://youtube.com/@indocoin_defi_web3' },
+    { id:'ig_visit',  pl:'📸 Instagram',   desc:'Buka profil @indocoin_indc di Instagram dan screenshot halaman profilnya.',       link:'https://www.instagram.com/indocoin_indc' },
+    { id:'fb_visit',  pl:'👍 Facebook',    desc:'Buka halaman Facebook INDOCOIN dan screenshot halaman utamanya.',                 link:'https://www.facebook.com/share/1NaUZBDiyS/' },
+    { id:'x_visit',   pl:'✖️ X/Twitter',   desc:'Buka profil @Indocoin_INDC di X dan screenshot halaman profilnya.',               link:'https://x.com/Indocoin_INDC' },
+    { id:'td_visit',  pl:'🧵 Threads',     desc:'Buka profil @indocoin_indc di Threads dan screenshot halaman profilnya.',         link:'https://www.threads.com/@indocoin_indc' },
+
+    // ── LEVEL 3: SEDANG — butuh akun, tapi mudah jika sudah login ──
+    { id:'ig_story',  pl:'📸 Instagram',   desc:'Share postingan INDOCOIN ke IG Story kamu. Screenshot sebelum diposting.',        link:'https://www.instagram.com/indocoin_indc' },
+    { id:'fb_share',  pl:'👍 Facebook',    desc:'Share postingan INDOCOIN ke timeline Facebook kamu. Screenshot bukti.',           link:'https://www.facebook.com/share/1NaUZBDiyS/' },
+    { id:'x_share',   pl:'✖️ X/Twitter',   desc:'Quote tweet atau repost @Indocoin_INDC. Screenshot bukti.',                       link:'https://x.com/Indocoin_INDC' },
+
+    // ── LEVEL 4: BUTUH LOGIN — YouTube Subscribe/Like/Komen ──
+    { id:'yt_sub',    pl:'📺 YouTube',     desc:'Subscribe channel INDOCOIN di YouTube. Screenshot bukti subscribe.',              link:'https://youtube.com/@indocoin_defi_web3' },
+    { id:'yt_like',   pl:'📺 YouTube',     desc:'Like video terbaru di channel INDOCOIN YouTube. Screenshot bukti.',               link:'https://youtube.com/@indocoin_defi_web3' },
+    { id:'yt_komen',  pl:'📺 YouTube',     desc:'Komen kata positif tentang INDOCOIN di video YouTube. Screenshot komentar.',      link:'https://youtube.com/@indocoin_defi_web3' },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
