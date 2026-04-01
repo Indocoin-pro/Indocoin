@@ -256,7 +256,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 <div class="page">
 
   <!-- NOT CONNECTED -->
-  <div class="not-connected" id="notConnected">
+  <div class="not-connected show" id="notConnected">
     <div class="nc-icon">💼</div>
     <div class="nc-title">WALLET BELUM TERHUBUNG</div>
     <div class="nc-desc">Hubungkan wallet untuk melihat<br>portfolio & aset INDC Anda</div>
@@ -1170,20 +1170,30 @@ async function loadAirdropWallet() {
     console.warn('Airdrop wallet error:', e);
     document.getElementById('awBalance').textContent     = '—';
     document.getElementById('awStreak').textContent      = '—';
-    document.getElementById('awTotalEarned').textContent = '—';
     document.getElementById('awRefBonus').textContent    = '—';
-    document.getElementById('awAvailableWD').textContent = '—';
-    document.getElementById('awWDStatus').textContent    = '⚠️ GAGAL MUAT';
+    if (document.getElementById('awWDStatus'))
+      document.getElementById('awWDStatus').textContent  = '⚠️ GAGAL MUAT';
     const card2 = document.getElementById('airdropWalletCard');
     if (card2) card2.style.display = 'block';
   }
 }
 
 /* ── AIRDROP CLAIM BATCH ── */
+// Pakai in-memory storage agar kompatibel dengan DApps wallet browser
+const _pendingClaimsMap = {};
+
 function getPendingClaims(walletKey) {
   try {
-    return JSON.parse(localStorage.getItem('indc_pending_claims_' + walletKey) || '[]');
-  } catch(e) { return []; }
+    // Coba localStorage dulu, fallback ke in-memory
+    const stored = localStorage.getItem('indc_pending_claims_' + walletKey);
+    if (stored) return JSON.parse(stored);
+  } catch(e) {}
+  return _pendingClaimsMap[walletKey] || [];
+}
+
+function setPendingClaims(walletKey, arr) {
+  _pendingClaimsMap[walletKey] = arr;
+  try { localStorage.setItem('indc_pending_claims_' + walletKey, JSON.stringify(arr)); } catch(e) {}
 }
 
 async function doAirdropClaim() {
