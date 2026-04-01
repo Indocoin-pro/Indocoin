@@ -671,7 +671,7 @@
     }
 
     if (!currentEdu || !currentPlat) {
-      const qs   = getAirdropQuestion(walletAddr, PAGE_ID, claimLevel);
+      const qs   = window.getAirdropQuestion(walletAddr, PAGE_ID, claimLevel);
       currentEdu  = qs.edukasi;
       currentPlat = qs.platform;
     }
@@ -818,7 +818,7 @@
 
   // ── ANSWER QUIZ ───────────────────────────────────────────
   window._awAnswer = function(type, soalId, idx) {
-    const result = checkAnswer(soalId, idx, claimLevel);
+    const result = window.checkAnswer(soalId, idx, claimLevel);
     const pfx    = type === 'edu' ? 'aw-edu' : 'aw-plat';
     const opts   = document.getElementById(pfx + '-opts');
     if (!opts) return;

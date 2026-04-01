@@ -5,7 +5,7 @@
 //  Level 1 (hal 1-15): 2 pilihan | Level 2 (hal 16-39): 4 pilihan
 // ============================================================
 
-const AIRDROP_QUESTIONS = {
+window.AIRDROP_QUESTIONS = {
 
   // ── LEVEL 1 — 2 Pilihan (Halaman 1-15) ──────────────────
   level1: [
@@ -197,7 +197,7 @@ const AIRDROP_QUESTIONS = {
 // ── UTILITY FUNCTIONS ────────────────────────────────────────
 
 // Ambil soal acak per sesi user (anti-repeat per wallet)
-function getAirdropQuestion(walletAddress, pageId, level) {
+window.getAirdropQuestion = function(walletAddress, pageId, level) {
   const pool = level === 1 ? AIRDROP_QUESTIONS.level1 : AIRDROP_QUESTIONS.level2;
   const storageKey = `indc_soal_${walletAddress.toLowerCase()}`;
 
@@ -237,7 +237,7 @@ function getAirdropQuestion(walletAddress, pageId, level) {
 }
 
 // Cek jawaban
-function checkAnswer(soalId, jawabanIndex, level) {
+window.checkAnswer = function(soalId, jawabanIndex, level) {
   const pool = [...AIRDROP_QUESTIONS.level1, ...AIRDROP_QUESTIONS.level2];
   const soal = pool.find(s => s.id === soalId);
   if (!soal) return { benar: false, penjelasan: "" };
@@ -247,4 +247,4 @@ function checkAnswer(soalId, jawabanIndex, level) {
   };
 }
 
-if (typeof module !== 'undefined') module.exports = AIRDROP_QUESTIONS;
+// window.AIRDROP_QUESTIONS sudah global
