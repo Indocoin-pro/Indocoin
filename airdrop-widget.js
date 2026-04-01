@@ -470,7 +470,7 @@
     panel.classList.add('open');
 
     // Tampilkan loading sementara
-    setContent('<div style="text-align:center;padding:16px;font-family:'Share Tech Mono',monospace;font-size:9px;color:#a89880;">⏳ Memuat...</div>');
+    setContent('<div style="text-align:center;padding:16px;font-family:monospace;font-size:9px;color:#a89880;">⏳ Memuat...</div>');
 
     // Pastikan wallet ada
     async function getWallet() {
