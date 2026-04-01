@@ -407,6 +407,31 @@
     { id:'qr_share',  pl:'📱 Share QR',      desc:'Screenshot QR wallet kamu dan share ke teman',   link:null },
   ];
 
+  // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
+  // Jika airdrop-questions.js belum dimuat, load sendiri secara dinamis
+  function ensureQuestions(callback) {
+    if (window.AIRDROP_QUESTIONS) {
+      callback();
+      return;
+    }
+    // Belum ada — load sekarang
+    const s = document.createElement('script');
+    // Deteksi base path otomatis
+    const base = (function() {
+      const scripts = document.querySelectorAll('script[src]');
+      for (let sc of scripts) {
+        if (sc.src && sc.src.includes('airdrop-widget')) {
+          return sc.src.replace('airdrop-widget.js', '');
+        }
+      }
+      return '';
+    })();
+    s.src = base + 'airdrop-questions.js';
+    s.onload  = () => { if (callback) callback(); };
+    s.onerror = () => console.warn('[AW] Gagal load airdrop-questions.js dari:', s.src);
+    document.head.appendChild(s);
+  }
+
   // ── BUILD HTML ────────────────────────────────────────────
   function buildWidget() {
     const wrap = document.createElement('div');
@@ -439,19 +464,21 @@
     const panel = document.getElementById('indc-aw-panel');
     if (panelOpen) {
       panel.classList.add('open');
-      // Coba baca wallet terbaru sebelum render
-      if (!walletAddr) {
-        const saved = localStorage.getItem('indocoin_wallet');
-        if (saved && window.ethereum) {
-          initWidget(saved).then(() => {
-            if (!walletAddr) renderConnectPrompt();
-          });
+      // Pastikan soal tersedia dulu, baru render
+      ensureQuestions(() => {
+        if (!walletAddr) {
+          const saved = localStorage.getItem('indocoin_wallet');
+          if (saved && window.ethereum) {
+            initWidget(saved).then(() => {
+              if (!walletAddr) renderConnectPrompt();
+            });
+          } else {
+            renderConnectPrompt();
+          }
         } else {
-          renderConnectPrompt();
+          renderWidget();
         }
-      } else {
-        renderWidget();
-      }
+      });
     } else {
       panel.classList.remove('open');
     }
@@ -653,9 +680,13 @@
   // ── RENDER: TASK PANEL ────────────────────────────────────
   function renderTaskPanel() {
     if (!window.AIRDROP_QUESTIONS) {
-      setContent(`<div style="text-align:center;padding:14px;font-family:'Share Tech Mono',monospace;font-size:9px;color:#c94040;">
-        ⚠️ airdrop-questions.js belum dimuat.<br>Pastikan script dimuat sebelum airdrop-widget.js
+      // Coba load lagi secara dinamis
+      setContent(`<div style="text-align:center;padding:14px;font-family:'Share Tech Mono',monospace;font-size:9px;color:#a89880;">
+        ⏳ Memuat bank soal...
       </div>`);
+      ensureQuestions(() => {
+        if (window.AIRDROP_QUESTIONS) renderTaskPanel();
+      });
       return;
     }
 
