@@ -18,7 +18,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .nav-brand{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
 .nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;}
 .wallet-chip{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);background:rgba(200,146,42,0.08);border:1px solid var(--border);border-radius:20px;padding:5px 12px;cursor:pointer;}
-.not-connected{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px 20px;text-align:center;}
+.not-connected{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px 20px;text-align:center;}.not-connected.show{display:flex;}
 .not-connected h2{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;}
 .not-connected p{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:24px;}
 .btn-connect{padding:12px 28px;background:linear-gradient(135deg,#5a3800,var(--gold));border:none;border-radius:8px;color:var(--text);font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;}
@@ -104,7 +104,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   </div>
   <div class="wallet-chip" id="walletChip" onclick="connectWallet()">CONNECT</div>
 </div>
-<div class="not-connected" id="notConnected">
+<div class="not-connected" id="notConnected" style="">
   <h2>WALLET BELUM TERHUBUNG</h2>
   <p>Hubungkan wallet untuk melihat aset kamu</p>
   <button class="btn-connect" onclick="connectWallet()">CONNECT WALLET</button>
@@ -239,44 +239,23 @@ window.connectWallet = async function connectWallet(){
 }
 
 // Auto-connect dengan retry — handle DApp browser yang inject ethereum telat
-async function tryAutoConnect() {
-  // Tunggu ethereum tersedia
-  if (!window.ethereum) {
-    setTimeout(tryAutoConnect, 500);
-    return;
+// Auto-connect PERSIS seperti original yang bekerja
+addEventListener("load", async () => {
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" });
+      if (accounts.length > 0) {
+        provider    = new ethers.BrowserProvider(window.ethereum);
+        signer      = await provider.getSigner();
+        userAddress = await signer.getAddress();
+        showConnected();
+        loadAllData();
+        return;
+      }
+    } catch(e) {}
   }
-  try {
-    // Coba eth_accounts dulu (silent)
-    let accs = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-
-    // Jika kosong tapi ada saved wallet, coba requestAccounts (auto-approve di DApp browser)
-    if (!accs.length) {
-      const saved = localStorage.getItem('indocoin_wallet');
-      if (saved) {
-        accs = await window.ethereum.request({method:'eth_requestAccounts'}).catch(()=>[]);
-      }
-    }
-
-    if (accs.length > 0) {
-      provider    = new ethers.BrowserProvider(window.ethereum);
-      const net   = await provider.getNetwork();
-      if (Number(net.chainId) !== BSC_CHAIN_NUM) {
-        try { await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN_ID}]}); provider = new ethers.BrowserProvider(window.ethereum); } catch(e) {}
-      }
-      signer      = await provider.getSigner();
-      userAddress = accs[0];
-      localStorage.setItem('indocoin_wallet', userAddress.toLowerCase());
-      showConnected();
-      loadAllData();
-    }
-  } catch(e) { console.warn('autoConnect:', e); }
-}
-
-// Jalankan saat load dan setelah 1 detik sebagai fallback
-window.addEventListener('load', () => {
-  tryAutoConnect();
-  setTimeout(tryAutoConnect, 1000);
-  setTimeout(tryAutoConnect, 3000);
+  // Tidak connect — tampilkan layar not connected
+  document.getElementById("notConnected").style.display = "flex";
 });
 
 function showConnected(){
