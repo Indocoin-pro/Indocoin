@@ -2,7 +2,7 @@
  * INDOCOIN AIRDROP WIDGET
  * File  : airdrop-widget.js
  * Inject ke semua halaman platform INDOCOIN
- * Contract: 0x3532c81dD148b46de0b04Aad9476C9093Ea19835 (BSC Mainnet)
+ * Contract: 0xA5eBf687F6a67E34D4FFde8c460cAE46834e3623 (BSC Mainnet)
  *
  * CARA PAKAI:
  * Tambahkan di setiap halaman sebelum </body>:
@@ -14,7 +14,7 @@
   'use strict';
 
   // ── CONFIG ────────────────────────────────────────────────
-  const AIRDROP_CONTRACT = '0x3532c81dD148b46de0b04Aad9476C9093Ea19835';
+  const AIRDROP_CONTRACT = '0xA5eBf687F6a67E34D4FFde8c460cAE46834e3623';
   const BSC_CHAIN_ID     = 56;
   const DECIMALS         = 9;
 
