@@ -234,39 +234,28 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
   <!-- CONNECTED CONTENT -->
   <div id="connectedContent" style="display:none">
 
+    <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;margin:16px 0 10px;display:flex;align-items:center;gap:10px;">WALLET UTAMA<span style="flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);"></span></div>
     <!-- PORTFOLIO HERO -->
-    <div class="portfolio-hero">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;">
-        <!-- KIRI: Info nilai -->
-        <div style="text-align:center;border-right:1px solid var(--border);padding-right:12px;">
-          <div class="ph-label">Total Portfolio</div>
-          <div class="ph-total-usd" id="totalUSD">$0.00</div>
-          <div class="ph-total-idr" id="totalIDR">≈ Rp 0</div>
-          <div class="ph-pnl-row" style="justify-content:center;margin-top:8px;">
-            <span class="ph-pnl-badge up" id="pnlBadge">▲ +0.00% (24J)</span>
-          </div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px;" id="pnlUSD">+$0.00</div>
-        </div>
-        <!-- KANAN: Sparkline 7 hari -->
-        <div style="text-align:center;">
-          <div class="ph-label">Grafik 7 Hari</div>
-          <canvas id="sparkline" height="70" style="width:100%;max-width:140px;height:70px;"></canvas>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;" id="sparkTrend">Memuat...</div>
-        </div>
+    <div class="card" style="margin-bottom:14px;">
+      <!-- Total nilai -->
+      <div style="padding:16px 16px 12px;border-bottom:1px solid var(--border);">
+        <div class="ph-total-usd" id="totalUSD" style="font-size:28px;">$0.00</div>
+        <div class="ph-total-idr" id="totalIDR" style="margin-top:2px;">≈ Rp 0</div>
+        <!-- hidden IDs untuk JS -->
+        <span id="pnlBadge" style="display:none;"></span>
+        <span id="pnlUSD" style="display:none;"></span>
+        <canvas id="sparkline" style="display:none;"></canvas>
+        <span id="sparkTrend" style="display:none;"></span>
+        <span id="statBNB" style="display:none;"></span>
+        <span id="statINDC" style="display:none;"></span>
+        <span id="statNet" style="display:none;"></span>
       </div>
-      <div class="ph-stats">
-        <div style="text-align:left">
-          <div class="ph-stat-label">BNB</div>
-          <div class="ph-stat-val" style="color:var(--cyan)" id="statBNB">—</div>
-        </div>
-        <div style="text-align:center">
-          <div class="ph-stat-label">INDC</div>
-          <div class="ph-stat-val" style="color:var(--gold)" id="statINDC">—</div>
-        </div>
-        <div style="text-align:right">
-          <div class="ph-stat-label">Jaringan</div>
-          <div class="ph-stat-val" style="color:var(--green)" id="statNet">BSC</div>
-        </div>
+      <!-- Token utama: BNB, USDT, INDC -->
+      <div id="tokenListMain"></div>
+      <!-- Lihat semua aset -->
+      <div id="tokenListAll" style="display:none;"></div>
+      <div style="padding:10px 16px;text-align:center;" onclick="toggleAllAssets()" id="toggleBtn">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:1px;">▸ Lihat semua aset</span>
       </div>
     </div>
 
@@ -284,14 +273,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       </div>
     </div>
 
-    <!-- DAFTAR TOKEN -->
-    <div class="card">
-      <div class="card-head">
-        <div class="card-title"><div class="title-dot" style="background:var(--gold);box-shadow:0 0 5px var(--gold)"></div>DAFTAR ASET</div>
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--green);display:flex;align-items:center;gap:4px"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;animation:twinkle 1.5s infinite"></span>BSC Live</span>
-      </div>
-      <div id="tokenList"></div>
-    </div>
+    <!-- DAFTAR TOKEN dipindah ke dalam WALLET UTAMA card -->
+    <div id="tokenList" style="display:none;"></div>
 
     <!-- TOKEN TERKUNCI -->
     <div class="card">
@@ -661,19 +644,53 @@ function renderTokenList(bnbPrice, indcPrice, bnbChg) {
     { sym:"INDC", name:"Indocoin", bal:indcBalance, price:indcPrice, chg:0, col:"#facc1522", fc:"#facc15", icon:"I", usd:indcBalance*indcPrice },
     { sym:"BNB",  name:"BNB Chain", bal:bnbBalance,  price:bnbPrice,  chg:bnbChg, col:"#f0b90b22", fc:"#f0b90b", icon:"B", usd:bnbBalance*bnbPrice },
   ];
-  document.getElementById("tokenList").innerHTML = tokens.map(t => `
-    <div class="token-row">
-      <div class="token-logo" style="background:${t.col};color:${t.fc}">${t.icon}</div>
-      <div class="token-info">
-        <div class="token-sym">${t.sym}</div>
-        <div class="token-name">${t.name} · $${t.price < 0.01 ? t.price.toFixed(6) : t.price.toFixed(2)}</div>
-      </div>
-      <div class="token-right">
-        <div class="token-bal">${t.bal.toLocaleString("id",{maximumFractionDigits:4})}</div>
-        <div class="token-usd">$${t.usd.toFixed(2)}</div>
-        <div class="token-chg ${t.chg>=0?'chg-up':'chg-down'}">${t.chg>=0?'▲ +':'▼ '}${t.chg.toFixed(2)}%</div>
-      </div>
-    </div>`).join("");
+  // Render token row HTML
+function renderTokenRow(t) {
+  return `<div class="token-row">
+    <div class="token-logo" style="background:${t.col};color:${t.fc}">${t.icon}</div>
+    <div class="token-info">
+      <div class="token-sym">${t.sym}</div>
+      <div class="token-name">${t.name}</div>
+    </div>
+    <div class="token-right">
+      <div class="token-bal" style="color:var(--gold2);">${t.bal.toLocaleString("id",{maximumFractionDigits:4})}</div>
+      <div class="token-usd">$${t.usd.toFixed(2)}</div>
+    </div>
+  </div>`;
+}
+
+// Token utama (BNB, USDT, INDC) — selalu tampil
+const mainSyms = ['BNB','USDT','INDC'];
+const mainTokens = tokens.filter(t => mainSyms.includes(t.sym));
+const otherTokens = tokens.filter(t => !mainSyms.includes(t.sym) && t.bal > 0);
+
+const mainEl = document.getElementById('tokenListMain');
+const allEl  = document.getElementById('tokenListAll');
+if (mainEl) mainEl.innerHTML = mainTokens.map(renderTokenRow).join('');
+if (allEl)  allEl.innerHTML  = otherTokens.map(renderTokenRow).join('');
+
+// Update toggle button
+const toggleBtn = document.getElementById('toggleBtn');
+if (toggleBtn) {
+  if (otherTokens.length === 0) toggleBtn.style.display = 'none';
+  else toggleBtn.style.display = 'block';
+}
+
+// tokenList lama — tetap update (hidden, untuk kompabilitas)
+const oldList = document.getElementById('tokenList');
+if (oldList) oldList.innerHTML = tokens.filter(t => t.bal > 0).map(renderTokenRow).join('');
+}
+
+// Toggle lihat semua aset
+function toggleAllAssets() {
+  const allEl = document.getElementById('tokenListAll');
+  const btn   = document.getElementById('toggleBtn');
+  if (!allEl) return;
+  const open = allEl.style.display === 'block';
+  allEl.style.display = open ? 'none' : 'block';
+  if (btn) btn.innerHTML = open
+    ? '<span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:1px;">▸ Lihat semua aset</span>'
+    : '<span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;letter-spacing:1px;">▴ Sembunyikan</span>';
 }
 
 /* ═══ RING GLOW CHART ═══ */
