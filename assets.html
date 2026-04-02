@@ -259,7 +259,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       </div>
     </div>
 
-    <!-- ALOKASI ASET -->
+    <div style="display:none;"><!-- ALOKASI ASET hidden -->
     <div class="card">
       <div class="card-head">
         <div class="card-title"><div class="title-dot" style="background:var(--violet);box-shadow:0 0 5px var(--violet)"></div>ALOKASI ASET</div>
@@ -272,6 +272,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <div class="pie-legend" id="pieLegend"></div>
       </div>
     </div>
+    </div><!-- end hidden alokasi -->
 
     <!-- DAFTAR TOKEN dipindah ke dalam WALLET UTAMA card -->
     <div id="tokenList" style="display:none;"></div>
@@ -469,7 +470,7 @@ const ERC20_ABI = [
 ];
 
 let provider, signer, userAddress;
-let bnbBalance = 0, indcBalance = 0;
+let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
 /* ═══ WALLET ═══ */
@@ -512,6 +513,17 @@ async function loadWalletData() {
     updateRanking(indcBalance, supply);
   } catch(e) { console.error("INDC error:", e); }
 
+  // USDT BEP-20
+  try {
+    const usdtContract = new ethers.Contract(
+      "0x55d398326f99059fF775485246999027B3197955",
+      ["function balanceOf(address) view returns (uint256)"],
+      provider
+    );
+    const usdtRaw = await usdtContract.balanceOf(userAddress);
+    usdtBalance   = parseFloat(ethers.formatUnits(usdtRaw, 18));
+  } catch(e) { console.error("USDT error:", e); }
+
   // BNB price + kurs IDR dari CoinGecko
   let bnbPrice = 580;
   try {
@@ -539,7 +551,8 @@ async function loadWalletData() {
 function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
   const bnbUSD   = bnbBalance * bnbPrice;
   const indcUSD  = indcBalance * indcPrice;
-  const total    = bnbUSD + indcUSD;
+  const usdtUSD  = usdtBalance;
+  const total    = bnbUSD + indcUSD + usdtUSD;
   const totalIDR = total * USD_TO_IDR;
 
   document.getElementById("totalUSD").textContent = "$" + total.toLocaleString("id", {maximumFractionDigits:2});
@@ -641,8 +654,9 @@ async function updateRanking(indc, supply) {
 /* ═══ TOKEN LIST ═══ */
 function renderTokenList(bnbPrice, indcPrice, bnbChg) {
   const tokens = [
-    { sym:"INDC", name:"Indocoin", bal:indcBalance, price:indcPrice, chg:0, col:"#facc1522", fc:"#facc15", icon:"I", usd:indcBalance*indcPrice },
-    { sym:"BNB",  name:"BNB Chain", bal:bnbBalance,  price:bnbPrice,  chg:bnbChg, col:"#f0b90b22", fc:"#f0b90b", icon:"B", usd:bnbBalance*bnbPrice },
+    { sym:"BNB",  name:"BNB Smart Chain", bal:bnbBalance,  price:bnbPrice,  chg:bnbChg, col:"#f0b90b22", fc:"#f0b90b", icon:"B", usd:bnbBalance*bnbPrice },
+    { sym:"USDT", name:"BEP-20",          bal:usdtBalance, price:1,         chg:0,      col:"#26a17b22", fc:"#26a17b", icon:"₮", usd:usdtBalance },
+    { sym:"INDC", name:"Indocoin · BEP-20", bal:indcBalance, price:indcPrice, chg:0,    col:"#facc1522", fc:"#facc15", icon:"I", usd:indcBalance*indcPrice },
   ];
   // Render token row HTML
 // Render token ke tokenListMain (BNB/USDT/INDC) dan tokenListAll (lainnya)
