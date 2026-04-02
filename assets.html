@@ -645,43 +645,38 @@ function renderTokenList(bnbPrice, indcPrice, bnbChg) {
     { sym:"BNB",  name:"BNB Chain", bal:bnbBalance,  price:bnbPrice,  chg:bnbChg, col:"#f0b90b22", fc:"#f0b90b", icon:"B", usd:bnbBalance*bnbPrice },
   ];
   // Render token row HTML
-function renderTokenRow(t) {
-  return `<div class="token-row">
-    <div class="token-logo" style="background:${t.col};color:${t.fc}">${t.icon}</div>
-    <div class="token-info">
-      <div class="token-sym">${t.sym}</div>
-      <div class="token-name">${t.name}</div>
-    </div>
-    <div class="token-right">
-      <div class="token-bal" style="color:var(--gold2);">${t.bal.toLocaleString("id",{maximumFractionDigits:4})}</div>
-      <div class="token-usd">$${t.usd.toFixed(2)}</div>
-    </div>
-  </div>`;
+// Render token ke tokenListMain (BNB/USDT/INDC) dan tokenListAll (lainnya)
+  const mainSyms = ['BNB','USDT','INDC'];
+  const mainTokens = tokens.filter(t => mainSyms.includes(t.sym));
+  const otherTokens = tokens.filter(t => !mainSyms.includes(t.sym) && t.bal > 0);
+
+  function mkRow(t) {
+    return `<div class="token-row">
+      <div class="token-logo" style="background:${t.col};color:${t.fc}">${t.icon}</div>
+      <div class="token-info">
+        <div class="token-sym">${t.sym}</div>
+        <div class="token-name">${t.name}</div>
+      </div>
+      <div class="token-right">
+        <div class="token-bal">${t.bal.toLocaleString("id",{maximumFractionDigits:4})}</div>
+        <div class="token-usd">$${t.usd.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }
+
+  const mainEl = document.getElementById('tokenListMain');
+  const allEl  = document.getElementById('tokenListAll');
+  if (mainEl) mainEl.innerHTML = mainTokens.map(mkRow).join('');
+  if (allEl)  allEl.innerHTML  = otherTokens.length > 0 ? otherTokens.map(mkRow).join('') : '';
+
+  const toggleBtn = document.getElementById('toggleBtn');
+  if (toggleBtn) toggleBtn.style.display = otherTokens.length > 0 ? 'block' : 'none';
+
+  // tokenList lama tetap diisi (hidden)
+  const oldList = document.getElementById('tokenList');
+  if (oldList) oldList.innerHTML = tokens.filter(t => t.bal > 0).map(mkRow).join('');
 }
 
-// Token utama (BNB, USDT, INDC) — selalu tampil
-const mainSyms = ['BNB','USDT','INDC'];
-const mainTokens = tokens.filter(t => mainSyms.includes(t.sym));
-const otherTokens = tokens.filter(t => !mainSyms.includes(t.sym) && t.bal > 0);
-
-const mainEl = document.getElementById('tokenListMain');
-const allEl  = document.getElementById('tokenListAll');
-if (mainEl) mainEl.innerHTML = mainTokens.map(renderTokenRow).join('');
-if (allEl)  allEl.innerHTML  = otherTokens.map(renderTokenRow).join('');
-
-// Update toggle button
-const toggleBtn = document.getElementById('toggleBtn');
-if (toggleBtn) {
-  if (otherTokens.length === 0) toggleBtn.style.display = 'none';
-  else toggleBtn.style.display = 'block';
-}
-
-// tokenList lama — tetap update (hidden, untuk kompabilitas)
-const oldList = document.getElementById('tokenList');
-if (oldList) oldList.innerHTML = tokens.filter(t => t.bal > 0).map(renderTokenRow).join('');
-}
-
-// Toggle lihat semua aset
 function toggleAllAssets() {
   const allEl = document.getElementById('tokenListAll');
   const btn   = document.getElementById('toggleBtn');
