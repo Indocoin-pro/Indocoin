@@ -332,6 +332,47 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <!-- DAFTAR TOKEN dipindah ke dalam WALLET UTAMA card -->
     <div id="tokenList" style="display:none;"></div>
 
+    <!-- WALLET GAME -->
+    <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;margin:16px 0 10px;display:flex;align-items:center;gap:10px;">WALLET GAME<span style="flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);"></span></div>
+    <div class="card" id="walletGameCard" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 16px 14px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">SALDO GAME VAULT</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--gold2);line-height:1;" id="vaultBalDisplay">—</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;" id="vaultUsdDisplay">≈ $0.00</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">ITEM DIMILIKI</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--green);line-height:1;">—</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;">item aktif</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px;">
+        <button onclick="openVaultModal('deposit')" style="padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">DEPOSIT</button>
+        <button onclick="openVaultModal('withdraw')" style="padding:12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">WITHDRAW</button>
+      </div>
+    </div>
+
+    <!-- MODAL VAULT -->
+    <div id="vaultModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:500;align-items:flex-end;justify-content:center;">
+      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:18px 18px 0 0;padding:24px 20px;width:100%;max-width:480px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:6px;" id="vaultModalTitle">DEPOSIT KE VAULT</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:16px;" id="vaultModalSub">Saldo INDC: —</div>
+        <input id="vaultAmountInput" type="number" placeholder="Jumlah INDC..."
+          style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;margin-bottom:10px;outline:none;">
+        <div id="vaultBurnNote" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--red);margin-bottom:14px;display:none;">⚠️ Burn 2% otomatis — deposit 1000 INDC → 980 masuk vault</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:14px;" id="vaultModalStatus"></div>
+        <button onclick="confirmVault()" id="vaultConfirmBtn"
+          style="width:100%;padding:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:8px;">
+          KONFIRMASI
+        </button>
+        <button onclick="closeVaultModal()"
+          style="width:100%;padding:11px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Orbitron',sans-serif;font-size:10px;cursor:pointer;">
+          BATAL
+        </button>
+      </div>
+    </div>
+
     <!-- TOKEN TERKUNCI -->
     <div class="card">
       <div class="card-head">
@@ -1094,6 +1135,116 @@ async function loadAirdropWallet() {
     if (card2) card2.style.display = 'block';
   }
 }
+
+
+// ══ VAULT GAME ════════════════════════════════════════════
+const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const INDC_CA_V = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
+const VAULT_ABI_V = [
+  "function deposit(uint256 amount) external",
+  "function withdraw(uint256 amount) external",
+  "function getGameBalance(address) external view returns (uint256)"
+];
+const INDC_ABI_V = [
+  "function balanceOf(address) external view returns (uint256)",
+  "function allowance(address,address) external view returns (uint256)",
+  "function approve(address,uint256) external returns (bool)"
+];
+
+let vaultMode = "deposit"; // "deposit" atau "withdraw"
+
+async function loadVaultBalance() {
+  try {
+    if (!provider || !userAddress) return;
+    const vc  = new ethers.Contract(VAULT_CA, VAULT_ABI_V, provider);
+    const raw = await vc.getGameBalance(userAddress);
+    const bal = parseFloat(ethers.formatUnits(raw, 9));
+    const el  = document.getElementById("vaultBalDisplay");
+    const eu  = document.getElementById("vaultUsdDisplay");
+    if (el) el.textContent = bal.toLocaleString("id", {maximumFractionDigits:2}) + " INDC";
+    if (eu) eu.textContent = "≈ $" + (bal * 0.003).toFixed(2);
+  } catch(e) { console.warn("Vault balance error:", e); }
+}
+
+function openVaultModal(mode) {
+  vaultMode = mode;
+  const overlay = document.getElementById("vaultModalOverlay");
+  const title   = document.getElementById("vaultModalTitle");
+  const sub     = document.getElementById("vaultModalSub");
+  const burn    = document.getElementById("vaultBurnNote");
+  const input   = document.getElementById("vaultAmountInput");
+  const status  = document.getElementById("vaultModalStatus");
+
+  if (!overlay) return;
+  input.value   = "";
+  status.textContent = "";
+
+  if (mode === "deposit") {
+    title.textContent = "DEPOSIT KE VAULT";
+    sub.textContent   = "Saldo INDC: " + indcBalance.toLocaleString("id", {maximumFractionDigits:2});
+    burn.style.display = "block";
+    document.getElementById("vaultConfirmBtn").textContent = "KONFIRMASI DEPOSIT";
+  } else {
+    title.textContent = "WITHDRAW DARI VAULT";
+    const vb = document.getElementById("vaultBalDisplay");
+    sub.textContent   = "Saldo Vault: " + (vb ? vb.textContent : "—");
+    burn.style.display = "none";
+    document.getElementById("vaultConfirmBtn").textContent = "KONFIRMASI WITHDRAW";
+  }
+
+  overlay.style.display = "flex";
+}
+
+function closeVaultModal() {
+  const overlay = document.getElementById("vaultModalOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+async function confirmVault() {
+  const val = parseFloat(document.getElementById("vaultAmountInput").value);
+  const status = document.getElementById("vaultModalStatus");
+  const btn    = document.getElementById("vaultConfirmBtn");
+
+  if (!val || val <= 0) { status.textContent = "❌ Masukkan jumlah INDC!"; return; }
+  if (!signer) { status.textContent = "❌ Connect wallet dulu!"; return; }
+
+  btn.disabled = true;
+  const amount = ethers.parseUnits(val.toString(), 9);
+
+  try {
+    const vaultC = new ethers.Contract(VAULT_CA, VAULT_ABI_V, signer);
+    const indcC  = new ethers.Contract(INDC_CA_V, INDC_ABI_V, signer);
+
+    if (vaultMode === "deposit") {
+      status.textContent = "⏳ Cek allowance...";
+      const allowance = await indcC.allowance(userAddress, VAULT_CA);
+      if (allowance < amount) {
+        status.textContent = "⏳ Approve INDC — konfirmasi di wallet...";
+        const txApprove = await indcC.approve(VAULT_CA, ethers.MaxUint256);
+        await txApprove.wait();
+      }
+      status.textContent = "⏳ Deposit — konfirmasi di wallet...";
+      const tx = await vaultC.deposit(amount);
+      status.textContent = "⏳ Menunggu konfirmasi blockchain...";
+      await tx.wait();
+      status.textContent = "✅ Deposit berhasil!";
+    } else {
+      status.textContent = "⏳ Withdraw — konfirmasi di wallet...";
+      const tx = await vaultC.withdraw(amount);
+      status.textContent = "⏳ Menunggu konfirmasi blockchain...";
+      await tx.wait();
+      status.textContent = "✅ Withdraw berhasil!";
+    }
+
+    await loadVaultBalance();
+    setTimeout(() => closeVaultModal(), 2000);
+
+  } catch(e) {
+    status.textContent = "❌ " + (e.reason || e.message || "Transaksi gagal").slice(0, 60);
+  }
+  btn.disabled = false;
+}
+// ══════════════════════════════════════════════════════════
 
 /* ── MODAL HELPERS ── */
 function openModal(type) {
