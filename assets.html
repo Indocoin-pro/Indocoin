@@ -276,7 +276,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 14px;border-bottom:1px solid var(--border);">
         <div style="text-align:center;">
           <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">TERKUMPUL</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;color:var(--gold2);line-height:1;">0</div>
+          <div id="awTerkumpul" style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;color:var(--gold2);line-height:1;">0</div>
           <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;">INDC</div>
         </div>
         <div style="font-size:22px;color:rgba(200,146,42,0.3);">→</div>
@@ -1050,6 +1050,7 @@ async function renderTX() {
 
 /* ═══ SHOW CONNECTED ═══ */
 function showConnected() {
+  setTimeout(updateTerkumpul, 500);
   document.getElementById("notConnected").classList.remove("show");
   document.getElementById("connectedContent").style.display = "block";
 }
@@ -1146,6 +1147,34 @@ async function loadAirdropWallet() {
 }
 
 
+
+// ── TERKUMPUL — baca dari localStorage ────────────────────
+function updateTerkumpul() {
+  const wk = (userAddress || localStorage.getItem("indocoin_wallet") || "").toLowerCase();
+  if (!wk) return;
+  const pending = JSON.parse(localStorage.getItem("indc_pending_claims_" + wk) || "[]");
+  const count   = pending.length;
+  const el = document.getElementById("awTerkumpul");
+  if (el) el.textContent = count;
+
+  // Update tombol CLAIM
+  const btn = document.getElementById("awClaimBtn");
+  if (btn) {
+    btn.disabled = count === 0;
+    btn.style.opacity = count > 0 ? "1" : "0.5";
+    btn.textContent = count > 0
+      ? "CLAIM KE WALLET · " + count + " INDC"
+      : "CLAIM KE WALLET";
+  }
+}
+
+// Panggil setiap 3 detik
+setInterval(updateTerkumpul, 3000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) updateTerkumpul();
+});
+// ──────────────────────────────────────────────────────────
+
 // ══ VAULT GAME ════════════════════════════════════════════
 const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
 const INDC_CA_V = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
@@ -1164,8 +1193,8 @@ let vaultMode = "deposit"; // "deposit" atau "withdraw"
 
 async function loadVaultBalance() {
   try {
-    if (!provider || !userAddress) { console.warn("Vault: provider/userAddress not ready"); return; }
-    const vc  = new ethers.Contract(VAULT_CA, VAULT_ABI_V, signer || provider);
+    if (!signer || !userAddress) return;
+    const vc  = new ethers.Contract(VAULT_CA, VAULT_ABI_V, signer);
     const raw = await vc.getGameBalance(userAddress);
     const bal = parseFloat(ethers.formatUnits(raw, 9));
     const el  = document.getElementById("vaultBalDisplay");
@@ -1174,6 +1203,12 @@ async function loadVaultBalance() {
     if (eu) eu.textContent = "≈ $" + (bal * 0.003).toFixed(2);
   } catch(e) { console.warn("Vault balance error:", e); }
 }
+
+// Auto-refresh vault setiap 15 detik + saat tab aktif
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && userAddress) loadVaultBalance();
+});
+setInterval(() => { if (userAddress) loadVaultBalance(); }, 15000);
 
 function openVaultModal(mode) {
   vaultMode = mode;
