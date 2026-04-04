@@ -576,15 +576,29 @@ async function loadUserInfo() {
     document.getElementById('userBalance').textContent = bal.toFixed(2) + ' INDC';
     document.getElementById('streakVal').textContent   = streak + ' HARI' + (streak >= 7 ? ' 🔥' : '');
 
-    // WD status
+    // WD status — cek dari contract langsung (global setting)
     const wdDot  = document.getElementById('wdDot');
     const wdStat = document.getElementById('wdStatus');
-    if (canWD) {
-      wdDot.classList.add('open');
-      wdStat.textContent = 'TERBUKA 🟢';
-      wdStat.style.color = 'var(--green)';
-    } else {
-      wdStat.textContent = 'BELUM DIBUKA';
+    try {
+      const wdOpen = await contract.withdrawOpen();
+      if (wdOpen) {
+        wdDot.classList.add('open');
+        wdStat.textContent = 'TERBUKA 🟢';
+        wdStat.style.color = 'var(--green)';
+      } else {
+        wdDot.classList.remove('open');
+        wdStat.textContent = 'BELUM DIBUKA';
+        wdStat.style.color = '';
+      }
+    } catch(e) {
+      // Fallback ke canWD dari getUserInfo
+      if (canWD) {
+        wdDot.classList.add('open');
+        wdStat.textContent = 'TERBUKA 🟢';
+        wdStat.style.color = 'var(--green)';
+      } else {
+        wdStat.textContent = 'BELUM DIBUKA';
+      }
     }
   } catch(e) { console.warn('User info error:', e); }
 }
