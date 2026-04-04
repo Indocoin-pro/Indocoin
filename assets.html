@@ -210,7 +210,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
       <!-- CLAIM Button -->
       <div style="padding:12px 14px;border-bottom:1px solid var(--border2);">
-        <button id="awClaimBtn" style="width:100%;padding:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;">
+        <button id="awClaimBtn" onclick="doClaimBatch()" style="width:100%;padding:13px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;">
           CLAIM KE WALLET
         </button>
       </div>
@@ -1028,6 +1028,63 @@ function updateTerkumpul() {
     btn.textContent = count > 0
       ? "CLAIM KE WALLET · " + count + " INDC"
       : "CLAIM KE WALLET";
+  }
+}
+
+// ── CLAIM BATCH ke blockchain ─────────────────────────────
+const AIRDROP_CB  = '0xA5eBf687F6a67E34D4FFde8c460cAE46834e3623';
+const AIRDROP_ABI_CB = [
+  "function claimBatch(uint256[] calldata pageIds) external",
+  "function hasClaimedPages(address user, uint256[] calldata pageIds) external view returns (bool[] memory)"
+];
+
+async function doClaimBatch() {
+  const wk = (userAddress || localStorage.getItem("indocoin_wallet") || "").toLowerCase();
+  if (!wk) { alert("Connect wallet dulu!"); return; }
+
+  const pending = JSON.parse(localStorage.getItem("indc_pending_claims_" + wk) || "[]");
+  if (pending.length === 0) { alert("Tidak ada yang perlu di-claim!"); return; }
+
+  const btn = document.getElementById("awClaimBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ MEMPROSES...";
+
+  try {
+    // Pastikan signer tersedia
+    if (!signer) {
+      const p = new ethers.BrowserProvider(window.ethereum);
+      signer = await p.getSigner();
+    }
+
+    const contract = new ethers.Contract(AIRDROP_CB, AIRDROP_ABI_CB, signer);
+
+    // Filter pageIds yang belum diklaim di blockchain
+    const pageIds = pending.map(p => BigInt(p));
+    
+    btn.textContent = "⏳ KIRIM TRANSAKSI...";
+    const tx = await contract.claimBatch(pageIds);
+    
+    btn.textContent = "⏳ MENUNGGU KONFIRMASI...";
+    await tx.wait();
+
+    // Hapus pending dari localStorage setelah berhasil
+    localStorage.removeItem("indc_pending_claims_" + wk);
+
+    btn.textContent = "✅ BERHASIL!";
+    alert("✅ " + pending.length + " INDC berhasil dipindahkan ke wallet airdrop!");
+    
+    // Refresh data
+    updateTerkumpul();
+    setTimeout(() => {
+      btn.disabled = false;
+      updateTerkumpul();
+    }, 2000);
+
+  } catch(e) {
+    btn.disabled = false;
+    updateTerkumpul();
+    const msg = e.reason || e.message || "Transaksi gagal";
+    alert("❌ " + msg.slice(0, 100));
   }
 }
 
