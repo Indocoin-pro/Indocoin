@@ -861,6 +861,36 @@ function onPriceUpdate(sym, price, pct, high, low, vol) {
 // Tidak lagi buka 4-5 WS sekaligus — lebih stabil, lebih cepat
 
 const wsState = {}; // { sym: { ws, src, alive, retries, hbTimer, reconnTimer } }
+let railwaySharedWS = null; // Satu koneksi Railway untuk semua token
+
+function connectRailwayShared() {
+  if (railwaySharedWS && railwaySharedWS.readyState === WebSocket.OPEN) return;
+  try {
+    railwaySharedWS = new WebSocket(RAILWAY_WS_URL);
+    railwaySharedWS.onopen = () => {
+      console.log("✅ Railway shared WS connected");
+      // Mark all railway states as alive
+      Object.values(wsState).forEach(st => { if (st) st.alive = true; });
+    };
+    railwaySharedWS.onmessage = e => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.sym && d.price > 0) {
+          const st = wsState[d.sym];
+          if (st) st.alive = true;
+          onPriceUpdate(d.sym, d.price, d.pct || 0, d.high || 0, d.low || 0, 0);
+        }
+      } catch(err) {}
+    };
+    railwaySharedWS.onerror = () => {};
+    railwaySharedWS.onclose = () => {
+      railwaySharedWS = null;
+      setTimeout(connectRailwayShared, 3000);
+    };
+  } catch(e) {
+    setTimeout(connectRailwayShared, 5000);
+  }
+}
 // Railway = sumber utama (server kita sendiri, paling stabil)
 // Binance/Bybit/OKX = fallback otomatis kalau Railway down
 const WS_SOURCES = ["railway","binance","bybit","okx"];
@@ -895,18 +925,20 @@ function connectWS(sym) {
   let url, onOpen, onMsg;
 
   if (src === "railway") {
-    // Railway server kita sendiri — broadcast semua token sekaligus
-    url   = RAILWAY_WS_URL;
-    onMsg = e => {
-      try {
-        const d = JSON.parse(e.data);
-        // Server kirim: { sym, price, pct, high, low }
-        if (d.sym && d.price > 0) {
-          st.alive = true;
-          onPriceUpdate(d.sym, d.price, d.pct || 0, d.high || 0, d.low || 0, 0);
-        }
-      } catch(err) {}
-    };
+    // Gunakan shared Railway WS — satu koneksi untuk semua token
+    connectRailwayShared();
+    // Set heartbeat untuk cek apakah data diterima
+    if (st.hbTimer) clearInterval(st.hbTimer);
+    st.alive = false;
+    st.hbTimer = setInterval(() => {
+      if (!st.alive) {
+        console.warn("⚠️ Railway no data, switching to Binance...");
+        st.src++;
+        connectWS(sym);
+      }
+      st.alive = false;
+    }, 8000);
+    return; // Tidak buka WS baru, pakai shared
   } else if (src === "binance") {
     // Binance: update setiap ~1 detik, sangat reliable
     url   = `wss://stream.binance.com:9443/ws/${pair}@ticker`;
@@ -1806,6 +1838,7 @@ function showToast(msg,color="#10b981") {
 // ═══ INIT ═════════════════════════════════════════════════
 window.addEventListener("load", async()=>{
   // Start WebSocket DULU — ini sumber harga utama (< 1 detik)
+  connectRailwayShared(); // Satu koneksi Railway untuk semua token
   startTickerWS("BNB");
   startTickerWS("BTC");
 
