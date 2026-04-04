@@ -408,7 +408,6 @@ async function connectWallet() {
     userAddress = await signer.getAddress();
     await loadWalletData();
     showConnected();
-    checkAdmin();
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -1365,81 +1364,5 @@ if("serviceWorker" in navigator){
 
   <script src="airdrop-questions.js"></script>
   <script src="airdrop-widget.js"></script>
-
-<!-- ═══ ADMIN PANEL ═══════════════════════════════════════ -->
-<style>
-#adminPanel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(180deg,#0a0700,#0d0a02);border-top:2px solid var(--gold2);padding:16px;max-height:80vh;overflow-y:auto;}
-.adm-title{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold2);letter-spacing:3px;margin-bottom:12px;text-align:center;}
-.adm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
-.adm-card{background:rgba(200,146,42,0.06);border:1px solid rgba(200,146,42,0.2);border-radius:10px;padding:10px;}
-.adm-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:4px;}
-.adm-val{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold2);font-weight:700;}
-.adm-btn{width:100%;padding:10px;background:linear-gradient(135deg,#5a3800,var(--gold2));color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;cursor:pointer;margin-bottom:6px;}
-.adm-btn.red{background:linear-gradient(135deg,#5a0000,#c94040);color:#fff;}
-.adm-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
-#adminToggle{position:fixed;bottom:70px;right:12px;z-index:9998;background:rgba(200,146,42,0.15);border:1px solid var(--gold2);border-radius:50%;width:36px;height:36px;display:none;align-items:center;justify-content:center;cursor:pointer;font-size:16px;}
-</style>
-
-<div id="adminToggle" onclick="document.getElementById('adminPanel').style.display='block'">⚙️</div>
-
-<div id="adminPanel">
-  <button class="adm-close" onclick="document.getElementById('adminPanel').style.display='none'">✕</button>
-  <div class="adm-title">⚙️ ADMIN PANEL</div>
-  <div class="adm-grid">
-    <div class="adm-card">
-      <div class="adm-lbl">TOTAL HOLDER</div>
-      <div class="adm-val" id="admHolders">-</div>
-    </div>
-    <div class="adm-card">
-      <div class="adm-lbl">TOTAL SUPPLY</div>
-      <div class="adm-val" id="admSupply">-</div>
-    </div>
-    <div class="adm-card">
-      <div class="adm-lbl">CONTRACT INDC</div>
-      <div class="adm-val" style="font-size:7px;word-break:break-all;" id="admContract">-</div>
-    </div>
-    <div class="adm-card">
-      <div class="adm-lbl">NETWORK</div>
-      <div class="adm-val">BSC Mainnet</div>
-    </div>
-  </div>
-  <button class="adm-btn" onclick="window.open('https://bscscan.com/token/'+INDC_CONTRACT,'_blank')">📊 LIHAT DI BSCSCAN</button>
-  <button class="adm-btn" onclick="window.open('airdrop-admin.html','_blank')">🪂 AIRDROP ADMIN</button>
-  <button class="adm-btn red" onclick="document.getElementById('adminPanel').style.display='none'">✕ TUTUP</button>
-</div>
-
-<script>
-// Admin check — hanya wallet ini yang bisa lihat panel
-const ADMIN_WALLETS = []; // Akan diisi otomatis dari wallet yang connect
-
-async function checkAdmin() {
-  if (!userAddress) return;
-  const ADMIN = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc".toLowerCase();
-  if (userAddress.toLowerCase() === ADMIN) {
-    document.getElementById("adminToggle").style.display = "flex";
-    loadAdminData();
-  }
-}
-
-async function loadAdminData() {
-  try {
-    const tokenContract = new ethers.Contract(INDC_CONTRACT, [
-      "function totalSupply() view returns (uint256)",
-    ], provider);
-    const supply = await tokenContract.totalSupply();
-    document.getElementById("admSupply").textContent = 
-      (parseFloat(ethers.formatUnits(supply, 18)) / 1e6).toFixed(2) + "M INDC";
-    document.getElementById("admContract").textContent = INDC_CONTRACT;
-    document.getElementById("admHolders").textContent = "Cek BSCScan";
-  } catch(e) {}
-}
-
-// Panggil checkAdmin setelah wallet connect
-const _origConnect = connectWallet;
-window.addEventListener("load", () => {
-  setTimeout(checkAdmin, 3000);
-});
-</script>
-
 </body>
 </html>
