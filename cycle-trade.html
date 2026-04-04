@@ -983,7 +983,19 @@ function renderTokens() {
   }).join("");
 }
 
+// Throttle: simpan harga terakhir dan waktu update terakhir
+const _lastPrice = {};
+const _lastUpdate = {};
+
 function updateTokenCardPrice(sym, price) {
+  // Skip kalau harga sama persis
+  if (_lastPrice[sym] === price) return;
+  // Throttle: max 1x per detik
+  const now = Date.now();
+  if (_lastUpdate[sym] && now - _lastUpdate[sym] < 1000) return;
+  _lastPrice[sym] = price;
+  _lastUpdate[sym] = now;
+
   tokens.forEach((t, i) => {
     if ((t.symbol||"").toUpperCase() === sym) {
       const priceEl = document.getElementById("tcp"+i);
@@ -991,10 +1003,8 @@ function updateTokenCardPrice(sym, price) {
         const fmt = price > 100
           ? "$"+price.toLocaleString("en",{maximumFractionDigits:2})
           : "$"+price.toFixed(4);
-        priceEl.textContent = fmt;
-        priceEl.style.transition = "color 0.3s";
-        priceEl.style.color = "var(--cy2)";
-        setTimeout(()=>priceEl.style.color="var(--muted)", 500);
+        // Hanya update kalau teks berubah
+        if (priceEl.textContent !== fmt) priceEl.textContent = fmt;
       }
       const card = document.getElementById("tc"+i);
       if (card && t.open_price) {
