@@ -1618,14 +1618,16 @@ function startPriceWSFor(sym) {
       const price = latestPrices[sym];
       const pFmt = price>1000?"$"+price.toLocaleString("en",{minimumFractionDigits:4,maximumFractionDigits:4}):"$"+price.toFixed(4);
 
-      // Update token grid kalau tampil
-      const idx = TOKENS.findIndex(t=>t.sym===sym);
-      const el  = document.getElementById("tok-"+idx);
-      if (el) {
-        el.querySelector(".tok-price").textContent =
-          price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
+      // Update token grid hanya kalau Railway tidak aktif
+      if (!railwayWS || railwayWS.readyState !== WebSocket.OPEN) {
+        const idx = TOKENS.findIndex(t=>t.sym===sym);
+        const el  = document.getElementById("tok-"+idx);
+        if (el) {
+          el.querySelector(".tok-price").textContent =
+            price>100?"$"+Math.round(price).toLocaleString():"$"+price.toFixed(3);
+        }
+        updateSelRow();
       }
-      updateSelRow();
 
       // Debug WS
       const dbEl2 = document.getElementById("debugEntry");
