@@ -179,7 +179,7 @@
     { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',          info:'Akun X/Twitter: @Indocoin_INDC',    link:null },
     { id:'wa_group',  pl:'💬', desc:'Share link referral INDOCOIN ke WA Group kamu', info:'Link referral ada di halaman Referral', link:null },
     { id:'wa_chat',   pl:'💬', desc:'Kirim link referral ke 1 kontak WA',            info:'Link referral ada di halaman Referral', link:null },
-    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'Grup Telegram: Indocoin',           link:null },
+    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'https://t.me/+CzjgvwApDscwMGM1',    link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
