@@ -408,6 +408,7 @@ async function connectWallet() {
     userAddress = await signer.getAddress();
     await loadWalletData();
     showConnected();
+    setTimeout(aapInit, 500);
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -1364,5 +1365,261 @@ if("serviceWorker" in navigator){
 
   <script src="airdrop-questions.js"></script>
   <script src="airdrop-widget.js"></script>
+
+<!-- ═══ AIRDROP ADMIN PANEL ═══════════════════════════════ -->
+<style>
+#airdropAdminBtn{display:none;position:fixed;bottom:70px;right:12px;z-index:9998;background:rgba(200,146,42,0.15);border:1px solid var(--gold2);border-radius:50%;width:38px;height:38px;align-items:center;justify-content:center;cursor:pointer;font-size:16px;box-shadow:0 0 10px rgba(200,146,42,0.3);}
+#airdropAdminPanel{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(180deg,#060400,#0a0800);border-top:2px solid rgba(200,146,42,0.4);padding:14px 12px 20px;max-height:85vh;overflow-y:auto;}
+.aap-title{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold2);letter-spacing:3px;text-align:center;margin-bottom:10px;}
+.aap-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
+.aap-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+.aap-card{background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.15);border-radius:8px;padding:8px 10px;}
+.aap-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:2px;}
+.aap-val{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold2);font-weight:700;}
+.aap-val.green{color:#34d399;}
+.aap-val.red{color:#f87171;}
+.aap-btn{width:100%;padding:8px;background:rgba(200,146,42,0.12);border:1px solid rgba(200,146,42,0.3);color:var(--gold2);border-radius:7px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;margin-bottom:5px;text-align:left;}
+.aap-btn:hover{background:rgba(200,146,42,0.2);}
+.aap-btn.red{border-color:rgba(248,113,113,0.3);color:#f87171;background:rgba(248,113,113,0.05);}
+.aap-btn.green{border-color:rgba(52,211,153,0.3);color:#34d399;background:rgba(52,211,153,0.05);}
+.aap-input{width:100%;padding:7px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(200,146,42,0.2);border-radius:7px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:9px;margin-bottom:5px;box-sizing:border-box;}
+.aap-status{font-family:'Share Tech Mono',monospace;font-size:8px;padding:5px 8px;border-radius:5px;margin-bottom:5px;display:none;}
+.aap-status.ok{background:rgba(52,211,153,0.1);color:#34d399;display:block;}
+.aap-status.err{background:rgba(248,113,113,0.1);color:#f87171;display:block;}
+.aap-status.info{background:rgba(200,146,42,0.1);color:var(--gold2);display:block;}
+.aap-sep{font-family:'Orbitron',sans-serif;font-size:7px;color:var(--muted);letter-spacing:2px;margin:8px 0 6px;border-bottom:1px solid rgba(200,146,42,0.1);padding-bottom:4px;}
+.aap-bar-wrap{background:rgba(255,255,255,0.06);border-radius:4px;height:8px;overflow:hidden;margin:4px 0;}
+.aap-bar{height:100%;background:linear-gradient(90deg,#f59e0b,#facc15);border-radius:4px;transition:width 1s ease;min-width:2px;}
+</style>
+
+<div id="airdropAdminBtn" onclick="document.getElementById('airdropAdminPanel').style.display='block';aapRefresh();">⚙️</div>
+
+<div id="airdropAdminPanel">
+  <button class="aap-close" onclick="document.getElementById('airdropAdminPanel').style.display='none'">✕</button>
+  <div class="aap-title">⚙️ AIRDROP ADMIN</div>
+
+  <!-- Pool Info -->
+  <div class="aap-grid">
+    <div class="aap-card">
+      <div class="aap-lbl">POOL TOTAL</div>
+      <div class="aap-val" id="aapTotal">-</div>
+    </div>
+    <div class="aap-card">
+      <div class="aap-lbl">REMAINING</div>
+      <div class="aap-val green" id="aapRemain">-</div>
+    </div>
+    <div class="aap-card">
+      <div class="aap-lbl">CLAIMED</div>
+      <div class="aap-val" id="aapClaimed">-</div>
+    </div>
+    <div class="aap-card">
+      <div class="aap-lbl">CONTRACT BAL</div>
+      <div class="aap-val" id="aapBal">-</div>
+    </div>
+  </div>
+  <div class="aap-bar-wrap"><div class="aap-bar" id="aapBar" style="width:0%"></div></div>
+
+  <!-- WD Status -->
+  <div class="aap-sep">WITHDRAW CONTROL</div>
+  <div class="aap-grid">
+    <div class="aap-card">
+      <div class="aap-lbl">STATUS WD</div>
+      <div class="aap-val" id="aapWdStatus">-</div>
+    </div>
+    <div class="aap-card">
+      <div class="aap-lbl">MAX WD/HARI</div>
+      <div class="aap-val" id="aapMaxWd">-</div>
+    </div>
+  </div>
+  <button class="aap-btn" id="aapToggleWdBtn" onclick="aapToggleWD()">🔄 Toggle WD Open/Close</button>
+  <input type="number" class="aap-input" id="aapMaxWdInput" placeholder="Max WD per hari (INDC)">
+  <button class="aap-btn" onclick="aapSetMaxWD()">💾 Set Max WD</button>
+
+  <!-- Deposit -->
+  <div class="aap-sep">DEPOSIT POOL</div>
+  <input type="number" class="aap-input" id="aapDepositInput" placeholder="Jumlah INDC deposit">
+  <button class="aap-btn green" onclick="aapDeposit()">📥 Deposit ke Pool</button>
+
+  <!-- Emergency -->
+  <div class="aap-sep">EMERGENCY</div>
+  <input type="number" class="aap-input" id="aapEmergInput" placeholder="Jumlah INDC emergency WD">
+  <button class="aap-btn red" onclick="aapEmergency()">🚨 Emergency Withdraw</button>
+
+  <!-- Check User -->
+  <div class="aap-sep">CEK USER</div>
+  <input type="text" class="aap-input" id="aapUserInput" placeholder="0x... wallet address">
+  <button class="aap-btn" onclick="aapCheckUser()">🔍 Cek Info User</button>
+  <div id="aapUserResult" style="display:none;margin-top:6px;">
+    <div class="aap-grid" id="aapUserGrid"></div>
+  </div>
+
+  <div class="aap-status" id="aapStatus"></div>
+  <button class="aap-btn" onclick="aapRefresh()">🔄 Refresh Data</button>
+</div>
+
+<script>
+const AAP_CONTRACT = '0xA5eBf687F6a67E34D4FFde8c460cAE46834e3623';
+const AAP_TOKEN    = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const AAP_OWNER    = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc'.toLowerCase();
+const AAP_ABI = [
+  "function owner() external view returns (address)",
+  "function withdrawOpen() external view returns (bool)",
+  "function dailyMaxWithdraw() external view returns (uint256)",
+  "function contractBalance() external view returns (uint256)",
+  "function getPoolInfo() external view returns (uint256,uint256,uint256,uint256)",
+  "function getUserInfo(address) external view returns (uint256,uint256,uint256,uint256,uint256,uint256,bool)",
+  "function setWithdrawOpen(bool) external",
+  "function setDailyMaxWithdraw(uint256) external",
+  "function depositPool(uint256) external",
+  "function emergencyWithdraw(uint256) external",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+];
+const AAP_INDC_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+];
+
+let aapContract = null;
+let aapIndcContract = null;
+let aapSigner = null;
+
+function aapSetStatus(msg, type) {
+  const el = document.getElementById('aapStatus');
+  el.textContent = msg;
+  el.className = 'aap-status ' + type;
+}
+
+function aapFmt(wei) {
+  return (parseFloat(ethers.formatUnits(wei, 18))).toLocaleString('en', {maximumFractionDigits:2}) + ' INDC';
+}
+
+async function aapInit() {
+  if (!userAddress || userAddress.toLowerCase() !== AAP_OWNER) return;
+  try {
+    const p = new ethers.BrowserProvider(window.ethereum);
+    aapSigner = await p.getSigner();
+    aapContract = new ethers.Contract(AAP_CONTRACT, AAP_ABI, aapSigner);
+    aapIndcContract = new ethers.Contract(AAP_TOKEN, AAP_INDC_ABI, aapSigner);
+    document.getElementById('airdropAdminBtn').style.display = 'flex';
+  } catch(e) {}
+}
+
+async function aapRefresh() {
+  if (!aapContract) { await aapInit(); if (!aapContract) return; }
+  try {
+    aapSetStatus('Loading...', 'info');
+    const [pool, bal, wdOpen, maxWd] = await Promise.all([
+      aapContract.getPoolInfo(),
+      aapContract.contractBalance(),
+      aapContract.withdrawOpen(),
+      aapContract.dailyMaxWithdraw(),
+    ]);
+    const total   = parseFloat(ethers.formatUnits(pool[0], 18));
+    const claimed = parseFloat(ethers.formatUnits(pool[1], 18));
+    const remain  = parseFloat(ethers.formatUnits(pool[2], 18));
+    const pct     = total > 0 ? (claimed / total * 100) : 0;
+
+    document.getElementById('aapTotal').textContent   = total.toLocaleString('en',{maximumFractionDigits:0}) + ' INDC';
+    document.getElementById('aapClaimed').textContent = claimed.toLocaleString('en',{maximumFractionDigits:0}) + ' INDC';
+    document.getElementById('aapRemain').textContent  = remain.toLocaleString('en',{maximumFractionDigits:0}) + ' INDC';
+    document.getElementById('aapBal').textContent     = aapFmt(bal);
+    document.getElementById('aapBar').style.width     = pct.toFixed(1) + '%';
+    document.getElementById('aapMaxWd').textContent   = aapFmt(maxWd);
+
+    const wdEl = document.getElementById('aapWdStatus');
+    wdEl.textContent = wdOpen ? '🟢 TERBUKA' : '🔴 TERTUTUP';
+    wdEl.className   = 'aap-val ' + (wdOpen ? 'green' : 'red');
+    document.getElementById('aapToggleWdBtn').textContent = wdOpen ? '🔒 Tutup WD' : '🔓 Buka WD';
+
+    aapSetStatus('✅ Data refreshed', 'ok');
+  } catch(e) { aapSetStatus('❌ ' + (e.message||e).slice(0,60), 'err'); }
+}
+
+async function aapToggleWD() {
+  if (!aapContract) return;
+  try {
+    aapSetStatus('⏳ Proses...', 'info');
+    const isOpen = await aapContract.withdrawOpen();
+    const tx = await aapContract.setWithdrawOpen(!isOpen);
+    await tx.wait();
+    aapSetStatus('✅ WD ' + (!isOpen ? 'dibuka' : 'ditutup'), 'ok');
+    aapRefresh();
+  } catch(e) { aapSetStatus('❌ ' + (e.reason||e.message||e).slice(0,60), 'err'); }
+}
+
+async function aapSetMaxWD() {
+  if (!aapContract) return;
+  const val = parseFloat(document.getElementById('aapMaxWdInput').value);
+  if (!val || val <= 0) { aapSetStatus('❌ Masukkan jumlah valid', 'err'); return; }
+  try {
+    aapSetStatus('⏳ Proses...', 'info');
+    const tx = await aapContract.setDailyMaxWithdraw(ethers.parseUnits(val.toString(), 18));
+    await tx.wait();
+    aapSetStatus('✅ Max WD diset ke ' + val + ' INDC', 'ok');
+    aapRefresh();
+  } catch(e) { aapSetStatus('❌ ' + (e.reason||e.message||e).slice(0,60), 'err'); }
+}
+
+async function aapDeposit() {
+  if (!aapContract || !aapIndcContract) return;
+  const val = parseFloat(document.getElementById('aapDepositInput').value);
+  if (!val || val <= 0) { aapSetStatus('❌ Masukkan jumlah valid', 'err'); return; }
+  try {
+    aapSetStatus('⏳ Approve...', 'info');
+    const amt = ethers.parseUnits(val.toString(), 18);
+    const allow = await aapIndcContract.allowance(userAddress, AAP_CONTRACT);
+    if (allow < amt) {
+      const tx1 = await aapIndcContract.approve(AAP_CONTRACT, ethers.MaxUint256);
+      await tx1.wait();
+    }
+    aapSetStatus('⏳ Deposit...', 'info');
+    const tx = await aapContract.depositPool(amt);
+    await tx.wait();
+    aapSetStatus('✅ Deposit ' + val + ' INDC berhasil', 'ok');
+    aapRefresh();
+  } catch(e) { aapSetStatus('❌ ' + (e.reason||e.message||e).slice(0,60), 'err'); }
+}
+
+async function aapEmergency() {
+  if (!aapContract) return;
+  const val = parseFloat(document.getElementById('aapEmergInput').value);
+  if (!val || val <= 0) { aapSetStatus('❌ Masukkan jumlah valid', 'err'); return; }
+  if (!confirm('⚠️ Emergency withdraw ' + val + ' INDC?')) return;
+  try {
+    aapSetStatus('⏳ Proses...', 'info');
+    const tx = await aapContract.emergencyWithdraw(ethers.parseUnits(val.toString(), 18));
+    await tx.wait();
+    aapSetStatus('✅ Emergency WD ' + val + ' INDC berhasil', 'ok');
+    aapRefresh();
+  } catch(e) { aapSetStatus('❌ ' + (e.reason||e.message||e).slice(0,60), 'err'); }
+}
+
+async function aapCheckUser() {
+  if (!aapContract) return;
+  const addr = document.getElementById('aapUserInput').value.trim();
+  if (!addr.startsWith('0x')) { aapSetStatus('❌ Address tidak valid', 'err'); return; }
+  try {
+    aapSetStatus('⏳ Loading...', 'info');
+    const info = await aapContract.getUserInfo(addr);
+    const grid = document.getElementById('aapUserGrid');
+    grid.innerHTML = [
+      ['Balance', parseFloat(ethers.formatUnits(info[0],18)).toFixed(2) + ' INDC'],
+      ['Total Earned', parseFloat(ethers.formatUnits(info[1],18)).toFixed(2) + ' INDC'],
+      ['Total WD', parseFloat(ethers.formatUnits(info[2],18)).toFixed(2) + ' INDC'],
+      ['Streak', info[3].toString() + ' hari'],
+      ['Ref Bonus', parseFloat(ethers.formatUnits(info[4],18)).toFixed(2) + ' INDC'],
+      ['WD Today', parseFloat(ethers.formatUnits(info[5],18)).toFixed(2) + ' INDC'],
+      ['Can WD', info[6] ? '✅ Ya' : '❌ Belum'],
+    ].map(([l,v]) => `<div class="aap-card"><div class="aap-lbl">${l}</div><div class="aap-val" style="font-size:9px">${v}</div></div>`).join('');
+    document.getElementById('aapUserResult').style.display = 'block';
+    aapSetStatus('✅ Data user loaded', 'ok');
+  } catch(e) { aapSetStatus('❌ ' + (e.reason||e.message||e).slice(0,60), 'err'); }
+}
+
+// Auto init setelah wallet connect
+window.addEventListener('load', () => setTimeout(aapInit, 1500));
+</script>
+
 </body>
 </html>
