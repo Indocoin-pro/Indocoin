@@ -21,8 +21,21 @@ try {
 }
 
 let prices = {
-  BNB: { price: 0, pct: 0, high: 0, low: 0 },
-  BTC: { price: 0, pct: 0, high: 0, low: 0 },
+  BNB:  { price: 0, pct: 0, high: 0, low: 0 },
+  BTC:  { price: 0, pct: 0, high: 0, low: 0 },
+  ETH:  { price: 0, pct: 0, high: 0, low: 0 },
+  SOL:  { price: 0, pct: 0, high: 0, low: 0 },
+  ADA:  { price: 0, pct: 0, high: 0, low: 0 },
+  LTC:  { price: 0, pct: 0, high: 0, low: 0 },
+  AVAX: { price: 0, pct: 0, high: 0, low: 0 },
+  BCH:  { price: 0, pct: 0, high: 0, low: 0 },
+  XRP:  { price: 0, pct: 0, high: 0, low: 0 },
+  CAKE: { price: 0, pct: 0, high: 0, low: 0 },
+  LINK: { price: 0, pct: 0, high: 0, low: 0 },
+  TRX:  { price: 0, pct: 0, high: 0, low: 0 },
+  DOGE: { price: 0, pct: 0, high: 0, low: 0 },
+  AAVE: { price: 0, pct: 0, high: 0, low: 0 },
+  USDT: { price: 1, pct: 0, high: 1, low: 1 },
 };
 
 const handler = (req, res) => {
@@ -52,7 +65,7 @@ function broadcast(payload) {
 let binanceWS = null;
 function connectBinance() {
   try {
-    binanceWS = new WebSocket('wss://stream.binance.com:9443/stream?streams=bnbusdt@ticker/btcusdt@ticker');
+    binanceWS = new WebSocket('wss://stream.binance.com:9443/stream?streams=bnbusdt@ticker/btcusdt@ticker/ethusdt@ticker/solusdt@ticker/adausdt@ticker/ltcusdt@ticker/avaxusdt@ticker/bchusdt@ticker/xrpusdt@ticker/cakeusdt@ticker/linkusdt@ticker/trxusdt@ticker/dogeusdt@ticker/aaveusdt@ticker');
     binanceWS.on('open', () => console.log('Binance connected'));
     binanceWS.on('message', (data) => {
       try {
