@@ -335,7 +335,15 @@
     }
 
     try {
-      isClaimed = false; // sistem baru — tidak cek contract lagi
+      // Cek lagi apakah sudah klaim hari ini (via localStorage per PAGE_ID)
+      if (isClaimedToday()) {
+        isClaimed = true;
+        const widget = document.getElementById('indc-airdrop-widget');
+        if (widget) widget.style.display = 'none';
+        return;
+      }
+
+      isClaimed = false;
 
       // Hitung level
       const wk = walletAddr.toLowerCase();
