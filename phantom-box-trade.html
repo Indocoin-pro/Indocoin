@@ -1177,6 +1177,12 @@ function connectRailwayWS() {
         const d = JSON.parse(e.data);
         if(d.sym && d.price > 0) {
           const sym = d.sym.toUpperCase();
+          // Skip kalau harga sama & throttle 1 detik
+          if (latestPrices[sym] === d.price) return;
+          const _now = Date.now();
+          if (!window._wsThrottle) window._wsThrottle = {};
+          if (window._wsThrottle[sym] && _now - window._wsThrottle[sym] < 1000) return;
+          window._wsThrottle[sym] = _now;
           latestPrices[sym] = d.price;
           updateTokenCardPrice(sym, d.price);
           if(countdownEndTime && activeSession?.token?.symbol?.toUpperCase()===sym) {
@@ -1256,10 +1262,7 @@ function updateTokenCardPrice(sym, price) {
         const fmt = price > 100
           ? "$"+price.toLocaleString("en",{maximumFractionDigits:2})
           : "$"+price.toFixed(4);
-        priceEl.textContent = fmt;
-        priceEl.style.transition = "color 0.3s";
-        priceEl.style.color = "var(--cyan)";
-        setTimeout(()=>priceEl.style.color="var(--muted)", 500);
+        if (priceEl.textContent !== fmt) priceEl.textContent = fmt;
       }
       // Update warna kartu berdasarkan % change terkini
       const card  = document.getElementById("tc"+i);

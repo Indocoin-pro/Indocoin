@@ -878,6 +878,14 @@ function connectRailwayShared() {
         if (d.sym && d.price > 0) {
           const st = wsState[d.sym];
           if (st) st.alive = true;
+          // Skip kalau harga sama & throttle 1 detik
+          if (!window._wsThrottle) window._wsThrottle = {};
+          if (!window._wsLastPrice) window._wsLastPrice = {};
+          const _now = Date.now();
+          if (window._wsLastPrice[d.sym] === d.price) return;
+          if (window._wsThrottle[d.sym] && _now - window._wsThrottle[d.sym] < 1000) return;
+          window._wsThrottle[d.sym] = _now;
+          window._wsLastPrice[d.sym] = d.price;
           onPriceUpdate(d.sym, d.price, d.pct || 0, d.high || 0, d.low || 0, 0);
         }
       } catch(err) {}

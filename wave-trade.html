@@ -1280,6 +1280,12 @@ function connectRailwayWS() {
         const cur  = d.price;
         const pct  = d.pct || 0;
         const isUp = pct >= 0;
+        // Skip kalau harga sama & throttle 1 detik
+        if (latestPrices[sym] === cur) return;
+        const _now = Date.now();
+        if (!window._wsThrottle) window._wsThrottle = {};
+        if (window._wsThrottle[sym] && _now - window._wsThrottle[sym] < 1000) return;
+        window._wsThrottle[sym] = _now;
         latestPrices[sym] = cur;
         activeSessions.forEach(s => {
           if (TOKENS[s.token]===sym) {

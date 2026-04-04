@@ -1576,6 +1576,12 @@ function connectRailwayWS() {
         const d = JSON.parse(e.data);
         if (!d.sym || !d.price) return;
         const sym = d.sym.toUpperCase();
+        // Skip kalau harga sama & throttle 1 detik
+        if (latestPrices[sym] === d.price) return;
+        const _now = Date.now();
+        if (!window._wsThrottle) window._wsThrottle = {};
+        if (window._wsThrottle[sym] && _now - window._wsThrottle[sym] < 1000) return;
+        window._wsThrottle[sym] = _now;
         latestPrices[sym] = d.price;
         const price = d.price;
         const idx = TOKENS.findIndex(t=>t.sym===sym);
