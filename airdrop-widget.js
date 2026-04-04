@@ -174,16 +174,12 @@
     { id:'yt_komen',  pl:'📺', desc:'Komentar positif di video INDOCOIN di YouTube', info:'Nama channel: @indocoin_defi_web3', link:null },
     { id:'ig_follow', pl:'📸', desc:'Follow @indocoin_indc di Instagram',            info:'Akun Instagram: @indocoin_indc',    link:null },
     { id:'ig_like',   pl:'📸', desc:'Like postingan INDOCOIN di Instagram',          info:'Akun Instagram: @indocoin_indc',    link:null },
-    { id:'ig_story',  pl:'📸', desc:'Share Story INDOCOIN di Instagram',             info:'Akun Instagram: @indocoin_indc',    link:null },
     { id:'fb_like',   pl:'👍', desc:'Like halaman Facebook INDOCOIN',                info:'Halaman Facebook: INDOCOIN',        link:null },
     { id:'fb_share',  pl:'👍', desc:'Share postingan INDOCOIN di Facebook',          info:'Halaman Facebook: INDOCOIN',        link:null },
     { id:'x_follow',  pl:'✖️', desc:'Follow @Indocoin_INDC di X (Twitter)',          info:'Akun X/Twitter: @Indocoin_INDC',    link:null },
-    { id:'x_rt',      pl:'✖️', desc:'Retweet postingan INDOCOIN di X',               info:'Akun X/Twitter: @Indocoin_INDC',    link:null },
-    { id:'td_follow', pl:'🧵', desc:'Follow @indocoin_indc di Threads',              info:'Akun Threads: @indocoin_indc',      link:null },
-    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'Grup Telegram: INDOCOIN Community', link:null },
     { id:'wa_group',  pl:'💬', desc:'Share link referral INDOCOIN ke WA Group kamu', info:'Link referral ada di halaman Referral', link:null },
-    { id:'wa_story',  pl:'💬', desc:'Share INDOCOIN ke WA Status/Story',             info:'',                                  link:null },
-    { id:'wa_chat',   pl:'💬', desc:'Kirim link referral INDOCOIN ke 3 kontak WA',   info:'Link referral ada di halaman Referral', link:null },
+    { id:'wa_chat',   pl:'💬', desc:'Kirim link referral ke 1 kontak WA',            info:'Link referral ada di halaman Referral', link:null },
+    { id:'tg_join',   pl:'✈️', desc:'Bergabung di grup Telegram INDOCOIN',           info:'Grup Telegram: Indocoin',           link:null },
   ];
 
   // ── LOAD QUESTIONS DINAMIS ───────────────────────────────
