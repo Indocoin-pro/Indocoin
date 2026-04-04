@@ -992,6 +992,9 @@ function updateTokenCardPrice(sym, price) {
           ? "$"+price.toLocaleString("en",{maximumFractionDigits:2})
           : "$"+price.toFixed(4);
         priceEl.textContent = fmt;
+        priceEl.style.transition = "color 0.3s";
+        priceEl.style.color = "var(--cy2)";
+        setTimeout(()=>priceEl.style.color="var(--muted)", 500);
       }
       const card = document.getElementById("tc"+i);
       if (card && t.open_price) {
@@ -1024,7 +1027,11 @@ let railwayWS = null;
 function connectRailwayWS() {
   try {
     railwayWS = new WebSocket(RAILWAY_WS_URL);
-    railwayWS.onopen = () => console.log("✅ Railway WS connected");
+    railwayWS.onopen = () => {
+      console.log("✅ Railway WS connected");
+      // Tutup semua Binance WS saat Railway aktif
+      Object.keys(wsConns).forEach(k=>{ try{wsConns[k].close();}catch(e){} delete wsConns[k]; });
+    };
     railwayWS.onmessage = e => {
       try {
         const d = JSON.parse(e.data);
