@@ -282,6 +282,29 @@ input:focus, select:focus, textarea:focus {
 
   <!-- ════════ OPSI CONTENT ════════ -->
   <!-- Dirender oleh JS supaya 100% konsisten -->
+  <!-- INDC PENDING SUMMARY -->
+  <div id="indcSummaryCard" style="display:none;background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.3);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;">RINGKASAN WALLET</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px;text-align:center;border:1px solid rgba(200,146,42,0.2);">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold)" id="summaryIndcPending">0 INDC</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;">INDC TERKUNCI</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px;text-align:center;border:1px solid rgba(200,146,42,0.2);">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#a8e6cf" id="summaryUsdtLocked">$0</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;">USDT TERKUNCI</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px;text-align:center;border:1px solid rgba(200,146,42,0.2);">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold2)" id="summaryIndcWallet">0 INDC</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;">INDC DI WALLET</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px;text-align:center;border:1px solid rgba(200,146,42,0.2);">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#a8e6cf" id="summaryActiveStakes">0</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;">STAKE AKTIF</div>
+      </div>
+    </div>
+  </div>
+
   <div id="opsiWrap"></div>
 
 </div><!-- /main -->
@@ -304,10 +327,10 @@ input:focus, select:focus, textarea:focus {
 <script>
 /* ─ Data tiap opsi ─ */
 const OPSI = [
-  { id:1, label:'OPSI 1', period:'30 Hari Lock Period', days:30,  rate:0.003, fee:0.03, biaya:'3%',  maxS:'$300',   totalR:'9%'   },
-  { id:2, label:'OPSI 2', period:'90 Hari Lock Period', days:90,  rate:0.005, fee:0.05, biaya:'5%',  maxS:'$500',   totalR:'45%'  },
-  { id:3, label:'OPSI 3', period:'180 Hari Lock Period',days:180, rate:0.007, fee:0.07, biaya:'7%',  maxS:'$700',   totalR:'126%' },
-  { id:4, label:'OPSI 4', period:'365 Hari Lock Period',days:365, rate:0.01,  fee:0.1,  biaya:'10%', maxS:'$1,000', totalR:'365%' },
+  { id:1, label:'OPSI 1', period:'30 Hari Lock Period',  days:30,  rate:0.003, maxS:'$300',   totalR:'9%'   },
+  { id:2, label:'OPSI 2', period:'90 Hari Lock Period',  days:90,  rate:0.005, maxS:'$500',   totalR:'45%'  },
+  { id:3, label:'OPSI 3', period:'180 Hari Lock Period', days:180, rate:0.007, maxS:'$700',   totalR:'126%' },
+  { id:4, label:'OPSI 4', period:'365 Hari Lock Period', days:365, rate:0.01,  maxS:'$1,000', totalR:'365%' },
 ];
 
 /* ─ Render semua opsi ─ */
@@ -341,7 +364,7 @@ function renderOpsi() {
         <div class="usdt-bal"><span class="ubl">SALDO</span><span class="ubv" id="bal${o.id}">—</span></div>
       </div>
       <button class="btn-approve" id="btnApprove${o.id}" onclick="approveUSDT(${o.id})">APPROVE USDT</button>
-      <button class="btn-stake" id="btnStake${o.id}" onclick="doStake(${o.id},${o.days})">STAKE SEKARANG</button>
+      <button class="btn-stake" id="btnStake${o.id}" onclick="doStake(${o.id})">STAKE SEKARANG</button>
       <div class="status-msg" id="msg${o.id}">Hubungkan wallet untuk mulai staking</div>
     </div>
 
@@ -349,16 +372,16 @@ function renderOpsi() {
     <div class="sec-div">KALKULATOR REWARD</div>
     <div class="form-card">
       <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..."
-             oninput="calcReward(${o.id}, this.value, ${o.days}, ${o.rate}, ${o.fee})">
+             oninput="calcReward(${o.id}, this.value, ${o.days}, ${o.rate})">
       <div class="calc-grid">
-        <div class="calc-item"><div class="calc-val" id="cg${o.id}">$0</div><div class="calc-lbl">Reward Kotor</div></div>
-        <div class="calc-item"><div class="calc-val" id="cf${o.id}">$0</div><div class="calc-lbl">Biaya Platform</div></div>
-        <div class="calc-item"><div class="calc-val" id="cn${o.id}">$0</div><div class="calc-lbl">Reward Bersih</div></div>
-        <div class="calc-item"><div class="calc-val" id="cd${o.id}">$0</div><div class="calc-lbl">Per Hari</div></div>
+        <div class="calc-item"><div class="calc-val" id="cg${o.id}">$0</div><div class="calc-lbl">Nilai Reward (USD)</div></div>
+        <div class="calc-item"><div class="calc-val" id="cn${o.id}" style="color:var(--gold)">0 INDC</div><div class="calc-lbl">Reward INDC</div></div>
+        <div class="calc-item"><div class="calc-val" id="cd${o.id}">0 INDC/hari</div><div class="calc-lbl">Per Hari</div></div>
+        <div class="calc-item"><div class="calc-val" style="color:var(--gold2)">$0.003</div><div class="calc-lbl">Harga INDC</div></div>
       </div>
       <div class="calc-total">
         <span>Total Diterima:</span>
-        <strong id="ct${o.id}">$0 USDT</strong>
+        <strong id="ct${o.id}">$0 USDT + 0 INDC</strong>
       </div>
     </div>
 
@@ -384,7 +407,7 @@ function renderOpsi() {
         </div>
         <div class="si-grid">
           <div class="si-left"><span class="si-lbl">MODAL STAKE</span><span class="si-val">$100.00 USDT</span></div>
-          <div class="si-right"><span class="si-lbl">REWARD BERSIH</span><span class="si-val">$8.73 USDT</span></div>
+          <div class="si-right"><span class="si-lbl">INDC REWARD</span><span class="si-val" style="color:var(--gold)">— INDC</span></div>
           <div class="si-left"><span class="si-lbl">MULAI</span><span class="si-val">08 Mar 2026</span></div>
           <div class="si-right"><span class="si-lbl">SELESAI</span><span class="si-val">07 Apr 2026</span></div>
         </div>
@@ -442,8 +465,8 @@ function renderOpsi() {
 
       <div class="info-sec-title">BIAYA & PENALTI</div>
       <div class="info-box-full">
-        <div class="info-bf-left"><span class="info-bf-icon">️</span><span class="info-bf-lbl">Biaya Platform</span></div>
-        <span class="info-bf-val">${o.biaya} dari reward</span>
+        <div class="info-bf-left"><span class="info-bf-icon">✅</span><span class="info-bf-lbl">Biaya Platform</span></div>
+        <span class="info-bf-val" style="color:var(--gold)">GRATIS — 0%</span>
       </div>
       <div class="info-box-full">
         <div class="info-bf-left"><span class="info-bf-icon">️</span><span class="info-bf-lbl">Penalti Unstake Dini</span></div>
@@ -458,9 +481,9 @@ function renderOpsi() {
       <div class="cara-kerja">
         <div class="ck-step"><div class="ck-num">1</div><div class="ck-text">Approve USDT → lalu klik <b>STAKE SEKARANG</b></div></div>
         <div class="ck-step"><div class="ck-num">2</div><div class="ck-text">USDT terkunci selama <b>${o.days} hari</b> di smart contract BSC</div></div>
-        <div class="ck-step"><div class="ck-num">3</div><div class="ck-text">Reward <b>${parseFloat((o.rate*100).toFixed(4))}%/hari</b> dihitung otomatis dari modal</div></div>
-        <div class="ck-step"><div class="ck-num">4</div><div class="ck-text">Setelah lock selesai, klaim <b>modal + reward bersih</b></div></div>
-        <div class="ck-step"><div class="ck-num">5</div><div class="ck-text">Unstake dini? Kena penalti <b>3% dari modal</b></div></div>
+        <div class="ck-step"><div class="ck-num">3</div><div class="ck-text">Reward <b>INDC langsung terkunci</b> di akunmu saat stake — sudah pasti dari awal</div></div>
+        <div class="ck-step"><div class="ck-num">4</div><div class="ck-text">Setelah lock selesai, klaim <b>modal USDT kembali utuh + INDC reward</b></div></div>
+        <div class="ck-step"><div class="ck-num">5</div><div class="ck-text">Unstake dini? Kena penalti <b>3% dari modal</b>, INDC reward kembali ke pool</div></div>
       </div>
     </div>
 
@@ -483,14 +506,17 @@ function switchInner(opsi, tab) {
 }
 
 /* ─ Kalkulator ─ */
-function calcReward(id, val, days, rate, fee) {
-  const u=parseFloat(val)||0;
-  const gross=u*rate*days, f=gross*fee, net=gross-f, daily=u*rate;
-  document.getElementById('cg'+id).textContent='$'+gross.toFixed(2);
-  document.getElementById('cf'+id).textContent='$'+f.toFixed(2);
-  document.getElementById('cn'+id).textContent='$'+net.toFixed(2);
-  document.getElementById('cd'+id).textContent='$'+daily.toFixed(2);
-  document.getElementById('ct'+id).textContent='$'+(u+net).toFixed(2)+' USDT';
+function calcReward(id, val, days, rate) {
+  const u = parseFloat(val)||0;
+  const grossUsdt = u * rate * days;
+  const indcPrice = 0.003;
+  const indcAmt = grossUsdt / indcPrice;
+  const daily = u * rate;
+  const dailyIndc = daily / indcPrice;
+  document.getElementById('cg'+id).textContent = '$'+grossUsdt.toFixed(2);
+  document.getElementById('cn'+id).textContent = indcAmt.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC';
+  document.getElementById('cd'+id).textContent = dailyIndc.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC/hari';
+  document.getElementById('ct'+id).textContent = '$'+u.toFixed(2)+' USDT + '+indcAmt.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC';
 }
 
 /* ════════════════════════════════════════════════════
@@ -498,19 +524,21 @@ function calcReward(id, val, days, rate, fee) {
    ════════════════════════════════════════════════════ */
 
 const SC = {
-  STAKING:  '0xf017dF02f2BEFe09B7969E5E818c320607C5d900',
+  STAKING:  '0x8c72d97df71494a3a5b0f6438d980340807c5968',
   USDT:     '0x55d398326f99059fF775485246999027B3197955',
+  INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   CHAIN_ID: 56,
 };
 
 const STAKING_ABI = [
-  {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"durationDays","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"unstake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"emergencyUnstake","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[],"name":"claimAllRewards","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserStakes","outputs":[{"components":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"uint256","name":"reward","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"}],"internalType":"struct GrowthLockStaking.Stake[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getPendingReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"totalStaked","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint8","name":"optionId","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"claimReward","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"claimPending","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"earlyUnstake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserStakes","outputs":[{"components":[{"internalType":"uint8","name":"optionId","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"indcReward","type":"uint256"},{"internalType":"uint256","name":"startTime","type":"uint256"},{"internalType":"uint256","name":"endTime","type":"uint256"},{"internalType":"bool","name":"claimed","type":"bool"},{"internalType":"bool","name":"unstaked","type":"bool"},{"internalType":"bool","name":"principalPending","type":"bool"}],"internalType":"struct GrowthLockStaking.StakeInfo[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"getPendingReward","outputs":[{"internalType":"uint256","name":"usdtOwed","type":"uint256"},{"internalType":"uint256","name":"indcOwed","type":"uint256"},{"internalType":"bool","name":"canClaim","type":"bool"},{"internalType":"bool","name":"isPending","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"getPoolInfo","outputs":[{"internalType":"uint256","name":"usdtBalance","type":"uint256"},{"internalType":"uint256","name":"usdtLocked","type":"uint256"},{"internalType":"uint256","name":"usdtExcess","type":"uint256"},{"internalType":"uint256","name":"indcBalance","type":"uint256"},{"internalType":"uint256","name":"indcPending","type":"uint256"},{"internalType":"uint256","name":"indcExcess","type":"uint256"},{"internalType":"bool","name":"stakingOpen","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint8","name":"optionId","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"estimateReward","outputs":[{"internalType":"uint256","name":"usdtBack","type":"uint256"},{"internalType":"uint256","name":"indcRwd","type":"uint256"},{"internalType":"uint256","name":"indcValueNow","type":"uint256"},{"internalType":"bool","name":"poolSufficient","type":"bool"}],"stateMutability":"view","type":"function"},
 ];
 
 const ERC20_ABI = [
@@ -519,11 +547,12 @@ const ERC20_ABI = [
   {"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
 ];
 
-let _provider, _signer, _wallet, _staking, _usdt;
+let _provider, _signer, _wallet, _staking, _usdt, _indc;
 const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
 function shortAddr(a){ return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
 function fromWei(v){ return (Number(BigInt(v.toString())) / 1e18).toFixed(4); }
+function fromIndc(v){ return (Number(BigInt(v.toString())) / 1e9).toFixed(2); }
 function toWei(v){ return ethers.utils.parseUnits(String(parseFloat(v)||0), 18); }
 
 function showMinPopup(minAmt, maxAmt, label) {
@@ -563,6 +592,7 @@ async function connectWallet() {
     _signer   = _provider.getSigner();
     _staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
     _usdt     = new ethers.Contract(SC.USDT,    ERC20_ABI,   _signer);
+    _indc     = new ethers.Contract(SC.INDC,    ERC20_ABI,   _signer);
 
     const btn = document.getElementById('walletBtn');
     if(btn) btn.textContent = shortAddr(_wallet);
@@ -581,12 +611,17 @@ async function connectWallet() {
 async function loadBalances() {
   if(!_wallet||!_usdt) return;
   try {
-    const bal = await _usdt.balanceOf(_wallet);
-    const fmt = parseFloat(fromWei(bal)).toFixed(2);
+    const balUsdt = await _usdt.balanceOf(_wallet);
+    const balIndc = _indc ? await _indc.balanceOf(_wallet) : null;
+    const fmtUsdt = parseFloat(fromWei(balUsdt)).toFixed(2);
+    const fmtIndc = balIndc ? parseFloat(fromIndc(balIndc)).toLocaleString('id-ID') : '—';
     OPSI.forEach(o => {
       const el = document.getElementById('bal'+o.id);
-      if(el) el.textContent = '$'+fmt;
+      if(el) el.textContent = '$'+fmtUsdt;
+      const elIndc = document.getElementById('balIndc'+o.id);
+      if(elIndc) elIndc.textContent = fmtIndc+' INDC';
     });
+    await loadStakes();
   } catch(e){ console.error('loadBalances',e); }
 }
 
@@ -610,7 +645,7 @@ async function approveUSDT(opsiId) {
   }
 }
 
-async function doStake(opsiId, days) {
+async function doStake(opsiId) {
   if(!_wallet){ await connectWallet(); return; }
   const val = document.getElementById('inp'+opsiId).value;
   if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah USDT terlebih dahulu','var(--red)'); return; }
@@ -625,10 +660,17 @@ async function doStake(opsiId, days) {
       setMsg(opsiId, 'Allowance kurang, silakan Approve dulu.', 'var(--red)');
       btn.textContent = 'STAKE SEKARANG'; btn.disabled = false; return;
     }
-    const tx = await _staking.stake(amtWei, days);
+    // Cek estimasi dulu — pastikan pool INDC cukup
+    const est = await _staking.estimateReward(opsiId, amtWei);
+    if(!est.poolSufficient){
+      setMsg(opsiId, 'Pool INDC tidak mencukupi. Tunggu dev top up pool.', 'var(--red)');
+      btn.textContent = 'STAKE SEKARANG'; btn.disabled = false; return;
+    }
+    const tx = await _staking.stake(opsiId, amtWei);
     setMsg(opsiId, 'Transaksi dikirim, menunggu konfirmasi...', 'var(--gold)');
     await tx.wait();
-    setMsg(opsiId, '✓ Stake berhasil! USDT terkunci '+days+' hari.', 'var(--gold2)');
+    const indcAmt = parseFloat(fromIndc(est.indcRwd)).toLocaleString('id-ID', {maximumFractionDigits:0});
+    setMsg(opsiId, '✓ Stake berhasil! '+indcAmt+' INDC reward terkunci untukmu.', 'var(--gold2)');
     document.getElementById('inp'+opsiId).value = '';
     await loadBalances();
   } catch(e) {
@@ -638,21 +680,140 @@ async function doStake(opsiId, days) {
   }
 }
 
-async function earlyUnstake(opsiId) {
+async function claimReward(opsiId, stakeIndex) {
   if(!_wallet){ await connectWallet(); return; }
-  if(!confirm('Unstake dini kena penalti 3% dari modal. Lanjutkan?')) return;
+  if(!confirm('Klaim reward sekarang?\nModal USDT + INDC reward akan dikirim ke wallet.')) return;
+  setMsg(opsiId, 'Memproses klaim...', 'var(--gold)');
+  try {
+    const tx = await _staking.claimReward(stakeIndex);
+    await tx.wait();
+    setMsg(opsiId, '✓ Klaim berhasil! Modal USDT & INDC reward sudah di wallet.', 'var(--gold2)');
+    await loadBalances();
+  } catch(e) {
+    setMsg(opsiId, 'Klaim gagal: '+(e.reason||e.message||''), 'var(--red)');
+  }
+}
+
+async function claimPending(opsiId, stakeIndex) {
+  if(!_wallet){ await connectWallet(); return; }
+  setMsg(opsiId, 'Memproses klaim pending...', 'var(--gold)');
+  try {
+    const tx = await _staking.claimPending(stakeIndex);
+    await tx.wait();
+    setMsg(opsiId, '✓ Klaim berhasil! Modal USDT & INDC reward sudah di wallet.', 'var(--gold2)');
+    await loadBalances();
+  } catch(e) {
+    setMsg(opsiId, 'Klaim pending gagal: '+(e.reason||e.message||''), 'var(--red)');
+  }
+}
+
+async function earlyUnstake(opsiId, stakeIndex) {
+  if(!_wallet){ await connectWallet(); return; }
+  if(!confirm('Unstake dini kena penalti 3% dari modal.\nINDC reward kembali ke pool.\nLanjutkan?')) return;
   setMsg(opsiId, 'Memproses unstake dini...', 'var(--gold)');
   try {
-    const stakes = await _staking.getUserStakes(_wallet);
-    const idx = stakes.findIndex(s => !s.claimed);
-    if(idx < 0){ setMsg(opsiId,'Tidak ada posisi aktif.','var(--red)'); return; }
-    const tx = await _staking.emergencyUnstake(idx);
+    const tx = await _staking.earlyUnstake(stakeIndex);
     await tx.wait();
-    setMsg(opsiId, '✓ Unstake dini berhasil.', 'var(--gold2)');
+    setMsg(opsiId, '✓ Unstake dini berhasil. Modal USDT (dikurangi penalti 3%) sudah di wallet.', 'var(--gold2)');
     await loadBalances();
   } catch(e) {
     setMsg(opsiId, 'Gagal: '+(e.reason||e.message||''), 'var(--red)');
   }
+}
+
+async function loadStakes() {
+  if(!_wallet||!_staking) return;
+  try {
+    const allStakes = await _staking.getUserStakes(_wallet);
+    const now = Math.floor(Date.now()/1000);
+
+    // ── Hitung summary ──
+    let totalIndcPending = 0n;
+    let totalUsdtLocked  = 0n;
+    let activeCount      = 0;
+
+    allStakes.forEach(s => {
+      if(!s.claimed && !s.unstaked) {
+        totalIndcPending += BigInt(s.indcReward.toString());
+        totalUsdtLocked  += BigInt(s.amount.toString());
+        activeCount++;
+      }
+    });
+
+    // Tampilkan summary card
+    if(activeCount > 0) {
+      document.getElementById('indcSummaryCard').style.display = 'block';
+      document.getElementById('summaryIndcPending').textContent =
+        parseFloat(fromIndc(totalIndcPending.toString())).toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+      document.getElementById('summaryUsdtLocked').textContent =
+        '$'+parseFloat(fromWei(totalUsdtLocked.toString())).toFixed(2);
+      document.getElementById('summaryActiveStakes').textContent = activeCount;
+    }
+
+    // INDC di wallet
+    if(_indc) {
+      const indcBal = await _indc.balanceOf(_wallet);
+      document.getElementById('summaryIndcWallet').textContent =
+        parseFloat(fromIndc(indcBal.toString())).toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+    }
+
+    // ── Render riwayat per opsi ──
+    OPSI.forEach(o => {
+      const riwayatEl = document.getElementById('o'+o.id+'-riwayat');
+      if(!riwayatEl) return;
+      const opsiStakes = allStakes
+        .map((s,i) => ({...s, idx:i}))
+        .filter(s => Number(s.optionId) === o.id && !s.claimed && !s.unstaked);
+      if(opsiStakes.length === 0){
+        riwayatEl.innerHTML = `<div class="stake-item" style="opacity:0.45;">
+          <div class="si-row">
+            <div class="si-left"><span class="si-lbl">JUMLAH</span><span class="si-val">—</span></div>
+            <div class="si-right"><span class="si-lbl">INDC REWARD</span><span class="si-val">—</span></div>
+          </div>
+          <div class="countdown-row">
+            <div class="countdown-lbl">BELUM ADA STAKE AKTIF</div>
+            <div class="countdown-val" style="font-size:11px;color:var(--muted);">Stake sekarang untuk memulai</div>
+          </div>
+        </div>`;
+        return;
+      }
+      riwayatEl.innerHTML = opsiStakes.map(s => {
+        const usdtAmt   = parseFloat(fromWei(s.amount)).toFixed(2);
+        const indcAmt   = parseFloat(fromIndc(s.indcReward)).toLocaleString('id-ID',{maximumFractionDigits:0});
+        const startDt   = new Date(Number(s.startTime)*1000).toLocaleDateString('id-ID');
+        const endDt     = new Date(Number(s.endTime)*1000).toLocaleDateString('id-ID');
+        const ended     = now >= Number(s.endTime);
+        const isPending = s.principalPending;
+        const sisa      = Math.max(0, Number(s.endTime) - now);
+        const sisaH     = Math.floor(sisa/86400);
+        const sisaJ     = Math.floor((sisa%86400)/3600);
+        const sisaM     = Math.floor((sisa%3600)/60);
+        const sisaStr   = ended ? '✅ Siap klaim' : `${sisaH}H ${sisaJ}J ${sisaM}M`;
+        const btnHtml   = isPending
+          ? `<button class="btn-early" onclick="claimPending(${o.id},${s.idx})" style="background:rgba(200,146,42,0.2);color:var(--gold);border-color:rgba(200,146,42,0.4);">💰 KLAIM PENDING</button>`
+          : ended
+            ? `<button class="btn-early" onclick="claimReward(${o.id},${s.idx})" style="background:rgba(200,146,42,0.2);color:var(--gold);border-color:rgba(200,146,42,0.4);">💰 KLAIM REWARD</button>`
+            : `<button class="btn-early" onclick="earlyUnstake(${o.id},${s.idx})">⚠️ UNSTAKE DINI (PENALTI 3%)</button>`;
+        return `<div class="stake-item">
+          <div class="si-top">
+            <span class="si-name">OPSI ${o.id} — ${o.days} Hari</span>
+            <span class="si-badge">${isPending ? '⏳ PENDING' : ended ? '✅ SELESAI' : '🔒 AKTIF'}</span>
+          </div>
+          <div class="si-grid">
+            <div class="si-left"><span class="si-lbl">MODAL STAKE</span><span class="si-val">$${usdtAmt} USDT</span></div>
+            <div class="si-right"><span class="si-lbl">INDC REWARD</span><span class="si-val" style="color:var(--gold)">${indcAmt} INDC</span></div>
+            <div class="si-left"><span class="si-lbl">MULAI</span><span class="si-val">${startDt}</span></div>
+            <div class="si-right"><span class="si-lbl">SELESAI</span><span class="si-val">${endDt}</span></div>
+          </div>
+          <div class="countdown-row">
+            <div class="countdown-lbl">${ended ? '🎉 PERIODE SELESAI' : '⏳ SISA WAKTU LOCK'}</div>
+            <div class="countdown-val">${sisaStr}</div>
+          </div>
+          ${btnHtml}
+        </div>`;
+      }).join('');
+    });
+  } catch(e){ console.error('loadStakes',e); }
 }
 
 /* Auto-connect saat halaman dibuka */
