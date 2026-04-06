@@ -399,37 +399,16 @@ function renderOpsi() {
 
     <!-- RIWAYAT -->
     <div class="inner-content active" id="o${o.id}-riwayat">
-      ${o.id===1 ? `
-      <div class="stake-item">
-        <div class="si-top">
-          <span class="si-name">OPSI 1 — 30 Hari</span>
-          <span class="si-badge">AKTIF</span>
-        </div>
-        <div class="si-grid">
-          <div class="si-left"><span class="si-lbl">MODAL STAKE</span><span class="si-val">$100.00 USDT</span></div>
-          <div class="si-right"><span class="si-lbl">INDC REWARD</span><span class="si-val" style="color:var(--gold)">— INDC</span></div>
-          <div class="si-left"><span class="si-lbl">MULAI</span><span class="si-val">08 Mar 2026</span></div>
-          <div class="si-right"><span class="si-lbl">SELESAI</span><span class="si-val">07 Apr 2026</span></div>
+      <div class="stake-item" style="opacity:0.45;">
+        <div class="si-row">
+          <div class="si-left"><span class="si-lbl">JUMLAH</span><span class="si-val">—</span></div>
+          <div class="si-right"><span class="si-lbl">INDC REWARD</span><span class="si-val">—</span></div>
         </div>
         <div class="countdown-row">
-          <div class="countdown-lbl">⏳ SISA WAKTU LOCK</div>
-          <div class="countdown-val" id="cdemo">29H 23J 45M</div>
+          <div class="countdown-lbl">HUBUNGKAN WALLET</div>
+          <div class="countdown-val" style="font-size:11px;color:var(--muted);">untuk lihat riwayat stake</div>
         </div>
-        <button class="btn-early" onclick="earlyUnstake(${o.id})">️ UNSTAKE DINI (PENALTI 3%)</button>
-      </div>` : `<div class="stake-item" style="opacity:0.45;">
-              <div class="si-row">
-                <div class="si-left"><span class="si-lbl">JUMLAH</span><span class="si-val">—</span></div>
-                <div class="si-right"><span class="si-lbl">RATE</span><span class="si-val">—</span></div>
-              </div>
-              <div class="si-row">
-                <div class="si-left"><span class="si-lbl">PENDING</span><span class="si-val">—</span></div>
-                <div class="si-right"><span class="si-lbl">DIKLAIM</span><span class="si-val">—</span></div>
-              </div>
-              <div class="countdown-row">
-                <div class="countdown-lbl">BELUM ADA STAKE AKTIF</div>
-                <div class="countdown-val" style="font-size:11px;color:var(--muted);">Stake sekarang untuk memulai</div>
-              </div>
-            </div>`}
+      </div>
     </div>
 
     <!-- INFO -->
@@ -614,12 +593,9 @@ async function loadBalances() {
   if(!_wallet||!_usdt) return;
   try {
     const balUsdt = await _usdt.balanceOf(_wallet);
-    const balIndc = _indc ? await _indc.balanceOf(_wallet) : null;
     OPSI.forEach(o => {
       const el = document.getElementById('bal'+o.id);
       if(el) el.textContent = '$'+fmtUsdt(balUsdt);
-      const elIndc = document.getElementById('balIndc'+o.id);
-      if(elIndc) elIndc.textContent = (balIndc ? fmtIndc(balIndc) : '—')+' INDC';
     });
     await loadStakes();
   } catch(e){ console.error('loadBalances',e); }
@@ -630,6 +606,10 @@ async function approveUSDT(opsiId) {
   const val = document.getElementById('inp'+opsiId).value;
   if(!val || parseFloat(val) <= 0){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
   if(parseFloat(val) < 10){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
+  const maxStake = {1:300, 2:500, 3:700, 4:1000};
+  if(parseFloat(val) > maxStake[opsiId]){
+    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+' USDT untuk opsi ini','var(--red)'); return;
+  }
   const btn = document.getElementById('btnApprove'+opsiId);
   btn.textContent = '⏳ Approving...'; btn.disabled = true;
   setMsg(opsiId, 'Menunggu konfirmasi approve...', 'var(--gold)');
@@ -649,7 +629,15 @@ async function doStake(opsiId) {
   if(!_wallet){ await connectWallet(); return; }
   const val = document.getElementById('inp'+opsiId).value;
   if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah USDT terlebih dahulu','var(--red)'); return; }
-  if(parseFloat(val) < 10){ setMsg(opsiId,'Minimum stake $10 USDT','var(--red)'); return; }
+
+  // Validasi min & max sesuai opsi
+  const maxStake = {1:300, 2:500, 3:700, 4:1000};
+  if(parseFloat(val) < 10){
+    setMsg(opsiId,'Minimum stake $10 USDT','var(--red)'); return;
+  }
+  if(parseFloat(val) > maxStake[opsiId]){
+    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+' USDT untuk opsi ini','var(--red)'); return;
+  }
   const btn = document.getElementById('btnStake'+opsiId);
   btn.textContent = '⏳ Staking...'; btn.disabled = true;
   setMsg(opsiId, 'Menunggu konfirmasi transaksi...', 'var(--gold)');
@@ -787,7 +775,8 @@ async function loadStakes() {
         const sisaH     = Math.floor(sisa/86400);
         const sisaJ     = Math.floor((sisa%86400)/3600);
         const sisaM     = Math.floor((sisa%3600)/60);
-        const sisaStr   = ended ? '✅ Siap klaim' : `${sisaH}H ${sisaJ}J ${sisaM}M`;
+        const sisaS     = Math.floor(sisa%60);
+        const sisaStr   = ended ? '✅ Siap klaim' : `${sisaH}H ${sisaJ}J ${sisaM}M ${sisaS}D`;
         const btnHtml   = isPending
           ? `<button class="btn-early" onclick="claimPending(${o.id},${s.idx})" style="background:rgba(200,146,42,0.2);color:var(--gold);border-color:rgba(200,146,42,0.4);">💰 KLAIM PENDING</button>`
           : ended
@@ -806,7 +795,7 @@ async function loadStakes() {
           </div>
           <div class="countdown-row">
             <div class="countdown-lbl">${ended ? '🎉 PERIODE SELESAI' : '⏳ SISA WAKTU LOCK'}</div>
-            <div class="countdown-val">${sisaStr}</div>
+            <div class="countdown-val" data-endtime="${Number(s.endTime)}">${sisaStr}</div>
           </div>
           ${btnHtml}
         </div>`;
@@ -838,6 +827,30 @@ for(let i=0;i<45;i++){
 
 /* ─ Init ─ */
 renderOpsi();
+
+// Update countdown setiap detik — sisa waktu bergerak realtime
+setInterval(() => {
+  if(!_wallet || !_staking) return;
+  const now = Math.floor(Date.now()/1000);
+  document.querySelectorAll('[data-endtime]').forEach(el => {
+    const endTime = parseInt(el.getAttribute('data-endtime'));
+    const sisa    = Math.max(0, endTime - now);
+    if(sisa === 0) {
+      el.textContent = '✅ Siap klaim';
+    } else {
+      const h = Math.floor(sisa/86400);
+      const j = Math.floor((sisa%86400)/3600);
+      const m = Math.floor((sisa%3600)/60);
+      const s = Math.floor(sisa%60);
+      el.textContent = `${h}H ${j}J ${m}M ${s}D`;
+    }
+  });
+}, 1000);
+
+// Refresh data dari blockchain setiap 30 detik
+setInterval(() => {
+  if(_wallet && _staking) loadStakes();
+}, 30000);
 </script>
 <script>
 if("serviceWorker" in navigator){
