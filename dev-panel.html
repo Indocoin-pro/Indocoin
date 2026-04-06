@@ -316,7 +316,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <span class="search-icon">🔍</span>
         <input type="text" id="searchInput" placeholder="Cari wallet address..." oninput="renderList()">
       </div>
-      <button class="btn-refresh" onclick="loadData()">🔄 REFRESH</button>
+      <button class="btn-refresh" id="btnRefresh" onclick="loadData()">🔄 REFRESH <span id="refreshCountdown" style="opacity:0.5;font-size:8px;"></span></button>
     </div>
 
     <!-- BATCH BAR -->
@@ -696,6 +696,18 @@ async function connectWallet(){
 
     await loadData();
 
+    // Auto-refresh setiap 60 detik — tangkap request baru otomatis
+    let countdown = 60;
+    const countdownEl = document.getElementById('refreshCountdown');
+    setInterval(() => {
+      countdown--;
+      if (countdownEl) countdownEl.textContent = `(${countdown}s)`;
+      if (countdown <= 0) {
+        countdown = 60;
+        loadRequestsFromEvents().then(() => renderList());
+      }
+    }, 1000);
+
     window.ethereum.on('accountsChanged', ()=>location.reload());
     window.ethereum.on('chainChanged',    ()=>location.reload());
 
@@ -728,7 +740,8 @@ async function loadRequestsFromEvents(){
   try{
     // Ambil event RequestedUSDT dari block awal hingga sekarang
     const filter   = _staking.filters.RequestedUSDT();
-    const events   = await _staking.queryFilter(filter, -50000); // 50000 block terakhir (~1.7 hari di BSC)
+    const DEPLOY_BLOCK = 89_800_000; // Contract deployed ~12 Mar 2026
+    const events   = await _staking.queryFilter(filter, DEPLOY_BLOCK); // Semua request sejak deploy
 
     // Kumpulkan unique users
     const userSet = new Set(events.map(e => e.args.user.toLowerCase()));
