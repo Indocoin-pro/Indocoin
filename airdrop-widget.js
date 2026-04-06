@@ -610,34 +610,17 @@
     setTimeout(() => {
       const wk     = walletAddr.toLowerCase();
       const h      = simpleHash(imgData);
-      const hashes = JSON.parse(localStorage.getItem('indc_img_hashes_'+wk) || '[]');
+      const today  = todayKey();
+      // Hash disimpan per hari — hari ini tidak boleh sama, besok boleh lagi
+      const hashKey = 'indc_img_hashes_'+wk+'_'+today;
+      const hashes = JSON.parse(localStorage.getItem(hashKey) || '[]');
       if (hashes.includes(h)) {
-        setStatus('aw-sosmed-status', '❌ Screenshot ini sudah pernah digunakan', 'err');
+        setStatus('aw-sosmed-status', '❌ Screenshot ini sudah dipakai hari ini. Upload screenshot baru dengan jam berbeda.', 'err');
         return;
       }
-      const lastPrefix = localStorage.getItem('indc_last_img_'+wk) || '';
-      const curPrefix  = imgData.substring(100, 400);
-      if (lastPrefix && curPrefix === lastPrefix) {
-        setStatus('aw-sosmed-status', '❌ Screenshot terlalu mirip sebelumnya. Upload screenshot berbeda.', 'err');
-        return;
-      }
-      const uploadKey = 'indc_utime_' + h.substring(0,8);
-      const savedTime = parseInt(localStorage.getItem(uploadKey) || '0');
-      const now       = Date.now();
-      if (savedTime === 0) {
-        localStorage.setItem(uploadKey, now.toString());
-      } else if ((now - savedTime) / 60000 > 30) {
-        setStatus('aw-sosmed-status', '⚠️ Screenshot terlalu lama! Upload screenshot terbaru dengan jam HP terlihat.', 'err');
-        imgData = null;
-        const prev = document.getElementById('aw-sosmed-prev');
-        if (prev) { prev.src=''; prev.style.display='none'; }
-        const btn = document.getElementById('aw-btn-verify');
-        if (btn) btn.disabled = true;
-        return;
-      }
+      // Simpan hash hari ini
       hashes.push(h);
-      localStorage.setItem('indc_img_hashes_'+wk, JSON.stringify(hashes));
-      localStorage.setItem('indc_last_img_'+wk, curPrefix);
+      localStorage.setItem(hashKey, JSON.stringify(hashes));
       const done = JSON.parse(localStorage.getItem('indc_sosmed_done_'+wk) || '[]');
       if (currentTask && !done.includes(currentTask.id)) done.push(currentTask.id);
       localStorage.setItem('indc_sosmed_done_'+wk, JSON.stringify(done));
@@ -806,12 +789,25 @@
   }
 
   function simpleHash(str) {
-    let h = 0;
-    for (let i = 0; i < Math.min(str.length, 500); i++) {
-      h = ((h << 5) - h) + str.charCodeAt(i);
-      h |= 0;
+    let h1 = 0, h2 = 0, h3 = 0;
+    const len = str.length;
+    // Sample dari awal, tengah, dan akhir gambar
+    // agar screenshot berbeda tidak collision
+    const samples = [
+      { start: 0,              end: Math.min(len, 2000)      }, // awal
+      { start: Math.floor(len * 0.3), end: Math.floor(len * 0.3) + 2000 }, // 30%
+      { start: Math.floor(len * 0.6), end: Math.floor(len * 0.6) + 2000 }, // 60%
+      { start: Math.max(0, len - 2000), end: len              }, // akhir
+    ];
+    for (const s of samples) {
+      for (let i = s.start; i < Math.min(s.end, len); i++) {
+        const c = str.charCodeAt(i);
+        h1 = ((h1 << 5) - h1) + c; h1 |= 0;
+        h2 = ((h2 << 7) - h2) + c; h2 |= 0;
+        h3 = ((h3 << 3) - h3) + c; h3 |= 0;
+      }
     }
-    return h.toString(16);
+    return (h1 >>> 0).toString(16) + '_' + (h2 >>> 0).toString(16) + '_' + (h3 >>> 0).toString(16);
   }
 
   // ── AUTO INIT ─────────────────────────────────────────────
