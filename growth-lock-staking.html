@@ -551,9 +551,11 @@ let _provider, _signer, _wallet, _staking, _usdt, _indc;
 const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
 function shortAddr(a){ return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
-function fromWei(v){ return (Number(BigInt(v.toString())) / 1e18).toFixed(4); }
-function fromIndc(v){ return (Number(BigInt(v.toString())) / 1e9).toFixed(2); }
-function toWei(v){ return ethers.utils.parseUnits(String(parseFloat(v)||0), 18); }
+function fromWei(v) { return parseFloat(ethers.utils.formatUnits(v, 18)); }
+function fromIndc(v){ return parseFloat(ethers.utils.formatUnits(v, 9));  }
+function fmtUsdt(v) { return fromWei(v).toFixed(2); }
+function fmtIndc(v) { return fromIndc(v).toLocaleString('id-ID', {maximumFractionDigits:0}); }
+function toWei(v)   { return ethers.utils.parseUnits(String(parseFloat(v)||0), 18); }
 
 function showMinPopup(minAmt, maxAmt, label) {
   const existing = document.getElementById('minStakePopup');
@@ -613,13 +615,11 @@ async function loadBalances() {
   try {
     const balUsdt = await _usdt.balanceOf(_wallet);
     const balIndc = _indc ? await _indc.balanceOf(_wallet) : null;
-    const fmtUsdt = parseFloat(fromWei(balUsdt)).toFixed(2);
-    const fmtIndc = balIndc ? parseFloat(fromIndc(balIndc)).toLocaleString('id-ID') : '—';
     OPSI.forEach(o => {
       const el = document.getElementById('bal'+o.id);
-      if(el) el.textContent = '$'+fmtUsdt;
+      if(el) el.textContent = '$'+fmtUsdt(balUsdt);
       const elIndc = document.getElementById('balIndc'+o.id);
-      if(elIndc) elIndc.textContent = fmtIndc+' INDC';
+      if(elIndc) elIndc.textContent = (balIndc ? fmtIndc(balIndc) : '—')+' INDC';
     });
     await loadStakes();
   } catch(e){ console.error('loadBalances',e); }
@@ -669,7 +669,7 @@ async function doStake(opsiId) {
     const tx = await _staking.stake(opsiId, amtWei);
     setMsg(opsiId, 'Transaksi dikirim, menunggu konfirmasi...', 'var(--gold)');
     await tx.wait();
-    const indcAmt = parseFloat(fromIndc(est.indcRwd)).toLocaleString('id-ID', {maximumFractionDigits:0});
+    const indcAmt = fmtIndc(est.indcRwd);
     setMsg(opsiId, '✓ Stake berhasil! '+indcAmt+' INDC reward terkunci untukmu.', 'var(--gold2)');
     document.getElementById('inp'+opsiId).value = '';
     await loadBalances();
@@ -728,14 +728,14 @@ async function loadStakes() {
     const now = Math.floor(Date.now()/1000);
 
     // ── Hitung summary ──
-    let totalIndcPending = 0n;
-    let totalUsdtLocked  = 0n;
+    let totalIndcPending = 0;
+    let totalUsdtLocked  = 0;
     let activeCount      = 0;
 
     allStakes.forEach(s => {
       if(!s.claimed && !s.unstaked) {
-        totalIndcPending += BigInt(s.indcReward.toString());
-        totalUsdtLocked  += BigInt(s.amount.toString());
+        totalIndcPending += fromIndc(s.indcReward);
+        totalUsdtLocked  += fromWei(s.amount);
         activeCount++;
       }
     });
@@ -744,17 +744,16 @@ async function loadStakes() {
     if(activeCount > 0) {
       document.getElementById('indcSummaryCard').style.display = 'block';
       document.getElementById('summaryIndcPending').textContent =
-        parseFloat(fromIndc(totalIndcPending.toString())).toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+        totalIndcPending.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
       document.getElementById('summaryUsdtLocked').textContent =
-        '$'+parseFloat(fromWei(totalUsdtLocked.toString())).toFixed(2);
+        '$'+totalUsdtLocked.toFixed(2);
       document.getElementById('summaryActiveStakes').textContent = activeCount;
     }
 
     // INDC di wallet
     if(_indc) {
       const indcBal = await _indc.balanceOf(_wallet);
-      document.getElementById('summaryIndcWallet').textContent =
-        parseFloat(fromIndc(indcBal.toString())).toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+      document.getElementById('summaryIndcWallet').textContent = fmtIndc(indcBal)+' INDC';
     }
 
     // ── Render riwayat per opsi ──
@@ -778,8 +777,8 @@ async function loadStakes() {
         return;
       }
       riwayatEl.innerHTML = opsiStakes.map(s => {
-        const usdtAmt   = parseFloat(fromWei(s.amount)).toFixed(2);
-        const indcAmt   = parseFloat(fromIndc(s.indcReward)).toLocaleString('id-ID',{maximumFractionDigits:0});
+        const usdtAmt   = fromWei(s.amount).toFixed(2);
+        const indcAmt   = fromIndc(s.indcReward).toLocaleString('id-ID',{maximumFractionDigits:0});
         const startDt   = new Date(Number(s.startTime)*1000).toLocaleDateString('id-ID');
         const endDt     = new Date(Number(s.endTime)*1000).toLocaleDateString('id-ID');
         const ended     = now >= Number(s.endTime);

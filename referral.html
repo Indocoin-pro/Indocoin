@@ -842,7 +842,7 @@ body::before {
       <div class="stat-lbl">DIRECT (L1)</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val" id="statBonus">$0</div>
+      <div class="stat-val" id="statBonus">0 INDC</div>
       <div class="stat-lbl">TOTAL BONUS</div>
     </div>
   </div>
@@ -1228,7 +1228,7 @@ async function loadAll() {
       document.getElementById('uplineCard').style.display = 'none';
       document.getElementById('statTotal').textContent = '0';
       document.getElementById('statDirect').textContent = '0';
-      document.getElementById('statBonus').textContent = '$0';
+      document.getElementById('statBonus').textContent = '0 INDC';
       renderEmptyDownline();
       renderEmptyBonus();
       renderPrograms([]);
@@ -1242,9 +1242,11 @@ async function loadAll() {
     }
 
     // Stats
-    const totalBonus = parseFloat(ethers.utils.formatUnits(info.totalRefBonus, 18)).toFixed(2);
+    // totalRefBonus dalam INDC (9 dec) — semua program v2 bayar INDC
+    const totalBonus = parseFloat(ethers.utils.formatUnits(info.totalRefBonus, 9))
+                       .toLocaleString('id-ID', {maximumFractionDigits: 0});
     document.getElementById('statTotal').textContent = info.totalDownlineCount.toString();
-    document.getElementById('statBonus').textContent = '$'+totalBonus;
+    document.getElementById('statBonus').textContent = totalBonus+' INDC';
 
     // Level counts
     const levelCounts = await cMaster.getLevelCounts(myAddr);
@@ -1422,13 +1424,21 @@ async function renderBonusHistory() {
       return;
     }
 
+    // Program yang bayar INDC (9 dec) — semua program v2
+    const INDC_PROGRAMS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
     let html = '';
     const len = hist.froms.length;
     for (let i = len - 1; i >= 0; i--) {
-      const amount = parseFloat(ethers.utils.formatUnits(hist.amounts[i], 18)).toFixed(4);
-      const progName = PROGRAM_NAMES[hist.programs[i]] || 'Program '+hist.programs[i];
-      const date = new Date(hist.timestamps[i].toNumber() * 1000);
-      const dateStr = date.toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'});
+      const progId   = parseInt(hist.programs[i]);
+      const isIndc   = INDC_PROGRAMS.includes(progId);
+      const dec      = isIndc ? 9 : 18;
+      const symbol   = isIndc ? 'INDC' : 'USDT';
+      const amount   = parseFloat(ethers.utils.formatUnits(hist.amounts[i], dec))
+                       .toLocaleString('id-ID', {maximumFractionDigits: isIndc ? 0 : 4});
+      const progName = PROGRAM_NAMES[progId] || 'Program '+progId;
+      const date     = new Date(hist.timestamps[i].toNumber() * 1000);
+      const dateStr  = date.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
 
       html += `
       <div class="bonus-item" style="animation-delay:${(len-i)*.05}s">
@@ -1438,7 +1448,7 @@ async function renderBonusHistory() {
           <div class="bi-prog">${progName}</div>
           <div class="bi-time">${dateStr}</div>
         </div>
-        <div class="bi-amount">+$${amount}</div>
+        <div class="bi-amount">+${amount} ${symbol}</div>
       </div>`;
     }
     el.innerHTML = html;
