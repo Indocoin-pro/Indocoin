@@ -248,7 +248,6 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <div class="info-head">
       <div>
         <div class="info-title">FLEXI YIELD STAKING</div>
-        <div class="info-subtitle">Reward 0.5%/hari • Withdraw bebas • 0% Penalti • Hold INDC</div>
       </div>
       <div class="info-aktif">✓ AKTIF</div>
     </div>
@@ -300,7 +299,10 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <div class="sec-div">WITHDRAW</div>
     <div class="form-card">
       <div class="input-row">
-        <div class="input-wrap"><input type="number" id="inpWd" placeholder="Jumlah USDT (Min $1)"></div>
+        <div class="input-wrap" style="position:relative;">
+          <input type="number" id="inpWd" placeholder="Jumlah USDT (Min $1)">
+          <button onclick="setMaxWithdraw()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Orbitron',sans-serif;font-size:8px;padding:3px 8px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);color:var(--gold);border-radius:6px;cursor:pointer;letter-spacing:1px;">MAX</button>
+        </div>
         <div class="usdt-bal"><span class="ubl">MODAL</span><span class="ubv" id="balWd">—</span></div>
       </div>
       <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin:4px 0 8px;padding:6px 10px;background:rgba(200,146,42,0.06);border-radius:8px;">
@@ -316,12 +318,31 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <!-- DEPOSIT -->
     <div class="sec-div"> DEPOSIT SEKARANG</div>
     <div class="form-card">
+      <!-- Saldo INDC wallet -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;">Saldo INDC di Wallet</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);" id="indcBalDisplay">—</span>
+      </div>
       <div class="input-row">
-        <div class="input-wrap"><input type="number" id="inpStake" placeholder="Jumlah USDT (Min $5, Max $200)" oninput="updateHoldInfo()"></div>
+        <div class="input-wrap" style="position:relative;">
+          <input type="number" id="inpStake" placeholder="Masukkan USDT" oninput="updateHoldInfo()">
+          <button onclick="setMaxDeposit()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:'Orbitron',sans-serif;font-size:8px;padding:3px 8px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);color:var(--gold);border-radius:6px;cursor:pointer;letter-spacing:1px;">MAX</button>
+        </div>
         <div class="usdt-bal"><span class="ubl">SALDO</span><span class="ubv" id="balStake">—</span></div>
       </div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin:4px 0 8px;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;" id="holdCheckMsg">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin:4px 0 4px;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;" id="holdCheckMsg">
         Masukkan jumlah untuk cek kategori
+      </div>
+      <!-- Estimasi reward/hari -->
+      <div id="estimasiBox" style="display:none;margin-bottom:8px;padding:6px 10px;background:rgba(200,146,42,0.06);border:1px solid rgba(200,146,42,0.2);border-radius:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;">Estimasi Reward/Hari</span>
+          <span style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);" id="estimasiHari">0 INDC</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;">Estimasi / 30 Hari</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#a89880;" id="estimasi30">0 INDC</span>
+        </div>
       </div>
       <button class="btn-approve" id="btnApprove" onclick="doApprove()">✓ APPROVE USDT</button>
       <button class="btn-stake" id="btnStake" onclick="doStake()">DEPOSIT SEKARANG</button>
@@ -526,6 +547,7 @@ const ERC20_ABI = [
 
 let provider, signer, contract, usdtC, indcC;
 let myAddr = null;
+let indcPriceGlobal = 0.003; // default, akan diupdate dari contract
 
 function fmt(wei, dec=18, fix=2){ return parseFloat(ethers.utils.formatUnits(wei.toString(), dec)).toFixed(fix); }
 function toWei(v, dec=18){ return ethers.utils.parseUnits(String(parseFloat(v)||0), dec); }
@@ -546,21 +568,58 @@ function showToast(msg, color){
   t._t = setTimeout(()=>{ t.style.opacity='0'; }, 3200);
 }
 
+/* ── Tombol MAX ── */
+function setMaxDeposit(){
+  if(!myAddr){ showToast('Hubungkan wallet dulu','var(--red)'); return; }
+  const el = document.getElementById('balStake');
+  if(!el || el.textContent==='—') return;
+  const raw = parseFloat(el.textContent.replace(/[^0-9.]/g,''))||0;
+  const max = Math.min(raw, 200);
+  const val = Math.floor(max * 100) / 100;
+  if(val < 5){ showToast('Saldo USDT kurang dari $5','var(--red)'); return; }
+  document.getElementById('inpStake').value = val;
+  updateHoldInfo();
+}
+
+function setMaxWithdraw(){
+  if(!myAddr){ showToast('Hubungkan wallet dulu','var(--red)'); return; }
+  const el = document.getElementById('balWd');
+  if(!el || el.textContent==='—') return;
+  const raw = parseFloat(el.textContent.replace(/[^0-9.]/g,''))||0;
+  if(raw < 1){ showToast('Modal kurang dari $1','var(--red)'); return; }
+  document.getElementById('inpWd').value = Math.floor(raw * 100) / 100;
+}
+
 /* ── Hold info saat input ── */
 function updateHoldInfo(){
   const val = parseFloat(document.getElementById('inpStake').value)||0;
   const el  = document.getElementById('holdCheckMsg');
+  const estBox  = document.getElementById('estimasiBox');
+  const estHari = document.getElementById('estimasiHari');
+  const est30   = document.getElementById('estimasi30');
   if(!el) return;
-  if(val <= 0){ el.textContent='Masukkan jumlah untuk cek kategori'; el.style.color='var(--muted)'; return; }
+  if(val <= 0){
+    el.textContent='Masukkan jumlah untuk cek kategori'; el.style.color='var(--muted)';
+    if(estBox) estBox.style.display='none';
+    return;
+  }
+  if(val < 5)  { el.textContent='Min deposit $5 USDT'; el.style.color='var(--red)'; if(estBox) estBox.style.display='none'; return; }
+  if(val > 200){ el.textContent='Max deposit $200 USDT'; el.style.color='var(--red)'; if(estBox) estBox.style.display='none'; return; }
   let cat=1, hold=1000;
-  if(val <= 50)  { cat=1; hold=1000; }
-  else if(val <= 100){ cat=2; hold=2000; }
-  else if(val <= 150){ cat=3; hold=3000; }
-  else           { cat=4; hold=4000; }
-  if(val < 5)  { el.textContent='Min deposit $5 USDT'; el.style.color='var(--red)'; return; }
-  if(val > 200){ el.textContent='Max deposit $200 USDT'; el.style.color='var(--red)'; return; }
+  if(val <= 50)       { cat=1; hold=1000; }
+  else if(val <= 100) { cat=2; hold=2000; }
+  else if(val <= 150) { cat=3; hold=3000; }
+  else                { cat=4; hold=4000; }
   el.textContent = 'Kategori '+cat+' — Wajib hold '+hold.toLocaleString()+' INDC di wallet';
   el.style.color = 'var(--gold)';
+  // Estimasi reward
+  const indcPrice = indcPriceGlobal;
+  const dailyUsdt = val * 0.005;
+  const perHari   = Math.floor(dailyUsdt / indcPrice);
+  const per30     = perHari * 30;
+  if(estBox) estBox.style.display='block';
+  if(estHari) estHari.textContent = perHari.toLocaleString('id-ID')+' INDC';
+  if(est30)   est30.textContent   = per30.toLocaleString('id-ID')+' INDC';
 }
 
 /* ── Connect Wallet ── */
@@ -602,6 +661,14 @@ async function loadData(){
     if(el) el.textContent = indcBal+' INDC';
     const elStatus = document.getElementById('poolStatus');
     if(elStatus){ elStatus.textContent = pool.depositOpen ? 'OPEN' : 'CLOSED'; elStatus.style.color = pool.depositOpen ? 'var(--gold2)' : 'var(--white2)'; }
+
+    // Ambil harga INDC dari contract
+    try{
+      const priceData = await contract.getCurrentPrice();
+      // currentUsdtPerIndc = harga USDT per 1 INDC (decimal 18)
+      const usdtPerIndc = parseFloat(ethers.utils.formatUnits(priceData.currentUsdtPerIndc, 18));
+      if(usdtPerIndc > 0) indcPriceGlobal = usdtPerIndc;
+    }catch(ep){ console.warn('indcPrice:', ep); }
 
     // USDT balance
     try{
@@ -686,8 +753,33 @@ async function updateLive(info){
 async function doApprove(){
   if(!myAddr){ await connectWallet(); return; }
   const val = parseFloat(document.getElementById('inpStake').value)||0;
-  if(val < 5)  { setMsg('msgStake','Min deposit $5 USDT','var(--red)'); return; }
-  if(val > 200){ setMsg('msgStake','Max deposit $200 USDT','var(--red)'); return; }
+  if(val < 5){
+    const pop = document.createElement('div');
+    pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    pop.innerHTML=`<div style="background:#0d1f3c;border:2px solid rgba(200,146,42,0.6);border-radius:18px;padding:24px 20px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">DEPOSIT TERLALU KECIL</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;margin-bottom:16px;line-height:1.7;">
+        Minimum deposit adalah<br><b style="color:#f5f0e8;">$5 USDT</b>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;padding:10px 24px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;cursor:pointer;">MENGERTI</button>
+    </div>`;
+    document.body.appendChild(pop); return;
+  }
+  if(val > 200){
+    const pop = document.createElement('div');
+    pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    pop.innerHTML=`<div style="background:#0d1f3c;border:2px solid rgba(200,146,42,0.6);border-radius:18px;padding:24px 20px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MELEBIHI BATAS MAKSIMAL</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;margin-bottom:16px;line-height:1.7;">
+        Maksimum deposit adalah<br><b style="color:#f5f0e8;">$200 USDT</b> per posisi.<br><br>
+        Gunakan tombol <b style="color:var(--gold);">MAX</b> untuk isi otomatis.
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;padding:10px 24px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;cursor:pointer;">MENGERTI</button>
+    </div>`;
+    document.body.appendChild(pop); return;
+  }
   try{
     const amt = toWei(val.toString(), 18);
     setMsg('msgStake','Approve USDT... (konfirmasi MetaMask)','var(--gold)');
@@ -704,8 +796,26 @@ async function doApprove(){
 async function doStake(){
   if(!contract){ showToast('Connect wallet dulu!','var(--red)'); return; }
   const val = parseFloat(document.getElementById('inpStake').value)||0;
-  if(val < 5)  { setMsg('msgStake','Min deposit $5 USDT','var(--red)'); return; }
-  if(val > 200){ setMsg('msgStake','Max deposit $200 USDT','var(--red)'); return; }
+  if(val < 5){
+    const pop = document.createElement('div');
+    pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    pop.innerHTML=`<div style="background:#0d1f3c;border:2px solid rgba(200,146,42,0.6);border-radius:18px;padding:24px 20px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">DEPOSIT TERLALU KECIL</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;margin-bottom:16px;line-height:1.7;">Minimum deposit adalah<br><b style="color:#f5f0e8;">$5 USDT</b></div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;padding:10px 24px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;cursor:pointer;">MENGERTI</button>
+    </div>`; document.body.appendChild(pop); return;
+  }
+  if(val > 200){
+    const pop = document.createElement('div');
+    pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    pop.innerHTML=`<div style="background:#0d1f3c;border:2px solid rgba(200,146,42,0.6);border-radius:18px;padding:24px 20px;max-width:320px;width:100%;text-align:center;">
+      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:10px;">MELEBIHI BATAS MAKSIMAL</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;margin-bottom:16px;line-height:1.7;">Maksimum deposit adalah<br><b style="color:#f5f0e8;">$200 USDT</b> per posisi.<br><br>Gunakan tombol <b style="color:var(--gold);">MAX</b> untuk isi otomatis.</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;padding:10px 24px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;cursor:pointer;">MENGERTI</button>
+    </div>`; document.body.appendChild(pop); return;
+  }
   try{
     const amt = toWei(val.toString(), 18);
     // Cek allowance
@@ -790,7 +900,7 @@ async function calcReward(){
     return;
   }
   // Hitung offline: 0.5%/hari, fee withdraw 1%
-  const indcPrice = 0.003;
+  const indcPrice = indcPriceGlobal;
   const dailyUsdt = u * 0.005;
   const totalRwdUsdt = dailyUsdt * days;
   const indcReward   = totalRwdUsdt / indcPrice;
