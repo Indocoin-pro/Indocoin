@@ -131,10 +131,11 @@ function handleAIChat(req, res) {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
-    let messages;
+    let messages, userName;
     try {
       const parsed = JSON.parse(body);
       messages = parsed.messages;
+      userName = (parsed.userName || '').trim().split(' ')[0] || '';
       if (!Array.isArray(messages) || messages.length === 0) throw new Error();
     } catch(e) {
       corsHeaders(res);
@@ -142,10 +143,14 @@ function handleAIChat(req, res) {
       return res.end(JSON.stringify({ error: 'Invalid request' }));
     }
 
+    const dynamicSystem = SYSTEM_PROMPT + (userName 
+      ? `\n\nNama user yang sedang chat dengan kamu adalah: ${userName}. Gunakan nama ini secara natural di momen yang tepat — saat memuji, saat menutup jawaban, saat user bingung, atau saat suasana terasa pas. Jangan sebut nama di setiap kalimat, cukup sesekali agar terasa natural seperti percakapan nyata.`
+      : '');
+
     const payload = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: dynamicSystem,
       messages
     });
 
