@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "59.5";
+const VERSION = "59.6";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
