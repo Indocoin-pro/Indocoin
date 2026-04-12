@@ -253,7 +253,10 @@ const MAX_HISTORY = 10;
 let messages = [];
 let isLoading = false;
 let userName = localStorage.getItem('elara_username') || '';
-let isIntroMode = !userName; // true = belum kenalan
+let userGender = localStorage.getItem('elara_gender') || ''; // 'L' atau 'P'
+let isIntroMode = !userName;       // true = belum tahu nama
+let isGenderMode = !!(userName && !userGender); // true = sudah nama, belum gender
+let genderPending = false;         // true = menunggu user klik tombol gender
 
 // Stars
 for(let i=0;i<25;i++){
@@ -272,6 +275,10 @@ input.addEventListener('input', () => {
 input.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
+
+function getTitle() {
+  return userGender === 'L' ? 'Bpk' : 'Ibu';
+}
 
 function getElaraAvatar() {
   return document.querySelector('.welcome-photo') 
@@ -307,6 +314,27 @@ function addMessage(role, text) {
   wrap.scrollTop = wrap.scrollHeight;
 }
 
+// ── Tampilkan tombol gender ──
+function addGenderButtons() {
+  const wrap = document.getElementById('chatWrap');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'gender-buttons';
+  const av = document.createElement('div'); av.className = 'msg-avatar';
+  const photoSrc = getElaraAvatar();
+  if (photoSrc) {
+    av.innerHTML = `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  } else { av.textContent = '✨'; }
+  const bubble = document.createElement('div'); bubble.className = 'msg-bubble';
+  bubble.innerHTML = `Supaya Elara bisa menyapa dengan tepat, boleh tau jenis kelaminmu?<br><br>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button onclick="handleGenderInput('L')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(250,204,21,0.4);background:rgba(250,204,21,0.1);color:#e2e8f0;font-family:'Rajdhani',sans-serif;font-size:14px;cursor:pointer;">👨 Laki-laki</button>
+      <button onclick="handleGenderInput('P')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(250,204,21,0.4);background:rgba(250,204,21,0.1);color:#e2e8f0;font-family:'Rajdhani',sans-serif;font-size:14px;cursor:pointer;">👩 Perempuan</button>
+    </div>`;
+  div.appendChild(av); div.appendChild(bubble);
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
 function showTyping() {
   const wrap = document.getElementById('chatWrap');
   const div = document.createElement('div'); div.className = 'msg bot'; div.id = 'typing-indicator';
@@ -326,7 +354,15 @@ function hideTyping() {
   if (el) el.remove();
 }
 
-// ── INTRO: minta nama ──
+function setInputBlocked(blocked) {
+  input.disabled = blocked;
+  document.getElementById('sendBtn').disabled = blocked;
+  input.placeholder = blocked 
+    ? 'Pilih dulu ya... 👆' 
+    : `Tanya Elara apa saja tentang Indocoin...`;
+}
+
+// ── STEP 1: Minta nama ──
 function startIntro() {
   document.getElementById('suggestions').style.display = 'none';
   input.placeholder = 'Ketik namamu di sini...';
@@ -335,44 +371,78 @@ function startIntro() {
   }, 600);
 }
 
-// ── SIMPAN NAMA & SAMBUT ──
+// ── STEP 2: Simpan nama, tanya gender ──
 function handleIntroInput(rawName) {
   const firstName = rawName.trim().split(' ')[0];
   if (!firstName) return;
   userName = firstName;
   localStorage.setItem('elara_username', userName);
   isIntroMode = false;
-  input.placeholder = `Tanya Elara apa saja tentang Indocoin...`;
+  isGenderMode = true;
+  genderPending = true;
   addMessage('user', rawName);
+  setInputBlocked(true);
+  showTyping();
+  setTimeout(() => {
+    hideTyping();
+    addMessage('bot', `Sip, ${userName}! Senang berkenalan denganmu 😊`);
+    setTimeout(() => addGenderButtons(), 400);
+  }, 1000);
+}
+
+// ── STEP 3: Simpan gender & mulai chat ──
+function handleGenderInput(gender) {
+  userGender = gender;
+  localStorage.setItem('elara_gender', userGender);
+  isGenderMode = false;
+  genderPending = false;
+  const el = document.getElementById('gender-buttons');
+  if (el) el.remove();
+  setInputBlocked(false);
+  input.placeholder = `Tanya Elara apa saja tentang Indocoin...`;
+  const title = getTitle();
   showTyping();
   setTimeout(() => {
     hideTyping();
     const greets = [
-      `Senang banget kenalan sama kamu ${userName}! 🌟\nYuk, mau belajar apa hari ini?`,
-      `Wah nama yang keren! Hei ${userName}, Elara siap menemani kamu belajar ya! 😊`,
-      `${userName}! Nama yang bagus 🌟 Oke, tanya apa saja — Elara siap bantu!`
+      `Siap ${title} ${userName}! 🌟 Yuk, mau belajar apa hari ini?`,
+      `Oke ${title} ${userName}! Elara siap menemani ya 😊 Tanya apa saja!`,
+      `${title} ${userName}, selamat datang! 🎉 Ada yang bisa Elara bantu?`
     ];
     addMessage('bot', greets[Math.floor(Math.random() * greets.length)]);
     document.getElementById('suggestions').style.display = 'flex';
   }, 1200);
 }
 
-// ── SAPA USER LAMA ──
+// ── SAPA USER LAMA (punya nama + gender) ──
 function greetReturning() {
+  const title = getTitle();
   const greets = [
-    `Hei ${userName}! Elara senang kamu balik lagi 😊 Mau belajar apa hari ini?`,
-    `Hai ${userName}! Sudah kangen nih 🌟 Ada yang mau ditanyain?`,
-    `${userName}! Selamat datang kembali 😊 Yuk, kita mulai!`
+    `Hei ${title} ${userName}! Elara senang kamu balik lagi 😊 Mau belajar apa hari ini?`,
+    `Halo ${title} ${userName}! 👋 Sudah kangen nih 🌟 Ada yang mau ditanyain?`,
+    `${title} ${userName}! Selamat datang kembali 😊 Yuk, kita mulai!`,
+    `Hei ${userName}! Elara siap menemani hari ini 🌟 Ada pertanyaan baru?`
   ];
   setTimeout(() => {
     addMessage('bot', greets[Math.floor(Math.random() * greets.length)]);
   }, 600);
 }
 
+// ── SAPA USER LAMA YANG BELUM PUNYA GENDER ──
+function askGenderReturning() {
+  genderPending = true;
+  setInputBlocked(true);
+  document.getElementById('suggestions').style.display = 'none';
+  setTimeout(() => {
+    addMessage('bot', `Hei ${userName}! 😊 Sebelum lanjut, boleh Elara tahu jenis kelaminmu? Supaya sapaannya lebih pas!`);
+    setTimeout(() => addGenderButtons(), 400);
+  }, 600);
+}
+
 // ── SEND MESSAGE ──
 async function sendMessage() {
   const text = input.value.trim();
-  if (!text || isLoading) return;
+  if (!text || isLoading || genderPending) return;
 
   // Mode intro — tangkap nama
   if (isIntroMode) {
@@ -396,7 +466,8 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         messages: messages.slice(-MAX_HISTORY),
-        userName: userName
+        userName: userName,
+        userGender: userGender
       })
     });
     const data = await res.json();
@@ -406,7 +477,9 @@ async function sendMessage() {
     messages.push({ role: 'assistant', content: reply });
   } catch(e) {
     hideTyping();
-    addMessage('bot', `⚠️ Koneksi bermasalah nih ${userName}. Pastikan internet aktif, lalu coba lagi ya!`);
+    const title = userGender ? getTitle() : '';
+    const sapaan = (title && userName) ? `${title} ${userName}` : (userName || '');
+    addMessage('bot', `⚠️ Koneksi bermasalah nih${sapaan ? ' ' + sapaan : ''}. Pastikan internet aktif, lalu coba lagi ya!`);
   }
 
   isLoading = false;
@@ -423,6 +496,8 @@ function sendSuggestion(text) {
 window.addEventListener('DOMContentLoaded', () => {
   if (isIntroMode) {
     startIntro();
+  } else if (isGenderMode) {
+    askGenderReturning();
   } else {
     greetReturning();
   }

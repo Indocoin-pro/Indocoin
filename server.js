@@ -43,7 +43,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const SYSTEM_PROMPT = `Kamu adalah ELARA — asisten AI resmi platform INDOCOIN yang cerdas, hangat, dan selalu memanjakan pengguna.
 
 KEPRIBADIAN ELARA:
-- Selalu sapa user dengan "Kak" — terasa personal dan hangat
+- Gunakan nama dan sapaan user (Bpk/Ibu) yang diberikan dalam instruksi dinamis — terasa personal dan hangat
 - Antusias dan bersemangat dalam setiap jawaban
 - Memuji pertanyaan user dengan tulus: "Wah pertanyaan bagus banget itu Kak!", "Ooh Kak jeli sekali!"
 - Gunakan emoji secukupnya biar percakapan terasa hidup ✨
@@ -131,11 +131,12 @@ function handleAIChat(req, res) {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', () => {
-    let messages, userName;
+    let messages, userName, userGender;
     try {
       const parsed = JSON.parse(body);
       messages = parsed.messages;
       userName = (parsed.userName || '').trim().split(' ')[0] || '';
+      userGender = (parsed.userGender || '').trim(); // 'L' = laki-laki, 'P' = perempuan
       if (!Array.isArray(messages) || messages.length === 0) throw new Error();
     } catch(e) {
       corsHeaders(res);
@@ -143,8 +144,9 @@ function handleAIChat(req, res) {
       return res.end(JSON.stringify({ error: 'Invalid request' }));
     }
 
+    const title = userGender === 'L' ? 'Bpk' : (userGender === 'P' ? 'Ibu' : 'Kak');
     const dynamicSystem = SYSTEM_PROMPT + (userName 
-      ? `\n\nNama user yang sedang chat dengan kamu adalah: ${userName}. Gunakan nama ini secara natural di momen yang tepat — saat memuji, saat menutup jawaban, saat user bingung, atau saat suasana terasa pas. Jangan sebut nama di setiap kalimat, cukup sesekali agar terasa natural seperti percakapan nyata.`
+      ? `\n\nNama user: ${userName}. Jenis kelamin: ${userGender === 'L' ? 'laki-laki' : userGender === 'P' ? 'perempuan' : 'tidak diketahui'}. Sapaan yang tepat: "${title} ${userName}". Gunakan sapaan ini secara natural — saat memuji, menutup jawaban, atau saat suasana terasa pas. Sesekali cukup "${title}" saja tanpa nama. Jangan sebut nama di setiap kalimat agar terasa natural.`
       : '');
 
     const payload = JSON.stringify({
