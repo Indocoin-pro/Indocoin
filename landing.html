@@ -1240,8 +1240,9 @@ window.doSignUp = async () => {
   }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+  let cred = null;
   try{
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
     await saveUser(cred.user, name, phone, ref);
 
@@ -1265,6 +1266,10 @@ window.doSignUp = async () => {
       <button class="btn-secondary" style="margin-top:16px" onclick="closeModals();showSignIn()">🔑 SUDAH VERIFIKASI? MASUK</button>
     `;
   }catch(e){
+    // Kalau Firestore gagal, hapus akun Authentication yang terlanjur dibuat
+    if(cred && cred.user){
+      await cred.user.delete().catch(()=>{});
+    }
     st.textContent = e.code==='auth/email-already-in-use'?'Email sudah terdaftar!':
                      e.code==='auth/weak-password'?'Password terlalu lemah!':
                      'Gagal: '+e.message;
