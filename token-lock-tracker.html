@@ -482,51 +482,35 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
 const CONTRACT = '0xf9100e523F9881C677f6cc99615d12F7f5152A52';
 const RPC_LIST = [
   'https://bsc-dataseed1.binance.org/',
   'https://bsc-dataseed2.binance.org/',
   'https://bsc-dataseed3.binance.org/',
-  'https://bsc-dataseed4.binance.org/',
-  'https://bsc-dataseed1.defibit.io/',
-  'https://bsc-dataseed2.defibit.io/',
   'https://bsc.publicnode.com',
   'https://binance.llamarpc.com',
 ];
 
-// ABI minimal
-const ABI_getLockSummary = '0xc67322a2';
-const ABI_getAllSlotsReadable = '0xebe0d177';
+const ABI = [
+  "function getLockSummary(uint256 lockId) view returns (tuple(uint256 lockId, address token, address owner, string namaLock, string kategori, uint256 totalLocked, uint256 totalClaimed, uint256 totalMasihTerkunci, uint256 totalBisaDiklaim, uint256 slotCount, uint256 slotBelumDiklaim, uint256 nextUnlockTime, uint256 nextUnlockTahun, uint256 nextUnlockBulan, uint256 nextUnlockTanggal, uint256 hariLagiNextUnlock, uint256 createdAt))",
+  "function getAllSlotsReadable(uint256 lockId) view returns (tuple(uint256 slotIndex, uint256 tahunKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool claimed, string status, uint256 hariLagiUnlock)[])"
+];
 
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
-async function rpcCall(data) {
+async function getProvider() {
   for (const rpc of RPC_LIST) {
     try {
-      const res = await fetch(rpc, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: CONTRACT, data }, 'latest']
-        })
-      });
-      const json = await res.json();
-      if (json.result) return json.result;
+      const provider = new ethers.providers.JsonRpcProvider(rpc);
+      await provider.getBlockNumber();
+      return provider;
     } catch(e) {
-      console.warn('RPC gagal:', rpc, e.message);
+      console.warn('RPC gagal:', rpc);
     }
   }
   throw new Error('Semua RPC gagal');
-}
-
-function hexToNum(hex) {
-  return parseInt(hex, 16);
-}
-
-function decodeUint(hex, offset) {
-  return BigInt('0x' + hex.slice(2 + offset * 64, 2 + (offset + 1) * 64));
 }
 
 function formatINDC(bignum) {
@@ -535,14 +519,15 @@ function formatINDC(bignum) {
 }
 
 function formatDate(tahun, bulan, tanggal) {
-  return `${tanggal} ${BULAN[bulan - 1]} ${tahun}`;
+  return `${tanggal} ${BULAN[Number(bulan) - 1]} ${tahun}`;
 }
 
 function countdown(hariLagi) {
-  if (hariLagi === 0) return '';
-  const tahun = Math.floor(hariLagi / 365);
-  const bulan = Math.floor((hariLagi % 365) / 30);
-  const hari = hariLagi % 30;
+  const h = Number(hariLagi);
+  if (h === 0) return '';
+  const tahun = Math.floor(h / 365);
+  const bulan = Math.floor((h % 365) / 30);
+  const hari = h % 30;
   let parts = [];
   if (tahun > 0) parts.push(`${tahun}thn`);
   if (bulan > 0) parts.push(`${bulan}bln`);
@@ -550,66 +535,9 @@ function countdown(hariLagi) {
   return parts.join(' ') + ' lagi';
 }
 
-async function getLockSummary(lockId) {
-  const param = lockId.toString(16).padStart(64, '0');
-  const data = ABI_getLockSummary + param;
-  const result = await rpcCall(data);
-  const hex = result.slice(2);
-
-  return {
-    lockId: Number(decodeUint(hex, 0)),
-    token: '0x' + hex.slice(64 * 1 + 24, 64 * 2),
-    owner: '0x' + hex.slice(64 * 2 + 24, 64 * 3),
-    namaLock: '', kategori: '',
-    totalLocked: decodeUint(hex, 5),
-    totalClaimed: decodeUint(hex, 6),
-    totalMasihTerkunci: decodeUint(hex, 7),
-    totalBisaDiklaim: decodeUint(hex, 8),
-    slotCount: Number(decodeUint(hex, 9)),
-    slotBelumDiklaim: Number(decodeUint(hex, 10)),
-    nextUnlockTime: Number(decodeUint(hex, 11)),
-    nextUnlockTahun: Number(decodeUint(hex, 12)),
-    nextUnlockBulan: Number(decodeUint(hex, 13)),
-    nextUnlockTanggal: Number(decodeUint(hex, 14)),
-    hariLagiNextUnlock: Number(decodeUint(hex, 15)),
-  };
-}
-
-async function getAllSlots(lockId) {
-  const param = lockId.toString(16).padStart(64, '0');
-  const data = ABI_getAllSlotsReadable + param;
-  const result = await rpcCall(data);
-  const hex = result.slice(2);
-
-  // Parse dynamic array of tuples
-  const arrayOffset = Number(decodeUint(hex, 0));
-  const count = Number(decodeUint(hex, arrayOffset / 32));
-
-  const slots = [];
-  const tupleSize = 10; // 10 fields per SlotReadable
-  const startOffset = arrayOffset / 32 + 1;
-
-  for (let i = 0; i < count; i++) {
-    const base = startOffset + i * tupleSize;
-    slots.push({
-      slotIndex: Number(decodeUint(hex, base)),
-      tahunKe: Number(decodeUint(hex, base + 1)),
-      amount: decodeUint(hex, base + 2),
-      unlockTime: Number(decodeUint(hex, base + 3)),
-      unlockTahun: Number(decodeUint(hex, base + 4)),
-      unlockBulan: Number(decodeUint(hex, base + 5)),
-      unlockTanggal: Number(decodeUint(hex, base + 6)),
-      claimed: Number(decodeUint(hex, base + 7)) !== 0,
-      // status string ada di index 8 (dynamic, skip untuk simplicity)
-      hariLagiUnlock: Number(decodeUint(hex, base + 9)),
-    });
-  }
-  return slots;
-}
-
 function getStatus(slot) {
   if (slot.claimed) return 'claimed';
-  if (slot.hariLagiUnlock === 0) return 'ready';
+  if (Number(slot.hariLagiUnlock) === 0) return 'ready';
   return 'locked';
 }
 
@@ -617,14 +545,14 @@ function renderApp(summary, slots) {
   const claimedCount = slots.filter(s => s.claimed).length;
   const pctClaimed = Math.round((claimedCount / slots.length) * 100);
 
-  const nextUnlockStr = summary.nextUnlockTahun > 0
+  const nextUnlockStr = Number(summary.nextUnlockTahun) > 0
     ? formatDate(summary.nextUnlockTahun, summary.nextUnlockBulan, summary.nextUnlockTanggal)
     : '—';
 
   let html = `
     <div class="summary-card">
-      <div class="summary-title">🔐 Tim Inti INDOCOIN</div>
-      <div class="summary-category">KATEGORI: TIM · LOCK ID: #0 · 15 TAHUN VESTING</div>
+      <div class="summary-title">🔐 ${summary.namaLock || 'Tim Inti INDOCOIN'}</div>
+      <div class="summary-category">KATEGORI: ${summary.kategori || 'TIM'} · LOCK ID: #0 · 15 TAHUN VESTING</div>
       <div class="summary-grid">
         <div class="summary-item">
           <div class="label">Total Terkunci</div>
@@ -640,7 +568,7 @@ function renderApp(summary, slots) {
         </div>
         <div class="summary-item">
           <div class="label">Slot Tersisa</div>
-          <div class="value white">${summary.slotBelumDiklaim} / ${slots.length}</div>
+          <div class="value white">${Number(summary.slotBelumDiklaim)} / ${slots.length}</div>
         </div>
       </div>
 
@@ -673,7 +601,7 @@ function renderApp(summary, slots) {
   slots.forEach(slot => {
     const status = getStatus(slot);
     const dateStr = formatDate(slot.unlockTahun, slot.unlockBulan, slot.unlockTanggal);
-    const cdStr = slot.hariLagiUnlock > 0 ? countdown(slot.hariLagiUnlock) : '';
+    const cdStr = Number(slot.hariLagiUnlock) > 0 ? countdown(slot.hariLagiUnlock) : '';
 
     let badgeHtml = '';
     if (status === 'locked') badgeHtml = `<span class="badge locked">🔒 Terkunci</span>`;
@@ -683,7 +611,7 @@ function renderApp(summary, slots) {
     html += `
       <div class="slot-item ${status}">
         <div class="slot-year">
-          TH<span>${slot.tahunKe}</span>
+          TH<span>${Number(slot.tahunKe)}</span>
         </div>
         <div class="slot-info">
           <div class="date">${dateStr}</div>
@@ -710,17 +638,21 @@ async function loadData() {
   `;
 
   try {
+    const provider = await getProvider();
+    const contract = new ethers.Contract(CONTRACT, ABI, provider);
+
     const [summary, slots] = await Promise.all([
-      getLockSummary(0),
-      getAllSlots(0)
+      contract.getLockSummary(0),
+      contract.getAllSlotsReadable(0)
     ]);
+
     renderApp(summary, slots);
   } catch (e) {
     console.error(e);
     document.getElementById('app').innerHTML = `
       <div class="error">
         ⚠️ Gagal memuat data dari blockchain.<br>
-        <small>Pastikan koneksi internet aktif, lalu refresh.</small><br><br>
+        <small>${e.message}</small><br><br>
         <button class="refresh-btn" onclick="loadData()">↻ COBA LAGI</button>
       </div>
     `;
