@@ -62,22 +62,24 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
   margin:16px 0 10px;display:flex;align-items:center;gap:8px;text-transform:uppercase;}
 .sec-div::after{content:'';flex:1;height:1px;background:rgba(200,146,42,0.2);}
 
-.lock-card{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);
-  border:2px solid rgba(255,255,255,0.7);border-radius:18px;padding:16px;
+.lock-card{background:transparent;
+  border:1px solid rgba(168,152,128,0.25);border-radius:18px;padding:16px;
   margin-bottom:14px;position:relative;overflow:hidden;animation:fadeUp 0.5s ease both;}
-.lock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,var(--gold2),transparent);}
-.lock-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;}
-.lock-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold3);letter-spacing:1px;}
-.lock-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 7px;border-radius:4px;
-  background:rgba(46,168,106,0.1);border:1px solid rgba(46,168,106,0.3);color:var(--green);letter-spacing:1px;}
-.lock-cat{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;}
+.lock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(168,152,128,0.3),transparent);}
 
 .lock-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
-.lock-stat{background:rgba(0,0,0,0.2);border:1px solid rgba(200,146,42,0.15);
+.lock-stat{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);
+  border:1px solid rgba(255,255,255,0.15);
   border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;}
 .lock-stat-val{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:var(--white);}
 .lock-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:0.5px;}
+
+.lock-contract{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  word-break:break-all;line-height:1.8;margin-top:10px;padding-top:10px;
+  border-top:1px solid rgba(168,152,128,0.15);}
+.lock-contract a{color:rgba(168,152,128,0.7);text-decoration:none;}
+.lock-contract a:hover{color:var(--gold2);}
 
 .next-unlock{background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.55);
   border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
@@ -189,14 +191,6 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
 
   <div class="footer">
     <div class="contract-link">
-      Lock #1 — Tim Inti:
-      <a href="https://bscscan.com/address/0xf9100e523F9881C677f6cc99615d12F7f5152A52#readContract" target="_blank">
-        0xf9100e523F9881C677f6cc99615d12F7f5152A52
-      </a><br>
-      Lock #2 — Strategic Reserve:
-      <a href="https://bscscan.com/address/0xc842E661b8dB5FB07Db8a8352d52B16aD7774DD3#readContract" target="_blank">
-        0xc842E661b8dB5FB07Db8a8352d52B16aD7774DD3
-      </a><br>
       Token INDC:
       <a href="https://bscscan.com/token/0xD772c96e1beFd2ea9C9a83182c71f4d32f306571" target="_blank">
         0xD772c96e1beFd2ea9C9a83182c71f4d32f306571
@@ -270,7 +264,7 @@ function toggleJadwal(btn, id) {
   btn.innerHTML = open?`📋 LIHAT JADWAL VESTING ▼`:`📋 SEMBUNYIKAN JADWAL ▲`;
 }
 
-function renderLock(summary, slots, appId, slotPrefix) {
+function renderLock(summary, slots, appId, slotPrefix, contractAddress) {
   const claimed = slots.filter(s=>s.claimed).length;
   const pct = Math.round(claimed/slots.length*100);
   const nextStr = Number(summary.nextUnlockTahun)>0
@@ -278,11 +272,9 @@ function renderLock(summary, slots, appId, slotPrefix) {
   const detId = `det${slotPrefix}`;
   const slId = `sl${slotPrefix}`;
 
-  // Update section title dari data blockchain
+  // Update section title — nama saja
   const secEl = document.getElementById(`sec-${appId}`);
-  if (secEl) {
-    secEl.textContent = `🔐 ${summary.namaLock||'INDOCOIN'} · ${summary.kategori||''}`;
-  }
+  if (secEl) secEl.textContent = `🔐 ${summary.namaLock||'INDOCOIN'}`;
 
   let html = `
     <div class="lock-card">
@@ -308,6 +300,9 @@ function renderLock(summary, slots, appId, slotPrefix) {
       <button class="toggle-btn" onclick="toggleJadwal(this,'${slId}')" data-open="0">
         📋 LIHAT JADWAL VESTING (${slots.length} Slot) ▼
       </button>
+      <div class="lock-contract">
+        CONTRACT: <a href="https://bscscan.com/address/${contractAddress}#readContract" target="_blank">${contractAddress}</a>
+      </div>
     </div>
     <div class="slot-list" id="${slId}" style="display:none;">`;
 
@@ -343,7 +338,7 @@ async function loadLock(contractAddress, appId, slotPrefix) {
       contract.getLockSummary(0),
       contract.getAllSlotsReadable(0)
     ]);
-    renderLock(summary, slots, appId, slotPrefix);
+    renderLock(summary, slots, appId, slotPrefix, contractAddress);
   } catch(e) {
     console.error(e);
     document.getElementById(appId).innerHTML = `
