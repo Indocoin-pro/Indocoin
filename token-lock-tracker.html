@@ -94,9 +94,15 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));border-radius:100px;transition:width 1s ease;}
 
 .toggle-btn{width:100%;padding:10px;background:rgba(200,146,42,0.06);border:1px solid rgba(200,146,42,0.25);
-  border-radius:8px;color:var(--gold2);font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:700;
+  border-radius:8px;color:var(--gold2);font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:400;
   letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-align:center;}
 .toggle-btn:hover{background:rgba(200,146,42,0.12);border-color:var(--gold2);}
+
+.lock-contract{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  word-break:break-all;line-height:1.8;margin-top:10px;padding-top:10px;
+  border-top:1px solid rgba(168,152,128,0.15);text-align:center;font-weight:400;}
+.lock-contract a{color:rgba(168,152,128,0.6);text-decoration:none;}
+.lock-contract a:hover{color:var(--gold2);}
 
 .slot-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
 .slot-item{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.1);border-radius:10px;
@@ -134,6 +140,11 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
   padding:20px;text-align:center;color:var(--red);font-family:'Share Tech Mono',monospace;font-size:10px;margin:12px 0;line-height:1.8;}
 
 .footer{margin-top:28px;padding-top:18px;border-top:1px solid var(--border);text-align:center;}
+.total-lock{margin-bottom:16px;padding:14px;
+  background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.2);border-radius:12px;}
+.total-lock-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;}
+.total-lock-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--gold3);}
 .contract-link{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);word-break:break-all;line-height:2;letter-spacing:0.5px;}
 .contract-link a{color:var(--gold2);text-decoration:none;}
 .contract-link a:hover{text-decoration:underline;}
@@ -190,6 +201,10 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
   </div>
 
   <div class="footer">
+    <div class="total-lock">
+      <div class="total-lock-lbl">TOTAL TOKEN TERKUNCI</div>
+      <div class="total-lock-val" id="totalLocked">— INDC</div>
+    </div>
     <div class="contract-link">
       Token INDC:
       <a href="https://bscscan.com/token/0xD772c96e1beFd2ea9C9a83182c71f4d32f306571" target="_blank">
@@ -224,6 +239,15 @@ const ABI1 = [
 ];
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
+// Sistem kalkulator total terkunci
+const totalLockMap = {};
+function updateTotalLocked(appId, masihTerkunci) {
+  totalLockMap[appId] = Number(masihTerkunci) / 1e9;
+  const total = Object.values(totalLockMap).reduce((a,b) => a+b, 0);
+  const el = document.getElementById('totalLocked');
+  if (el) el.textContent = total.toLocaleString('id-ID') + ' INDC';
+}
+
 async function getProvider() {
   for (const rpc of RPC_LIST) {
     try {
@@ -253,7 +277,7 @@ function toggleDetail(btn, id) {
   const open = btn.dataset.open==='1';
   el.style.display = open?'none':'block';
   btn.dataset.open = open?'0':'1';
-  btn.innerHTML = open?`📊 LIHAT DETAIL ▼`:`📊 SEMBUNYIKAN DETAIL ▲`;
+  btn.innerHTML = open?`LIHAT DETAIL ▼`:`SEMBUNYIKAN DETAIL ▲`;
 }
 
 function toggleJadwal(btn, id) {
@@ -261,7 +285,7 @@ function toggleJadwal(btn, id) {
   const open = btn.dataset.open==='1';
   el.style.display = open?'none':'flex';
   btn.dataset.open = open?'0':'1';
-  btn.innerHTML = open?`📋 LIHAT JADWAL VESTING ▼`:`📋 SEMBUNYIKAN JADWAL ▲`;
+  btn.innerHTML = open?`LIHAT JADWAL VESTING ▼`:`SEMBUNYIKAN JADWAL ▲`;
 }
 
 function renderLock(summary, slots, appId, slotPrefix, contractAddress) {
@@ -276,6 +300,9 @@ function renderLock(summary, slots, appId, slotPrefix, contractAddress) {
   const secEl = document.getElementById(`sec-${appId}`);
   if (secEl) secEl.textContent = `🔐 ${summary.namaLock||'INDOCOIN'}`;
 
+  // Update total terkunci otomatis
+  updateTotalLocked(appId, summary.totalMasihTerkunci);
+
   let html = `
     <div class="lock-card">
       <div class="lock-stats">
@@ -285,7 +312,7 @@ function renderLock(summary, slots, appId, slotPrefix, contractAddress) {
         <div class="lock-stat"><div class="lock-stat-lbl">Slot Tersisa</div><div class="lock-stat-val">${Number(summary.slotBelumDiklaim)} / ${slots.length}</div></div>
       </div>
       <button class="toggle-btn" onclick="toggleDetail(this,'${detId}')" data-open="0" style="margin-bottom:6px;">
-        📊 LIHAT DETAIL ▼
+        LIHAT DETAIL ▼
       </button>
       <div id="${detId}" style="display:none;">
         <div class="progress-wrap">
@@ -298,7 +325,7 @@ function renderLock(summary, slots, appId, slotPrefix, contractAddress) {
         </div>
       </div>
       <button class="toggle-btn" onclick="toggleJadwal(this,'${slId}')" data-open="0">
-        📋 LIHAT JADWAL VESTING (${slots.length} Slot) ▼
+        LIHAT JADWAL VESTING (${slots.length} Slot) ▼
       </button>
       <div class="lock-contract">
         CONTRACT: <a href="https://bscscan.com/address/${contractAddress}#readContract" target="_blank">${contractAddress}</a>
