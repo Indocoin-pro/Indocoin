@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Token Lock Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #F5C842;
+    --gold-dim: #C9A227;
+    --green: #22C55E;
+    --green-dim: #16A34A;
+    --dark: #0A0E1A;
+    --dark2: #0F1628;
+    --dark3: #161E35;
+    --dark4: #1E2A45;
+    --text: #E2E8F0;
+    --text-dim: #94A3B8;
+    --red: #EF4444;
+    --border: rgba(245,200,66,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(245,200,66,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,200,66,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 40px 0 32px;
+  }
+
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(245,200,66,0.1);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 16px;
+    margin-bottom: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .logo-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(22px, 5vw, 36px);
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+
+  h1 span {
+    display: block;
+    font-size: clamp(12px, 2.5vw, 16px);
+    color: var(--text-dim);
+    font-weight: 400;
+    letter-spacing: 4px;
+    margin-top: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .subtitle {
+    margin-top: 12px;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Summary Card */
+  .summary-card {
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .summary-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .summary-category {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 20px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  @media (min-width: 500px) {
+    .summary-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  .summary-item {
+    background: var(--dark4);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+
+  .summary-item .label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .summary-item .value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .summary-item .value.green { color: var(--green); }
+  .summary-item .value.white { color: var(--text); font-size: 12px; }
+
+  /* Next Unlock Banner */
+  .next-unlock {
+    background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(245,200,66,0.05));
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .next-unlock .label {
+    font-size: 11px;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .next-unlock .value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* Vesting Table */
+  .section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-left: 4px;
+  }
+
+  .slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .slot-item {
+    background: var(--dark3);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .slot-item:hover {
+    border-color: rgba(245,200,66,0.2);
+  }
+
+  .slot-item.claimed {
+    opacity: 0.5;
+  }
+
+  .slot-item.ready {
+    border-color: rgba(34,197,94,0.4);
+    background: rgba(34,197,94,0.05);
+  }
+
+  .slot-year {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold-dim);
+    text-align: center;
+    line-height: 1;
+  }
+
+  .slot-year span {
+    display: block;
+    font-size: 18px;
+    color: var(--gold);
+  }
+
+  .slot-info .date {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .slot-info .amount {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+  }
+
+  .slot-info .countdown {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .slot-status {
+    text-align: right;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge.locked {
+    background: rgba(148,163,184,0.1);
+    color: var(--text-dim);
+    border: 1px solid rgba(148,163,184,0.2);
+  }
+
+  .badge.ready {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+    border: 1px solid rgba(34,197,94,0.3);
+    animation: glow-green 2s infinite;
+  }
+
+  .badge.claimed {
+    background: rgba(245,200,66,0.1);
+    color: var(--gold-dim);
+    border: 1px solid rgba(245,200,66,0.2);
+  }
+
+  @keyframes glow-green {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    50% { box-shadow: 0 0 8px 2px rgba(34,197,94,0.2); }
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(245,200,66,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  /* Error */
+  .error {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    color: var(--red);
+    font-size: 13px;
+    margin: 20px 0;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .contract-link {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    word-break: break-all;
+    line-height: 1.8;
+  }
+
+  .contract-link a {
+    color: var(--gold);
+    text-decoration: none;
+  }
+
+  .contract-link a:hover { text-decoration: underline; }
+
+  .refresh-btn {
+    margin-top: 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 20px;
+    color: var(--gold);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(245,200,66,0.1);
+    border-color: var(--gold);
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 16px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--dark4);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+    border-radius: 100px;
+    transition: width 1s ease;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-badge">
+      <div class="logo-dot"></div>
+      INDOCOIN · INDC · BSC
+    </div>
+    <h1>
+      Token Lock Tracker
+      <span>Transparansi Onchain · Verifikasi Publik</span>
+    </h1>
+    <p class="subtitle">Data diambil langsung dari blockchain BSC secara realtime.<br>Tidak dapat dimanipulasi oleh siapapun.</p>
+  </div>
+
+  <!-- Content -->
+  <div id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="contract-link">
+      Smart Contract:
+      <a href="https://bscscan.com/address/0xf9100e523F9881C677f6cc99615d12F7f5152A52#readContract" target="_blank">
+        0xf9100e523F9881C677f6cc99615d12F7f5152A52
+      </a>
+      <br>
+      Token INDC:
+      <a href="https://bscscan.com/token/0xD772c96e1beFd2ea9C9a83182c71f4d32f306571" target="_blank">
+        0xD772c96e1beFd2ea9C9a83182c71f4d32f306571
+      </a>
+    </div>
+    <button class="refresh-btn" onclick="loadData()">↻ REFRESH DATA</button>
+  </div>
+
+</div>
+
+<script>
+const CONTRACT = '0xf9100e523F9881C677f6cc99615d12F7f5152A52';
+const RPC = 'https://bsc-dataseed1.binance.org/';
+
+// ABI minimal
+const ABI_getLockSummary = '0xc67322a2';
+const ABI_getAllSlotsReadable = '0xebe0d177';
+
+const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+async function rpcCall(data) {
+  const res = await fetch(RPC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'eth_call',
+      params: [{ to: CONTRACT, data }, 'latest']
+    })
+  });
+  const json = await res.json();
+  return json.result;
+}
+
+function hexToNum(hex) {
+  return parseInt(hex, 16);
+}
+
+function decodeUint(hex, offset) {
+  return BigInt('0x' + hex.slice(2 + offset * 64, 2 + (offset + 1) * 64));
+}
+
+function formatINDC(bignum) {
+  const num = Number(bignum) / 1e9;
+  return num.toLocaleString('id-ID');
+}
+
+function formatDate(tahun, bulan, tanggal) {
+  return `${tanggal} ${BULAN[bulan - 1]} ${tahun}`;
+}
+
+function countdown(hariLagi) {
+  if (hariLagi === 0) return '';
+  const tahun = Math.floor(hariLagi / 365);
+  const bulan = Math.floor((hariLagi % 365) / 30);
+  const hari = hariLagi % 30;
+  let parts = [];
+  if (tahun > 0) parts.push(`${tahun}thn`);
+  if (bulan > 0) parts.push(`${bulan}bln`);
+  if (hari > 0 && tahun === 0) parts.push(`${hari}hr`);
+  return parts.join(' ') + ' lagi';
+}
+
+async function getLockSummary(lockId) {
+  const param = lockId.toString(16).padStart(64, '0');
+  const data = ABI_getLockSummary + param;
+  const result = await rpcCall(data);
+  const hex = result.slice(2);
+
+  return {
+    lockId: Number(decodeUint(hex, 0)),
+    token: '0x' + hex.slice(64 * 1 + 24, 64 * 2),
+    owner: '0x' + hex.slice(64 * 2 + 24, 64 * 3),
+    namaLock: '', kategori: '',
+    totalLocked: decodeUint(hex, 5),
+    totalClaimed: decodeUint(hex, 6),
+    totalMasihTerkunci: decodeUint(hex, 7),
+    totalBisaDiklaim: decodeUint(hex, 8),
+    slotCount: Number(decodeUint(hex, 9)),
+    slotBelumDiklaim: Number(decodeUint(hex, 10)),
+    nextUnlockTime: Number(decodeUint(hex, 11)),
+    nextUnlockTahun: Number(decodeUint(hex, 12)),
+    nextUnlockBulan: Number(decodeUint(hex, 13)),
+    nextUnlockTanggal: Number(decodeUint(hex, 14)),
+    hariLagiNextUnlock: Number(decodeUint(hex, 15)),
+  };
+}
+
+async function getAllSlots(lockId) {
+  const param = lockId.toString(16).padStart(64, '0');
+  const data = ABI_getAllSlotsReadable + param;
+  const result = await rpcCall(data);
+  const hex = result.slice(2);
+
+  // Parse dynamic array of tuples
+  const arrayOffset = Number(decodeUint(hex, 0));
+  const count = Number(decodeUint(hex, arrayOffset / 32));
+
+  const slots = [];
+  const tupleSize = 10; // 10 fields per SlotReadable
+  const startOffset = arrayOffset / 32 + 1;
+
+  for (let i = 0; i < count; i++) {
+    const base = startOffset + i * tupleSize;
+    slots.push({
+      slotIndex: Number(decodeUint(hex, base)),
+      tahunKe: Number(decodeUint(hex, base + 1)),
+      amount: decodeUint(hex, base + 2),
+      unlockTime: Number(decodeUint(hex, base + 3)),
+      unlockTahun: Number(decodeUint(hex, base + 4)),
+      unlockBulan: Number(decodeUint(hex, base + 5)),
+      unlockTanggal: Number(decodeUint(hex, base + 6)),
+      claimed: Number(decodeUint(hex, base + 7)) !== 0,
+      // status string ada di index 8 (dynamic, skip untuk simplicity)
+      hariLagiUnlock: Number(decodeUint(hex, base + 9)),
+    });
+  }
+  return slots;
+}
+
+function getStatus(slot) {
+  if (slot.claimed) return 'claimed';
+  if (slot.hariLagiUnlock === 0) return 'ready';
+  return 'locked';
+}
+
+function renderApp(summary, slots) {
+  const claimedCount = slots.filter(s => s.claimed).length;
+  const pctClaimed = Math.round((claimedCount / slots.length) * 100);
+
+  const nextUnlockStr = summary.nextUnlockTahun > 0
+    ? formatDate(summary.nextUnlockTahun, summary.nextUnlockBulan, summary.nextUnlockTanggal)
+    : '—';
+
+  let html = `
+    <div class="summary-card">
+      <div class="summary-title">🔐 Tim Inti INDOCOIN</div>
+      <div class="summary-category">KATEGORI: TIM · LOCK ID: #0 · 15 TAHUN VESTING</div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="label">Total Terkunci</div>
+          <div class="value">${formatINDC(summary.totalLocked)}</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Sudah Diklaim</div>
+          <div class="value green">${formatINDC(summary.totalClaimed)}</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Masih Terkunci</div>
+          <div class="value">${formatINDC(summary.totalMasihTerkunci)}</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Slot Tersisa</div>
+          <div class="value white">${summary.slotBelumDiklaim} / ${slots.length}</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Progress Vesting</span>
+          <span>${pctClaimed}% selesai</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${pctClaimed}%"></div>
+        </div>
+      </div>
+
+      <div class="next-unlock">
+        <div>
+          <div class="label">⏳ Unlock Berikutnya</div>
+          <div class="value">${nextUnlockStr}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="label">Sisa Waktu</div>
+          <div class="value" style="font-size:12px">${countdown(summary.hariLagiNextUnlock)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Jadwal Vesting Per Tahun</div>
+    <div class="slot-list">
+  `;
+
+  slots.forEach(slot => {
+    const status = getStatus(slot);
+    const dateStr = formatDate(slot.unlockTahun, slot.unlockBulan, slot.unlockTanggal);
+    const cdStr = slot.hariLagiUnlock > 0 ? countdown(slot.hariLagiUnlock) : '';
+
+    let badgeHtml = '';
+    if (status === 'locked') badgeHtml = `<span class="badge locked">🔒 Terkunci</span>`;
+    else if (status === 'ready') badgeHtml = `<span class="badge ready">✅ Siap Klaim</span>`;
+    else badgeHtml = `<span class="badge claimed">✔ Diklaim</span>`;
+
+    html += `
+      <div class="slot-item ${status}">
+        <div class="slot-year">
+          TH<span>${slot.tahunKe}</span>
+        </div>
+        <div class="slot-info">
+          <div class="date">${dateStr}</div>
+          <div class="amount">${formatINDC(slot.amount)} INDC</div>
+          ${cdStr ? `<div class="countdown">${cdStr}</div>` : ''}
+        </div>
+        <div class="slot-status">
+          ${badgeHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  document.getElementById('app').innerHTML = html;
+}
+
+async function loadData() {
+  document.getElementById('app').innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div>
+    </div>
+  `;
+
+  try {
+    const [summary, slots] = await Promise.all([
+      getLockSummary(0),
+      getAllSlots(0)
+    ]);
+    renderApp(summary, slots);
+  } catch (e) {
+    console.error(e);
+    document.getElementById('app').innerHTML = `
+      <div class="error">
+        ⚠️ Gagal memuat data dari blockchain.<br>
+        <small>Pastikan koneksi internet aktif, lalu refresh.</small><br><br>
+        <button class="refresh-btn" onclick="loadData()">↻ COBA LAGI</button>
+      </div>
+    `;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "61.4";
+const VERSION = "61.5";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 // File yang di-cache
@@ -91,6 +91,7 @@ const CACHE_FILES = [
   "/airdrop-questions.js",
   "/indc-staking.html",
   "/dev-panel.html",
+  "/token-lock-tracker.html",
 ];
 
 // ── INSTALL: cache semua file ──
@@ -132,6 +133,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.url.includes("firebase") || 
       event.request.url.includes("googleapis") ||
       event.request.url.includes("ethers") ||
+      event.request.url.includes("binance.org") ||
       event.request.url.includes("cdn")) return;
 
   event.respondWith(
