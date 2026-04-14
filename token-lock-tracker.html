@@ -437,6 +437,34 @@
     border-radius: 100px;
     transition: width 1s ease;
   }
+
+  .toggle-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: rgba(245,200,66,0.08);
+    border: 1px solid rgba(245,200,66,0.25);
+    border-radius: 10px;
+    padding: 12px;
+    color: var(--gold);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .toggle-btn:hover {
+    background: rgba(245,200,66,0.15);
+    border-color: var(--gold);
+  }
+
+  .slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
 </style>
 </head>
 <body>
@@ -485,12 +513,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
 const CONTRACT = '0xf9100e523F9881C677f6cc99615d12F7f5152A52';
+const BSCSCAN_API = 'https://api.bscscan.com/api';
 const RPC_LIST = [
   'https://bsc-dataseed1.binance.org/',
   'https://bsc-dataseed2.binance.org/',
-  'https://bsc-dataseed3.binance.org/',
   'https://bsc.publicnode.com',
   'https://binance.llamarpc.com',
+  'https://rpc.ankr.com/bsc',
 ];
 
 const ABI = [
@@ -501,16 +530,25 @@ const ABI = [
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 async function getProvider() {
+  // Coba tiap RPC satu per satu
   for (const rpc of RPC_LIST) {
     try {
-      const provider = new ethers.providers.JsonRpcProvider(rpc);
-      await provider.getBlockNumber();
+      const provider = new ethers.providers.StaticJsonRpcProvider(rpc, {
+        chainId: 56,
+        name: 'bnb'
+      });
+      // Test koneksi ringan
+      const block = await Promise.race([
+        provider.getBlockNumber(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+      ]);
+      console.log('✅ RPC OK:', rpc, 'block:', block);
       return provider;
     } catch(e) {
-      console.warn('RPC gagal:', rpc);
+      console.warn('❌ RPC gagal:', rpc, e.message);
     }
   }
-  throw new Error('Semua RPC gagal');
+  throw new Error('Semua RPC tidak dapat diakses');
 }
 
 function formatINDC(bignum) {
@@ -592,10 +630,13 @@ function renderApp(summary, slots) {
           <div class="value" style="font-size:12px">${countdown(summary.hariLagiNextUnlock)}</div>
         </div>
       </div>
+
+      <button class="toggle-btn" onclick="toggleJadwal(this)" data-open="0">
+        📋 LIHAT JADWAL VESTING (${slots.length} Slot) ▼
+      </button>
     </div>
 
-    <div class="section-title">Jadwal Vesting Per Tahun</div>
-    <div class="slot-list">
+    <div class="slot-list" id="slotList" style="display:none;">
   `;
 
   slots.forEach(slot => {
@@ -629,6 +670,20 @@ function renderApp(summary, slots) {
   document.getElementById('app').innerHTML = html;
 }
 
+function toggleJadwal(btn) {
+  const list = document.getElementById('slotList');
+  const isOpen = btn.dataset.open === '1';
+  if (isOpen) {
+    list.style.display = 'none';
+    btn.dataset.open = '0';
+    btn.textContent = `📋 LIHAT JADWAL VESTING ▼`;
+  } else {
+    list.style.display = 'flex';
+    btn.dataset.open = '1';
+    btn.textContent = `📋 SEMBUNYIKAN JADWAL ▲`;
+  }
+}
+
 async function loadData() {
   document.getElementById('app').innerHTML = `
     <div class="loading">
@@ -652,7 +707,7 @@ async function loadData() {
     document.getElementById('app').innerHTML = `
       <div class="error">
         ⚠️ Gagal memuat data dari blockchain.<br>
-        <small>${e.message}</small><br><br>
+        <small style="word-break:break-all;font-size:10px;opacity:0.7">${e.message || e.toString()}</small><br><br>
         <button class="refresh-btn" onclick="loadData()">↻ COBA LAGI</button>
       </div>
     `;
