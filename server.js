@@ -59,16 +59,66 @@ TENTANG INDOCOIN:
 Indocoin (INDC) adalah platform DeFi berbasis Binance Smart Chain (BSC) buatan komunitas Indonesia. Token INDC bisa digunakan untuk staking, trading, game, dan berbagai fitur ekosistem.
 
 FITUR STAKING:
-- Flexi Yield Staking: Staking fleksibel tanpa lock, bisa withdraw kapan saja
-- Boost Level Staking: Staking dengan sistem level, semakin tinggi level semakin besar APY
-- Diamond Staking (Locked): Staking terkunci dengan reward tinggi, ada sistem tier berlian
-- Dynamic Level Staking: APY dinamis berdasarkan jumlah staker aktif
-- Auto Compound Staking: Reward otomatis di-compound/reinvest
-- Growth Lock Staking: Lock token untuk pertumbuhan jangka panjang
-- INDC Staking Program: Program staking utama platform
-- Point Vault Staking: Staking yang menghasilkan poin platform
-- Referral Power Staking: Staking dengan bonus dari jaringan referral
-- Garuda Force Mission Staking: Staking dengan sistem misi khusus
+
+1. FLEXI YIELD STAKING (Program ID: 3)
+   - Stake: USDT | Reward: INDC | Rate: 0.5%/hari
+   - Tanpa lock, withdraw kapan saja, penalti 0%
+   - Reward terakumulasi otomatis setiap detik
+   - Syarat: hold INDC di wallet eksternal sesuai kategori deposit:
+     • Kategori 1: deposit $1–$50 → hold 1.000 INDC
+     • Kategori 2: deposit $51–$100 → hold 2.000 INDC
+     • Kategori 3: deposit $101–$150 → hold 3.000 INDC
+     • Kategori 4: deposit $151–$200 → hold 4.000 INDC
+   - Jika saldo INDC kurang dari syarat, reward otomatis berhenti
+   - Contract: 0x156dfa702178aa31331edb9302512628f9c103b9
+
+2. DYNAMIC LEVEL STAKING (Program ID: 2)
+   - Stake: USDT | Reward: INDC | Rate: 2%/hari (semua level)
+   - Sistem 9 level bertahap — harus selesaikan level sebelumnya dulu
+   - Setelah Level 9 selesai, bisa cycling dari Level 1 lagi tanpa batas
+   - Early withdraw: penalti 3%
+   - Tabel 9 Level (rate 2%/hari untuk semua level):
+     • Level 1: ROI max 4%   (~2 hari)  | Min $5   – Max $10 USDT
+     • Level 2: ROI max 8%   (~4 hari)  | Min $10  – Max $30 USDT
+     • Level 3: ROI max 14%  (~7 hari)  | Min $30  – Max $75 USDT
+     • Level 4: ROI max 22%  (~11 hari) | Min $75  – Max $150 USDT
+     • Level 5: ROI max 34%  (~17 hari) | Min $150 – Max $300 USDT
+     • Level 6: ROI max 52%  (~26 hari) | Min $300 – Max $500 USDT
+     • Level 7: ROI max 78%  (~39 hari) | Min $500 – Max $700 USDT
+     • Level 8: ROI max 118% (~59 hari) | Min $700 – Max $1.000 USDT
+     • Level 9: ROI max 170% (~85 hari) | Min $1.000 – tak terbatas
+   - Contract: 0xCd3AaA06dAc8329C9143dd9623fedA1AC61Fcf48
+
+3. GROWTH LOCK STAKING (Program ID: 1)
+   - Stake: USDT | Reward: INDC (terkunci dari awal, nilai bisa naik!)
+   - Modal USDT 100% kembali utuh saat klaim
+   - Biaya platform: 0% (gratis)
+   - Early withdraw: penalti 3%
+   - 4 Opsi Lock Period:
+     • Opsi 1: Lock 30 hari  | Rate 0.3%/hari | Total reward 9%
+     • Opsi 2: Lock 90 hari  | Rate 0.5%/hari | Total reward 45%
+     • Opsi 3: Lock 180 hari | Rate 0.7%/hari | Total reward 126%
+     • Opsi 4: Lock 365 hari | Rate 1.0%/hari | Total reward 365%
+   - Reward dihitung dari harga INDC saat stake — jika harga INDC naik, nilai reward ikut naik!
+   - Minimum stake: $10 USDT
+
+4. AUTO COMPOUND STAKING (Program ID: 4)
+   - Stake: INDC | Reward: INDC (modal terus bertumbuh sendiri)
+   - Reward dikompound otomatis setiap hari, tidak perlu klaim manual
+   - ROI maksimal: 1000% per posisi | Max posisi: 5 per tier
+   - 4 Tier pilihan:
+     • Tier 1: Lock 30 hari  | 0.2%/hari | Min 100 – Max 50.000 INDC   | Penalti early 3%
+     • Tier 2: Lock 90 hari  | 0.3%/hari | Min 1.000 – Max 200.000 INDC | Penalti early 5%
+     • Tier 3: Lock 180 hari | 0.4%/hari | Min 10.000 – Max 500.000 INDC | Penalti early 7%
+     • Tier 4: Lock 365 hari | 0.5%/hari | Min 50.000 – Max 1.000.000 INDC | Penalti early 10%
+   - Fee klaim normal: 1% dari total
+
+5. INDC STAKING PROGRAM: Program staking utama platform menggunakan token INDC
+6. BOOST LEVEL STAKING: Staking dengan sistem level, semakin tinggi level semakin besar APY
+7. DIAMOND STAKING (LOCKED): Staking terkunci dengan reward tinggi, ada sistem tier berlian
+8. POINT VAULT STAKING: Staking yang menghasilkan poin platform
+9. REFERRAL POWER STAKING: Staking dengan bonus dari jaringan referral
+10. GARUDA FORCE MISSION STAKING: Staking dengan sistem misi khusus
 
 FITUR TRADING:
 - Delta Trade: Trading dengan analisis delta harga
