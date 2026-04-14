@@ -73,10 +73,11 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
   background:rgba(46,168,106,0.1);border:1px solid rgba(46,168,106,0.3);color:var(--green);letter-spacing:1px;}
 .lock-cat{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;}
 
-.lock-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
-.lock-stat{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.6);border-radius:10px;padding:10px;text-align:center;}
-.lock-stat-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold3);}
-.lock-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;text-transform:uppercase;}
+.lock-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.lock-stat{background:rgba(0,0,0,0.2);border:1px solid rgba(200,146,42,0.15);
+  border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;}
+.lock-stat-val{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;color:var(--white);}
+.lock-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:0.5px;}
 
 .next-unlock{background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.55);
   border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
@@ -246,6 +247,14 @@ function cd(h) {
 }
 const getStatus = s => s.claimed?'claimed':Number(s.hariLagiUnlock)===0?'ready':'locked';
 
+function toggleDetail(btn, id) {
+  const el = document.getElementById(id);
+  const open = btn.dataset.open==='1';
+  el.style.display = open?'none':'block';
+  btn.dataset.open = open?'0':'1';
+  btn.innerHTML = open?`📊 LIHAT DETAIL ▼`:`📊 SEMBUNYIKAN DETAIL ▲`;
+}
+
 function toggleJadwal(btn, id) {
   const el = document.getElementById(id);
   const open = btn.dataset.open==='1';
@@ -268,18 +277,23 @@ function renderLock(summary, slots) {
       </div>
       <div class="lock-cat">KATEGORI: ${summary.kategori||'TIM'} · LOCK ID: #0 · 15 TAHUN VESTING</div>
       <div class="lock-stats">
-        <div class="lock-stat"><div class="lock-stat-val">${fmt(summary.totalLocked)}</div><div class="lock-stat-lbl">Total Terkunci</div></div>
-        <div class="lock-stat"><div class="lock-stat-val">${fmt(summary.totalClaimed)}</div><div class="lock-stat-lbl">Sudah Diklaim</div></div>
-        <div class="lock-stat"><div class="lock-stat-val">${fmt(summary.totalMasihTerkunci)}</div><div class="lock-stat-lbl">Masih Terkunci</div></div>
-        <div class="lock-stat"><div class="lock-stat-val">${Number(summary.slotBelumDiklaim)} / ${slots.length}</div><div class="lock-stat-lbl">Slot Tersisa</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Total Terkunci</div><div class="lock-stat-val">${fmt(summary.totalLocked)}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Diklaim</div><div class="lock-stat-val">${fmt(summary.totalClaimed)}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Masih Terkunci</div><div class="lock-stat-val">${fmt(summary.totalMasihTerkunci)}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Slot Tersisa</div><div class="lock-stat-val">${Number(summary.slotBelumDiklaim)} / ${slots.length}</div></div>
       </div>
-      <div class="progress-wrap">
-        <div class="progress-label"><span>PROGRESS VESTING</span><span>${pct}% SELESAI</span></div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-      </div>
-      <div class="next-unlock">
-        <div><div class="nu-lbl">⏳ UNLOCK BERIKUTNYA</div><div class="nu-val">${nextStr}</div></div>
-        <div><div class="nu-lbl-r">SISA WAKTU</div><div class="nu-val-r">${cd(summary.hariLagiNextUnlock)}</div></div>
+      <button class="toggle-btn" onclick="toggleDetail(this,'det0')" data-open="0" style="margin-bottom:6px;">
+        📊 LIHAT DETAIL ▼
+      </button>
+      <div id="det0" style="display:none;">
+        <div class="progress-wrap">
+          <div class="progress-label"><span>PROGRESS VESTING</span><span>${pct}% SELESAI</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="next-unlock">
+          <div><div class="nu-lbl">⏳ UNLOCK BERIKUTNYA</div><div class="nu-val">${nextStr}</div></div>
+          <div><div class="nu-lbl-r">SISA WAKTU</div><div class="nu-val-r">${cd(summary.hariLagiNextUnlock)}</div></div>
+        </div>
       </div>
       <button class="toggle-btn" onclick="toggleJadwal(this,'sl0')" data-open="0">
         📋 LIHAT JADWAL VESTING (${slots.length} Slot) ▼
