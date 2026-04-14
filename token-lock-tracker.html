@@ -484,7 +484,16 @@
 
 <script>
 const CONTRACT = '0xf9100e523F9881C677f6cc99615d12F7f5152A52';
-const RPC = 'https://bsc-dataseed1.binance.org/';
+const RPC_LIST = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc-dataseed3.binance.org/',
+  'https://bsc-dataseed4.binance.org/',
+  'https://bsc-dataseed1.defibit.io/',
+  'https://bsc-dataseed2.defibit.io/',
+  'https://bsc.publicnode.com',
+  'https://binance.llamarpc.com',
+];
 
 // ABI minimal
 const ABI_getLockSummary = '0xc67322a2';
@@ -493,16 +502,23 @@ const ABI_getAllSlotsReadable = '0xebe0d177';
 const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 async function rpcCall(data) {
-  const res = await fetch(RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to: CONTRACT, data }, 'latest']
-    })
-  });
-  const json = await res.json();
-  return json.result;
+  for (const rpc of RPC_LIST) {
+    try {
+      const res = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{ to: CONTRACT, data }, 'latest']
+        })
+      });
+      const json = await res.json();
+      if (json.result) return json.result;
+    } catch(e) {
+      console.warn('RPC gagal:', rpc, e.message);
+    }
+  }
+  throw new Error('Semua RPC gagal');
 }
 
 function hexToNum(hex) {
