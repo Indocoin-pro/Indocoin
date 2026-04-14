@@ -178,16 +178,13 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
     </div>
   </div>
 
-  <div class="sec-div">⏳ Dalam Persiapan</div>
+  <div class="sec-div">🏦 Strategic Reserve</div>
 
-  <div class="lock-card-soon">
-    <div class="soon-icon">🏦</div>
-    <div class="soon-title">STRATEGIC RESERVE</div>
-    <div class="soon-sub">
-      Kontrak penguncian dana cadangan strategis perusahaan.<br>
-      Jadwal vesting akan diumumkan segera.
+  <div id="app2">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div>
     </div>
-    <div class="soon-badge">SEGERA HADIR</div>
   </div>
 
   <div class="footer">
@@ -196,12 +193,16 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
       <a href="https://bscscan.com/address/0xf9100e523F9881C677f6cc99615d12F7f5152A52#readContract" target="_blank">
         0xf9100e523F9881C677f6cc99615d12F7f5152A52
       </a><br>
+      Lock #2 — Strategic Reserve:
+      <a href="https://bscscan.com/address/0xc842E661b8dB5FB07Db8a8352d52B16aD7774DD3#readContract" target="_blank">
+        0xc842E661b8dB5FB07Db8a8352d52B16aD7774DD3
+      </a><br>
       Token INDC:
       <a href="https://bscscan.com/token/0xD772c96e1beFd2ea9C9a83182c71f4d32f306571" target="_blank">
         0xD772c96e1beFd2ea9C9a83182c71f4d32f306571
       </a>
     </div>
-    <button class="refresh-btn" onclick="loadData()">↻ REFRESH DATA</button>
+    <button class="refresh-btn" onclick="loadAll()">↻ REFRESH DATA</button>
   </div>
 
 </div>
@@ -209,7 +210,8 @@ h1 span{display:block;font-size:9px;color:var(--muted);font-weight:400;letter-sp
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
-const CONTRACT = '0xf9100e523F9881C677f6cc99615d12F7f5152A52';
+const CONTRACT1 = '0xf9100e523F9881C677f6cc99615d12F7f5152A52'; // Tim Inti
+const CONTRACT2 = '0xc842E661b8dB5FB07Db8a8352d52B16aD7774DD3'; // Strategic Reserve
 const RPC_LIST = [
   'https://bsc-dataseed1.binance.org/',
   'https://bsc-dataseed2.binance.org/',
@@ -218,6 +220,11 @@ const RPC_LIST = [
   'https://rpc.ankr.com/bsc',
 ];
 const ABI = [
+  "function getLockSummary(uint256 lockId) view returns (tuple(uint256 lockId, address token, string namaLock, string kategori, uint256 totalLocked, uint256 totalClaimed, uint256 totalMasihTerkunci, uint256 totalBisaDiklaim, uint256 slotCount, uint256 slotBelumDiklaim, uint256 nextUnlockTime, uint256 nextUnlockTahun, uint256 nextUnlockBulan, uint256 nextUnlockTanggal, uint256 hariLagiNextUnlock, uint256 createdAt))",
+  "function getAllSlotsReadable(uint256 lockId) view returns (tuple(uint256 slotIndex, uint256 periodeKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool claimed, string status, uint256 hariLagiUnlock)[])"
+];
+
+const ABI1 = [
   "function getLockSummary(uint256 lockId) view returns (tuple(uint256 lockId, address token, address owner, string namaLock, string kategori, uint256 totalLocked, uint256 totalClaimed, uint256 totalMasihTerkunci, uint256 totalBisaDiklaim, uint256 slotCount, uint256 slotBelumDiklaim, uint256 nextUnlockTime, uint256 nextUnlockTahun, uint256 nextUnlockBulan, uint256 nextUnlockTanggal, uint256 hariLagiNextUnlock, uint256 createdAt))",
   "function getAllSlotsReadable(uint256 lockId) view returns (tuple(uint256 slotIndex, uint256 tahunKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool claimed, string status, uint256 hariLagiUnlock)[])"
 ];
@@ -263,29 +270,31 @@ function toggleJadwal(btn, id) {
   btn.innerHTML = open?`📋 LIHAT JADWAL VESTING ▼`:`📋 SEMBUNYIKAN JADWAL ▲`;
 }
 
-function renderLock(summary, slots) {
+function renderLock(summary, slots, appId, slotPrefix) {
   const claimed = slots.filter(s=>s.claimed).length;
   const pct = Math.round(claimed/slots.length*100);
   const nextStr = Number(summary.nextUnlockTahun)>0
     ? fmtDate(summary.nextUnlockTahun, summary.nextUnlockBulan, summary.nextUnlockTanggal) : '—';
+  const detId = `det${slotPrefix}`;
+  const slId = `sl${slotPrefix}`;
 
   let html = `
     <div class="lock-card">
       <div class="lock-head">
-        <div class="lock-title">🔐 ${summary.namaLock||'Tim Inti INDOCOIN'}</div>
+        <div class="lock-title">🔐 ${summary.namaLock||'INDOCOIN'}</div>
         <div class="lock-badge">AKTIF</div>
       </div>
-      <div class="lock-cat">KATEGORI: ${summary.kategori||'TIM'} · LOCK ID: #0 · 15 TAHUN VESTING</div>
+      <div class="lock-cat">KATEGORI: ${summary.kategori||'—'} · LOCK ID: #0 · ${slots.length} SLOT VESTING</div>
       <div class="lock-stats">
         <div class="lock-stat"><div class="lock-stat-lbl">Total Terkunci</div><div class="lock-stat-val">${fmt(summary.totalLocked)}</div></div>
         <div class="lock-stat"><div class="lock-stat-lbl">Diklaim</div><div class="lock-stat-val">${fmt(summary.totalClaimed)}</div></div>
         <div class="lock-stat"><div class="lock-stat-lbl">Masih Terkunci</div><div class="lock-stat-val">${fmt(summary.totalMasihTerkunci)}</div></div>
         <div class="lock-stat"><div class="lock-stat-lbl">Slot Tersisa</div><div class="lock-stat-val">${Number(summary.slotBelumDiklaim)} / ${slots.length}</div></div>
       </div>
-      <button class="toggle-btn" onclick="toggleDetail(this,'det0')" data-open="0" style="margin-bottom:6px;">
+      <button class="toggle-btn" onclick="toggleDetail(this,'${detId}')" data-open="0" style="margin-bottom:6px;">
         📊 LIHAT DETAIL ▼
       </button>
-      <div id="det0" style="display:none;">
+      <div id="${detId}" style="display:none;">
         <div class="progress-wrap">
           <div class="progress-label"><span>PROGRESS VESTING</span><span>${pct}% SELESAI</span></div>
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -295,21 +304,22 @@ function renderLock(summary, slots) {
           <div><div class="nu-lbl-r">SISA WAKTU</div><div class="nu-val-r">${cd(summary.hariLagiNextUnlock)}</div></div>
         </div>
       </div>
-      <button class="toggle-btn" onclick="toggleJadwal(this,'sl0')" data-open="0">
+      <button class="toggle-btn" onclick="toggleJadwal(this,'${slId}')" data-open="0">
         📋 LIHAT JADWAL VESTING (${slots.length} Slot) ▼
       </button>
     </div>
-    <div class="slot-list" id="sl0" style="display:none;">`;
+    <div class="slot-list" id="${slId}" style="display:none;">`;
 
-  slots.forEach(s => {
+  slots.forEach((s,i) => {
     const st = getStatus(s);
     const badge = st==='locked'?`<span class="badge locked">🔒 Terkunci</span>`
       :st==='ready'?`<span class="badge ready">✅ Siap Klaim</span>`
       :`<span class="badge claimed">✔ Diklaim</span>`;
     const cdStr = Number(s.hariLagiUnlock)>0?cd(s.hariLagiUnlock):'';
+    const periodeLabel = s.periodeKe !== undefined ? Number(s.periodeKe) : Number(s.tahunKe||i+1);
     html += `
       <div class="slot-item ${st}">
-        <div class="slot-year">TH<span>${Number(s.tahunKe)}</span></div>
+        <div class="slot-year">P<span>${periodeLabel}</span></div>
         <div class="slot-info">
           <div class="date">${fmtDate(s.unlockTahun,s.unlockBulan,s.unlockTanggal)}</div>
           <div class="amount">${fmt(s.amount)} INDC</div>
@@ -319,25 +329,35 @@ function renderLock(summary, slots) {
       </div>`;
   });
   html += `</div>`;
-  document.getElementById('app').innerHTML = html;
+  document.getElementById(appId).innerHTML = html;
 }
 
-async function loadData() {
-  document.getElementById('app').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div></div>`;
+async function loadLock(contractAddress, appId, slotPrefix) {
+  document.getElementById(appId).innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA...</div></div>`;
   try {
     const provider = await getProvider();
-    const contract = new ethers.Contract(CONTRACT, ABI, provider);
-    const [summary, slots] = await Promise.all([contract.getLockSummary(0), contract.getAllSlotsReadable(0)]);
-    renderLock(summary, slots);
+    const abi = contractAddress === CONTRACT1 ? ABI1 : ABI;
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+    const [summary, slots] = await Promise.all([
+      contract.getLockSummary(0),
+      contract.getAllSlotsReadable(0)
+    ]);
+    renderLock(summary, slots, appId, slotPrefix);
   } catch(e) {
     console.error(e);
-    document.getElementById('app').innerHTML = `
-      <div class="error">⚠️ Gagal memuat data dari blockchain.<br>
+    document.getElementById(appId).innerHTML = `
+      <div class="error">⚠️ Gagal memuat data.<br>
       <small style="word-break:break-all;font-size:9px;opacity:0.7">${e.message||e}</small><br><br>
-      <button class="refresh-btn" onclick="loadData()">↻ COBA LAGI</button></div>`;
+      <button class="refresh-btn" onclick="loadLock('${contractAddress}','${appId}','${slotPrefix}')">↻ COBA LAGI</button></div>`;
   }
 }
-loadData();
+
+function loadAll() {
+  loadLock(CONTRACT1, 'app', '0');
+  loadLock(CONTRACT2, 'app2', '2');
+}
+
+loadAll();
 </script>
 </body>
 </html>
