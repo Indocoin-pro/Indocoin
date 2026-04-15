@@ -192,7 +192,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 
   <div class="hero">
     <div class="hero-title">🪂 AIRDROP</div>
-    <div class="hero-sub">KLAIM 1 INDC PER HALAMAN · RESET JAM 00:00</div>
+    <div class="hero-sub">TUGAS SOSMED +5 INDC · 39 PROGRAM +1 INDC · RESET 00:00</div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-val" id="statTotal">—</div><div class="hero-stat-lbl">TERKUMPUL</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="statToday">—</div><div class="hero-stat-lbl">HARI INI</div></div>
@@ -214,8 +214,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   <div id="sosmedGate" style="display:none;">
     <div class="sec-div">🎟️ Tiket Masuk Hari Ini</div>
     <div class="gate-sub">
-      Pilih 1 tugas di bawah dan upload screenshot bukti.<br>
-      Setelah selesai, 39 program airdrop terbuka untuk hari ini.
+      Selesaikan 1 tugas di bawah dan upload screenshot bukti.<br>
+      Dapat <strong>+5 INDC</strong> langsung masuk wallet · lalu 39 program terbuka!
     </div>
     <div class="task-list" id="taskList"></div>
     <div id="uploadWrap" class="upload-wrap" style="display:none;">
@@ -234,10 +234,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   <div id="programSection" style="display:none;">
     <div class="sec-div">📖 Cara Klaim</div>
     <div class="how-card">
-      <div class="how-step"><div class="how-num">1</div><div class="how-text">Klik program → diarahkan ke halaman tersebut</div></div>
-      <div class="how-step"><div class="how-num">2</div><div class="how-text">Baca halaman selama 30 detik · timer berjalan otomatis</div></div>
-      <div class="how-step"><div class="how-num">3</div><div class="how-text">Jawab 2 pertanyaan · 1 edukasi + 1 tentang program tersebut</div></div>
-      <div class="how-step"><div class="how-num">4</div><div class="how-text">Klaim 1 INDC → masuk wallet airdrop · reset jam 00:00</div></div>
+      <div class="how-step"><div class="how-num">1</div><div class="how-text">Selesaikan tugas sosmed → dapat <strong>+5 INDC</strong> langsung</div></div>
+      <div class="how-step"><div class="how-num">2</div><div class="how-text">Klik program → diarahkan ke halaman tersebut</div></div>
+      <div class="how-step"><div class="how-num">3</div><div class="how-text">Baca halaman selama 30 detik · timer berjalan otomatis</div></div>
+      <div class="how-step"><div class="how-num">4</div><div class="how-text">Jawab 2 pertanyaan · 1 edukasi + 1 tentang program tersebut</div></div>
+      <div class="how-step"><div class="how-num">5</div><div class="how-text">Klaim <strong>+1 INDC</strong> per halaman · reset jam 00:00</div></div>
     </div>
     <div class="sec-div">🚀 39 Program</div>
     <div class="prog-list" id="progList"></div>
@@ -333,7 +334,9 @@ const PROGRAMS = [
 ];
 
 const AIRDROP_CONTRACT = '0xA5eBf687F6a67E34D4FFde8c460cAE46834e3623';
-const CONTRACT_ABI = ["function getUserInfo(address user) external view returns (uint256 balance, uint256 totalEarned, uint256 totalWithdrawn, uint256 streakCount, uint256 refBonusEarned, uint256 todayWithdrawnAmt, bool canWithdraw)"];
+const CONTRACT_ABI = [
+  "function getUserInfo(address user) external view returns (uint256 balance, uint256 totalEarned, uint256 totalWithdrawn, uint256 streakCount, uint256 refBonusEarned, uint256 todayWithdrawnAmt, bool canWithdraw)",
+];
 
 let userAddress = null;
 let selectedTaskId = null;
@@ -477,16 +480,21 @@ function handleUpload(e) {
   r.readAsDataURL(file);
 }
 
-function verifySosmed() {
+async function verifySosmed() {
   if (!uploadedImg || uploadedImg.length < 5000) {
     setStatus('verifyStatus','❌ Screenshot tidak valid atau terlalu kecil','err'); return;
   }
   setStatus('verifyStatus','⏳ Memverifikasi screenshot...','info');
   setTimeout(() => {
-    localStorage.setItem('indc_gate_' + userAddress + '_' + todayKey(), '1');
-    setStatus('verifyStatus','✅ Verifikasi berhasil! 39 program airdrop terbuka!','ok');
+    const wk = userAddress.toLowerCase();
+    // Tambah 5 ke pending balance sosmed gate
+    const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
+    localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
+    // Tandai gate done hari ini
+    localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
     uploadedImg = null;
-    setTimeout(() => showPrograms(), 1200);
+    setStatus('verifyStatus','✅ +5 INDC masuk ke TERKUMPUL! 39 program terbuka!','ok');
+    setTimeout(() => showPrograms(), 1500);
   }, 1200);
 }
 
