@@ -344,14 +344,24 @@
       if(addr){
         walletAddr=addr.toLowerCase();
         localStorage.setItem('indocoin_wallet',walletAddr);
-        if(isClaimedToday())hideWidget();
-        return;
+        if(isClaimedToday()){hideWidget();return;}
+        // Widget HANYA aktif jika datang dari airdrop.html (?airdrop=1)
+        const params = new URLSearchParams(window.location.search);
+        if(params.get('airdrop') !== '1'){hideWidget();return;}
       }
       if(n<12)setTimeout(try_,500);
     }
     setTimeout(try_,600);
   }
 
+  // Cek parameter ?airdrop=1 dulu sebelum build widget
+  const _params = new URLSearchParams(window.location.search);
+  if(_params.get('airdrop') !== '1') {
+    // Bukan dari airdrop.html - jangan tampilkan widget
+    // Tapi tetap init untuk cek status
+    setTimeout(autoInit, 800);
+    return;
+  }
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',()=>{build();setTimeout(autoInit,800);});
   }else{build();setTimeout(autoInit,800);}
