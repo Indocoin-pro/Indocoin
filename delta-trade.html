@@ -34,8 +34,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
-.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(200,146,42,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.05) 1px,transparent 1px);background-size:36px 36px;}
-.grid-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 90% 50% at 50% 0%,rgba(200,146,42,0.07) 0%,transparent 65%);}
+
 @keyframes scan{0%{top:-2px}100%{top:100vh}}
 .scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -263,7 +262,6 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 <body>
 
 <div class="toast" id="toast"></div>
-<div class="grid-bg"></div>
 <div class="scanline"></div>
 
 <!-- TOPNAV -->
@@ -1675,19 +1673,19 @@ function updatePortfolio() {
 
 // ═══ DEPOSIT / WITHDRAW / SWAP ════════════════════════════
 function switchDepTab(tab) {
-  ["deposit","wd","swap"].forEach(t => {
-    document.getElementById("dep"+t.charAt(0).toUpperCase()+t.slice(1)).style.display = t===tab?"block":"none";
-    document.getElementById("depTab"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active",t===tab);
+  const contentMap = {deposit:"Deposit", wd:"Wd", swap:"Swap"};
+  const tabMap     = {deposit:"Dep",     wd:"Wd",  swap:"Swap"};
+  Object.keys(contentMap).forEach(t => {
+    document.getElementById("dep"+contentMap[t]).style.display = t===tab?"block":"none";
+    document.getElementById("depTab"+tabMap[t]).classList.toggle("active",t===tab);
   });
 }
 
-// Perlu fix switchDepTab untuk key yang benar
-function switchDepTab(tab) {
-  const map = {deposit:"Deposit", wd:"Wd", swap:"Swap"};
-  Object.keys(map).forEach(t => {
-    document.getElementById("dep"+map[t]).style.display = t===tab?"block":"none";
-    document.getElementById("depTab"+map[t]).classList.toggle("active",t===tab);
-  });
+function updateSwapInfo() {
+  const from = parseInt(document.getElementById("swapFrom").value);
+  const units = {255:"USDT", 0:"BNB", 1:"BTC"};
+  const el = document.getElementById("swapUnit");
+  if (el) el.textContent = units[from] || "USDT";
 }
 
 async function doDeposit() {
