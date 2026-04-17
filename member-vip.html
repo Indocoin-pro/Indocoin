@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>INDOCOIN — MEMBER VIP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
+  --white:#f5f0e8;--white2:#a89880;--white3:#6b5a48;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#2ea86a;--red:#c94040;
+  --border:rgba(200,146,42,0.18);--border2:rgba(200,146,42,0.1);
+  --text:#f5f0e8;--muted:#a89880;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d,3s) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);
+  animation:scan 10s linear infinite;opacity:0.4;}
+
+/* ── TOPNAV ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;
+  background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex-shrink:0;box-shadow:0 0 12px rgba(255,255,255,0.15);}
+.nav-brand{display:flex;flex-direction:column;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.btn-connect{font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px 14px;border-radius:20px;
+  letter-spacing:1px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.4);
+  color:var(--gold2);cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-connect:hover{background:rgba(200,146,42,0.2);}
+.btn-connect.connected{background:rgba(46,168,106,0.1);border-color:rgba(46,168,106,0.4);color:var(--green);}
+
+/* ── LAYOUT ── */
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 100px;max-width:480px;margin:0 auto;width:100%;}
+
+/* ── SECTION DIVIDER ── */
+.sec-div{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:2px;
+  margin:16px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec-div::after{content:'';flex:1;height:1px;background:rgba(200,146,42,0.15);}
+
+/* ── POOL STATS ── */
+.pool-banner{background:rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.55);
+  border-radius:14px;padding:14px 16px;margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;}
+.pool-banner-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.pool-banner-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--gold3);}
+.pool-banner-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);margin-top:2px;}
+
+.pool-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
+.pool-mini-item{background:transparent;border:1px solid rgba(255,255,255,0.2);
+  border-radius:10px;padding:10px 8px;text-align:center;}
+.pool-mini-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--white);}
+.pool-mini-lbl{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);
+  letter-spacing:0.8px;margin-top:3px;text-transform:uppercase;}
+
+/* ── INFO CARD ── */
+.info-card{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);
+  border:2px solid rgba(255,255,255,0.7);border-radius:18px;padding:16px;
+  margin-bottom:12px;position:relative;overflow:hidden;}
+.info-card::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;
+  border-radius:50%;background:radial-gradient(circle,rgba(184,134,11,0.06),transparent);pointer-events:none;}
+.info-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  color:var(--gold);letter-spacing:1px;margin-bottom:4px;}
+.info-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+  line-height:1.8;letter-spacing:0.5px;}
+
+/* ── STATUS BADGE ── */
+.status-badge{display:inline-flex;align-items:center;gap:6px;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;
+  padding:5px 14px;border-radius:20px;margin-bottom:12px;}
+.status-badge.none{background:rgba(107,90,72,0.15);border:1px solid rgba(107,90,72,0.3);color:var(--muted);}
+.status-badge.pending{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#f59e0b;}
+.status-badge.active{background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.4);color:var(--green);}
+.status-badge.claimed{background:rgba(200,146,42,0.12);border:1px solid rgba(200,146,42,0.4);color:var(--gold2);}
+.status-badge.refunded{background:rgba(201,64,64,0.1);border:1px solid rgba(201,64,64,0.3);color:var(--red);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.2s infinite;}
+
+/* ── USER CARD ── */
+.user-card{background:rgba(0,0,0,0.2);border:2px solid rgba(255,255,255,0.55);
+  border-radius:18px;padding:16px;margin-bottom:12px;
+  border-left:4px solid var(--gold);animation:fadeUp 0.3s ease both;}
+
+/* ── REWARD BANNER ── */
+.reward-banner{background:rgba(250,204,21,0.06);border:2px solid rgba(255,255,255,0.5);
+  border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;
+  align-items:center;margin-bottom:10px;}
+.rw-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.rw-val{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:var(--gold3);}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.stat-box{background:transparent;border:1px solid rgba(255,255,255,0.2);
+  border-radius:10px;padding:10px;text-align:center;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold);}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:1px;margin-top:2px;text-transform:uppercase;}
+
+/* ── PROGRESS BAR ── */
+.prog-wrap{margin:10px 0;}
+.prog-label{display:flex;justify-content:space-between;
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:5px;letter-spacing:1px;}
+.prog-bar{height:6px;background:rgba(0,0,0,0.4);border-radius:100px;overflow:hidden;
+  border:1px solid rgba(200,146,42,0.15);}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));
+  border-radius:100px;transition:width 1s ease;}
+.prog-fill.full{background:linear-gradient(90deg,var(--green),#4ade80);}
+
+/* ── COUNTDOWN ── */
+.cd-row{background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.55);
+  border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;
+  align-items:center;margin-bottom:10px;}
+.cd-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;}
+.cd-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--white);margin-top:2px;}
+.cd-r-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-align:right;}
+.cd-r-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);margin-top:2px;text-align:right;}
+
+/* ── DOWNLINE LIST ── */
+.dl-item{background:transparent;border:1px solid rgba(255,255,255,0.15);
+  border-radius:10px;padding:10px 12px;margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;}
+.dl-item.qualified{border-color:rgba(46,168,106,0.4);border-left:3px solid var(--green);}
+.dl-item.unqualified{border-left:3px solid rgba(245,158,11,0.5);}
+.dl-addr{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--white2);}
+.dl-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 8px;
+  border-radius:10px;font-weight:700;}
+.dl-badge.q{background:rgba(46,168,106,0.15);color:var(--green);border:1px solid rgba(46,168,106,0.3);}
+.dl-badge.nq{background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.25);}
+
+/* ── LEADERBOARD ── */
+.lb-item{background:transparent;border:1px solid rgba(255,255,255,0.12);
+  border-radius:12px;padding:12px 14px;margin-bottom:6px;
+  display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;}
+.lb-item:first-child{border-color:rgba(255,215,0,0.4);background:rgba(255,215,0,0.03);}
+.lb-item:nth-child(2){border-color:rgba(192,192,192,0.25);}
+.lb-item:nth-child(3){border-color:rgba(205,127,50,0.25);}
+.lb-rank{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;
+  color:var(--muted);text-align:center;}
+.lb-rank.gold{color:#ffd700;}
+.lb-rank.silver{color:#c0c0c0;}
+.lb-rank.bronze{color:#cd7f32;}
+.lb-info .addr{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--white2);}
+.lb-info .pct{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);margin-top:2px;}
+.lb-prog{width:60px;}
+.lb-bar{height:3px;background:rgba(255,255,255,0.08);border-radius:100px;overflow:hidden;margin-top:4px;}
+.lb-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));border-radius:100px;}
+
+/* ── BUTTONS ── */
+.btn-main{width:100%;padding:14px;background:linear-gradient(135deg,#5a3800,var(--gold2));
+  color:#080808;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;
+  font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
+.btn-main:hover{box-shadow:0 4px 30px rgba(250,204,21,0.5);transform:translateY(-1px);}
+.btn-main:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-secondary{width:100%;padding:12px;background:rgba(168,152,128,0.06);
+  border:1px solid rgba(168,152,128,0.25);color:var(--white2);border-radius:10px;
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:1px;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
+.btn-secondary:hover{background:rgba(168,152,128,0.12);}
+.btn-danger{width:100%;padding:12px;background:transparent;
+  border:1px solid rgba(201,64,64,0.25);color:rgba(201,64,64,0.7);border-radius:10px;
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:1px;cursor:pointer;transition:all 0.3s;margin-top:4px;}
+.btn-danger:hover{background:rgba(201,64,64,0.08);border-color:rgba(201,64,64,0.4);}
+.status-msg{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;
+  margin-top:8px;color:var(--muted);min-height:18px;line-height:1.6;}
+
+/* ── ALERT ── */
+.alert{border-radius:10px;padding:10px 14px;margin-bottom:10px;
+  font-family:'Share Tech Mono',monospace;font-size:9px;line-height:1.8;letter-spacing:0.5px;}
+.alert-warn{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);color:#f59e0b;}
+.alert-info{background:transparent;border:1px solid rgba(255,255,255,0.1);color:var(--muted);}
+.alert-success{background:rgba(46,168,106,0.06);border:1px solid rgba(46,168,106,0.2);color:var(--green);}
+.alert-danger{background:rgba(201,64,64,0.06);border:1px solid rgba(201,64,64,0.2);color:var(--red);}
+
+/* ── LOADING ── */
+.loading{text-align:center;padding:24px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;}
+.spinner{width:28px;height:28px;border:2px solid rgba(200,146,42,0.12);border-top-color:var(--gold2);
+  border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 10px;}
+
+/* ── STEP LIST ── */
+.step-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+.step-item{display:flex;align-items:flex-start;gap:12px;}
+.step-num{width:24px;height:24px;border-radius:50%;background:transparent;
+  border:1px solid rgba(200,146,42,0.4);display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);flex-shrink:0;}
+.step-text{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+  line-height:1.8;padding-top:3px;}
+.step-text b{color:var(--white2);}
+
+/* ── BOTTOM NAV ── */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(8,8,8,0.99);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;text-decoration:none;color:var(--muted);transition:color 0.2s;}
+.bnav-item:hover,.bnav-item.active{color:var(--gold2);}
+.bn-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<div id="bgLogo"><img src="1772782967104.png" alt="" onerror="this.style.display='none'"></div>
+<div class="scanline"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" onerror="this.style.display='none'">
+    <div class="nav-brand">
+      <div class="nav-brand-main">INDOCOIN</div>
+      <div class="nav-brand-sub">👑 MEMBER VIP</div>
+    </div>
+  </div>
+  <div id="walletBadge" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:4px;letter-spacing:1px;display:flex;align-items:center;gap:5px;background:rgba(168,152,128,0.08);border:1px solid rgba(168,152,128,0.3);color:var(--white2);cursor:pointer;" onclick="connectWallet()">
+    <div id="walletDot" style="width:6px;height:6px;border-radius:50%;background:var(--muted);"></div>
+    <span id="walletLabel">CONNECT</span>
+  </div>
+</nav>
+
+<div class="layout">
+<div class="main">
+
+  <!-- POOL STATS -->
+  <div class="sec-div">👑 MEMBER VIP POOL</div>
+
+  <div class="pool-banner">
+    <div>
+      <div class="pool-banner-lbl">POOL TERKUNCI</div>
+      <div class="pool-banner-val" id="ps-pool">— INDC</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="pool-banner-lbl">SLOT AKTIF</div>
+      <div class="pool-banner-val" id="ps-slot" style="font-size:22px;">—/50</div>
+    </div>
+  </div>
+
+  <div class="pool-mini">
+    <div class="pool-mini-item">
+      <div class="pool-mini-val" id="ps-member">—</div>
+      <div class="pool-mini-lbl">Total Member</div>
+    </div>
+    <div class="pool-mini-item">
+      <div class="pool-mini-val" id="ps-pending">—</div>
+      <div class="pool-mini-lbl">Pending</div>
+    </div>
+    <div class="pool-mini-item">
+      <div class="pool-mini-val" id="ps-claimed">—</div>
+      <div class="pool-mini-lbl">Claimed</div>
+    </div>
+  </div>
+
+  <!-- CARA KERJA COLLAPSIBLE -->
+  <div class="info-card" style="margin-bottom:12px;cursor:pointer;" onclick="toggleCaraKerja(this)">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="info-title" style="margin-bottom:0;">📋 CARA KERJA</div>
+      <span id="caraKerjaArrow" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold2);">▼ LIHAT</span>
+    </div>
+    <div id="caraKerjaBody" style="display:none;margin-top:12px;">
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-text">Daftar dengan mengunci <b>10.000 INDC</b>. Pastikan sudah terdaftar di referral & punya upline.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-text">Rekrut minimal <b>2 downline</b> yang masing-masing sudah punya aktivitas ≥ <b>$20</b>.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-text">Setelah syarat terpenuhi, masuk ke salah satu dari <b>50 slot aktif</b> dan mulai akumulasi aktivitas di platform.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-text">Capai target volume <b>$50.000 USD</b> → klaim <b>10.000 + 1.000.000 INDC</b>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER DASHBOARD -->
+  <div class="sec-div" id="dashTitle">🔐 STATUS KAMU</div>
+  <div id="userDash">
+    <div class="info-card" style="text-align:center;padding:24px;">
+      <div style="font-size:32px;margin-bottom:10px;">👑</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold);margin-bottom:6px;">CONNECT WALLET</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);line-height:1.8;">
+        Hubungkan wallet untuk melihat<br>status & mendaftar sebagai Member VIP
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="sec-div">🏆 LEADERBOARD</div>
+  <div id="leaderboard">
+    <div class="loading"><div class="spinner"></div>Memuat leaderboard...</div>
+  </div>
+
+</div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+    <span class="bn-lbl">HOME</span>
+  </a>
+  <a href="earn.html" class="bnav-item">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    <span class="bn-lbl">EARN</span>
+  </a>
+  <a href="referral.html" class="bnav-item">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="15" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="15" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 7.5l-4.5 5M10 7.5l4.5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span class="bn-lbl">REFERRAL</span>
+  </a>
+  <a href="presale.html" class="bnav-item">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    <span class="bn-lbl">PRESALE</span>
+  </a>
+  <a href="community.html" class="bnav-item">
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    <span class="bn-lbl">COMMUNITY</span>
+  </a>
+</nav>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────
+const VIP_CA  = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf';
+const INDC_CA = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const ENTRY   = ethers.utils.parseUnits('10000', 9);   // 10,000 INDC
+const TARGET  = ethers.BigNumber.from('50000').mul(ethers.BigNumber.from('10').pow(18)); // $50,000 USD
+
+const VIP_ABI = [
+  'function register() external',
+  'function checkStatus(address user) external',
+  'function claimUnlock() external',
+  'function refund() external',
+  'function getPoolInfo() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256)',
+  'function getStats() view returns (uint256 tot,uint256 act,uint256 pdl,uint256 psl,uint256 clm,uint256 ref,uint256 exp)',
+  'function getMember(address) view returns (tuple(address wallet,uint256 entryAmount,uint256 bonusAmount,uint256 joinTime,uint256 activatedTime,uint256 expiredTime,uint256 progressUSD,uint256 volumeSnapshot,uint8 status,uint256 queueNumber,address upline))',
+  'function getUserProgress(address) view returns (uint256 vol,uint256 pct,bool canClaim,uint8 status,uint256 qdl,uint256 exp,uint256 snap)',
+  'function getVipDownlines(address) view returns (address[])',
+  'function getAllMembers() view returns (address[])',
+];
+const INDC_ABI = [
+  'function approve(address,uint256) returns (bool)',
+  'function allowance(address,address) view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+];
+const RPC_LIST = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc.publicnode.com',
+  'https://binance.llamarpc.com',
+];
+const STATUS_NAME = ['NONE','PENDING_DL','PENDING_SLOT','AKTIF','CLAIMED','REFUNDED','EXPIRED'];
+
+let provider, signer, vipContract, indcContract, myAddress;
+
+// ── PROVIDER ───────────────────────────────────────────────
+async function getReadProvider() {
+  for (const rpc of RPC_LIST) {
+    try {
+      const p = new ethers.providers.StaticJsonRpcProvider(rpc,{chainId:56,name:'bnb'});
+      await Promise.race([p.getBlockNumber(), new Promise((_,r)=>setTimeout(()=>r(),4000))]);
+      return p;
+    } catch(e) {}
+  }
+  throw new Error('RPC tidak tersedia');
+}
+
+// ── FORMAT ─────────────────────────────────────────────────
+const fmtINDC  = v => (Number(v)/1e9).toLocaleString('id-ID',{maximumFractionDigits:0});
+const fmtUSD   = v => '$'+(Number(ethers.BigNumber.from(v.toString()))/1e18).toLocaleString('id-ID',{maximumFractionDigits:0});
+const shortAddr= a => a.slice(0,6)+'...'+a.slice(-4);
+const fmtDate  = ts => new Date(Number(ts)*1000).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+
+function daysLeft(ts) {
+  const diff = Number(ts)*1000 - Date.now();
+  if (diff<=0) return 'Expired';
+  const d = Math.floor(diff/86400000);
+  const mo= Math.floor(d/30);
+  const yr= Math.floor(d/365);
+  if (yr>0) return yr+'thn '+(mo%12)+'bln lagi';
+  if (mo>0) return mo+'bln '+(d%30)+'hr lagi';
+  return d+'hr lagi';
+}
+
+// ── LOAD POOL STATS ────────────────────────────────────────
+async function loadPoolStats() {
+  try {
+    const rp   = await getReadProvider();
+    const vc   = new ethers.Contract(VIP_CA, VIP_ABI, rp);
+    const [pool, stats] = await Promise.all([vc.getPoolInfo(), vc.getStats()]);
+    document.getElementById('ps-pool').textContent   = fmtINDC(pool[0])+' INDC';
+    document.getElementById('ps-slot').textContent   = Number(stats.act)+'/50';
+    document.getElementById('ps-member').textContent = Number(stats.tot).toString();
+    const pend = Number(stats.pdl)+Number(stats.psl);
+    document.getElementById('ps-pending').textContent= pend.toString();
+    document.getElementById('ps-claimed').textContent= Number(stats.clm).toString();
+    loadLeaderboard(vc);
+  } catch(e) {
+    console.warn('Pool stats:', e.message);
+    loadLeaderboard(null);
+  }
+}
+
+// ── LEADERBOARD ────────────────────────────────────────────
+async function loadLeaderboard(vc) {
+  const el = document.getElementById('leaderboard');
+  try {
+    if (!vc) {
+      const rp = await getReadProvider();
+      vc = new ethers.Contract(VIP_CA, VIP_ABI, rp);
+    }
+    const members = await vc.getAllMembers();
+    if (!members.length) {
+      el.innerHTML = '<div class="alert alert-info">Belum ada member terdaftar.</div>';
+      return;
+    }
+    // Fetch progress semua member (batch)
+    const progList = await Promise.all(
+      members.map(addr => vc.getUserProgress(addr).catch(()=>null))
+    );
+    // Gabungkan & filter hanya ACTIVE (status=3)
+    let rows = members.map((addr,i) => ({ addr, prog: progList[i] }))
+      .filter(r => r.prog && Number(r.prog.status) === 3)
+      .sort((a,b) => Number(b.prog.pct) - Number(a.prog.pct));
+
+    if (!rows.length) {
+      el.innerHTML = '<div class="alert alert-info">Belum ada member aktif saat ini.</div>';
+      return;
+    }
+    const rankIcon = ['🥇','🥈','🥉'];
+    const rankCls  = ['gold','silver','bronze'];
+    let html = '';
+    rows.forEach((r,i) => {
+      const pct  = Math.min(100, Number(r.prog.pct));
+      const vol  = Number(r.prog.vol) / 1e18;
+      const rank = i<3 ? `<span class="lb-rank ${rankCls[i]}">${rankIcon[i]}</span>`
+                       : `<span class="lb-rank">${i+1}</span>`;
+      html += `
+        <div class="lb-item">
+          ${rank}
+          <div class="lb-info">
+            <div class="addr">${shortAddr(r.addr)}</div>
+            <div class="pct">${pct}% <span style="font-size:9px;color:var(--muted);font-family:'Share Tech Mono',monospace;">($${vol.toLocaleString('id-ID',{maximumFractionDigits:0})})</span></div>
+          </div>
+          <div class="lb-prog">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-align:right;">${pct}%</div>
+            <div class="lb-bar"><div class="lb-fill" style="width:${pct}%"></div></div>
+          </div>
+        </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="alert alert-danger">⚠️ Gagal memuat leaderboard.<br><small>${e.message}</small></div>`;
+  }
+}
+
+// ── CONNECT WALLET ─────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) { alert('MetaMask / wallet tidak terdeteksi!'); return; }
+  try {
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider     = new ethers.providers.Web3Provider(window.ethereum);
+    signer       = provider.getSigner();
+    myAddress    = await signer.getAddress();
+    vipContract  = new ethers.Contract(VIP_CA,  VIP_ABI,  signer);
+    indcContract = new ethers.Contract(INDC_CA, INDC_ABI, signer);
+    document.getElementById('walletLabel').textContent = shortAddr(myAddress);
+    document.getElementById('walletDot').style.background = 'var(--green)';
+    await loadUserDash();
+  } catch(e) { console.error(e); }
+}
+
+// Auto-connect silent
+(async function autoConnect(){
+  if (!window.ethereum) return;
+  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if (accounts.length) await connectWallet();
+})();
+
+function toggleCaraKerja(card) {
+  const body  = document.getElementById('caraKerjaBody');
+  const arrow = document.getElementById('caraKerjaArrow');
+  const open  = body.style.display !== 'none';
+  body.style.display  = open ? 'none' : 'block';
+  arrow.textContent   = open ? '▼ LIHAT' : '▲ TUTUP';
+}
+
+// ── USER DASHBOARD ─────────────────────────────────────────
+async function loadUserDash() {
+  const el = document.getElementById('userDash');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat data kamu...</div>';
+  try {
+    const prog = await vipContract.getUserProgress(myAddress);
+    const status = Number(prog.status);
+    renderDash(status, prog);
+  } catch(e) {
+    el.innerHTML = `<div class="alert alert-danger">⚠️ Gagal: ${e.message}</div>`;
+  }
+}
+
+async function renderDash(status, prog) {
+  const el = document.getElementById('userDash');
+  let html = '';
+
+  // ── NONE ──
+  if (status === 0) {
+    html = `
+      <div class="user-card">
+        <span class="status-badge none"><span class="status-dot"></span>BELUM TERDAFTAR</span>
+        <div class="alert alert-info">
+          Kamu belum terdaftar sebagai Member VIP. Kunci <b>10.000 INDC</b> untuk mendaftar.
+        </div>
+        <div class="reward-banner">
+          <div>
+            <div class="rw-lbl">ENTRY</div>
+            <div class="rw-val">10.000 INDC</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="rw-lbl">BONUS JIKA SELESAI</div>
+            <div class="rw-val" style="color:var(--green);">1.000.000 INDC</div>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="doApprove()" id="btnApprove">🔓 APPROVE 10.000 INDC</button>
+        <button class="btn-main" onclick="doRegister()" id="btnRegister" disabled>👑 DAFTAR MEMBER VIP</button>
+        <div class="status-msg" id="regMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+    checkAllowance();
+
+  // ── PENDING_DL ──
+  } else if (status === 1) {
+    const qdl = Number(prog.qdl);
+    html = `
+      <div class="user-card">
+        <span class="status-badge pending"><span class="status-dot"></span>PENDING — DOWNLINE</span>
+        <div class="alert alert-warn">
+          Kamu perlu <b>2 downline</b> yang masing-masing sudah beraktivitas ≥ <b>$20</b>.<br>
+          Saat ini: <b>${qdl}/2</b> downline qualified.
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-label"><span>DOWNLINE QUALIFIED</span><span>${qdl}/2</span></div>
+          <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,qdl*50)}%"></div></div>
+        </div>
+        <button class="btn-secondary" onclick="doCheckStatus()" id="btnCheck">🔄 CEK STATUS</button>
+        <div class="status-msg" id="checkMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+    renderMyDownlines();
+
+  // ── PENDING_SLOT ──
+  } else if (status === 2) {
+    html = `
+      <div class="user-card">
+        <span class="status-badge pending"><span class="status-dot"></span>PENDING — ANTRIAN SLOT</span>
+        <div class="alert alert-info">
+          Syarat downline sudah terpenuhi ✅<br>
+          Menunggu slot aktif tersedia (maks 50 slot). Antrian FIFO — otomatis masuk saat ada yang keluar.
+        </div>
+        <button class="btn-secondary" onclick="doCheckStatus()" id="btnCheck">🔄 CEK STATUS</button>
+        <div class="status-msg" id="checkMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+
+  // ── ACTIVE ──
+  } else if (status === 3) {
+    const pct     = Math.min(100, Number(prog.pct));
+    const vol     = Number(prog.vol) / 1e18;
+    const expTs   = Number(prog.exp);
+    const canClaim= prog.canClaim;
+    html = `
+      <div class="user-card">
+        <span class="status-badge active"><span class="status-dot"></span>AKTIF</span>
+        <div class="reward-banner">
+          <div>
+            <div class="rw-lbl">VOLUME AKTIVITAS</div>
+            <div class="rw-val">$${vol.toLocaleString('id-ID',{maximumFractionDigits:0})}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="rw-lbl">TARGET</div>
+            <div class="rw-val" style="color:var(--muted);">$50.000</div>
+          </div>
+        </div>
+        <div class="cd-row">
+          <div><div class="cd-lbl">⏳ SISA WAKTU</div><div class="cd-val">${daysLeft(expTs)}</div></div>
+          <div><div class="cd-r-lbl">STATUS</div><div class="cd-r-val" style="color:var(--green);">AKTIF</div></div>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-label"><span>PROGRESS MENUJU $50.000</span><span>${pct}%</span></div>
+          <div class="prog-bar"><div class="prog-fill ${pct>=100?'full':''}" style="width:${pct}%"></div></div>
+        </div>
+        ${canClaim
+          ? `<div class="alert alert-success">🎉 Target tercapai! Kamu bisa klaim sekarang.</div>
+             <button class="btn-main" onclick="doClaim()">🎁 KLAIM 1.010.000 INDC</button>`
+          : `<div class="alert alert-info">Terus beraktivitas untuk capai target $50.000. Sisa: $${(50000-vol).toLocaleString('id-ID',{maximumFractionDigits:0})}.</div>`
+        }
+        <div class="status-msg" id="actionMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+    renderMyDownlines();
+
+  // ── CLAIMED ──
+  } else if (status === 4) {
+    html = `
+      <div class="user-card">
+        <span class="status-badge claimed"><span class="status-dot"></span>CLAIMED ✅</span>
+        <div class="alert alert-success">
+          Selamat! Kamu sudah berhasil menyelesaikan program Member VIP dan mengklaim reward.
+        </div>
+        <div class="alert alert-info">Daftarkan ulang untuk mengikuti putaran berikutnya.</div>
+        <button class="btn-main" onclick="doApprove()" id="btnApprove">🔓 APPROVE & DAFTAR LAGI</button>
+        <div class="status-msg" id="regMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+
+  // ── REFUNDED ──
+  } else if (status === 5) {
+    html = `
+      <div class="user-card">
+        <span class="status-badge refunded"><span class="status-dot"></span>REFUNDED</span>
+        <div class="alert alert-danger">Kamu keluar dari program. Entry dikembalikan dikurangi penalti 20%.</div>
+        <div class="alert alert-info">Daftarkan ulang kapan saja untuk bergabung kembali.</div>
+        <button class="btn-main" onclick="doApprove()" id="btnApprove">👑 DAFTAR KEMBALI</button>
+        <div class="status-msg" id="regMsg"></div>
+      </div>`;
+    el.innerHTML = html;
+
+  // ── EXPIRED ──
+  } else if (status === 6) {
+    html = `
+      <div class="user-card">
+        <span class="status-badge refunded"><span class="status-dot"></span>EXPIRED</span>
+        <div class="alert alert-danger">Masa aktif 5 tahun habis sebelum target tercapai.</div>
+      </div>`;
+    el.innerHTML = html;
+  }
+}
+
+// ── MY DOWNLINES ───────────────────────────────────────────
+async function renderMyDownlines() {
+  let dlSec = document.getElementById('dlSection');
+  if (!dlSec) {
+    dlSec = document.createElement('div');
+    dlSec.id = 'dlSection';
+    const lb = document.querySelector('.sec-div:last-of-type') || document.getElementById('userDash');
+    document.querySelector('.main').insertBefore(dlSec, document.getElementById('leaderboard').previousElementSibling);
+  }
+  dlSec.innerHTML = `<div class="sec-div">👥 DOWNLINE VIP SAYA</div><div class="loading"><div class="spinner"></div>Memuat downline...</div>`;
+  try {
+    const rp = await getReadProvider();
+    const vc = new ethers.Contract(VIP_CA, VIP_ABI, rp);
+    const dls = await vipContract.getVipDownlines(myAddress);
+    if (!dls.length) {
+      dlSec.innerHTML += '<div class="alert alert-info" style="margin-top:-4px;">Belum ada downline VIP.</div>';
+      dlSec.querySelector('.loading').remove();
+      return;
+    }
+    const progs = await Promise.all(dls.map(a => vc.getUserProgress(a).catch(()=>null)));
+    let html = `<div class="sec-div">👥 DOWNLINE VIP SAYA</div>`;
+    dls.forEach((addr,i) => {
+      const p   = progs[i];
+      const vol = p ? Number(p.vol)/1e18 : 0;
+      const isQ = vol >= 20;
+      html += `
+        <div class="dl-item ${isQ?'qualified':'unqualified'}">
+          <div>
+            <div class="dl-addr">${shortAddr(addr)}</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">
+              Vol: $${vol.toLocaleString('id-ID',{maximumFractionDigits:1})} | ${p ? STATUS_NAME[Number(p.status)] : '—'}
+            </div>
+          </div>
+          <span class="dl-badge ${isQ?'q':'nq'}">${isQ?'✅ Qualified':'⏳ Belum'}</span>
+        </div>`;
+    });
+    dlSec.innerHTML = html;
+  } catch(e) {
+    dlSec.innerHTML = dlSec.innerHTML.replace(/<div class="loading">.*?<\/div>/s, '');
+  }
+}
+
+// ── ACTIONS ────────────────────────────────────────────────
+function setMsg(id, txt, col='var(--muted)') {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = txt; el.style.color = col; }
+}
+
+async function checkAllowance() {
+  try {
+    const allowed = await indcContract.allowance(myAddress, VIP_CA);
+    const btnReg  = document.getElementById('btnRegister');
+    if (btnReg) btnReg.disabled = allowed.lt(ENTRY);
+    if (allowed.gte(ENTRY)) setMsg('regMsg','✅ Allowance cukup, siap daftar.','var(--green)');
+  } catch(e) {}
+}
+
+async function doApprove() {
+  const btn = document.getElementById('btnApprove');
+  if (btn) btn.disabled = true;
+  setMsg('regMsg','⏳ Approve...','var(--gold)');
+  try {
+    const tx = await indcContract.approve(VIP_CA, ENTRY);
+    setMsg('regMsg','⏳ Menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+    setMsg('regMsg','✅ Approve berhasil!','var(--green)');
+    const btnReg = document.getElementById('btnRegister');
+    if (btnReg) btnReg.disabled = false;
+  } catch(e) {
+    setMsg('regMsg','❌ '+e.reason||e.message,'var(--red)');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function doRegister() {
+  const btn = document.getElementById('btnRegister');
+  if (btn) btn.disabled = true;
+  setMsg('regMsg','⏳ Mendaftar...','var(--gold)');
+  try {
+    const tx = await vipContract.register();
+    setMsg('regMsg','⏳ Menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+    setMsg('regMsg','✅ Berhasil! Memuat ulang...','var(--green)');
+    setTimeout(()=>loadUserDash(), 2000);
+  } catch(e) {
+    setMsg('regMsg','❌ '+(e.reason||e.message),'var(--red)');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function doCheckStatus() {
+  const btn = document.getElementById('btnCheck');
+  if (btn) btn.disabled = true;
+  setMsg('checkMsg','⏳ Mengecek status...','var(--gold)');
+  try {
+    const tx = await vipContract.checkStatus(myAddress);
+    setMsg('checkMsg','⏳ Menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+    setMsg('checkMsg','✅ Status diperbarui!','var(--green)');
+    setTimeout(()=>loadUserDash(), 2000);
+  } catch(e) {
+    const msg = e.reason||e.message||'';
+    if (msg.includes('OK')) setMsg('checkMsg','ℹ️ Status kamu sudah aktif.','var(--gold)');
+    else setMsg('checkMsg','❌ '+msg,'var(--red)');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function doClaim() {
+  setMsg('actionMsg','⏳ Klaim...','var(--gold)');
+  try {
+    const tx = await vipContract.claimUnlock();
+    setMsg('actionMsg','⏳ Menunggu konfirmasi...','var(--gold)');
+    await tx.wait();
+    setMsg('actionMsg','🎉 Klaim berhasil! Reward masuk ke wallet.','var(--green)');
+    setTimeout(()=>{ loadUserDash(); loadPoolStats(); }, 2000);
+  } catch(e) {
+    setMsg('actionMsg','❌ '+(e.reason||e.message),'var(--red)');
+  }
+}
+
+async function doRefund() {
+  const ok = confirm('⚠️ Yakin keluar? Kamu akan kehilangan 2.000 INDC (penalti 20%).\nKamu akan menerima kembali 8.000 INDC saja.');
+  if (!ok) return;
+  setMsg('actionMsg','⏳ Memproses refund...','var(--gold)');
+  setMsg('checkMsg','⏳ Memproses refund...','var(--gold)');
+  try {
+    const tx = await vipContract.refund();
+    await tx.wait();
+    setMsg('actionMsg','✅ Refund berhasil.','var(--green)');
+    setMsg('checkMsg','✅ Refund berhasil.','var(--green)');
+    setTimeout(()=>{ loadUserDash(); loadPoolStats(); }, 2000);
+  } catch(e) {
+    setMsg('actionMsg','❌ '+(e.reason||e.message),'var(--red)');
+    setMsg('checkMsg','❌ '+(e.reason||e.message),'var(--red)');
+  }
+}
+
+// Load pool stats on page load
+window.addEventListener('load', () => loadPoolStats());
+for(let i=0;i<25;i++){
+  const s=document.createElement('div');s.className='star';
+  const sz=Math.random()*1.5+0.5;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s;`;
+  document.body.appendChild(s);
+}
+</script>
+
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("/sw.js").then(reg=>{
+      reg.addEventListener("updatefound",()=>{
+        const sw=reg.installing;
+        sw.addEventListener("statechange",()=>{
+          if(sw.state==="installed"&&navigator.serviceWorker.controller){sw.postMessage("skipWaiting");window.location.reload();}
+        });
+      });
+    }).catch(e=>console.warn("SW:",e));
+  });
+}
+</script>
+<script src="airdrop-questions.js"></script>
+<script src="airdrop-widget.js"></script>
+</body>
+</html>
