@@ -233,6 +233,15 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
+  <div id="sec-app5" class="sec-div">👑 Token Terkunci — Member VIP Pool</div>
+
+  <div id="app5">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA...</div>
+    </div>
+  </div>
+
   <div class="footer">
     <div class="total-lock">
       <div class="total-lock-lbl">TOTAL TOKEN TERKUNCI</div>
@@ -275,7 +284,128 @@ const ABI4 = [
   "function getRingkasan() view returns (tuple(address token, address airdropContract, string namaLock, string kategori, uint256 totalDikunci, uint256 totalTerkirim, uint256 totalSisa, uint256 periodeCount, uint256 periodeBelumTrigger, uint256 nextUnlockTime, uint256 nextUnlockTahun, uint256 nextUnlockBulan, uint256 nextUnlockTanggal, uint256 hariLagiNextUnlock, uint256 createdAt))",
   "function getAllPeriodeReadable() view returns (tuple(uint256 periodeKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool triggered, string status, uint256 hariLagiUnlock)[])"
 ];
-const BULAN = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const CONTRACT5 = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf'; // Member VIP Pool
+
+const ABI_VIP = [
+  "function getLockSummary(uint256) view returns (tuple(uint256 lockId,address token,string namaLock,string kategori,uint256 totalLocked,uint256 totalClaimed,uint256 masihTerkunci,uint256 bisaDiklaim,uint256 slotCount,uint256 slotAktif,uint256 t1,uint256 t2,uint256 t3,uint256 t4,uint256 t5,uint256 createdAtTs))",
+  "function getAllSlotsReadable(uint256) view returns (tuple(uint256 slotIndex,uint256 periodeKe,uint256 amount,uint256 unlockTime,uint256 unlockTahun,uint256 unlockBulan,uint256 unlockTanggal,bool claimed,string status,uint256 hariLagiUnlock)[])",
+  "function getPoolInfo() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
+  "function getStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256)"
+];
+
+function renderVIPPool(summary, slots, poolInfo, contractAddress) {
+  updateTotalLocked('app5', summary.masihTerkunci);
+
+  const [bonusPool,,bonusAvail,entryLocked,bonusClaimed] = poolInfo;
+  const total    = slots.length;
+  const active   = slots.filter(s => s.status && s.status.startsWith('AKTIF')).length;
+  const pending  = slots.filter(s => s.status && s.status.startsWith('PENDING')).length;
+  const claimed  = slots.filter(s => s.claimed).length;
+  const slotPct  = Math.min(100, Math.round(active * 100 / 50));
+
+  const detId = 'detVIP', slId = 'slVIP';
+
+  let html = `
+    <div class="lock-card">
+      <div class="lock-stats">
+        <div class="lock-stat"><div class="lock-stat-lbl">Bonus Pool</div><div class="lock-stat-val" style="font-size:10px">${fmt(bonusPool)} INDC</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Entry Terkunci</div><div class="lock-stat-val" style="font-size:10px">${fmt(entryLocked)} INDC</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Slot Aktif</div><div class="lock-stat-val">${active}<span style="font-size:9px;color:var(--muted)">/50</span></div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">Total Member</div><div class="lock-stat-val">${total}</div></div>
+      </div>
+      <button class="toggle-btn" onclick="toggleDetail(this,'${detId}')" data-open="0" style="margin-bottom:6px;">
+        LIHAT DETAIL ▼
+      </button>
+      <div id="${detId}" style="display:none;">
+        <div class="progress-wrap">
+          <div class="progress-label"><span>SLOT TERISI</span><span>${slotPct}% (${active}/50)</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${slotPct}%"></div></div>
+        </div>
+        <div class="next-unlock">
+          <div><div class="nu-lbl">💰 TERSEDIA</div><div class="nu-val" style="font-size:10px">${fmt(bonusAvail)} INDC</div></div>
+          <div><div class="nu-lbl-r">✅ CLAIMED</div><div class="nu-val-r" style="font-size:10px">${fmt(bonusClaimed)} INDC</div></div>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);
+          background:rgba(0,0,0,0.2);border-radius:8px;padding:7px 10px;margin-bottom:6px;line-height:1.8;">
+          Pending DL: <span style="color:#f59e0b">${pending}</span> &nbsp;·&nbsp;
+          Claimed: <span style="color:var(--green)">${claimed}</span>
+        </div>
+      </div>
+      <button class="toggle-btn" onclick="toggleJadwal(this,'${slId}')" data-open="0">
+        LIHAT MEMBER (${total}) ▼
+      </button>
+      <div class="lock-contract">
+        CONTRACT: <a href="https://bscscan.com/address/${contractAddress}#readContract" target="_blank">${contractAddress}</a>
+      </div>
+    </div>
+    <div class="slot-list" id="${slId}" style="display:none;">`;
+
+  slots.forEach((s, i) => {
+    const statusStr = s.status || 'NONE';
+    let badgeHtml = '';
+    if (statusStr.startsWith('AKTIF')) {
+      const pctMatch = statusStr.match(/(\d+)%/);
+      const pctVal   = pctMatch ? pctMatch[1] : '0';
+      badgeHtml = `<span class="badge ready">🟢 AKTIF ${pctVal}%</span>`;
+    } else if (statusStr === 'PENDING-DOWNLINE') {
+      badgeHtml = `<span class="badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);">⏳ PENDING DL</span>`;
+    } else if (statusStr === 'PENDING-SLOT') {
+      badgeHtml = `<span class="badge" style="background:rgba(249,115,22,0.12);color:#f97316;border:1px solid rgba(249,115,22,0.3);">⏳ PENDING SLOT</span>`;
+    } else if (statusStr === 'CLAIMED') {
+      badgeHtml = `<span class="badge claimed">✔ CLAIMED</span>`;
+    } else if (statusStr === 'REFUNDED') {
+      badgeHtml = `<span class="badge" style="background:rgba(201,64,64,0.1);color:var(--red);border:1px solid rgba(201,64,64,0.25);">↩ REFUNDED</span>`;
+    } else if (statusStr === 'EXPIRED') {
+      badgeHtml = `<span class="badge locked">⚠ EXPIRED</span>`;
+    } else {
+      badgeHtml = `<span class="badge locked">— NONE</span>`;
+    }
+
+    const expTs  = Number(s.unlockTime);
+    const expStr = expTs > 0 ? new Date(expTs * 1000).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const days   = Number(s.hariLagiUnlock);
+    const cdStr  = days > 0 ? cd(days) : '';
+    const amtVal = Number(s.amount) / 1e9;
+    const amtStr = amtVal > 0 ? amtVal.toLocaleString('id-ID',{maximumFractionDigits:0}) + ' INDC' : '—';
+    const qn     = Number(s.periodeKe);
+
+    html += `
+      <div class="slot-item ${s.claimed ? 'claimed' : ''}">
+        <div class="slot-year">Q<span>${qn}</span></div>
+        <div class="slot-info">
+          <div class="date">Exp: ${expStr}</div>
+          <div class="amount">${amtStr}</div>
+          ${cdStr ? `<div class="countdown">${cdStr}</div>` : ''}
+        </div>
+        <div class="slot-status">${badgeHtml}</div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  document.getElementById('app5').innerHTML = html;
+}
+
+async function loadVIPPool() {
+  document.getElementById('app5').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT VIP POOL...</div></div>`;
+  try {
+    const provider = await getProvider();
+    const contract = new ethers.Contract(CONTRACT5, ABI_VIP, provider);
+    const [summary, slots, poolInfo] = await Promise.all([
+      contract.getLockSummary(0),
+      contract.getAllSlotsReadable(0),
+      contract.getPoolInfo()
+    ]);
+    renderVIPPool(summary, slots, poolInfo, CONTRACT5);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('app5').innerHTML = `
+      <div class="error">⚠️ Gagal memuat VIP Pool.<br>
+      <small style="word-break:break-all;font-size:9px;opacity:0.7">${e.message||e}</small><br><br>
+      <button class="refresh-btn" onclick="loadVIPPool()">↻ COBA LAGI</button></div>`;
+  }
+}
+
+
 
 // Sistem kalkulator total terkunci
 const totalLockMap = {};
@@ -451,6 +581,7 @@ function loadAll() {
   loadLock(CONTRACT2, 'app2', '2');
   loadLock(CONTRACT3, 'app3', '3');
   loadLock(CONTRACT4, 'app4', '4');
+  loadVIPPool();
 }
 
 loadAll();
