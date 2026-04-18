@@ -157,7 +157,7 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
       </div>
     </div>
   </div>
-  <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+  <button id="walletBtn" onclick="connectWallet()" style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;transition:all 0.2s;">CONNECT</button>
 </nav>
 <div class="main">
   <div class="countdown-card">
@@ -211,8 +211,7 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
     </div>
   </div>
   <div class="card">
-    <button class="btn-wallet" id="connBtn" onclick="connectWallet()">🔗 HUBUNGKAN WALLET</button>
-    <div class="wallet-addr-box" id="addrBox"></div>
+
   </div>
   <div class="card">
     <div class="card-head" style="justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
@@ -320,6 +319,7 @@ const rp=new ethers.providers.JsonRpcProvider(RPC);
 const rc=new ethers.Contract(CA,CABI,rp);
 const listing=new Date("June 1, 2026 12:00:00 GMT+7").getTime();
 setInterval(()=>{const d=listing-Date.now();if(d<=0)return;document.getElementById('cdD').textContent=String(Math.floor(d/86400000)).padStart(2,'0');document.getElementById('cdH').textContent=String(Math.floor(d%86400000/3600000)).padStart(2,'0');document.getElementById('cdM').textContent=String(Math.floor(d%3600000/60000)).padStart(2,'0');document.getElementById('cdS').textContent=String(Math.floor(d%60000/1000)).padStart(2,'0');},1000);
+function shortAddr(a){ return a ? a.slice(0,6)+'…'+a.slice(-4) : ''; }
 function setStatus(msg,type=''){const el=document.getElementById('statusMsg');el.textContent=msg;el.className='status-box '+(type==='ok'?'ok':type==='err'?'err':'');}
 function calcTok(){
   const u=parseFloat(document.getElementById('amount').value)||0;
@@ -335,7 +335,7 @@ function calcTok(){
   else if(u>=1)   bonusLabel=' (+10%)';
   document.getElementById('estTok').textContent=total.toLocaleString('id-ID')+' INDC'+bonusLabel;
 }
-async function connectWallet(){setStatus('Mendeteksi wallet...');let eth=null;for(let i=0;i<20;i++){eth=window.ethereum||(window.web3&&window.web3.currentProvider)||null;if(eth)break;await new Promise(r=>setTimeout(r,300));}if(!eth){setStatus('Buka di MetaMask/TrustWallet!','err');return;}try{await eth.request({method:'eth_requestAccounts'});provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();const cid=parseInt(await eth.request({method:'eth_chainId'}),16);if(cid!==56){setStatus('Switch ke BSC...');try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){await eth.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed1.binance.org/'],blockExplorerUrls:['https://bscscan.com/']}]});}provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();}contract=new ethers.Contract(CA,CABI,signer);usdtC=new ethers.Contract(USDT,UABI,signer);try{usdtDec=await usdtC.decimals();}catch(_){usdtDec=18;}const addr=await signer.getAddress();const short=addr.slice(0,6)+'...'+addr.slice(-4);const name=eth.isTokenPocket?'TokenPocket':eth.isTrust?'TrustWallet':eth.isMetaMask?'MetaMask':'Wallet';const btn=document.getElementById('connBtn');btn.textContent='✅ '+short;btn.style.background='rgba(168,152,128,0.15)';btn.style.border='1px solid rgba(168,152,128,0.4)';btn.style.color='#a89880';const box=document.getElementById('addrBox');box.style.display='block';box.textContent=name+': '+addr;const bal=await usdtC.balanceOf(addr);document.getElementById('usdtBal').textContent=parseFloat(ethers.utils.formatUnits(bal,usdtDec)).toFixed(2);setStatus('Wallet terhubung ✅','ok');updateProgress();updateLiveTx();loadKomisi(addr);eth.on('accountsChanged',()=>location.reload());eth.on('chainChanged',()=>location.reload());}catch(e){setStatus(e.code===4001?'Ditolak ❌':'Gagal: '+(e.message||''),'err');}}
+async function connectWallet(){setStatus('Mendeteksi wallet...');let eth=null;for(let i=0;i<20;i++){eth=window.ethereum||(window.web3&&window.web3.currentProvider)||null;if(eth)break;await new Promise(r=>setTimeout(r,300));}if(!eth){setStatus('Buka di MetaMask/TrustWallet!','err');return;}try{await eth.request({method:'eth_requestAccounts'});provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();const cid=parseInt(await eth.request({method:'eth_chainId'}),16);if(cid!==56){setStatus('Switch ke BSC...');try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){await eth.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed1.binance.org/'],blockExplorerUrls:['https://bscscan.com/']}]});}provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();}contract=new ethers.Contract(CA,CABI,signer);usdtC=new ethers.Contract(USDT,UABI,signer);try{usdtDec=await usdtC.decimals();}catch(_){usdtDec=18;}const addr=await signer.getAddress();const short=addr.slice(0,6)+'...'+addr.slice(-4);const name=eth.isTokenPocket?'TokenPocket':eth.isTrust?'TrustWallet':eth.isMetaMask?'MetaMask':'Wallet';const wBtn=document.getElementById('walletBtn');if(wBtn)wBtn.textContent=shortAddr(addr);const bal=await usdtC.balanceOf(addr);document.getElementById('usdtBal').textContent=parseFloat(ethers.utils.formatUnits(bal,usdtDec)).toFixed(2);setStatus('Wallet terhubung ✅','ok');updateProgress();updateLiveTx();loadKomisi(addr);eth.on('accountsChanged',()=>location.reload());eth.on('chainChanged',()=>location.reload());}catch(e){setStatus(e.code===4001?'Ditolak ❌':'Gagal: '+(e.message||''),'err');}}
 async function doApprove(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu approval...');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,usdtDec));setStatus('Memproses...');await tx.wait();setStatus('USDT Approved ✅ — Klik Buy Token!','ok');}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Approve gagal ❌','err');}}
 async function doBuy(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu konfirmasi...');const tx=await contract.buy(ethers.utils.parseUnits(amt,usdtDec));setStatus('Diproses...');await tx.wait();setStatus('🎉 Berhasil! Token INDC masuk ke wallet!','ok');updateProgress();updateLiveTx();}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Gagal ❌','err');}}
 async function loadKomisi(addr){
@@ -386,6 +386,13 @@ const tag=val>=501?' +50%':val>=101?' +25%':' +10%';
 html+=`<div class="tx-row"><span class="tx-from">👤 ${from}</span><span class="tx-val">${val.toFixed(1)} USDT → ${indc} INDC${tag}</span></div>`;}catch(_){}});feed.innerHTML=html||'<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Belum ada transaksi.</div>';}catch(e){document.getElementById('txFeed').innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Tidak dapat memuat.</div>';}}
 for(let i=0;i<50;i++){const s=document.createElement('div');s.className='star';const sz=Math.random()*2+0.5;s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s;`;document.body.appendChild(s);}
 updateProgress();updateLiveTx();setInterval(updateProgress,15000);setInterval(updateLiveTx,20000);
+
+/* Auto-connect jika sudah pernah approve */
+(async function autoConnect(){
+  if(!window.ethereum) return;
+  const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+  if(accounts && accounts.length) await connectWallet();
+})();
 </script>
 
 <nav class="bottom-nav">
