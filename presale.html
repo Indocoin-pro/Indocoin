@@ -378,7 +378,20 @@ function setKomisiStatus(msg,type=''){
   el.className='status-box '+(type==='ok'?'ok':type==='err'?'err':'');
 }
 
-async function updateProgress(){try{const rc2=new ethers.Contract(CA,CABI,rp);const info=await rc2.getPresaleInfo();const sold=parseFloat(ethers.utils.formatUnits(info.sold,9));const pct=Math.min(sold/TOTAL*100,100);const usdtVal=(sold-INIT)*0.003;document.getElementById('pct').textContent=pct.toFixed(2)+'%';document.getElementById('progFill').style.width=pct+'%';document.getElementById('sold').textContent=Math.floor(sold).toLocaleString('id-ID')+' INDC';document.getElementById('raised').textContent='$'+usdtVal.toLocaleString('id-ID',{maximumFractionDigits:0});document.getElementById('sisa').textContent=Math.floor(TOTAL-sold).toLocaleString('id-ID');}catch(e){}}
+async function updateProgress(){
+  try{
+    const info = await rc.getPresaleInfo();
+    const soldRaw = info[2]; // uint256 sold (index 2)
+    const sold = parseFloat(ethers.utils.formatUnits(soldRaw, 9));
+    const pct  = Math.min(sold / TOTAL * 100, 100);
+    const usdtVal = Math.max(0, (sold - INIT) * 0.003);
+    document.getElementById('pct').textContent      = pct.toFixed(2) + '%';
+    document.getElementById('progFill').style.width = pct + '%';
+    document.getElementById('sold').textContent     = Math.floor(sold).toLocaleString('id-ID') + ' INDC';
+    document.getElementById('raised').textContent   = '$' + usdtVal.toLocaleString('id-ID', {maximumFractionDigits:0});
+    document.getElementById('sisa').textContent     = Math.floor(TOTAL - sold).toLocaleString('id-ID');
+  } catch(e){ console.warn('updateProgress error:', e); }
+}
 async function updateLiveTx(){try{const latest=await rp.getBlockNumber();const logs=await rp.getLogs({address:USDT,topics:[ethers.utils.id("Transfer(address,address,uint256)"),null,ethers.utils.hexZeroPad(CA.toLowerCase(),32)],fromBlock:Math.max(0,latest-300),toBlock:"latest"});const feed=document.getElementById('txFeed');if(!logs||!logs.length){feed.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Belum ada transaksi.</div>';return;}const iface=new ethers.utils.Interface(["event Transfer(address indexed from,address indexed to,uint256 value)"]);let html='';logs.slice(-10).reverse().forEach(log=>{try{const p=iface.parseLog(log);const from=p.args.from.slice(0,6)+'...'+p.args.from.slice(-4);const val=parseFloat(ethers.utils.formatUnits(p.args.value,18));const base=Math.floor(val/0.003);
 const bonus=val>=501?Math.floor(base*0.5):val>=101?Math.floor(base*0.25):Math.floor(base*0.1);
 const indc=(base+bonus).toLocaleString('id-ID');
