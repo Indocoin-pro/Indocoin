@@ -183,6 +183,18 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .tier-tab,.info-box-card,.info-box-full,.inner-tab,.claimable-row,.progress-row,.stake-item{border-color:rgba(255,255,255,0.2)!important;}
 .tier-tab.active,.inner-tab.active{border-color:rgba(255,255,255,0.85)!important;}
 input:focus{border-color:rgba(255,255,255,0.85)!important;outline:none;}
+
+  /* ── Ref Bonus Bar ── */
+  .ref-bonus-bar{background:linear-gradient(135deg,rgba(200,146,42,0.06),rgba(0,0,0,0));border:1px solid rgba(200,146,42,0.2);border-left:3px solid #c8922a;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+  .ref-bonus-bar .rb-icon{font-size:22px;flex-shrink:0;}
+  .ref-bonus-bar .rb-info{flex:1;}
+  .ref-bonus-bar .rb-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:2px;color:#c8922a;margin-bottom:4px;}
+  .ref-bonus-bar .rb-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#f5c842;line-height:1;}
+  .ref-bonus-bar .rb-val.empty{color:#4a3f30;}
+  .ref-bonus-bar .rb-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:#4a3f30;margin-top:2px;}
+  .ref-bonus-bar .btn-rb{padding:10px 14px;background:linear-gradient(135deg,#3a2400,#e8a830);color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;flex-shrink:0;transition:opacity 0.2s;}
+  .ref-bonus-bar .btn-rb:disabled{background:rgba(200,146,42,0.06);color:#4a3f30;border:1px solid rgba(200,146,42,0.1);cursor:not-allowed;}
+
 </style>
 </head>
 <body>
@@ -261,6 +273,20 @@ input:focus{border-color:rgba(255,255,255,0.85)!important;outline:none;}
 </div><!-- /layout -->
 
 <!-- BOTTOM NAV -->
+  <!-- REF BONUS BAR -->
+  <div style="padding:0 16px 8px;">
+<!-- REF BONUS BAR -->
+  <div class="ref-bonus-bar" id="refBonusBar" style="display:none;">
+    <div class="rb-icon">🎁</div>
+    <div class="rb-info">
+      <div class="rb-title">BONUS REFERRAL</div>
+      <div class="rb-val empty" id="rbVal">0 INDC</div>
+      <div class="rb-sub" id="rbSub">Belum ada bonus</div>
+    </div>
+    <button class="btn-rb" id="btnRbClaim" onclick="doClaimRefBonus()" disabled>CLAIM</button>
+  </div>
+  </div>
+
 <nav class="bottom-nav">
   <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
   <a href="earn.html"      class="bn-item active"><span class="bn-icon">💰</span><span class="bn-label">EARN</span></a>
@@ -277,7 +303,7 @@ input:focus{border-color:rgba(255,255,255,0.85)!important;outline:none;}
    ════════════════════════════════════════ */
 
 const SC = {
-  STAKING : '0xeD477Eb74597CCdb67f7927bBcb68bc6ed7EeCD7',
+  STAKING : '0x858cece880f2ab7fdf8602148c61083c4a338373',
   USDT    : '0x55d398326f99059fF775485246999027B3197955',
   INDC    : '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   CHAIN_ID: 56,
@@ -301,6 +327,9 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserActiveTiers","outputs":[{"internalType":"bool[4]","name":"active","type":"bool[4]"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"getCurrentPrice","outputs":[{"internalType":"bool","name":"usingOracle","type":"bool"},{"internalType":"uint256","name":"currentUsdtPerIndc","type":"uint256"},{"internalType":"uint256","name":"currentBase","type":"uint256"},{"internalType":"uint256","name":"indcPerUsdt","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tierId","type":"uint8"}],"name":"hasActiveStake","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+,
+  {"inputs":[],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRefBonusInfo","outputs":[{"internalType":"uint256","name":"pending","type":"uint256"},{"internalType":"uint256","name":"totalEarned","type":"uint256"}],"stateMutability":"view","type":"function"}
 ];
 
 const ERC20_ABI = [
@@ -830,8 +859,46 @@ async function checkPoolPublic() {
   await checkPoolPublic();
   if(!window.ethereum) return;
   const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-  if(accounts.length) await connectWallet();
+  if(accounts.length) { await connectWallet(); await loadRefBonus(); }
 })();
+
+
+async function loadRefBonus() {
+  if (!_wallet && typeof userAddr === 'undefined') return;
+  const addr = _wallet;
+  if (!addr) return;
+  try {
+    const sc = _staking;
+    const info = await sc.getRefBonusInfo(addr);
+    const pending = parseFloat(ethers.utils.formatUnits(info[0], 9));
+    const total   = parseFloat(ethers.utils.formatUnits(info[1], 9));
+    const valEl   = document.getElementById('rbVal');
+    const subEl   = document.getElementById('rbSub');
+    const btn     = document.getElementById('btnRbClaim');
+    valEl.textContent = Math.floor(pending).toLocaleString('id-ID') + ' INDC';
+    valEl.className   = 'rb-val' + (pending > 0 ? '' : ' empty');
+    subEl.textContent = 'Total earned: ' + Math.floor(total).toLocaleString('id-ID') + ' INDC';
+    btn.disabled      = pending <= 0;
+    document.getElementById('refBonusBar').style.display = 'flex';
+  } catch(e) { console.warn('loadRefBonus:', e); }
+}
+
+async function doClaimRefBonus() {
+  const sc = _staking;
+  if (!sc) return;
+  const btn = document.getElementById('btnRbClaim');
+  const orig = btn.textContent;
+  try {
+    btn.textContent = '⏳'; btn.disabled = true;
+    const tx = await sc.claimRefBonus();
+    await tx.wait();
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+    await loadRefBonus();
+  } catch(e) {
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
 
 /* ── Stars ── */
 for(let i=0;i<45;i++){
