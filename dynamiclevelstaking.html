@@ -10,6 +10,44 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js">
 /* Auto-connect saat halaman dibuka */
+
+async function loadRefBonus() {
+  if (!_wallet && typeof userAddr === 'undefined') return;
+  const addr = myAddr || userAddr;
+  if (!addr) return;
+  try {
+    const sc = contract;
+    const info = await sc.getRefBonusInfo(addr);
+    const pending = parseFloat(ethers.utils.formatUnits(info[0], 9));
+    const total   = parseFloat(ethers.utils.formatUnits(info[1], 9));
+    const valEl   = document.getElementById('rbVal');
+    const subEl   = document.getElementById('rbSub');
+    const btn     = document.getElementById('btnRbClaim');
+    valEl.textContent = Math.floor(pending).toLocaleString('id-ID') + ' INDC';
+    valEl.className   = 'rb-val' + (pending > 0 ? '' : ' empty');
+    subEl.textContent = 'Total earned: ' + Math.floor(total).toLocaleString('id-ID') + ' INDC';
+    btn.disabled      = pending <= 0;
+    document.getElementById('refBonusBar').style.display = 'flex';
+  } catch(e) { console.warn('loadRefBonus:', e); }
+}
+
+async function doClaimRefBonus() {
+  const sc = contract;
+  if (!sc) return;
+  const btn = document.getElementById('btnRbClaim');
+  const orig = btn.textContent;
+  try {
+    btn.textContent = '⏳'; btn.disabled = true;
+    const tx = await sc.claimRefBonus();
+    await tx.wait();
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+    await loadRefBonus();
+  } catch(e) {
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
+
 (async function autoConnect(){
   if(!window.ethereum) return;
   const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
@@ -266,6 +304,18 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .level-tab.active,.inner-tab.active{border-color:rgba(255,255,255,0.85)!important;}
 input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:none;}
 
+
+  /* ── Ref Bonus Bar ── */
+  .ref-bonus-bar{background:linear-gradient(135deg,rgba(200,146,42,0.06),rgba(0,0,0,0));border:1px solid rgba(200,146,42,0.2);border-left:3px solid #c8922a;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+  .ref-bonus-bar .rb-icon{font-size:22px;flex-shrink:0;}
+  .ref-bonus-bar .rb-info{flex:1;}
+  .ref-bonus-bar .rb-title{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:2px;color:#c8922a;margin-bottom:4px;}
+  .ref-bonus-bar .rb-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:#f5c842;line-height:1;}
+  .ref-bonus-bar .rb-val.empty{color:#4a3f30;}
+  .ref-bonus-bar .rb-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:#4a3f30;margin-top:2px;}
+  .ref-bonus-bar .btn-rb{padding:10px 14px;background:linear-gradient(135deg,#3a2400,#e8a830);color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;flex-shrink:0;transition:opacity 0.2s;}
+  .ref-bonus-bar .btn-rb:disabled{background:rgba(200,146,42,0.06);color:#4a3f30;border:1px solid rgba(200,146,42,0.1);cursor:not-allowed;}
+
 </style>
 </head>
 <body>
@@ -343,6 +393,20 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
 </div>
 </div>
 
+  <!-- REF BONUS BAR -->
+  <div style="padding:0 16px 8px;">
+<!-- REF BONUS BAR -->
+  <div class="ref-bonus-bar" id="refBonusBar" style="display:none;">
+    <div class="rb-icon">🎁</div>
+    <div class="rb-info">
+      <div class="rb-title">BONUS REFERRAL</div>
+      <div class="rb-val empty" id="rbVal">0 INDC</div>
+      <div class="rb-sub" id="rbSub">Belum ada bonus</div>
+    </div>
+    <button class="btn-rb" id="btnRbClaim" onclick="doClaimRefBonus()" disabled>CLAIM</button>
+  </div>
+  </div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
   <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
@@ -369,7 +433,7 @@ function doCalc(lvId) {
 // ═══════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════
-const CONTRACT_ADDRESS = "0xCd3AaA06dAc8329C9143dd9623fedA1AC61Fcf48";
+const CONTRACT_ADDRESS = "0x51b94ab16165430972236ae62ce93ed4fd9f5ac7";
 const INDC_ADDRESS     = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const USDT_ADDRESS     = "0x55d398326f99059fF775485246999027B3197955";
 
@@ -385,6 +449,9 @@ const CONTRACT_ABI = [
   {"inputs":[],"name":"getPoolInfo","outputs":[{"internalType":"uint256","name":"usdtBalance","type":"uint256"},{"internalType":"uint256","name":"usdtLocked","type":"uint256"},{"internalType":"uint256","name":"usdtExcess","type":"uint256"},{"internalType":"uint256","name":"indcBalance","type":"uint256"},{"internalType":"uint256","name":"indcPending","type":"uint256"},{"internalType":"uint256","name":"indcExcess","type":"uint256"},{"internalType":"bool","name":"stakingOpen","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserCycleInfo","outputs":[{"internalType":"uint256","name":"currentCycle","type":"uint256"},{"internalType":"uint8","name":"currentMaxLevel","type":"uint8"},{"internalType":"bool","name":"canStartNewCycle","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"uint8","name":"level","type":"uint8"}],"name":"getLevelConfig","outputs":[{"internalType":"uint256","name":"minStake","type":"uint256"},{"internalType":"uint256","name":"maxStake","type":"uint256"},{"internalType":"uint256","name":"roiMax","type":"uint256"},{"internalType":"bool","name":"active","type":"bool"},{"internalType":"uint256","name":"daysToComplete","type":"uint256"}],"stateMutability":"view","type":"function"},
+,
+  {"inputs":[],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRefBonusInfo","outputs":[{"internalType":"uint256","name":"pending","type":"uint256"},{"internalType":"uint256","name":"totalEarned","type":"uint256"}],"stateMutability":"view","type":"function"}
 ];
 const INDC_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)",
