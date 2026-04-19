@@ -304,6 +304,25 @@ input:focus, select:focus, textarea:focus {
 
   <div id="opsiWrap"></div>
 
+  <!-- ═══ REF BONUS SECTION ═══ -->
+  <div style="padding:0 16px 16px;" id="refBonusSection" style="display:none;">
+    <div style="background:rgba(10,10,10,0.9);border:1px solid rgba(200,146,42,0.25);border-radius:16px;padding:18px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-align:center;margin-bottom:14px;">🎁 BONUS REFERRAL</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.2);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;letter-spacing:1px;margin-bottom:6px;">TERSEDIA</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:#f5c842;" id="glRefPending">0 INDC</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(168,152,128,0.15);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;letter-spacing:1px;margin-bottom:6px;">TOTAL EARNED</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:#a89880;" id="glRefTotal">0 INDC</div>
+        </div>
+      </div>
+      <button onclick="doClaimRefBonus()" id="btnGlClaimRef" style="width:100%;padding:13px;background:linear-gradient(135deg,#3a2400,var(--gold2));color:#080808;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;opacity:0.4;" disabled>CLAIM REF BONUS</button>
+      <div id="glRefMsg" style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:11px;text-align:center;min-height:18px;"></div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 </div><!-- /layout -->
 
@@ -500,7 +519,7 @@ function calcReward(id, val, days, rate) {
    ════════════════════════════════════════════════════ */
 
 const SC = {
-  STAKING:  '0x8c72d97df71494a3a5b0f6438d980340807c5968',
+  STAKING:  '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5',
   USDT:     '0x55d398326f99059fF775485246999027B3197955',
   INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   CHAIN_ID: 56,
@@ -515,6 +534,8 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"stakeIndex","type":"uint256"}],"name":"getPendingReward","outputs":[{"internalType":"uint256","name":"usdtOwed","type":"uint256"},{"internalType":"uint256","name":"indcOwed","type":"uint256"},{"internalType":"bool","name":"canClaim","type":"bool"},{"internalType":"bool","name":"isPending","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"getPoolInfo","outputs":[{"internalType":"uint256","name":"usdtBalance","type":"uint256"},{"internalType":"uint256","name":"usdtLocked","type":"uint256"},{"internalType":"uint256","name":"usdtExcess","type":"uint256"},{"internalType":"uint256","name":"indcBalance","type":"uint256"},{"internalType":"uint256","name":"indcPending","type":"uint256"},{"internalType":"uint256","name":"indcExcess","type":"uint256"},{"internalType":"bool","name":"stakingOpen","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"uint8","name":"optionId","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"estimateReward","outputs":[{"internalType":"uint256","name":"usdtBack","type":"uint256"},{"internalType":"uint256","name":"indcRwd","type":"uint256"},{"internalType":"uint256","name":"indcValueNow","type":"uint256"},{"internalType":"bool","name":"poolSufficient","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRefBonusInfo","outputs":[{"internalType":"uint256","name":"pending","type":"uint256"},{"internalType":"uint256","name":"totalEarned","type":"uint256"}],"stateMutability":"view","type":"function"},
 ];
 
 const ERC20_ABI = [
@@ -802,6 +823,37 @@ async function loadStakes() {
 }
 
 /* Auto-connect saat halaman dibuka */
+async function loadRefBonus() {
+  if (!_wallet) return;
+  try {
+    const info = await _staking.getRefBonusInfo(_wallet);
+    const pending = parseFloat(ethers.utils.formatUnits(info[0], 9));
+    const total   = parseFloat(ethers.utils.formatUnits(info[1], 9));
+    document.getElementById('glRefPending').textContent = Math.floor(pending).toLocaleString('id-ID') + ' INDC';
+    document.getElementById('glRefTotal').textContent   = Math.floor(total).toLocaleString('id-ID') + ' INDC';
+    const btn = document.getElementById('btnGlClaimRef');
+    if (pending > 0) { btn.style.opacity='1'; btn.disabled=false; }
+    else             { btn.style.opacity='0.4'; btn.disabled=true; }
+    document.getElementById('refBonusSection').style.display = 'block';
+  } catch(e) { console.warn('loadRefBonus:', e); }
+}
+
+async function doClaimRefBonus() {
+  if (!_staking) return;
+  const msg = document.getElementById('glRefMsg');
+  try {
+    msg.textContent = 'Konfirmasi di wallet...'; msg.style.color = 'var(--gold)';
+    const tx = await _staking.claimRefBonus();
+    msg.textContent = 'Diproses...';
+    await tx.wait();
+    msg.textContent = 'Ref Bonus berhasil diklaim!'; msg.style.color = '#4ade80';
+    await loadRefBonus();
+  } catch(e) {
+    msg.textContent = e.code===4001 ? 'Dibatalkan' : (e.reason||'Gagal');
+    msg.style.color = '#f87171';
+  }
+}
+
 (async function autoConnect(){
   if(!window.ethereum) return;
   /* Cek dulu apakah sudah pernah connect — jika ya, langsung reconnect tanpa popup */
