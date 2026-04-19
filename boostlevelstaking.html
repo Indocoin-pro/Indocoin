@@ -354,8 +354,8 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <div class="hero-rate-bar"><div class="hero-rate-fill" id="heroRateBar" style="width:0%"></div></div>
     <div class="hero-numbers">
       <div class="hn-item"><div class="hn-val" id="hnStakes">0</div><div class="hn-lbl">Stake Aktif</div></div>
-      <div class="hn-item"><div class="hn-val" id="hnPending">$0.00</div><div class="hn-lbl">Pending</div></div>
-      <div class="hn-item"><div class="hn-val" id="hnTotal">$0.00</div><div class="hn-lbl">Total Earned</div></div>
+      <div class="hn-item"><div class="hn-val" id="hnPending">0 INDC</div><div class="hn-lbl">Pending</div></div>
+      <div class="hn-item"><div class="hn-val" id="hnTotal">0 INDC</div><div class="hn-lbl">Total Earned</div></div>
     </div>
   </div>
 
@@ -395,14 +395,14 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
   <div class="panel" id="panel-info">
     <div class="bonus-banner">
       <div style="font-size:14px;margin-bottom:6px;"></div>
-      <div class="bonus-title">BONUS LOYALITAS +10%</div>
-      <div class="bonus-desc">Tahan stake sampai genap <strong>48 putaran tanpa pernah WD modal</strong> — dapat bonus 10% dari total reward!</div>
+      <div class="bonus-title">BONUS LOYALITAS +20%</div>
+      <div class="bonus-desc">Tahan stake sampai genap <strong>48 putaran tanpa pernah WD modal</strong> — dapat bonus 20% dari total reward dalam INDC!</div>
     </div>
 
     <div class="info-sec-title"> CARA KERJA</div>
     <div class="info-box">
       <div class="rule-item"><span class="rule-icon"></span><div class="rule-text"><strong>Reward Naik Tiap 7 Hari</strong><span>Mulai 0.1%/hari di putaran 1, naik terus hingga putaran 48.</span></div></div>
-      <div class="rule-item"><span class="rule-icon"></span><div class="rule-text"><strong>Max ROI 180% dalam 48 Putaran</strong><span>Total reward bisa mencapai 180% dari modal dalam 336 hari.</span></div></div>
+      <div class="rule-item"><span class="rule-icon"></span><div class="rule-text"><strong>Max ROI 180%+ dalam 48 Putaran</strong><span>Total reward INDC + bonus 20% dalam 336 hari.</span></div></div>
       <div class="rule-item"><span class="rule-icon">⏰</span><div class="rule-text"><strong>Klaim Tiap Genap 7 Hari</strong><span>Reward klaim hari ke-7, 14, 21, dst.</span></div></div>
       <div class="rule-item"><span class="rule-icon"></span><div class="rule-text"><strong>Modal Bebas Ditarik Kapan Saja</strong><span>Sisakan min $1 agar reward tetap jalan. Modal $0 = reward berhenti.</span></div></div>
       <div class="rule-item"><span class="rule-icon"></span><div class="rule-text"><strong>Multi Stake Terpisah</strong><span>Setiap stake baru punya timer sendiri. Buka banyak stake di waktu berbeda!</span></div></div>
@@ -466,7 +466,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
 /* ══════════════════════════════════
    CONFIG — Boost Level Staking
    ══════════════════════════════════ */
-const CA        = '0x77AAB6C0B5643735A98294760D474B2c09FC8e7f';
+const CA        = '0x0c445da047b9f7702382e0cc7fecdf5f245305ad';
 const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
 const RPC       = 'https://bsc-dataseed1.binance.org/';
 const CHAIN_ID  = 56;
@@ -481,7 +481,10 @@ const ABI = [
   "function withdraw(uint256,uint256) external",
   "function getStakeCount(address) view returns(uint256)",
   "function getStakeInfo(address,uint256) view returns(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool)",
-  "function getPoolInfo() view returns(uint256,uint256,bool)",
+  "function getPoolInfo() view returns(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool,uint256)",
+  "function getRefBonusInfo(address) view returns(uint256,uint256)",
+  "function claimRefBonus() external",
+  "function estimateReward(uint256,uint256) view returns(uint256,uint256,uint256,uint256,uint256)",
 ];
 const ERC20 = [
   "function approve(address,uint256) returns(bool)",
@@ -591,8 +594,8 @@ async function loadAll(){
         idx:           i,
         principal:     parseFloat(ethers.utils.formatUnits(info[0],18)),
         currentRound:  info[1].toNumber(),
-        pendingReward: parseFloat(ethers.utils.formatUnits(info[3],18)),
-        totalEarned:   parseFloat(ethers.utils.formatUnits(info[4],18)),
+        pendingReward: parseFloat(ethers.utils.formatUnits(info[3],9)),  // INDC 9 desimal
+        totalEarned:   parseFloat(ethers.utils.formatUnits(info[4],9)),   // INDC 9 desimal
         secsUntilClaim:info[5].toNumber(),
         bonusEligible: info[6],
         active:        info[7],
@@ -607,8 +610,8 @@ async function loadAll(){
     }
     document.getElementById('heroRound').textContent    = maxRound || '—';
     document.getElementById('hnStakes').textContent     = active;
-    document.getElementById('hnPending').textContent    = '$'+fmt4(totalPending);
-    document.getElementById('hnTotal').textContent      = '$'+fmt4(totalEarned);
+    document.getElementById('hnPending').textContent    = Math.floor(totalPending).toLocaleString('id-ID')+' INDC';
+    document.getElementById('hnTotal').textContent      = Math.floor(totalEarned).toLocaleString('id-ID')+' INDC';
     document.getElementById('pbStakers').textContent    = active;
     document.getElementById('pbRound').textContent      = maxRound ? maxRound+'/48' : '—';
     const pct = maxRound>0 ? ((maxRound-1)/(MAX_R-1))*100 : 0;
@@ -800,6 +803,45 @@ async function doWithdrawModal(){
   } catch(e){ setFS('wdStatus', e.code===4001?'Dibatalkan':(e.reason||'Gagal'), 'err'); }
 }
 
+/* ── Ref Bonus ── */
+async function loadRefBonus(){
+  if(!userAddr) return;
+  try{
+    const info = await rC.getRefBonusInfo(userAddr);
+    const pending = parseFloat(ethers.utils.formatUnits(info[0], 9));
+    const total   = parseFloat(ethers.utils.formatUnits(info[1], 9));
+    document.getElementById('refBonusPending').textContent = Math.floor(pending).toLocaleString('id-ID')+' INDC';
+    document.getElementById('refBonusTotal').textContent   = Math.floor(total).toLocaleString('id-ID')+' INDC';
+    const btn = document.getElementById('btnClaimRef');
+    if(pending > 0){
+      btn.style.opacity = '1';
+      btn.disabled = false;
+    } else {
+      btn.style.opacity = '0.4';
+      btn.disabled = true;
+    }
+    document.getElementById('refBonusCard').style.display = 'block';
+  }catch(e){ console.warn('loadRefBonus:', e); }
+}
+
+async function doClaimRefBonus(){
+  if(!signer){ await initWallet(); return; }
+  try{
+    document.getElementById('refBonusMsg').textContent = 'Konfirmasi di wallet...';
+    document.getElementById('refBonusMsg').className = 'status-box info';
+    const tx = await stakingC.claimRefBonus();
+    document.getElementById('refBonusMsg').textContent = 'Diproses...';
+    await tx.wait();
+    document.getElementById('refBonusMsg').textContent = 'Ref Bonus berhasil diklaim!';
+    document.getElementById('refBonusMsg').className = 'status-box ok';
+    showToast('', 'Ref Bonus diterima!');
+    await loadRefBonus();
+  }catch(e){
+    document.getElementById('refBonusMsg').textContent = e.code===4001?'Dibatalkan':(e.reason||'Gagal');
+    document.getElementById('refBonusMsg').className = 'status-box err';
+  }
+}
+
 /* ── Stars ── */
 for(let i=0;i<45;i++){
   const s=document.createElement('div'); s.className='star';
@@ -839,6 +881,7 @@ window.addEventListener('load', ()=>{
       if(elS) elS.textContent = uFmt;
     }catch(e2){}
     await loadAll();
+    await loadRefBonus();
   }catch(e){ console.warn('autoConnect:',e); }
   eth.on('accountsChanged',()=>location.reload());
   eth.on('chainChanged',()=>location.reload());
