@@ -23,7 +23,7 @@
     'sanjaya.html':26,'indowar.html':27,'stairway-to-heaven.html':28,
     'referral.html':29,'dashboard.html':30,'assets.html':31,
     'community.html':32,'token-lock-tracker.html':33,'paid-ads.html':34,
-    'guruku.html':35,'chart.html':36,
+    'guruku.html':35,'chart.html':36,'pointvaultstaking.html':37,
   };
 
   function getPageId() {
