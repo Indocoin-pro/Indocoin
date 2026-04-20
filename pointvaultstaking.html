@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Point Vault Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
+  --white:#f5f0e8;--white2:#a89880;--muted:#4a3f30;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#4ade80;--red:#f87171;
+  --border:rgba(200,146,42,0.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;padding-bottom:80px;}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d,3s) infinite alternate;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── TOPNAV ── */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(10,15,30,0.97);backdrop-filter:blur(16px);border-bottom:2px solid rgba(255,255,255,0.5);position:sticky;top:0;z-index:100;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;background:linear-gradient(90deg,#f59e0b,#facc15,#fef08a,#facc15,#f59e0b);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:goldShimmer 3s linear infinite;letter-spacing:2px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold2);letter-spacing:1px;}
+.btn-connect{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.4);color:var(--gold);cursor:pointer;}
+
+/* ── MAIN ── */
+.main{padding:16px;max-width:480px;margin:0 auto;}
+
+/* ── CARD ── */
+.card{background:rgba(14,14,14,0.95);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;animation:fadeUp 0.4s ease;}
+
+/* ── HERO ── */
+.hero-banner{background:linear-gradient(135deg,rgba(200,146,42,0.12),rgba(0,0,0,0));border:1px solid rgba(200,146,42,0.3);border-radius:16px;padding:20px 16px;margin-bottom:14px;text-align:center;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold3);letter-spacing:3px;margin-bottom:4px;}
+.hero-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:14px;}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.hero-stat-val{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--gold3);}
+.hero-stat-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);}
+
+/* ── POINT BALANCE ── */
+.point-big{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;color:var(--gold3);text-align:center;margin:8px 0;}
+.point-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-bottom:12px;}
+
+/* ── INFO ROW ── */
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(200,146,42,0.08);}
+.info-row:last-child{border-bottom:none;}
+.info-lbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);}
+.info-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--white);}
+.info-val.gold{color:var(--gold3);}
+.info-val.green{color:var(--green);}
+
+/* ── FORM ── */
+.form-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;display:block;}
+.form-input{width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(200,146,42,0.25);border-radius:8px;padding:10px 12px;color:var(--white);font-family:'Share Tech Mono',monospace;font-size:13px;outline:none;margin-bottom:10px;}
+.form-input:focus{border-color:var(--gold);}
+.form-select{width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(200,146,42,0.25);border-radius:8px;padding:10px 12px;color:var(--white);font-family:'Share Tech Mono',monospace;font-size:12px;outline:none;margin-bottom:10px;-webkit-appearance:none;}
+
+/* ── BUTTONS ── */
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,#3a2400,var(--gold2));color:#080808;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:8px;}
+.btn-secondary{width:100%;padding:11px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);color:var(--gold);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.btn-primary:disabled,.btn-secondary:disabled{opacity:0.35;cursor:not-allowed;}
+
+/* ── STATUS ── */
+.status-box{min-height:18px;font-family:'Share Tech Mono',monospace;font-size:10px;text-align:center;padding:6px;border-radius:6px;margin-top:6px;}
+.status-box.ok{color:var(--green);background:rgba(74,222,128,0.08);}
+.status-box.err{color:var(--red);background:rgba(248,113,113,0.08);}
+.status-box.info{color:var(--gold);background:rgba(200,146,42,0.08);}
+
+/* ── REDEEM TABS ── */
+.tab-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.tab-btn{flex:1;min-width:60px;padding:7px 4px;background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.15);border-radius:8px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;text-align:center;}
+.tab-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(200,146,42,0.08);}
+
+/* ── REDEEM HISTORY ── */
+.redeem-item{background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.1);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.redeem-item .ri-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.redeem-item .ri-name{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--white);}
+.redeem-item .ri-point{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);}
+.redeem-item .ri-dest{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 8px;border-radius:10px;letter-spacing:1px;}
+.badge-pending{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid rgba(250,204,21,0.3);}
+.badge-done{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.3);}
+.badge-reject{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.3);}
+
+/* ── RULE ITEM ── */
+.rule-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(200,146,42,0.06);}
+.rule-item:last-child{border-bottom:none;}
+.rule-num{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--gold);flex-shrink:0;width:18px;}
+.rule-text{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--white2);line-height:1.5;}
+
+/* ── SEC TITLE ── */
+.sec-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);margin-bottom:12px;}
+
+/* ── ESTIMATE BOX ── */
+.est-box{background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.12);border-radius:8px;padding:10px;margin-bottom:10px;}
+
+/* ── ADMIN FLOATING BUTTON ── */
+.admin-fab{position:fixed;bottom:72px;right:16px;z-index:999;background:linear-gradient(135deg,#3a2400,var(--gold2));border:none;border-radius:50%;width:48px;height:48px;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(200,146,42,0.4);}
+.admin-panel{position:fixed;bottom:130px;right:16px;z-index:998;width:320px;max-height:60vh;overflow-y:auto;background:rgba(10,10,10,0.98);border:1px solid var(--gold);border-radius:16px;padding:14px;display:none;}
+.admin-panel.show{display:block;}
+.admin-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px;margin-bottom:10px;}
+.admin-item{background:rgba(0,0,0,0.4);border:1px solid rgba(200,146,42,0.15);border-radius:10px;padding:10px;margin-bottom:8px;}
+.admin-item .ai-top{display:flex;justify-content:space-between;margin-bottom:4px;}
+.admin-item .ai-name{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--white);}
+.admin-item .ai-point{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);}
+.admin-item .ai-dest{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:6px;}
+.admin-item .ai-timer{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--red);}
+.admin-btns{display:flex;gap:6px;margin-top:6px;}
+.btn-approve{flex:1;padding:6px;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.4);color:var(--green);border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;}
+.btn-reject{flex:1;padding:6px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,8,8,0.99);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;height:60px;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--muted);cursor:pointer;}
+.bn-item.active{color:var(--gold);}
+.bn-icon{font-size:18px;}
+.bn-label{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div>
+    <div class="nav-brand-main">INDOCOIN</div>
+    <div class="nav-brand-sub">▸ POINT VAULT STAKING</div>
+  </div>
+  <button class="btn-connect" id="walletBtn" onclick="connectWallet()">CONNECT</button>
+</nav>
+
+<div class="main">
+
+  <!-- HERO -->
+  <div class="hero-banner">
+    <div class="hero-title">🎁 POINT VAULT</div>
+    <div class="hero-sub">STAKE INDC · DAPAT POINT · TUKAR KEBUTUHAN NYATA</div>
+    <div class="hero-stats">
+      <div><div class="hero-stat-val" id="heroMembers">—</div><div class="hero-stat-lbl">MEMBER</div></div>
+      <div><div class="hero-stat-val" id="heroPrice">—</div><div class="hero-stat-lbl">HARGA INDC</div></div>
+      <div><div class="hero-stat-val" id="heroPoint">—</div><div class="hero-stat-lbl">POINT BEREDAR</div></div>
+    </div>
+  </div>
+
+  <!-- POINT BALANCE (tampil setelah connect) -->
+  <div class="card" id="pointCard" style="display:none;">
+    <div class="sec-title">💰 SALDO POINT KAMU</div>
+    <div class="point-big" id="pointBig">0</div>
+    <div class="point-sub" id="pointSub">≈ Rp 0</div>
+    <div class="info-row">
+      <span class="info-lbl">POINT/HARI</span>
+      <span class="info-val gold" id="siPpd">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">PENDING KLAIM</span>
+      <span class="info-val green" id="siPending">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">TOTAL EARNED</span>
+      <span class="info-val" id="siTotal">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">LIMIT BULAN INI</span>
+      <span class="info-val" id="siLimit">—</span>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn-primary" id="btnClaim" onclick="doClaim()">✨ KLAIM POINT SEKARANG</button>
+      <div class="status-box" id="claimMsg"></div>
+    </div>
+  </div>
+
+  <!-- STAKE INFO (tampil jika sudah stake) -->
+  <div class="card" id="stakeInfoCard" style="display:none;">
+    <div class="sec-title">⚡ POSISI STAKE AKTIF</div>
+    <div class="info-row">
+      <span class="info-lbl">INDC DI-STAKE</span>
+      <span class="info-val" id="siIndc">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">NILAI USD</span>
+      <span class="info-val gold" id="siUsd">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-lbl">MULAI STAKE</span>
+      <span class="info-val" id="siStart">—</span>
+    </div>
+  </div>
+
+  <!-- FORM STAKE (tampil jika belum stake) -->
+  <div class="card" id="formCard" style="display:none;">
+    <div class="sec-title">🚀 MULAI STAKE INDC</div>
+    <label class="form-label">JUMLAH INDC (MIN $15 — MAX $1,500 WORTH)</label>
+    <input type="number" class="form-input" id="stakeAmt" placeholder="Contoh: 5000" oninput="calcEst()">
+    <div class="est-box" id="estBox" style="display:none;">
+      <div class="info-row" style="padding:4px 0;">
+        <span class="info-lbl">NILAI USD</span>
+        <span class="info-val gold" id="estUsd">—</span>
+      </div>
+      <div class="info-row" style="padding:4px 0;">
+        <span class="info-lbl">POINT/HARI</span>
+        <span class="info-val gold" id="estPpd">—</span>
+      </div>
+      <div class="info-row" style="padding:4px 0;border:none;">
+        <span class="info-lbl">EQUIV. RUPIAH/HARI</span>
+        <span class="info-val gold" id="estIdr">—</span>
+      </div>
+    </div>
+    <div class="status-box info" style="margin-bottom:10px;">⚠️ INDC yang di-stake HANGUS. Point diterima selamanya.</div>
+    <button class="btn-secondary" id="btnApprove" onclick="doApprove()">✓ APPROVE INDC</button>
+    <button class="btn-primary" id="btnStake" onclick="doStake()">🎁 MULAI STAKE</button>
+    <div class="status-box" id="stakeMsg"></div>
+  </div>
+
+  <!-- REDEEM SECTION -->
+  <div class="card" id="redeemCard" style="display:none;">
+    <div class="sec-title">🛒 TUKAR POINT</div>
+
+    <!-- Tab kategori -->
+    <div class="tab-row">
+      <div class="tab-btn active" id="tab1" onclick="setTab(1)">📱 Pulsa</div>
+      <div class="tab-btn" id="tab2" onclick="setTab(2)">💡 Listrik</div>
+      <div class="tab-btn" id="tab3" onclick="setTab(3)">🏥 BPJS</div>
+      <div class="tab-btn" id="tab4" onclick="setTab(4)">💎 INDC</div>
+      <div class="tab-btn" id="tab5" onclick="setTab(5)">🛍️ Lainnya</div>
+    </div>
+
+    <!-- Form redeem -->
+    <div id="redeemForm">
+      <label class="form-label" id="destLabel">NOMOR HP</label>
+      <input type="text" class="form-input" id="redeemDest" placeholder="Contoh: 08123456789">
+      <label class="form-label">NOMINAL (Rp) = POINT DIBUTUHKAN</label>
+      <input type="number" class="form-input" id="redeemNominal" placeholder="Contoh: 25000" oninput="calcRedeem()">
+      <label class="form-label" id="extraLabel" style="display:none;">INFO TAMBAHAN</label>
+      <input type="text" class="form-input" id="redeemExtra" placeholder="Ukuran, varian, dll" style="display:none;">
+      <div class="est-box" id="redeemEst" style="display:none;">
+        <div class="info-row" style="padding:4px 0;border:none;">
+          <span class="info-lbl">POINT DIBUTUHKAN</span>
+          <span class="info-val gold" id="redeemPointCost">—</span>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnRedeem" onclick="doRedeem()">🎁 TUKAR SEKARANG</button>
+      <div class="status-box" id="redeemMsg"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY REDEEM -->
+  <div class="card" id="historyCard" style="display:none;">
+    <div class="sec-title">📋 RIWAYAT REDEEM</div>
+    <div id="historyList"><div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);text-align:center;padding:12px;">Belum ada riwayat</div></div>
+  </div>
+
+  <!-- CARA KERJA -->
+  <div class="card">
+    <div class="sec-title">📖 CARA KERJA</div>
+    <div class="rule-item"><div class="rule-num">1</div><div class="rule-text">Stake INDC → INDC hangus ke contract → dapat Point harian selamanya</div></div>
+    <div class="rule-item"><div class="rule-num">2</div><div class="rule-text">Rate: 1%/hari dari nilai USD stake. 1 Point = Rp 1</div></div>
+    <div class="rule-item"><div class="rule-num">3</div><div class="rule-text">Klaim Point kapanpun → upline dapat bonus Point 10 level</div></div>
+    <div class="rule-item"><div class="rule-num">4</div><div class="rule-text">Tukar Point dengan pulsa, listrik, BPJS, bonus INDC, dan produk lainnya</div></div>
+    <div class="rule-item"><div class="rule-num">5</div><div class="rule-text">Redeem diproses dalam 1x24 jam · Auto-cancel 72 jam jika tidak diproses</div></div>
+    <div class="rule-item"><div class="rule-num">6</div><div class="rule-text">Point tidak expired — berlaku selamanya · Max redeem 500,000 Point/bulan</div></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ADMIN FAB (hanya muncul untuk Dev wallet) -->
+<button class="admin-fab" id="adminFab" onclick="toggleAdmin()">⚙️</button>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-title">⚙️ ADMIN PANEL</div>
+  <div id="adminStats" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:10px;"></div>
+  <div id="adminList"><div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);text-align:center;">Tidak ada pending request</div></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
+  <a href="earn.html" class="bn-item active"><span class="bn-icon">💰</span><span class="bn-label">EARN</span></a>
+  <a href="referral.html" class="bn-item"><span class="bn-icon">🌐</span><span class="bn-label">REFERRAL</span></a>
+  <a href="presale.html" class="bn-item"><span class="bn-icon">🚀</span><span class="bn-label">PRESALE</span></a>
+  <a href="community.html" class="bn-item"><span class="bn-icon">💬</span><span class="bn-label">COMMUNITY</span></a>
+</nav>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const CA      = '0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c';
+const INDC_CA = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const DEV     = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc';
+const RPC     = 'https://bsc-dataseed1.binance.org/';
+const IDR_RATE = 16000;
+
+const ABI = [
+  "function stake(uint256 indcAmount) external",
+  "function claimPoint() external",
+  "function requestRedeem(uint8 productType, uint256 nominal, string destination, string productName, string extraInfo) external",
+  "function processRedeem(uint256 redeemId, bool approved, string note) external",
+  "function autoCancelRedeem(uint256 redeemId) external",
+  "function processRedeemBonusINDC(uint256 redeemId) external",
+  "function getUserStake(address user) view returns (uint256 indcStaked, uint256 usdValue, uint256 pointPerDayEst, uint256 pendingPointNow, bool active)",
+  "function getUserPoint(address user) view returns (uint256 pointBal, uint256 totalEarned, uint256 totalRedeemed, uint256 monthlyUsed, uint256 monthlyLeft)",
+  "function getPoolInfo() view returns (uint256 members, uint256 maxMembers, uint256 indcReceived, uint256 indcBalance, uint256 opFund, uint256 guarFund, uint256 bonusPool, uint256 pointIssued, bool open, uint256 currentPrice, uint256 idrRate, uint256 poolCloseLock)",
+  "function getStakeLimitsInfo() view returns (uint256 minUsd, uint256 maxUsd, uint256 minIndc, uint256 maxIndc, uint256 currentPrice)",
+  "function estimatePointPerDay(uint256 indcAmount) view returns (uint256 ppd, uint256 usdVal, uint256 idrVal, uint256 minStakeIndc, uint256 maxStakeIndc)",
+  "function getRedeemRequest(uint256 redeemId) view returns (uint256 id, address user, uint256 pointAmount, uint8 productType, string destination, string productCode, string extraInfo, uint256 requestTime, uint256 autoCancelTime, uint8 status, string note)",
+  "function getUserRedeems(address user) view returns (uint256[])",
+  "function redeemCount() view returns (uint256)",
+  "function getIndcPrice() view returns (uint256)",
+  "function idrPerUsd() view returns (uint256)"
+];
+
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)"
+];
+
+let provider, signer, contract, indcC, myAddr;
+const rp = new ethers.providers.JsonRpcProvider(RPC);
+const rc = new ethers.Contract(CA, ABI, rp);
+
+let activeTab = 1;
+let adminOpen  = false;
+
+// ── CONNECT ───────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) { alert('Install MetaMask/TrustWallet!'); return; }
+  try {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+    signer   = provider.getSigner();
+    const cid = parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
+    if (cid !== 56) {
+      try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] }); }
+      catch(e) { await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: '0x38', chainName: 'BNB Smart Chain', nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }, rpcUrls: ['https://bsc-dataseed1.binance.org/'], blockExplorerUrls: ['https://bscscan.com/'] }] }); }
+      provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      signer   = provider.getSigner();
+    }
+    contract = new ethers.Contract(CA, ABI, signer);
+    indcC    = new ethers.Contract(INDC_CA, ERC20_ABI, signer);
+    myAddr   = await signer.getAddress();
+    document.getElementById('walletBtn').textContent = myAddr.slice(0,6)+'...'+myAddr.slice(-4);
+    // Tampilkan admin fab jika Dev
+    if (myAddr.toLowerCase() === DEV.toLowerCase()) {
+      document.getElementById('adminFab').style.display = 'flex';
+    }
+    await loadAll();
+    window.ethereum.on('accountsChanged', () => location.reload());
+    window.ethereum.on('chainChanged', () => location.reload());
+  } catch(e) { console.warn('connect:', e); }
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────────
+async function loadAll() {
+  if (!myAddr) return;
+  try {
+    // Pool info
+    const pool = await rc.getPoolInfo();
+    document.getElementById('heroMembers').textContent = pool[0].toString() + '/' + pool[1].toString();
+    const price = parseFloat(ethers.utils.formatUnits(pool[9], 18));
+    document.getElementById('heroPrice').textContent = '$' + (price > 0 ? price.toFixed(4) : '0.003');
+    document.getElementById('heroPoint').textContent = Math.floor(parseFloat(ethers.utils.formatUnits(pool[7], 0))).toLocaleString('id-ID');
+
+    // Stake info
+    const stake = await rc.getUserStake(myAddr);
+    const active = stake[4];
+
+    // Point info
+    const pt = await rc.getUserPoint(myAddr);
+    const bal     = parseFloat(ethers.utils.formatUnits(pt[0], 0));
+    const pending = parseFloat(ethers.utils.formatUnits(stake[3], 0));
+    const ppd     = parseFloat(ethers.utils.formatUnits(stake[2], 0));
+    const left    = parseFloat(ethers.utils.formatUnits(pt[4], 0));
+
+    document.getElementById('pointCard').style.display = 'block';
+    document.getElementById('pointBig').textContent = Math.floor(bal).toLocaleString('id-ID');
+    document.getElementById('pointSub').textContent = '≈ Rp ' + Math.floor(bal).toLocaleString('id-ID');
+    document.getElementById('siPpd').textContent    = Math.floor(ppd).toLocaleString('id-ID') + ' Point/hari';
+    document.getElementById('siPending').textContent = Math.floor(pending).toLocaleString('id-ID') + ' Point';
+    document.getElementById('siTotal').textContent  = Math.floor(parseFloat(ethers.utils.formatUnits(pt[1], 0))).toLocaleString('id-ID') + ' Point';
+    document.getElementById('siLimit').textContent  = Math.floor(left).toLocaleString('id-ID') + ' Point tersisa';
+    document.getElementById('btnClaim').disabled    = pending <= 0;
+
+    if (active) {
+      document.getElementById('stakeInfoCard').style.display = 'block';
+      document.getElementById('formCard').style.display      = 'none';
+      document.getElementById('redeemCard').style.display    = 'block';
+      document.getElementById('historyCard').style.display   = 'block';
+      const indc = parseFloat(ethers.utils.formatUnits(stake[0], 9));
+      const usd  = parseFloat(ethers.utils.formatUnits(stake[1], 18));
+      document.getElementById('siIndc').textContent  = Math.floor(indc).toLocaleString('id-ID') + ' INDC';
+      document.getElementById('siUsd').textContent   = '$' + usd.toFixed(2);
+      document.getElementById('siStart').textContent = '—';
+      await loadHistory();
+    } else {
+      document.getElementById('stakeInfoCard').style.display = 'none';
+      document.getElementById('formCard').style.display      = 'block';
+      document.getElementById('redeemCard').style.display    = 'none';
+      document.getElementById('historyCard').style.display   = 'none';
+    }
+
+    // Admin panel
+    if (myAddr.toLowerCase() === DEV.toLowerCase()) {
+      await loadAdmin();
+    }
+  } catch(e) { console.warn('loadAll:', e); }
+}
+
+// ── ESTIMATE STAKE ────────────────────────────────────────────
+async function calcEst() {
+  const amt = document.getElementById('stakeAmt').value;
+  if (!amt || Number(amt) <= 0) { document.getElementById('estBox').style.display = 'none'; return; }
+  try {
+    const est = await rc.estimatePointPerDay(ethers.utils.parseUnits(amt, 9));
+    const ppd = parseFloat(ethers.utils.formatUnits(est[0], 0));
+    const usd = parseFloat(ethers.utils.formatUnits(est[1], 18));
+    document.getElementById('estBox').style.display = 'block';
+    document.getElementById('estUsd').textContent   = '$' + usd.toFixed(2);
+    document.getElementById('estPpd').textContent   = Math.floor(ppd).toLocaleString('id-ID') + ' Point/hari';
+    document.getElementById('estIdr').textContent   = 'Rp ' + Math.floor(ppd).toLocaleString('id-ID') + '/hari';
+  } catch(e) { document.getElementById('estBox').style.display = 'none'; }
+}
+
+// ── APPROVE ───────────────────────────────────────────────────
+async function doApprove() {
+  if (!signer) { await connectWallet(); return; }
+  const btn = document.getElementById('btnApprove');
+  btn.textContent = '⏳ Approving...'; btn.disabled = true;
+  try {
+    setMsg('stakeMsg', 'Menunggu approval...', 'info');
+    const tx = await indcC.approve(CA, ethers.constants.MaxUint256);
+    await tx.wait();
+    btn.textContent = '✓ APPROVED';
+    setMsg('stakeMsg', 'Approved! Klik MULAI STAKE', 'ok');
+  } catch(e) {
+    btn.textContent = '✓ APPROVE INDC'; btn.disabled = false;
+    setMsg('stakeMsg', e.code === 4001 ? 'Dibatalkan' : 'Gagal', 'err');
+  }
+}
+
+// ── STAKE ─────────────────────────────────────────────────────
+async function doStake() {
+  if (!signer) { await connectWallet(); return; }
+  const amt = document.getElementById('stakeAmt').value;
+  if (!amt || Number(amt) <= 0) { setMsg('stakeMsg', 'Masukkan jumlah INDC', 'err'); return; }
+  try {
+    setMsg('stakeMsg', 'Konfirmasi di wallet...', 'info');
+    const tx = await contract.stake(ethers.utils.parseUnits(amt, 9));
+    setMsg('stakeMsg', 'Diproses...', 'info');
+    await tx.wait();
+    setMsg('stakeMsg', 'Stake berhasil! Point mulai mengalir!', 'ok');
+    await loadAll();
+  } catch(e) {
+    setMsg('stakeMsg', e.code === 4001 ? 'Dibatalkan' : (e.reason || 'Gagal'), 'err');
+  }
+}
+
+// ── CLAIM POINT ───────────────────────────────────────────────
+async function doClaim() {
+  if (!signer) { await connectWallet(); return; }
+  try {
+    setMsg('claimMsg', 'Konfirmasi di wallet...', 'info');
+    const tx = await contract.claimPoint();
+    setMsg('claimMsg', 'Diproses...', 'info');
+    await tx.wait();
+    setMsg('claimMsg', 'Point berhasil diklaim!', 'ok');
+    await loadAll();
+  } catch(e) {
+    setMsg('claimMsg', e.code === 4001 ? 'Dibatalkan' : (e.reason || 'Gagal'), 'err');
+  }
+}
+
+// ── REDEEM TAB ────────────────────────────────────────────────
+function setTab(n) {
+  activeTab = n;
+  for (let i=1;i<=5;i++) document.getElementById('tab'+i).classList.toggle('active', i===n);
+  const destLabel  = document.getElementById('destLabel');
+  const extraLabel = document.getElementById('extraLabel');
+  const extraInput = document.getElementById('redeemExtra');
+  const destInput  = document.getElementById('redeemDest');
+  if (n === 1) { destLabel.textContent = 'NOMOR HP'; destInput.placeholder = '08123456789'; extraLabel.style.display='none'; extraInput.style.display='none'; }
+  else if (n === 2) { destLabel.textContent = 'NOMOR METER LISTRIK'; destInput.placeholder = '1234567890'; extraLabel.style.display='none'; extraInput.style.display='none'; }
+  else if (n === 3) { destLabel.textContent = 'NOMOR BPJS'; destInput.placeholder = '0001234567890'; extraLabel.style.display='none'; extraInput.style.display='none'; }
+  else if (n === 4) { destLabel.textContent = 'ALAMAT WALLET BSC'; destInput.placeholder = '0x...'; extraLabel.style.display='none'; extraInput.style.display='none'; }
+  else { destLabel.textContent = 'ALAMAT PENGIRIMAN'; destInput.placeholder = 'Nama, Jalan, Kota...'; extraLabel.style.display='block'; extraInput.style.display='block'; }
+}
+
+function calcRedeem() {
+  const nom = document.getElementById('redeemNominal').value;
+  if (!nom || Number(nom) < 10000) { document.getElementById('redeemEst').style.display='none'; return; }
+  document.getElementById('redeemEst').style.display = 'block';
+  document.getElementById('redeemPointCost').textContent = parseInt(nom).toLocaleString('id-ID') + ' Point';
+}
+
+// ── REDEEM ────────────────────────────────────────────────────
+async function doRedeem() {
+  if (!signer) { await connectWallet(); return; }
+  const dest    = document.getElementById('redeemDest').value.trim();
+  const nominal = document.getElementById('redeemNominal').value;
+  const extra   = document.getElementById('redeemExtra').value.trim();
+  if (!dest)          { setMsg('redeemMsg', 'Isi tujuan/nomor', 'err'); return; }
+  if (!nominal || Number(nominal) < 10000) { setMsg('redeemMsg', 'Min 10,000 Point', 'err'); return; }
+  const typeNames = ['', 'Pulsa', 'Token Listrik', 'BPJS', 'Bonus INDC', 'Produk Lainnya'];
+  const productName = typeNames[activeTab] || 'Produk';
+  try {
+    setMsg('redeemMsg', 'Konfirmasi di wallet...', 'info');
+    const tx = await contract.requestRedeem(activeTab, ethers.BigNumber.from(nominal), dest, productName, extra || '');
+    setMsg('redeemMsg', 'Diproses...', 'info');
+    await tx.wait();
+    setMsg('redeemMsg', 'Request berhasil! Diproses dalam 24 jam.', 'ok');
+    document.getElementById('redeemDest').value    = '';
+    document.getElementById('redeemNominal').value = '';
+    await loadAll();
+  } catch(e) {
+    setMsg('redeemMsg', e.code === 4001 ? 'Dibatalkan' : (e.reason || 'Gagal'), 'err');
+  }
+}
+
+// ── HISTORY ───────────────────────────────────────────────────
+async function loadHistory() {
+  if (!myAddr) return;
+  try {
+    const ids = await rc.getUserRedeems(myAddr);
+    const list = document.getElementById('historyList');
+    if (ids.length === 0) { list.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace;font-size:10px;color:var(--muted);text-align:center;padding:12px;">Belum ada riwayat</div>'; return; }
+    const recent = [...ids].reverse().slice(0, 10);
+    list.innerHTML = '';
+    for (const id of recent) {
+      const r = await rc.getRedeemRequest(id.toNumber());
+      const status = r[9];
+      const badgeClass = status === 0 ? 'badge-pending' : status === 1 ? 'badge-done' : 'badge-reject';
+      const badgeText  = status === 0 ? 'PENDING' : status === 1 ? 'SELESAI' : status === 3 ? 'AUTO-CANCEL' : 'DITOLAK';
+      const timeLeft   = status === 0 ? Math.max(0, r[8].toNumber() - Math.floor(Date.now()/1000)) : 0;
+      const tlStr      = timeLeft > 0 ? ' · ' + Math.floor(timeLeft/3600) + 'j ' + Math.floor((timeLeft%3600)/60) + 'm' : '';
+      list.innerHTML += `<div class="redeem-item">
+        <div class="ri-top"><span class="ri-name">${r[6]} · Rp ${parseInt(r[2]).toLocaleString('id-ID')}</span><span class="badge ${badgeClass}">${badgeText}${tlStr}</span></div>
+        <div class="ri-dest">${r[4]} ${r[5] ? '· ' + r[5] : ''}</div>
+        ${r[10] ? `<div class="ri-dest" style="color:var(--green);margin-top:2px;">${r[10]}</div>` : ''}
+      </div>`;
+    }
+  } catch(e) { console.warn('history:', e); }
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────
+function toggleAdmin() {
+  adminOpen = !adminOpen;
+  document.getElementById('adminPanel').classList.toggle('show', adminOpen);
+  if (adminOpen) loadAdmin();
+}
+
+async function loadAdmin() {
+  try {
+    const total = await rc.redeemCount();
+    let pending = 0;
+    const items = [];
+    const check = Math.min(total.toNumber(), 50);
+    for (let i = total.toNumber(); i > total.toNumber() - check && i > 0; i--) {
+      const r = await rc.getRedeemRequest(i);
+      if (r[9] === 0) { // PENDING
+        pending++;
+        items.push(r);
+      }
+    }
+    document.getElementById('adminStats').textContent = `Pending: ${pending} | Total: ${total}`;
+    const list = document.getElementById('adminList');
+    if (items.length === 0) { list.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace;font-size:9px;color:var(--muted);text-align:center;padding:8px;">Tidak ada pending request</div>'; return; }
+    list.innerHTML = '';
+    for (const r of items) {
+      const timeLeft = Math.max(0, r[8].toNumber() - Math.floor(Date.now()/1000));
+      const h = Math.floor(timeLeft/3600), m = Math.floor((timeLeft%3600)/60);
+      const isBonus = r[3] === 5;
+      list.innerHTML += `<div class="admin-item">
+        <div class="ai-top"><span class="ai-name">#${r[0]} · ${r[6]}</span><span class="ai-point">Rp ${parseInt(r[2]).toLocaleString('id-ID')}</span></div>
+        <div class="ai-dest">${r[1].slice(0,8)}... → ${r[4]}</div>
+        <div class="ai-timer">⏱ Auto-cancel: ${h}j ${m}m</div>
+        <div class="admin-btns">
+          ${isBonus 
+            ? `<button class="btn-approve" onclick="adminBonusINDC(${r[0]})">⚡ PROSES INDC</button>`
+            : `<button class="btn-approve" onclick="adminApprove(${r[0]})">✅ APPROVE</button>`
+          }
+          <button class="btn-reject" onclick="adminReject(${r[0]})">❌ TOLAK</button>
+        </div>
+      </div>`;
+    }
+  } catch(e) { console.warn('admin:', e); }
+}
+
+async function adminApprove(id) {
+  try {
+    const tx = await contract.processRedeem(id, true, 'Diproses oleh Admin');
+    await tx.wait();
+    await loadAdmin();
+    await loadAll();
+  } catch(e) { alert('Gagal: ' + (e.reason || e.message)); }
+}
+
+async function adminReject(id) {
+  const note = prompt('Alasan penolakan:') || 'Ditolak oleh Admin';
+  try {
+    const tx = await contract.processRedeem(id, false, note);
+    await tx.wait();
+    await loadAdmin();
+    await loadAll();
+  } catch(e) { alert('Gagal: ' + (e.reason || e.message)); }
+}
+
+async function adminBonusINDC(id) {
+  try {
+    const tx = await contract.processRedeemBonusINDC(id);
+    await tx.wait();
+    await loadAdmin();
+    await loadAll();
+  } catch(e) { alert('Gagal: ' + (e.reason || e.message)); }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function setMsg(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = 'status-box ' + (type || '');
+}
+
+// ── STARS ─────────────────────────────────────────────────────
+for(let i=0;i<40;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()*2+0.4;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${(Math.random()*3+2).toFixed(1)}s;animation-delay:${(Math.random()*3).toFixed(1)}s;`;
+  document.body.appendChild(s);
+}
+
+// ── AUTO CONNECT ──────────────────────────────────────────────
+(async function autoConnect() {
+  try {
+    const pool = await rc.getPoolInfo();
+    document.getElementById('heroMembers').textContent = pool[0].toString() + '/' + pool[1].toString();
+    const price = parseFloat(ethers.utils.formatUnits(pool[9], 18));
+    document.getElementById('heroPrice').textContent = '$' + (price > 0 ? price.toFixed(4) : '0.003');
+    document.getElementById('heroPoint').textContent = Math.floor(parseFloat(ethers.utils.formatUnits(pool[7], 0))).toLocaleString('id-ID');
+  } catch(e) {}
+  if (!window.ethereum) return;
+  const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+  if (accounts.length) await connectWallet();
+})();
+
+setInterval(() => { if (myAddr && contract) loadAll(); }, 30000);
+</script>
+
+  <!-- ═══ INDOCOIN AIRDROP WIDGET ═══ -->
+  <script src="airdrop-questions.js"></script>
+  <script src="airdrop-widget.js"></script>
+  <!-- ══════════════════════════════════ -->
+</body>
+</html>
