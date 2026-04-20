@@ -532,7 +532,7 @@ async function loadAll() {
   if (!myAddr) return;
   try {
     // Pool info
-    const pool = await rc.getPoolInfo();
+    const pool = await (contract || rc).getPoolInfo();
     const price = parseFloat(ethers.utils.formatUnits(pool[9], 18));
     const idrRate = pool[10].toNumber ? pool[10].toNumber() : parseInt(pool[10]);
 
@@ -569,7 +569,7 @@ async function loadAll() {
 
     // Stake limits
     try {
-      const lim = await rc.getStakeLimitsInfo();
+      const lim = await (contract || rc).getStakeLimitsInfo();
       const minUsd  = parseFloat(ethers.utils.formatUnits(lim[0], 18));
       const maxUsd  = parseFloat(ethers.utils.formatUnits(lim[1], 18));
       const minIndc = parseFloat(ethers.utils.formatUnits(lim[2], 9));
@@ -592,9 +592,11 @@ async function loadAll() {
       } catch(eb) {}
     }
 
-    // User stake & point
-    const stake = await rc.getUserStake(myAddr);
-    const pt    = await rc.getUserPoint(myAddr);
+    // User stake & point — pakai contract (signer) bukan rc
+    // agar data terbaru langsung terbaca setelah stake
+    const userContract = contract || rc;
+    const stake = await userContract.getUserStake(myAddr);
+    const pt    = await userContract.getUserPoint(myAddr);
     const active  = stake[4];
     const ppd     = parseFloat(ethers.utils.formatUnits(stake[2], 0));
     const pending = parseFloat(ethers.utils.formatUnits(stake[3], 0));
@@ -733,7 +735,14 @@ async function doStake() {
     await tx.wait();
     showToast('🎉', 'Stake berhasil! Point mulai mengalir setiap hari!');
     setMsg('stakeMsg', '✓ Stake berhasil!', 'ok');
+    // Tunggu 2 detik lalu load agar node sempat sync
+    await new Promise(r => setTimeout(r, 2000));
     await loadAll();
+    // Retry sekali lagi setelah 3 detik kalau section belum muncul
+    setTimeout(async () => {
+      const rs = document.getElementById('redeemSection');
+      if (rs && rs.style.display === 'none') await loadAll();
+    }, 3000);
   } catch(e) {
     setMsg('stakeMsg', e.code === 4001 ? 'Dibatalkan' : (e.reason || 'Gagal'), 'err');
   } finally {
@@ -826,12 +835,12 @@ async function loadHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<div class="empty-state">Memuat riwayat...</div>';
   try {
-    const ids = await rc.getUserRedeems(myAddr);
+    const ids = await (contract || rc).getUserRedeems(myAddr);
     if (ids.length === 0) { list.innerHTML = '<div class="empty-state">Belum ada riwayat redeem</div>'; return; }
     const recent = [...ids].reverse().slice(0, 15);
     list.innerHTML = '';
     for (const id of recent) {
-      const r = await rc.getRedeemRequest(id.toNumber ? id.toNumber() : parseInt(id));
+      const r = await (contract || rc).getRedeemRequest(id.toNumber ? id.toNumber() : parseInt(id));
       const status     = r[9].toNumber ? r[9].toNumber() : parseInt(r[9]);
       const pType      = r[3].toNumber ? r[3].toNumber() : parseInt(r[3]);
       const prodName   = TYPE_NAMES[pType] || 'Produk';
@@ -986,6 +995,7 @@ for(let i=0;i<40;i++){
   if (accounts.length) await connectWallet();
 })();
 
+// Auto-refresh setiap 30 detik
 setInterval(() => { if (myAddr && contract) loadAll(); }, 30000);
 </script>
 
