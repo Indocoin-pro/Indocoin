@@ -449,7 +449,14 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 const CA       = '0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c';
 const INDC_CA  = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const DEV      = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc';
-const RPC      = 'https://bsc-dataseed1.binance.org/';
+const RPC_LIST = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc-dataseed3.binance.org/',
+  'https://bsc-dataseed4.binance.org/',
+  'https://rpc.ankr.com/bsc',
+];
+const RPC = RPC_LIST[0];
 
 const ABI = [
   "function stake(uint256 indcAmount) external",
@@ -479,8 +486,20 @@ const ERC20_ABI = [
 const TYPE_NAMES = ['', 'Pulsa', 'Token Listrik', 'BPJS', 'Bonus INDC', 'Produk Lainnya'];
 
 let provider, signer, contract, indcC, myAddr;
-const rp = new ethers.providers.JsonRpcProvider(RPC);
-const rc = new ethers.Contract(CA, ABI, rp);
+let rp = new ethers.providers.JsonRpcProvider(RPC);
+let rc = new ethers.Contract(CA, ABI, rp);
+
+// Coba RPC berikutnya kalau gagal
+async function tryMultiRpc(fn) {
+  for (const rpc of RPC_LIST) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      const c = new ethers.Contract(CA, ABI, p);
+      return await fn(c);
+    } catch(e) { continue; }
+  }
+  throw new Error('Semua RPC gagal');
+}
 
 let activeCategory = 1;
 let adminOpen = false;
@@ -543,12 +562,11 @@ async function loadAll() {
   if (!myAddr) return;
   const uc = contract || rc;
 
-  // Tampilkan loading state
   showLoadingState(true);
 
+  // ── POOL INFO (non-critical, jangan stop kalau gagal) ──
   try {
-    // ── POOL INFO ──────────────────────────────────────
-    const pool    = await uc.getPoolInfo();
+    const pool = await tryMultiRpc(c => c.getPoolInfo());
     const price   = parseFloat(ethers.utils.formatUnits(pool[9], 18));
     const idrRate = pool[10].toNumber ? pool[10].toNumber() : parseInt(pool[10]);
     const poolOpen = pool[8];
@@ -572,9 +590,15 @@ async function loadAll() {
     document.getElementById('poolOpenBadge').textContent = poolOpen ? '✓ OPEN' : '✗ CLOSED';
     document.getElementById('poolOpenBadge').className   = poolOpen ? 'info-badge' : 'info-badge inactive';
 
+  } catch(epool) {
+    console.warn('getPoolInfo gagal:', epool.message);
+  }
+
+  // ── USER DATA (critical) ──────────────────────────────
+  try {
     // ── STAKE LIMITS ──────────────────────────────────
     try {
-      const lim = await uc.getStakeLimitsInfo();
+      const lim = await tryMultiRpc(c => c.getStakeLimitsInfo());
       const minUsd  = parseFloat(ethers.utils.formatUnits(lim[0], 18));
       const maxUsd  = parseFloat(ethers.utils.formatUnits(lim[1], 18));
       const minIndc = parseFloat(ethers.utils.formatUnits(lim[2], 9));
@@ -601,14 +625,14 @@ async function loadAll() {
 
     try {
       // Coba getUserStake + getUserPoint (versi baru)
-      stake  = await uc.getUserStake(myAddr);
-      pt     = await uc.getUserPoint(myAddr);
+      stake  = await tryMultiRpc(c => c.getUserStake(myAddr));
+      pt     = await tryMultiRpc(c => c.getUserPoint(myAddr));
       active = stake[4] === true || stake[4] == 1;
     } catch(e1) {
       console.warn('getUserStake gagal, coba getUserInfo:', e1.message);
       try {
         // Fallback getUserInfo (versi lama jika ada)
-        const info = await uc.getUserInfo(myAddr);
+        const info = await tryMultiRpc(c => c.getUserInfo(myAddr));
         stake  = [info[0], info[1], info[2], info[3], info[9]];
         pt     = [info[4], info[5], info[6], info[7], info[8]];
         active = info[9] === true || info[9] == 1;
@@ -685,9 +709,9 @@ async function loadAll() {
     showLoadingState(false);
 
   } catch(e) {
-    console.error('loadAll error:', e);
+    console.error('loadAll user data error:', e);
     showLoadingState(false);
-    showDebug('Error: ' + (e.reason || e.message || 'Unknown error'));
+    showDebug('Gagal baca data user: ' + (e.reason || e.message || 'Unknown'));
     document.getElementById('stakeFormSection').style.display = 'block';
     document.getElementById('stakeActiveSection').style.display = 'none';
     document.getElementById('redeemSection').style.display = 'none';
@@ -903,12 +927,12 @@ async function loadHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<div class="empty-state">Memuat riwayat...</div>';
   try {
-    const ids = await (contract || rc).getUserRedeems(myAddr);
+    const ids = await tryMultiRpc(c => c.getUserRedeems(myAddr));
     if (ids.length === 0) { list.innerHTML = '<div class="empty-state">Belum ada riwayat redeem</div>'; return; }
     const recent = [...ids].reverse().slice(0, 15);
     list.innerHTML = '';
     for (const id of recent) {
-      const r = await (contract || rc).getRedeemRequest(id.toNumber ? id.toNumber() : parseInt(id));
+      const r = await tryMultiRpc(c => c.getRedeemRequest(id.toNumber ? id.toNumber() : parseInt(id)));
       const status     = r[9].toNumber ? r[9].toNumber() : parseInt(r[9]);
       const pType      = r[3].toNumber ? r[3].toNumber() : parseInt(r[3]);
       const prodName   = TYPE_NAMES[pType] || 'Produk';
@@ -1038,7 +1062,7 @@ for(let i=0;i<40;i++){
 (async function autoConnect() {
   // Load pool info publik dulu
   try {
-    const pool  = await rc.getPoolInfo();
+    const pool  = await tryMultiRpc(c => c.getPoolInfo());
     const price = parseFloat(ethers.utils.formatUnits(pool[9], 18));
     document.getElementById('heroMembers').textContent = pool[0].toString() + '/' + pool[1].toString();
     document.getElementById('heroPrice').textContent   = '$' + (price > 0 ? price.toFixed(4) : '0.003');
