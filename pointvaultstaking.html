@@ -215,7 +215,7 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
       <span class="info-lbl">NILAI USD</span>
       <span class="info-val gold" id="siUsd">—</span>
     </div>
-    <div class="info-row">
+    <div class="info-row" id="siStartRow" style="display:none;">
       <span class="info-lbl">MULAI STAKE</span>
       <span class="info-val" id="siStart">—</span>
     </div>
@@ -436,10 +436,38 @@ async function loadAll() {
       document.getElementById('historyCard').style.display   = 'none';
     }
 
-    // Update pool badge
-    if (pool[8]) {
+    // Update pool badge + closed state
+    const poolOpen = pool[8];
+    if (poolOpen) {
       document.getElementById('poolBadge').style.display = 'flex';
       document.getElementById('poolStatus').textContent = 'OPEN';
+    } else {
+      document.getElementById('poolBadge').style.display = 'flex';
+      document.getElementById('poolStatus').textContent = 'CLOSED';
+      document.getElementById('poolBadge').style.borderColor = 'rgba(248,113,113,0.4)';
+      document.getElementById('poolBadge').querySelector('.pool-dot').style.background = 'var(--red)';
+      // Disable stake form if pool closed and user hasn't staked yet
+      if (!active) {
+        document.getElementById('btnStake').disabled = true;
+        document.getElementById('btnApprove').disabled = true;
+        setMsg('stakeMsg', '⚠️ Pool sedang CLOSED. Tidak bisa stake baru.', 'err');
+      }
+    }
+
+    // Allowance check — update btnApprove state
+    if (!active && indcC) {
+      try {
+        const allowance = await indcC.allowance(myAddr, CA);
+        const stakeInput = document.getElementById('stakeAmt').value;
+        const checkAmt = stakeInput && Number(stakeInput) > 0
+          ? ethers.utils.parseUnits(stakeInput, 9)
+          : ethers.BigNumber.from(0);
+        if (allowance.gt(0) && (checkAmt.isZero() || allowance.gte(checkAmt))) {
+          const btn = document.getElementById('btnApprove');
+          btn.textContent = '✓ APPROVED';
+          btn.disabled = true;
+        }
+      } catch(e2) {}
     }
 
     // Admin panel
@@ -462,10 +490,11 @@ async function calcEst() {
     const est = await rc.estimatePointPerDay(ethers.utils.parseUnits(amt, 9));
     const ppd = parseFloat(ethers.utils.formatUnits(est[0], 0));
     const usd = parseFloat(ethers.utils.formatUnits(est[1], 18));
+    const idr = parseFloat(ethers.utils.formatUnits(est[2], 0));
     document.getElementById('estBox').style.display = 'block';
     document.getElementById('estUsd').textContent   = '$' + usd.toFixed(2);
     document.getElementById('estPpd').textContent   = Math.floor(ppd).toLocaleString('id-ID') + ' Point/hari';
-    document.getElementById('estIdr').textContent   = 'Rp ' + Math.floor(ppd).toLocaleString('id-ID') + '/hari';
+    document.getElementById('estIdr').textContent   = 'Rp ' + Math.floor(idr > 0 ? idr : ppd).toLocaleString('id-ID') + '/hari';
   } catch(e) { document.getElementById('estBox').style.display = 'none'; }
 }
 
@@ -492,10 +521,28 @@ async function doStake() {
   const amt = document.getElementById('stakeAmt').value;
   if (!amt || Number(amt) <= 0) { setMsg('stakeMsg', 'Masukkan jumlah INDC', 'err'); return; }
   try {
+    // Validate min/max from contract
+    const est = await rc.estimatePointPerDay(ethers.utils.parseUnits(amt, 9));
+    const minIndc = parseFloat(ethers.utils.formatUnits(est[3], 9));
+    const maxIndc = parseFloat(ethers.utils.formatUnits(est[4], 9));
+    const inputAmt = parseFloat(amt);
+    if (minIndc > 0 && inputAmt < minIndc) {
+      showMinPopup(minIndc, maxIndc, 'POINT VAULT STAKING');
+      setMsg('stakeMsg', `Min ${Math.ceil(minIndc).toLocaleString('id-ID')} INDC`, 'err');
+      return;
+    }
+    if (maxIndc > 0 && inputAmt > maxIndc) {
+      showMinPopup(minIndc, maxIndc, 'POINT VAULT STAKING');
+      setMsg('stakeMsg', `Max ${Math.floor(maxIndc).toLocaleString('id-ID')} INDC`, 'err');
+      return;
+    }
+  } catch(ev) { /* skip validation if estimate fails */ }
+  try {
     setMsg('stakeMsg', 'Konfirmasi di wallet...', 'info');
     const tx = await contract.stake(ethers.utils.parseUnits(amt, 9));
     setMsg('stakeMsg', 'Diproses...', 'info');
     await tx.wait();
+    showToast('🎉', 'Stake berhasil! Point mulai mengalir!');
     setMsg('stakeMsg', 'Stake berhasil! Point mulai mengalir!', 'ok');
     await loadAll();
   } catch(e) {
@@ -511,6 +558,7 @@ async function doClaim() {
     const tx = await contract.claimPoint();
     setMsg('claimMsg', 'Diproses...', 'info');
     await tx.wait();
+    showToast('✨', 'Point berhasil diklaim!');
     setMsg('claimMsg', 'Point berhasil diklaim!', 'ok');
     await loadAll();
   } catch(e) {
@@ -548,13 +596,13 @@ async function doRedeem() {
   const extra   = document.getElementById('redeemExtra').value.trim();
   if (!dest)          { setMsg('redeemMsg', 'Isi tujuan/nomor', 'err'); return; }
   if (!nominal || Number(nominal) < 10000) { setMsg('redeemMsg', 'Min 10,000 Point', 'err'); return; }
-  const typeNames = ['', 'Pulsa', 'Token Listrik', 'BPJS', 'Bonus INDC', 'Produk Lainnya'];
-  const productName = typeNames[activeTab] || 'Produk';
+  const productName = TYPE_NAMES[activeTab] || 'Produk';
   try {
     setMsg('redeemMsg', 'Konfirmasi di wallet...', 'info');
     const tx = await contract.requestRedeem(activeTab, ethers.BigNumber.from(nominal), dest, productName, extra || '');
     setMsg('redeemMsg', 'Diproses...', 'info');
     await tx.wait();
+    showToast('🛒', 'Request berhasil! Diproses dalam 24 jam.');
     setMsg('redeemMsg', 'Request berhasil! Diproses dalam 24 jam.', 'ok');
     document.getElementById('redeemDest').value    = '';
     document.getElementById('redeemNominal').value = '';
@@ -565,6 +613,8 @@ async function doRedeem() {
 }
 
 // ── HISTORY ───────────────────────────────────────────────────
+const TYPE_NAMES = ['', 'Pulsa', 'Token Listrik', 'BPJS', 'Bonus INDC', 'Produk Lainnya'];
+
 async function loadHistory() {
   if (!myAddr) return;
   try {
@@ -574,16 +624,22 @@ async function loadHistory() {
     const recent = [...ids].reverse().slice(0, 10);
     list.innerHTML = '';
     for (const id of recent) {
-      const r = await rc.getRedeemRequest(id.toNumber());
-      const status = r[9];
+      const r = await rc.getRedeemRequest(id.toNumber ? id.toNumber() : parseInt(id));
+      const status   = r[9].toNumber ? r[9].toNumber() : parseInt(r[9]);
+      const pType    = r[3].toNumber ? r[3].toNumber() : parseInt(r[3]);
+      const prodName = TYPE_NAMES[pType] || 'Produk';
+      const pointAmt = parseFloat(ethers.utils.formatUnits(r[2], 0));
       const badgeClass = status === 0 ? 'badge-pending' : status === 1 ? 'badge-done' : 'badge-reject';
       const badgeText  = status === 0 ? 'PENDING' : status === 1 ? 'SELESAI' : status === 3 ? 'AUTO-CANCEL' : 'DITOLAK';
-      const timeLeft   = status === 0 ? Math.max(0, r[8].toNumber() - Math.floor(Date.now()/1000)) : 0;
-      const tlStr      = timeLeft > 0 ? ' · ' + Math.floor(timeLeft/3600) + 'j ' + Math.floor((timeLeft%3600)/60) + 'm' : '';
+      const autoCancelTs = r[8].toNumber ? r[8].toNumber() : parseInt(r[8]);
+      const timeLeft = status === 0 ? Math.max(0, autoCancelTs - Math.floor(Date.now()/1000)) : 0;
+      const tlStr    = timeLeft > 0 ? ' · ' + Math.floor(timeLeft/3600) + 'j ' + Math.floor((timeLeft%3600)/60) + 'm' : '';
+      const dest = r[4] || '-';
+      const note = r[10] || '';
       list.innerHTML += `<div class="redeem-item">
-        <div class="ri-top"><span class="ri-name">${r[6]} · Rp ${parseInt(r[2]).toLocaleString('id-ID')}</span><span class="badge ${badgeClass}">${badgeText}${tlStr}</span></div>
-        <div class="ri-dest">${r[4]} ${r[5] ? '· ' + r[5] : ''}</div>
-        ${r[10] ? `<div class="ri-dest" style="color:var(--green);margin-top:2px;">${r[10]}</div>` : ''}
+        <div class="ri-top"><span class="ri-name">${prodName} · Rp ${Math.floor(pointAmt).toLocaleString('id-ID')}</span><span class="badge ${badgeClass}">${badgeText}${tlStr}</span></div>
+        <div class="ri-dest">${dest}</div>
+        ${note ? '<div class="ri-dest" style="color:var(--green);margin-top:2px;">' + note + '</div>' : ''}
       </div>`;
     }
   } catch(e) { console.warn('history:', e); }
@@ -604,7 +660,8 @@ async function loadAdmin() {
     const check = Math.min(total.toNumber(), 50);
     for (let i = total.toNumber(); i > total.toNumber() - check && i > 0; i--) {
       const r = await rc.getRedeemRequest(i);
-      if (r[9] === 0) { // PENDING
+      const st = r[9].toNumber ? r[9].toNumber() : parseInt(r[9]);
+      if (st === 0) { // PENDING
         pending++;
         items.push(r);
       }
@@ -614,19 +671,26 @@ async function loadAdmin() {
     if (items.length === 0) { list.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace;font-size:9px;color:var(--muted);text-align:center;padding:8px;">Tidak ada pending request</div>'; return; }
     list.innerHTML = '';
     for (const r of items) {
-      const timeLeft = Math.max(0, r[8].toNumber() - Math.floor(Date.now()/1000));
+      const autoCancelTs = r[8].toNumber ? r[8].toNumber() : parseInt(r[8]);
+      const timeLeft = Math.max(0, autoCancelTs - Math.floor(Date.now()/1000));
       const h = Math.floor(timeLeft/3600), m = Math.floor((timeLeft%3600)/60);
-      const isBonus = r[3] === 5;
+      const pType    = r[3].toNumber ? r[3].toNumber() : parseInt(r[3]);
+      const prodName = TYPE_NAMES[pType] || 'Produk';
+      const isBonus  = pType === 4; // Bonus INDC = type 4
+      const pointAmt = parseFloat(ethers.utils.formatUnits(r[2], 0));
+      const userId   = (r[1] || '').toString();
+      const dest     = r[4] || '—';
+      const reqId    = r[0].toNumber ? r[0].toNumber() : parseInt(r[0]);
       list.innerHTML += `<div class="admin-item">
-        <div class="ai-top"><span class="ai-name">#${r[0]} · ${r[6]}</span><span class="ai-point">Rp ${parseInt(r[2]).toLocaleString('id-ID')}</span></div>
-        <div class="ai-dest">${r[1].slice(0,8)}... → ${r[4]}</div>
+        <div class="ai-top"><span class="ai-name">#${reqId} · ${prodName}</span><span class="ai-point">Rp ${Math.floor(pointAmt).toLocaleString('id-ID')}</span></div>
+        <div class="ai-dest">${userId.slice(0,8)}... → ${dest}</div>
         <div class="ai-timer">⏱ Auto-cancel: ${h}j ${m}m</div>
         <div class="admin-btns">
-          ${isBonus 
-            ? `<button class="btn-approve" onclick="adminBonusINDC(${r[0]})">⚡ PROSES INDC</button>`
-            : `<button class="btn-approve" onclick="adminApprove(${r[0]})">✅ APPROVE</button>`
+          ${isBonus
+            ? `<button class="btn-approve" onclick="adminBonusINDC(${reqId})">⚡ PROSES INDC</button>`
+            : `<button class="btn-approve" onclick="adminApprove(${reqId})">✅ APPROVE</button>`
           }
-          <button class="btn-reject" onclick="adminReject(${r[0]})">❌ TOLAK</button>
+          <button class="btn-reject" onclick="adminReject(${reqId})">❌ TOLAK</button>
         </div>
       </div>`;
     }
@@ -678,6 +742,39 @@ function copyAddr() {
     el.textContent = 'Disalin!';
     setTimeout(() => el.textContent = old, 1200);
   });
+}
+
+// ── POPUP MIN/MAX ─────────────────────────────────────────────
+function showMinPopup(minIndc, maxIndc, label) {
+  const existing = document.getElementById('minStakePopup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'minStakePopup';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:1px solid rgba(200,146,42,0.5);border-radius:14px;padding:24px 28px;z-index:9999;text-align:center;min-width:260px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+  const minFmt = Math.ceil(minIndc).toLocaleString('id-ID');
+  const maxFmt = maxIndc > 0 ? Math.floor(maxIndc).toLocaleString('id-ID') : null;
+  popup.innerHTML =
+    '<div style="font-family:Orbitron,sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:10px;">BATAS STAKE</div>'
+    + (label ? '<div style="font-family:\'Share Tech Mono\',monospace;font-size:12px;color:#f5f0e8;margin-bottom:4px;">' + label + '</div>' : '')
+    + '<div style="font-family:\'Share Tech Mono\',monospace;font-size:13px;color:#f5f0e8;margin-bottom:16px;">Min <b>' + minFmt + ' INDC</b>'
+    + (maxFmt ? ' &mdash; Max <b>' + maxFmt + ' INDC</b>' : '') + '</div>'
+    + '<button onclick="this.parentElement.remove()" style="font-family:\'Share Tech Mono\',monospace;font-size:9px;padding:8px 20px;border-radius:8px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#c8922a;cursor:pointer;letter-spacing:1px;">MENGERTI</button>';
+  document.body.appendChild(popup);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(ico, msg) {
+  let t = document.getElementById('_toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_toast';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid rgba(200,146,42,0.35);color:#f5f0e8;padding:10px 20px;border-radius:20px;font-family:\'Share Tech Mono\',monospace;font-size:11px;z-index:9999;transition:opacity 0.3s;white-space:nowrap;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = (ico ? ico + ' ' : '') + msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
 // ── STARS ─────────────────────────────────────────────────────
