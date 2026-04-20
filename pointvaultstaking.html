@@ -255,6 +255,10 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
   <!-- ════ SETELAH CONNECT: wallet summary ════ -->
   <div class="summary-card" id="summaryCard">
     <div class="sec-div" style="margin-top:0;">RINGKASAN WALLET</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;">RINGKASAN WALLET</div>
+      <button onclick="loadAll()" style="background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);color:var(--gold);border-radius:4px;padding:4px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;">🔄 REFRESH</button>
+    </div>
     <div class="summary-grid">
       <div class="summary-box"><div class="sb-val" id="sumIndcWallet">—</div><div class="sb-lbl">INDC DI WALLET</div></div>
       <div class="summary-box"><div class="sb-val green" id="sumPointBal">—</div><div class="sb-lbl">POINT SALDO</div></div>
@@ -303,7 +307,10 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 
   <!-- ════ FORM STAKE (belum stake) ════ -->
   <div id="stakeFormSection">
-    <div class="sec-div">MULAI STAKE INDC</div>
+    <div class="sec-div" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>MULAI STAKE INDC</span>
+      <button id="btnRefreshStake" onclick="loadAll()" style="display:none;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);color:var(--gold);border-radius:4px;padding:3px 10px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;">🔄 SUDAH STAKE? REFRESH</button>
+    </div>
     <div class="form-card">
       <!-- Batas stake dari contract -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -459,7 +466,8 @@ const ABI = [
   "function getUserRedeems(address user) view returns (uint256[])",
   "function redeemCount() view returns (uint256)",
   "function getIndcPrice() view returns (uint256)",
-  "function idrPerUsd() view returns (uint256)"
+  "function idrPerUsd() view returns (uint256)",
+  "function getUserInfo(address user) view returns (uint256 indcStaked, uint256 usdValue, uint256 pointPerDayEst, uint256 pendingPointNow, uint256 pointBal, uint256 totalEarned, uint256 totalRedeemed, uint256 monthlyUsed, uint256 monthlyLeft, bool active)"
 ];
 
 const ERC20_ABI = [
@@ -512,6 +520,9 @@ async function connectWallet() {
       document.getElementById('adminFab').style.display = 'flex';
     }
     await loadAll();
+    // Tampilkan tombol refresh di form stake
+    const btnRef = document.getElementById('btnRefreshStake');
+    if (btnRef) btnRef.style.display = 'inline-block';
     window.ethereum.on('accountsChanged', () => location.reload());
     window.ethereum.on('chainChanged', () => location.reload());
   } catch(e) { console.warn('connect:', e); }
@@ -530,18 +541,24 @@ function copyAddr() {
 // ── LOAD ALL ─────────────────────────────────────────
 async function loadAll() {
   if (!myAddr) return;
+  const uc = contract || rc;
+
+  // Tampilkan loading state
+  showLoadingState(true);
+
   try {
-    // Pool info
-    const pool = await (contract || rc).getPoolInfo();
-    const price = parseFloat(ethers.utils.formatUnits(pool[9], 18));
+    // ── POOL INFO ──────────────────────────────────────
+    const pool    = await uc.getPoolInfo();
+    const price   = parseFloat(ethers.utils.formatUnits(pool[9], 18));
     const idrRate = pool[10].toNumber ? pool[10].toNumber() : parseInt(pool[10]);
+    const poolOpen = pool[8];
 
     // Hero stats
     document.getElementById('heroMembers').textContent = pool[0].toString() + '/' + pool[1].toString();
     document.getElementById('heroPrice').textContent   = '$' + (price > 0 ? price.toFixed(4) : '0.003');
     document.getElementById('heroPoint').textContent   = Math.floor(parseFloat(ethers.utils.formatUnits(pool[7], 0))).toLocaleString('id-ID');
 
-    // Pool info card
+    // Pool card
     document.getElementById('piMembers').textContent  = pool[0].toString() + '/' + pool[1].toString();
     document.getElementById('piPrice').textContent    = '$' + (price > 0 ? price.toFixed(4) : '—');
     document.getElementById('piPoint').textContent    = Math.floor(parseFloat(ethers.utils.formatUnits(pool[7], 0))).toLocaleString('id-ID');
@@ -549,55 +566,62 @@ async function loadAll() {
     document.getElementById('piGuarFund').textContent = Math.floor(parseFloat(ethers.utils.formatUnits(pool[5], 9))).toLocaleString('id-ID') + ' INDC';
     document.getElementById('piBonusPool').textContent= Math.floor(parseFloat(ethers.utils.formatUnits(pool[6], 9))).toLocaleString('id-ID') + ' INDC';
     document.getElementById('poolMemberSub').textContent = pool[0].toString() + ' member dari ' + pool[1].toString() + ' slot';
+    document.getElementById('poolBadge').style.display = 'flex';
+    document.getElementById('poolStatus').textContent  = poolOpen ? 'OPEN' : 'CLOSED';
+    document.getElementById('poolDot').style.background= poolOpen ? 'var(--gold2)' : 'var(--white2)';
+    document.getElementById('poolOpenBadge').textContent = poolOpen ? '✓ OPEN' : '✗ CLOSED';
+    document.getElementById('poolOpenBadge').className   = poolOpen ? 'info-badge' : 'info-badge inactive';
 
-    // Pool badge
-    const poolOpen = pool[8];
-    const badge = document.getElementById('poolBadge');
-    const badgeTxt = document.getElementById('poolOpenBadge');
-    badge.style.display = 'flex';
-    if (poolOpen) {
-      document.getElementById('poolStatus').textContent = 'OPEN';
-      document.getElementById('poolDot').style.background = 'var(--gold2)';
-      badgeTxt.textContent = '✓ OPEN';
-      badgeTxt.className = 'info-badge';
-    } else {
-      document.getElementById('poolStatus').textContent = 'CLOSED';
-      document.getElementById('poolDot').style.background = 'var(--white2)';
-      badgeTxt.textContent = '✗ CLOSED';
-      badgeTxt.className = 'info-badge inactive';
-    }
-
-    // Stake limits
+    // ── STAKE LIMITS ──────────────────────────────────
     try {
-      const lim = await (contract || rc).getStakeLimitsInfo();
+      const lim = await uc.getStakeLimitsInfo();
       const minUsd  = parseFloat(ethers.utils.formatUnits(lim[0], 18));
       const maxUsd  = parseFloat(ethers.utils.formatUnits(lim[1], 18));
       const minIndc = parseFloat(ethers.utils.formatUnits(lim[2], 9));
       const maxIndc = parseFloat(ethers.utils.formatUnits(lim[3], 9));
       document.getElementById('limMinUsd').textContent = '$' + minUsd.toFixed(0);
       document.getElementById('limMaxUsd').textContent = '$' + maxUsd.toFixed(0);
-      if (document.getElementById('stakeAmt').placeholder) {
-        document.getElementById('stakeAmt').placeholder =
-          'Min ' + Math.ceil(minIndc).toLocaleString('id-ID') + ' — Max ' + Math.floor(maxIndc).toLocaleString('id-ID') + ' INDC';
-      }
+      document.getElementById('stakeAmt').placeholder  =
+        'Min ' + Math.ceil(minIndc).toLocaleString('id-ID') + ' — Max ' + Math.floor(maxIndc).toLocaleString('id-ID') + ' INDC';
     } catch(el) {}
 
-    // INDC balance
+    // ── INDC BALANCE ──────────────────────────────────
     if (indcC) {
       try {
-        const bal = await indcC.balanceOf(myAddr);
+        const bal    = await indcC.balanceOf(myAddr);
         const balNum = parseFloat(ethers.utils.formatUnits(bal, 9));
-        document.getElementById('userIndcBal').textContent = Math.floor(balNum).toLocaleString('id-ID');
-        document.getElementById('sumIndcWallet').textContent = Math.floor(balNum).toLocaleString('id-ID') + ' INDC';
+        document.getElementById('userIndcBal').textContent  = Math.floor(balNum).toLocaleString('id-ID');
+        document.getElementById('sumIndcWallet').textContent= Math.floor(balNum).toLocaleString('id-ID') + ' INDC';
       } catch(eb) {}
     }
 
-    // User stake & point — pakai contract (signer) bukan rc
-    // agar data terbaru langsung terbaca setelah stake
-    const userContract = contract || rc;
-    const stake = await userContract.getUserStake(myAddr);
-    const pt    = await userContract.getUserPoint(myAddr);
-    const active  = stake[4];
+    // ── USER STAKE & POINT ────────────────────────────
+    let stake, pt;
+    let active = false;
+
+    try {
+      // Coba getUserStake + getUserPoint (versi baru)
+      stake  = await uc.getUserStake(myAddr);
+      pt     = await uc.getUserPoint(myAddr);
+      active = stake[4] === true || stake[4] == 1;
+    } catch(e1) {
+      console.warn('getUserStake gagal, coba getUserInfo:', e1.message);
+      try {
+        // Fallback getUserInfo (versi lama jika ada)
+        const info = await uc.getUserInfo(myAddr);
+        stake  = [info[0], info[1], info[2], info[3], info[9]];
+        pt     = [info[4], info[5], info[6], info[7], info[8]];
+        active = info[9] === true || info[9] == 1;
+      } catch(e2) {
+        console.error('Semua fungsi user gagal:', e2.message);
+        showDebug('Error baca data: ' + e2.message);
+        // Tetap tampilkan form stake
+        showLoadingState(false);
+        showSections(false, poolOpen);
+        return;
+      }
+    }
+
     const ppd     = parseFloat(ethers.utils.formatUnits(stake[2], 0));
     const pending = parseFloat(ethers.utils.formatUnits(stake[3], 0));
     const bal     = parseFloat(ethers.utils.formatUnits(pt[0], 0));
@@ -608,67 +632,111 @@ async function loadAll() {
     cachedPointBal    = Math.floor(bal);
     cachedMonthlyUsed = Math.floor(monthU);
 
+    // ── UPDATE UI ─────────────────────────────────────
     // Summary card
-    document.getElementById('summaryCard').style.display = 'block';
-    document.getElementById('sumPointBal').textContent   = Math.floor(bal).toLocaleString('id-ID') + ' Pt';
-    document.getElementById('sumPpd').textContent        = Math.floor(ppd).toLocaleString('id-ID') + '/hari';
-    document.getElementById('sumPending').textContent    = Math.floor(pending).toLocaleString('id-ID') + ' Pt';
+    document.getElementById('summaryCard').style.display      = 'block';
+    document.getElementById('sumPointBal').textContent        = Math.floor(bal).toLocaleString('id-ID') + ' Pt';
+    document.getElementById('sumPpd').textContent             = Math.floor(ppd).toLocaleString('id-ID') + '/hari';
+    document.getElementById('sumPending').textContent         = Math.floor(pending).toLocaleString('id-ID') + ' Pt';
 
     // Klaim bar
-    const claimBar = document.getElementById('claimBar');
-    claimBar.style.display = 'block';
-    document.getElementById('claimBigNum').textContent      = Math.floor(bal).toLocaleString('id-ID');
-    document.getElementById('claimBigSub').textContent      = '≈ Rp ' + Math.floor(bal).toLocaleString('id-ID');
-    document.getElementById('claimTotalEarned').textContent = Math.floor(totalE).toLocaleString('id-ID');
+    document.getElementById('claimBar').style.display         = 'block';
+    document.getElementById('claimBigNum').textContent        = Math.floor(pending).toLocaleString('id-ID');
+    document.getElementById('claimBigSub').textContent        = '≈ Rp ' + Math.floor(pending).toLocaleString('id-ID');
+    document.getElementById('claimTotalEarned').textContent   = Math.floor(totalE).toLocaleString('id-ID');
     document.getElementById('claimTotalRedeemed').textContent = Math.floor(totalR).toLocaleString('id-ID');
-    document.getElementById('claimMonthlyLeft').textContent = Math.floor(monthL).toLocaleString('id-ID');
-    document.getElementById('btnClaim').disabled = pending <= 0;
+    document.getElementById('claimMonthlyLeft').textContent   = Math.floor(monthL).toLocaleString('id-ID');
+    document.getElementById('btnClaim').disabled              = pending <= 0;
 
-    // Stake aktif vs form
+    // Tampilkan section sesuai status
+    showSections(active, poolOpen);
+
     if (active) {
-      document.getElementById('stakeActiveSection').style.display = 'block';
-      document.getElementById('stakeFormSection').style.display   = 'none';
-      document.getElementById('redeemSection').style.display      = 'block';
       const indc = parseFloat(ethers.utils.formatUnits(stake[0], 9));
       const usd  = parseFloat(ethers.utils.formatUnits(stake[1], 18));
       document.getElementById('siIndc').textContent    = Math.floor(indc).toLocaleString('id-ID') + ' INDC';
       document.getElementById('siUsd').textContent     = '$' + usd.toFixed(2);
       document.getElementById('siPpd').textContent     = Math.floor(ppd).toLocaleString('id-ID') + '/hari';
       document.getElementById('siPending2').textContent= Math.floor(pending).toLocaleString('id-ID') + ' Pt';
-      // Redeem section point info
-      document.getElementById('redeemPointBal').textContent = Math.floor(bal).toLocaleString('id-ID');
-      document.getElementById('redeemMonthlyUsed').textContent = Math.floor(monthU).toLocaleString('id-ID') + ' / 500.000';
-    } else {
-      document.getElementById('stakeActiveSection').style.display = 'none';
-      document.getElementById('stakeFormSection').style.display   = 'block';
-      document.getElementById('redeemSection').style.display      = 'none';
-      // Pool closed check
-      if (!poolOpen) {
-        document.getElementById('btnStake').disabled   = true;
-        document.getElementById('btnApprove').disabled = true;
-        setMsg('stakeMsg', '⚠️ Pool CLOSED — stake baru tidak tersedia', 'err');
-      }
-      // Allowance check
-      if (indcC) {
-        try {
-          const allow = await indcC.allowance(myAddr, CA);
-          if (allow.gt(0)) {
-            const btn = document.getElementById('btnApprove');
-            btn.textContent = '✓ APPROVED';
-            btn.disabled    = true;
-          }
-        } catch(ea) {}
-      }
+      document.getElementById('redeemPointBal').textContent   = Math.floor(bal).toLocaleString('id-ID');
+      document.getElementById('redeemMonthlyUsed').textContent= Math.floor(monthU).toLocaleString('id-ID') + ' / 500.000';
+    } else if (!poolOpen) {
+      document.getElementById('btnStake').disabled   = true;
+      document.getElementById('btnApprove').disabled = true;
+      setMsg('stakeMsg', '⚠️ Pool CLOSED — stake baru tidak tersedia', 'err');
+    }
+
+    // Allowance check
+    if (!active && indcC) {
+      try {
+        const allow = await indcC.allowance(myAddr, CA);
+        if (allow.gt(0)) {
+          document.getElementById('btnApprove').textContent = '✓ APPROVED';
+          document.getElementById('btnApprove').disabled    = true;
+        }
+      } catch(ea) {}
     }
 
     // Admin
     if (myAddr.toLowerCase() === DEV.toLowerCase()) {
       await loadAdmin();
     }
+
+    showLoadingState(false);
+
   } catch(e) {
-    console.warn('loadAll:', e);
+    console.error('loadAll error:', e);
+    showLoadingState(false);
+    showDebug('Error: ' + (e.reason || e.message || 'Unknown error'));
     document.getElementById('stakeFormSection').style.display = 'block';
+    document.getElementById('stakeActiveSection').style.display = 'none';
+    document.getElementById('redeemSection').style.display = 'none';
   }
+}
+
+function showSections(active, poolOpen) {
+  document.getElementById('stakeActiveSection').style.display = active ? 'block' : 'none';
+  document.getElementById('stakeFormSection').style.display   = active ? 'none'  : 'block';
+  document.getElementById('redeemSection').style.display      = active ? 'block' : 'none';
+  const btnRef = document.getElementById('btnRefreshStake');
+  if (btnRef) btnRef.style.display = myAddr ? 'inline-block' : 'none';
+}
+
+function showLoadingState(show) {
+  let el = document.getElementById('_loadingBar');
+  if (show) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '_loadingBar';
+      el.style.cssText = 'position:fixed;top:54px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);z-index:999;animation:scan 1s linear infinite;';
+      document.body.appendChild(el);
+    }
+  } else {
+    if (el) el.remove();
+  }
+}
+
+function showDebug(msg) {
+  let el = document.getElementById('_debugMsg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_debugMsg';
+    el.style.cssText = 'background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:8px;padding:10px 12px;margin:8px 16px;font-family:Share Tech Mono,monospace;font-size:10px;color:#f87171;';
+    const main = document.querySelector('.main');
+    if (main) main.insertBefore(el, main.firstChild);
+  }
+  const btn = document.createElement('button');
+  btn.textContent = 'COBA LAGI';
+  btn.style.cssText = 'background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.4);color:#f5c842;border-radius:4px;padding:3px 10px;font-size:9px;cursor:pointer;margin-left:8px;';
+  btn.onclick = function() { document.getElementById('_debugMsg').remove(); loadAll(); };
+  el.textContent = 'Error: ' + msg + ' ';
+  el.appendChild(btn);
+}
+
+async function retryLoad() {
+  const err = document.getElementById('loadErrMsg');
+  if (err) err.remove();
+  await loadAll();
 }
 
 // ── ESTIMATE ────────────────────────────────────────
