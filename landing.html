@@ -1303,16 +1303,36 @@ window.doSignIn = async () => {
       localStorage.removeItem('indc_remember_email');
       localStorage.removeItem('indc_remember');
     }
-    st.textContent = '✅ Berhasil! Mengalihkan...';
+    st.textContent = '✅ Berhasil! Menghubungkan wallet...';
     st.className = 'modal-status';
-    // Set flag sudah login
     localStorage.setItem('indocoin_loggedin', '1');
-    setTimeout(()=>{
+    setTimeout(async ()=>{
       closeModals();
-      // Jika dari referral page, balik ke referral
       const from = new URLSearchParams(location.search).get('from');
-      window.location.href = from === 'referral' ? 'referral.html' : 'dashboard.html';
-    }, 1000);
+      if (from === 'referral') { window.location.href = 'referral.html'; return; }
+
+      // Cek apakah perlu konfirmasi referral on-chain
+      try {
+        if (window.ethereum && localStorage.getItem('indocoin_ref')) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(()=>[]);
+          if (accounts && accounts.length > 0) {
+            const addr = accounts[0];
+            const rp = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
+            const rc = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, rp);
+            const info = await rc.getUserInfo(addr);
+            if (!info[0]) {
+              // Belum terdaftar — tampilkan gate lalu langsung panggil wallet
+              showRefGate();
+              refGateConfirm();
+              return;
+            }
+            localStorage.removeItem('indocoin_ref');
+          }
+        }
+      } catch(e) { /* gagal cek — lanjut dashboard */ }
+
+      window.location.href = 'dashboard.html';
+    }, 800);
   }catch(e){
     st.textContent = e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
       ? '❌ Email atau password salah!' : '❌ Gagal: '+e.message;
@@ -1670,5 +1690,174 @@ async function loadStats(){
   </div>
 </div>
 
+<!-- ═══ REFERRAL GATE POPUP ═══ -->
+<div id="refGatePopup" style="
+  display:none;
+  position:fixed;inset:0;z-index:999999;
+  background:rgba(3,8,18,0.95);
+  backdrop-filter:blur(16px);
+  align-items:center;justify-content:center;
+  padding:20px;
+">
+  <div style="
+    background:linear-gradient(135deg,#0b1a2c,#05101c);
+    border:1px solid rgba(250,204,21,0.3);
+    border-radius:24px;
+    padding:32px 24px;
+    max-width:340px;width:100%;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.7);
+  ">
+    <div style="font-size:44px;margin-bottom:14px;">🔗</div>
+
+    <div style="
+      font-family:'Orbitron',sans-serif;
+      font-size:13px;font-weight:900;
+      color:#facc15;letter-spacing:2px;
+      margin-bottom:10px;line-height:1.5;
+    ">KAMU BELUM KONFIRMASI<br>REFERRAL ON-CHAIN</div>
+
+    <div style="
+      font-family:'Rajdhani',sans-serif;
+      font-size:13px;color:#94a3b8;
+      line-height:1.6;margin-bottom:6px;
+    ">Hubungkan wallet kamu ke jaringan referral INDOCOIN on-chain. Wajib sebelum menggunakan platform.</div>
+
+    <div style="
+      font-family:'Share Tech Mono',monospace;
+      font-size:10px;color:#4d6070;
+      margin-bottom:20px;
+    ">⛽ Gas fee kecil dalam BNB</div>
+
+    <!-- Status -->
+    <div id="refGateStatus" style="
+      font-family:'Share Tech Mono',monospace;
+      font-size:10px;color:#facc15;
+      margin-bottom:14px;min-height:20px;
+    "></div>
+
+    <!-- Tombol KONFIRMASI -->
+    <button id="refGateBtn" onclick="refGateConfirm()" style="
+      width:100%;padding:15px;
+      border-radius:14px;border:none;
+      font-family:'Orbitron',sans-serif;
+      font-size:12px;font-weight:900;
+      letter-spacing:2px;cursor:pointer;
+      background:linear-gradient(135deg,#facc15,#f59e0b);
+      color:#000;
+      box-shadow:0 4px 20px rgba(250,204,21,0.35);
+      margin-bottom:10px;
+    ">🔗 KONFIRMASI SEKARANG</button>
+
+    <!-- Tombol COBA LAGI (muncul kalau cancel) -->
+    <button id="refGateRetry" onclick="refGateConfirm()" style="
+      display:none;
+      width:100%;padding:12px;
+      border-radius:12px;
+      font-family:'Share Tech Mono',monospace;
+      font-size:10px;cursor:pointer;
+      border:1px solid rgba(250,204,21,0.3);
+      background:rgba(250,204,21,0.06);
+      color:#facc15;
+    ">🔄 COBA LAGI</button>
+
+    <div style="
+      margin-top:14px;
+      font-family:'Share Tech Mono',monospace;
+      font-size:9px;color:#1e293b;
+    ">⚠️ Popup ini tidak bisa ditutup sebelum konfirmasi selesai</div>
+  </div>
+</div>
+
+<script>
+// ═══ REFERRAL GATE — LANDING.HTML ═══
+const _GATE_MASTER_CA = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
+const _GATE_ABI = [
+  'function register(address _upline) external',
+  'function getUserInfo(address _user) view returns (bool registered, address upline, uint256 joinTime, uint256 totalRefBonus, uint256 totalDownlineCount, uint8[] programs)'
+];
+
+function showRefGate() {
+  const el = document.getElementById('refGatePopup');
+  if (el) el.style.display = 'flex';
+}
+
+function hideRefGate() {
+  const el = document.getElementById('refGatePopup');
+  if (el) el.style.display = 'none';
+}
+
+function refGateSetStatus(msg) {
+  const el = document.getElementById('refGateStatus');
+  if (el) el.textContent = msg;
+}
+
+function refGateShowRetry() {
+  const btn  = document.getElementById('refGateBtn');
+  const retry = document.getElementById('refGateRetry');
+  if (btn)   btn.style.display   = 'none';
+  if (retry) retry.style.display = 'block';
+}
+
+function refGateShowConfirm() {
+  const btn   = document.getElementById('refGateBtn');
+  const retry = document.getElementById('refGateRetry');
+  if (btn)   btn.style.display   = 'block';
+  if (retry) retry.style.display = 'none';
+}
+
+async function refGateConfirm() {
+  if (!window.ethereum) {
+    refGateSetStatus('❌ Buka via DApps browser (TokenPocket/MetaMask)');
+    return;
+  }
+
+  const upline = localStorage.getItem('indocoin_ref') || '';
+  if (!upline) {
+    refGateSetStatus('❌ Kode referral tidak ditemukan. Hubungi upline kamu.');
+    return;
+  }
+
+  try {
+    refGateSetStatus('⏳ Menunggu konfirmasi di wallet...');
+    refGateShowConfirm();
+    document.getElementById('refGateBtn').disabled = true;
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+    const signer   = provider.getSigner();
+    const contract = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, signer);
+
+    const tx = await contract.register(upline);
+
+    refGateSetStatus('⏳ Diproses di blockchain...');
+
+    await tx.wait();
+
+    // Berhasil
+    localStorage.removeItem('indocoin_ref');
+    refGateSetStatus('✅ Berhasil! Mengalihkan ke dashboard...');
+
+    setTimeout(() => {
+      hideRefGate();
+      window.location.href = 'dashboard.html';
+    }, 1200);
+
+  } catch(e) {
+    document.getElementById('refGateBtn').disabled = false;
+
+    if (e.code === 4001 || e.code === 'ACTION_REJECTED') {
+      // User cancel / klik di luar popup wallet
+      refGateSetStatus('⚠️ Belum selesai!');
+      refGateShowRetry();
+    } else {
+      refGateSetStatus('❌ ' + (e.reason || e.message || 'Gagal').slice(0, 60));
+      refGateShowRetry();
+    }
+  }
+}
+
+// Pasang ke doSignIn — intercept redirect setelah login berhasil
+window._refGateRedirectOverride = true;
+</script>
 </body>
 </html>
