@@ -1246,24 +1246,23 @@ window.doSignUp = async () => {
   // ── SILENT WALLET CONNECT + CEK DUPLIKAT ON-CHAIN ─────────
   let walletAddr = '';
   try {
+    alert('DEBUG 1: Mulai cek wallet. ethereum ada? ' + (!!window.ethereum));
     if (window.ethereum) {
-      // Tunggu ethereum inject sempurna
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Coba silent dulu (tanpa popup)
       let accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+      alert('DEBUG 2: Accounts = ' + JSON.stringify(accounts));
 
-      // Kalau belum connect — minta connect sekali
       if (!accounts || accounts.length === 0) {
         st.textContent = 'Hubungkan wallet...'; st.className = 'modal-status';
         accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }).catch(() => []);
+        alert('DEBUG 3: Accounts setelah request = ' + JSON.stringify(accounts));
       }
 
       if (accounts && accounts.length > 0) {
         walletAddr = accounts[0].toLowerCase();
+        alert('DEBUG 4: Wallet = ' + walletAddr + ' — Cek on-chain...');
 
-        // Cek on-chain pakai raw fetch — tidak butuh ethers
-        // getUserInfo(address) = 0x9b978a6b + address padded
         const padded = walletAddr.replace('0x','').padStart(64,'0');
         const data   = '0x9b978a6b' + padded;
         const resp   = await fetch('https://bsc-dataseed1.binance.org/', {
@@ -1276,9 +1275,11 @@ window.doSignUp = async () => {
           })
         });
         const json = await resp.json();
-        // result[0] = registered (bool) — true jika sudah terdaftar
+        alert('DEBUG 5: RPC result = ' + json.result);
+
         if (json.result && json.result !== '0x' && json.result.slice(2, 66) !== '0'.repeat(64)) {
           const registered = parseInt(json.result.slice(2, 66), 16) === 1;
+          alert('DEBUG 6: Registered = ' + registered);
           if (registered) {
             st.textContent = 'Wallet sudah terpakai';
             st.className = 'modal-status error';
@@ -1287,7 +1288,9 @@ window.doSignUp = async () => {
         }
       }
     }
-  } catch(we) { console.warn('wallet check:', we); /* lanjut tanpa cek */ }
+  } catch(we) {
+    alert('DEBUG ERROR: ' + we.message);
+  }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
   // ──────────────────────────────────────────────────────────
