@@ -1263,32 +1263,21 @@ window.doSignUp = async () => {
         walletAddr = accounts[0].toLowerCase();
         alert('DEBUG 4: Wallet = ' + walletAddr + ' — Cek on-chain...');
 
-        const RPC_LIST = [
-          'https://bsc-dataseed1.binance.org/',
-          'https://bsc-dataseed2.binance.org/',
-          'https://rpc.ankr.com/bsc',
-          'https://bsc-rpc.publicnode.com'
-        ];
+        // Pakai ethereum.request langsung — tidak butuh fetch ke RPC eksternal
         const padded = walletAddr.replace('0x','').padStart(64,'0');
         const data   = '0x9b978a6b' + padded;
-        const body   = JSON.stringify({
-          jsonrpc:'2.0', method:'eth_call',
-          params:[{to:'0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9', data},'latest'],
-          id:1
-        });
 
-        let rpcResult = null;
-        for (const rpc of RPC_LIST) {
-          try {
-            const resp = await fetch(rpc, {method:'POST', headers:{'Content-Type':'application/json'}, body});
-            const json = await resp.json();
-            if (json.result && json.result !== '0x') { rpcResult = json.result; break; }
-          } catch(re) { continue; }
-        }
+        const rpcResult = await window.ethereum.request({
+          method: 'eth_call',
+          params: [{
+            to: '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
+            data: data
+          }, 'latest']
+        }).catch(() => null);
 
         alert('DEBUG 5: RPC result = ' + rpcResult);
 
-        if (rpcResult && rpcResult.slice(2,66) !== '0'.repeat(64)) {
+        if (rpcResult && rpcResult !== '0x' && rpcResult.slice(2,66) !== '0'.repeat(64)) {
           const registered = parseInt(rpcResult.slice(2,66), 16) === 1;
           alert('DEBUG 6: Registered = ' + registered);
           if (registered) {
