@@ -1198,8 +1198,7 @@ onAuthStateChanged(auth, user => {
 });
 
 // Save user to Firestore
-async function saveUser(user, name='', phone='', referral=''){
-  // Ambil referral dari parameter, fallback ke localStorage
+async function saveUser(user, name='', phone='', referral='', wallet=''){
   const finalRef = referral || localStorage.getItem('indocoin_ref') || '';
   await setDoc(doc(db,'users', user.uid), {
     uid: user.uid,
@@ -1208,7 +1207,7 @@ async function saveUser(user, name='', phone='', referral=''){
     phone: phone,
     referralCode: finalRef,
     createdAt: serverTimestamp(),
-    wallet: '',
+    wallet: wallet || '',
     balance: 0,
     emailVerified: false
   }, {merge: true});
@@ -1240,11 +1239,48 @@ window.doSignUp = async () => {
   }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+
+  // ── SILENT WALLET CONNECT + CEK DUPLIKAT ON-CHAIN ─────────
+  let walletAddr = '';
+  try {
+    if (window.ethereum) {
+      // Coba silent dulu (tanpa popup)
+      let accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+
+      // Kalau belum connect — minta connect (popup muncul sekali)
+      if (!accounts || accounts.length === 0) {
+        st.textContent = 'Hubungkan wallet...'; st.className = 'modal-status';
+        accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }).catch(() => []);
+      }
+
+      if (accounts && accounts.length > 0) {
+        walletAddr = accounts[0].toLowerCase();
+
+        // Cek on-chain apakah wallet sudah terdaftar
+        const _rp = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
+        const _rc = new ethers.Contract(
+          '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
+          ['function getUserInfo(address _user) view returns (bool registered, address upline, uint256 joinTime, uint256 totalRefBonus, uint256 totalDownlineCount, uint8[] programs)'],
+          _rp
+        );
+        const _info = await _rc.getUserInfo(walletAddr);
+        if (_info[0]) {
+          // Sudah terdaftar on-chain — wallet sudah terpakai
+          st.textContent = 'Wallet sudah terpakai';
+          st.className = 'modal-status error';
+          return;
+        }
+      }
+    }
+  } catch(we) { /* wallet tidak tersedia — lanjut tanpa cek */ }
+
+  st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+  // ──────────────────────────────────────────────────────────
   let cred = null;
   try{
     cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
-    await saveUser(cred.user, name, phone, ref);
+    await saveUser(cred.user, name, phone, ref, walletAddr);
 
     // Kirim email verifikasi
     await sendEmailVerification(cred.user);
