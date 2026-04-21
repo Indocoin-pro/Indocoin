@@ -1201,7 +1201,7 @@ onAuthStateChanged(auth, user => {
 });
 
 // Save user to Firestore
-async function saveUser(user, name='', phone='', referral='', wallet=''){
+async function saveUser(user, name='', phone='', referral=''){
   const finalRef = referral || localStorage.getItem('indocoin_ref') || '';
   await setDoc(doc(db,'users', user.uid), {
     uid: user.uid,
@@ -1210,7 +1210,7 @@ async function saveUser(user, name='', phone='', referral='', wallet=''){
     phone: phone,
     referralCode: finalRef,
     createdAt: serverTimestamp(),
-    wallet: wallet || '',
+    wallet: '',
     balance: 0,
     emailVerified: false
   }, {merge: true});
@@ -1242,37 +1242,11 @@ window.doSignUp = async () => {
   }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
-
-  // ── SILENT WALLET CONNECT + CEK DUPLIKAT ON-CHAIN ─────────
-  let walletAddr = '';
-  try {
-    if (window.ethereum) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      let accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
-      if (!accounts || accounts.length === 0) {
-        st.textContent = 'Hubungkan wallet...'; st.className = 'modal-status';
-        accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }).catch(() => []);
-      }
-      if (accounts && accounts.length > 0) {
-        walletAddr = accounts[0].toLowerCase();
-        alert('DEBUG: Cek wallet ' + walletAddr);
-        const isRegistered = await window.checkWalletRegistered(walletAddr);
-        if (isRegistered) {
-          st.textContent = 'Wallet sudah terpakai';
-          st.className = 'modal-status error';
-          return;
-        }
-      }
-    }
-  } catch(we) { alert('CATCH: ' + we.message); }
-
-  st.textContent = 'Mendaftar...'; st.className = 'modal-status';
-  // ──────────────────────────────────────────────────────────
   let cred = null;
   try{
     cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
-    await saveUser(cred.user, name, phone, ref, walletAddr);
+    await saveUser(cred.user, name, phone, ref);
 
     // Kirim email verifikasi
     await sendEmailVerification(cred.user);
@@ -1415,23 +1389,7 @@ window.doSignOut = () => signOut(auth).then(()=>location.reload());
 
 <!-- ===== APP SCRIPTS ===== -->
 <script>
-// ── CEK WALLET ON-CHAIN (global, bisa akses ethereum langsung) ──
-window.checkWalletRegistered = async function(addr) {
-  try {
-    const padded = addr.replace('0x','').padStart(64,'0');
-    const data   = '0x9b978a6b' + padded;
-    const result = await window.ethereum.request({
-      method: 'eth_call',
-      params: [{ to: '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9', data: data }, 'latest']
-    });
-    alert('CEK RESULT: ' + result);
-    if (!result || result === '0x') return false;
-    return parseInt(result.slice(2, 66), 16) === 1;
-  } catch(e) {
-    alert('CEK ERROR: ' + e.message);
-    return false;
-  }
-};
+
 // ===== INTRO VIDEO =====
 const video = document.getElementById('introVideo');
 video.addEventListener('ended', skipIntro);
