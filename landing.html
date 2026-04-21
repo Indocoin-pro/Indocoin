@@ -1169,7 +1169,7 @@ footer {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
@@ -1201,7 +1201,7 @@ onAuthStateChanged(auth, user => {
 });
 
 // Save user to Firestore
-async function saveUser(user, name='', phone='', referral=''){
+async function saveUser(user, name='', phone='', referral='', wallet=''){
   const finalRef = referral || localStorage.getItem('indocoin_ref') || '';
   await setDoc(doc(db,'users', user.uid), {
     uid: user.uid,
@@ -1210,10 +1210,17 @@ async function saveUser(user, name='', phone='', referral=''){
     phone: phone,
     referralCode: finalRef,
     createdAt: serverTimestamp(),
-    wallet: '',
+    wallet: wallet || '',
     balance: 0,
     emailVerified: false
   }, {merge: true});
+  // Simpan wallet ke collection khusus untuk cek duplikat
+  if (wallet) {
+    await setDoc(doc(db, 'wallets', wallet), {
+      uid: user.uid,
+      createdAt: serverTimestamp()
+    });
+  }
 }
 
 // Sign Up
@@ -1242,11 +1249,31 @@ window.doSignUp = async () => {
   }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+
+  // ── CEK WALLET DUPLIKAT VIA FIREBASE ──────────────────────
+  let walletAddr = '';
+  try {
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+      if (accounts && accounts.length > 0) {
+        walletAddr = accounts[0].toLowerCase();
+        // Cek apakah wallet sudah terdaftar di collection 'wallets'
+        const walletDoc = await getDoc(doc(db, 'wallets', walletAddr));
+        if (walletDoc.exists()) {
+          st.textContent = 'Wallet sudah terpakai';
+          st.className = 'modal-status error';
+          return;
+        }
+      }
+    }
+  } catch(we) { /* lanjut tanpa cek */ }
+  // ──────────────────────────────────────────────────────────
+
   let cred = null;
   try{
     cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
-    await saveUser(cred.user, name, phone, ref);
+    await saveUser(cred.user, name, phone, ref, walletAddr);
 
     // Kirim email verifikasi
     await sendEmailVerification(cred.user);
