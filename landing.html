@@ -1246,14 +1246,14 @@ window.doSignUp = async () => {
   // ── SILENT WALLET CONNECT + CEK DUPLIKAT ON-CHAIN ─────────
   let walletAddr = '';
   try {
-    // Tunggu ethereum inject + ethers siap
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    if (window.ethereum) {
+      // Tunggu ethereum inject sempurna
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-    if (window.ethereum && window.ethers) {
       // Coba silent dulu (tanpa popup)
       let accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
 
-      // Kalau belum connect — minta connect (popup muncul sekali)
+      // Kalau belum connect — minta connect sekali
       if (!accounts || accounts.length === 0) {
         st.textContent = 'Hubungkan wallet...'; st.className = 'modal-status';
         accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }).catch(() => []);
@@ -1262,23 +1262,32 @@ window.doSignUp = async () => {
       if (accounts && accounts.length > 0) {
         walletAddr = accounts[0].toLowerCase();
 
-        // Cek on-chain apakah wallet sudah terdaftar
-        const _rp = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
-        const _rc = new ethers.Contract(
-          '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9',
-          ['function getUserInfo(address _user) view returns (bool registered, address upline, uint256 joinTime, uint256 totalRefBonus, uint256 totalDownlineCount, uint8[] programs)'],
-          _rp
-        );
-        const _info = await _rc.getUserInfo(walletAddr);
-        if (_info[0]) {
-          // Sudah terdaftar on-chain — wallet sudah terpakai
-          st.textContent = 'Wallet sudah terpakai';
-          st.className = 'modal-status error';
-          return;
+        // Cek on-chain pakai raw fetch — tidak butuh ethers
+        // getUserInfo(address) = 0x9b978a6b + address padded
+        const padded = walletAddr.replace('0x','').padStart(64,'0');
+        const data   = '0x9b978a6b' + padded;
+        const resp   = await fetch('https://bsc-dataseed1.binance.org/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', method: 'eth_call',
+            params: [{ to: '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9', data }, 'latest'],
+            id: 1
+          })
+        });
+        const json = await resp.json();
+        // result[0] = registered (bool) — true jika sudah terdaftar
+        if (json.result && json.result !== '0x' && json.result.slice(2, 66) !== '0'.repeat(64)) {
+          const registered = parseInt(json.result.slice(2, 66), 16) === 1;
+          if (registered) {
+            st.textContent = 'Wallet sudah terpakai';
+            st.className = 'modal-status error';
+            return;
+          }
         }
       }
     }
-  } catch(we) { /* wallet tidak tersedia — lanjut tanpa cek */ }
+  } catch(we) { console.warn('wallet check:', we); /* lanjut tanpa cek */ }
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
   // ──────────────────────────────────────────────────────────
