@@ -467,11 +467,18 @@ async function handleAIChat(req, res) {
       apiRes.on('end', () => {
         try {
           const result = JSON.parse(data);
-          const text = result.content?.[0]?.text || 'Maaf, tidak ada jawaban.';
+          if (result.error) {
+            console.error('❌ API Error:', JSON.stringify(result.error));
+          }
+          const text = result.content?.[0]?.text;
+          if (!text) {
+            console.error('❌ No text in response:', JSON.stringify(result).slice(0, 200));
+          }
           corsHeaders(res);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ reply: text }));
+          res.end(JSON.stringify({ reply: text || 'Maaf, tidak ada jawaban.' }));
         } catch(e) {
+          console.error('❌ Parse error:', e.message, data.slice(0, 200));
           corsHeaders(res);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Parse error' }));
