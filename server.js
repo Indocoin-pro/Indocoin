@@ -443,7 +443,7 @@ async function handleAIChat(req, res) {
 
     const payload = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: finalMessages
     });
@@ -467,18 +467,11 @@ async function handleAIChat(req, res) {
       apiRes.on('end', () => {
         try {
           const result = JSON.parse(data);
-          if (result.error) {
-            console.error('❌ API Error:', JSON.stringify(result.error));
-          }
-          const text = result.content?.[0]?.text;
-          if (!text) {
-            console.error('❌ No text in response:', JSON.stringify(result).slice(0, 200));
-          }
+          const text = result.content?.[0]?.text || 'Maaf, tidak ada jawaban.';
           corsHeaders(res);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ reply: text || 'Maaf, tidak ada jawaban.' }));
+          res.end(JSON.stringify({ reply: text }));
         } catch(e) {
-          console.error('❌ Parse error:', e.message, data.slice(0, 200));
           corsHeaders(res);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Parse error' }));
