@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════   
-//  INDOCOIN — Server dengan Auto-Read GitHub
-//  Elara baca PDF/HTML langsung dari GitHub repo
-//  File baru di-push → otomatis terbaca, tanpa sentuh VPS
+//  INDOCOIN — Server dengan Local File Read
+//  Elara baca PDF/HTML dari folder lokal VPS
+//  File baru di-deploy via GitHub Actions → otomatis terbaca
 // ═══════════════════════════════════════════════════════════════════
 
 const WebSocket = require('ws');
@@ -11,9 +11,8 @@ const fs        = require('fs');
 
 const PORT = process.env.PORT || 443;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const GITHUB_RAW  = 'https://raw.githubusercontent.com/Indocoin-pro/Indocoin/main';
-const GITHUB_API  = 'https://api.github.com/repos/Indocoin-pro/Indocoin/contents';
-const CACHE_TTL   = 60 * 60 * 1000; // 1 jam (ms)
+const DOCS_PATH = '/root/indocoin/docs'; // Folder lokal PDF & HTML
+const CACHE_TTL = 60 * 60 * 1000; // 1 jam (ms)
 
 // ─── SSL ─────────────────────────────────────────────────────────────
 let sslOptions;
@@ -105,44 +104,31 @@ const FILE_MAP = {
 const cache = {};
 
 // ─── GitHub Fetch ─────────────────────────────────────────────────────
+// ─── Baca file dari lokal VPS ─────────────────────────────────────────
 function fetchRaw(filename) {
-  return new Promise((resolve, reject) => {
-    const url = `${GITHUB_RAW}/${encodeURIComponent(filename)}`;
-    https.get(url, { headers: { 'User-Agent': 'IndocoinElara/1.0' } }, res => {
-      if (res.statusCode === 404) return resolve(null);
-      if (res.statusCode !== 200) return resolve(null);
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve(Buffer.concat(chunks)));
-      res.on('error', () => resolve(null));
-    }).on('error', () => resolve(null));
+  return new Promise((resolve) => {
+    try {
+      const path = `${DOCS_PATH}/${filename}`;
+      if (!fs.existsSync(path)) return resolve(null);
+      const buf = fs.readFileSync(path);
+      resolve(buf);
+    } catch(e) {
+      resolve(null);
+    }
   });
 }
 
-// Ambil daftar file terbaru dari GitHub API (untuk auto-detect file baru)
+// Ambil daftar file dari folder lokal
 function fetchFileList() {
   return new Promise((resolve) => {
-    const url = `${GITHUB_API}`;
-    https.get(url, {
-      headers: { 'User-Agent': 'IndocoinElara/1.0', 'Accept': 'application/vnd.github.v3+json' }
-    }, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const list = JSON.parse(data);
-          if (Array.isArray(list)) {
-            resolve(list.map(f => f.name));
-          } else {
-            resolve([]);
-          }
-        } catch(e) { resolve([]); }
-      });
-      res.on('error', () => resolve([]));
-    }).on('error', () => resolve([]));
+    try {
+      const files = fs.readdirSync(DOCS_PATH);
+      resolve(files);
+    } catch(e) {
+      resolve([]);
+    }
   });
 }
-
 // Strip HTML tags → ambil teks penting
 function htmlToText(html) {
   return html
