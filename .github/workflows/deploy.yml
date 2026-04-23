@@ -9,15 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Deploy server.js to VPS
+      - name: Copy server.js to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          source: "server.js"
+          target: "/root/indocoin/"
+      - name: Restart PM2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_KEY }}
-          script: |
-            cp /root/indocoin/server.js /root/indocoin/server.js.bak
-            cat > /root/indocoin/server.js << 'SERVEREOF'
-            $(cat server.js)
-            SERVEREOF
-            pm2 restart indocoin
+          script: pm2 restart indocoin
