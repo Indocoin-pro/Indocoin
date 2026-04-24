@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>INDOCOIN CITY</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script>
+// Patch gamepad SEBELUM Babylon load — mencegah SecurityError di browser mobile
+try {
+  Object.defineProperty(navigator, 'getGamepads', {
+    value: function(){ return []; },
+    writable: true, configurable: true
+  });
+} catch(e) {
+  try { navigator.getGamepads = function(){ return []; }; } catch(e2) {}
+}
+</script>
+<script>
+// Load Babylon.js dengan fallback CDN otomatis
+(function(){
+  var CDNS = [
+    'https://cdn.babylonjs.com/babylon.js',
+    'https://unpkg.com/babylonjs@7.26.2/babylon.js',
+    'https://cdn.jsdelivr.net/npm/babylonjs@7.26.2/babylon.js'
+  ];
+  var LOADERS = [
+    'https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js',
+    'https://unpkg.com/babylonjs-loaders@7.26.2/babylonjs.loaders.min.js',
+    'https://cdn.jsdelivr.net/npm/babylonjs-loaders@7.26.2/babylonjs.loaders.min.js'
+  ];
+  function loadScript(urls, idx, onOk, onFail){
+    if(idx >= urls.length){ onFail(); return; }
+    var s = document.createElement('script');
+    s.src = urls[idx];
+    s.onload = onOk;
+    s.onerror = function(){ loadScript(urls, idx+1, onOk, onFail); };
+    document.head.appendChild(s);
+  }
+  loadScript(CDNS, 0, function(){
+    loadScript(LOADERS, 0, function(){
+      if(window._startCity) window._startCity();
+      else window._babylonReady = true;
+    }, function(){
+      // Loader gagal tapi engine OK, tetap lanjut
+      if(window._startCity) window._startCity();
+      else window._babylonReady = true;
+    });
+  }, function(){
+    var el = document.getElementById('loading');
+    if(el) el.textContent = '❌ Gagal memuat engine 3D. Periksa koneksi internet.';
+  });
+})();
+</script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a1628}
+#cvs{width:100%;height:100%;display:block;touch-action:none;outline:none}
+#hud{position:fixed;top:0;left:0;right:0;z-index:20;pointer-events:none;padding:14px 18px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  background:linear-gradient(180deg,rgba(0,0,20,.8),transparent)}
+.hcity{font-family:'Orbitron',monospace;font-size:clamp(14px,4vw,22px);font-weight:900;
+  color:#00e5ff;letter-spacing:3px;text-shadow:0 0 20px #00e5ff88}
+.hmayor{font-size:clamp(11px,3vw,14px);color:#ffd700;margin-top:4px;letter-spacing:1px}
+.hright{text-align:right}
+#hclock{font-family:'Orbitron',monospace;font-size:clamp(12px,3vw,16px);color:#00ff88;font-weight:700}
+.hhint{font-size:10px;color:#334;margin-top:4px;line-height:1.5}
+#hbot{position:fixed;bottom:0;left:0;right:0;z-index:20;pointer-events:none;padding:10px 16px;
+  text-align:center;background:linear-gradient(0deg,rgba(0,0,20,.7),transparent)}
+.hticker{font-size:10px;color:#00e5ff22;letter-spacing:3px}
+#interior{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;background:rgba(1,4,20,.97);
+  opacity:0;pointer-events:none;transition:opacity .35s;overflow-y:auto;padding:72px 18px 50px}
+#interior.open{opacity:1;pointer-events:all}
+#backbtn{position:fixed;top:14px;left:14px;z-index:101;display:none;
+  background:rgba(0,229,255,.1);border:1px solid #00e5ff55;color:#00e5ff;
+  font-family:'Orbitron',monospace;font-size:10px;padding:9px 15px;border-radius:8px;cursor:pointer;letter-spacing:1px}
+#backbtn.open{display:block}
+#int-hdr{text-align:center;margin-bottom:28px}
+#int-em{font-size:clamp(40px,10vw,58px);margin-bottom:10px;display:block}
+#int-ttl{font-family:'Orbitron',monospace;font-size:clamp(16px,5vw,26px);font-weight:900;letter-spacing:3px;margin-bottom:6px}
+#int-sub{font-size:13px;color:#445;letter-spacing:1px}
+#int-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:13px;width:100%;max-width:580px}
+.scard{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 12px;
+  border-radius:14px;border:1px solid;background:rgba(255,255,255,.03);text-decoration:none;
+  color:#ccd;transition:transform .2s,background .2s,box-shadow .2s}
+.scard:hover,.scard:active{transform:translateY(-3px)}
+.sicon{font-size:26px}.sname{font-size:12px;font-weight:600;text-align:center;line-height:1.3}
+#welcome{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;background:#020814;transition:opacity 1.2s}
+#welcome.out{opacity:0;pointer-events:none}
+.wlogo{font-size:clamp(50px,13vw,80px);animation:pulse 2s infinite;margin-bottom:16px}
+.wcity{font-family:'Orbitron',monospace;font-size:clamp(20px,6vw,48px);font-weight:900;
+  color:#00e5ff;letter-spacing:4px;text-align:center;text-shadow:0 0 40px #00e5ff88;margin-bottom:10px}
+.wmayor{font-size:clamp(13px,3.5vw,18px);color:#ffd700;letter-spacing:2px;text-align:center}
+.wsub{font-size:12px;color:#334;letter-spacing:2px;margin-top:18px;text-align:center}
+.lbar-w{width:180px;height:3px;background:#111133;border-radius:2px;margin-top:24px;overflow:hidden}
+#lbar{height:100%;width:0%;background:linear-gradient(90deg,#00e5ff,#7c4dff);border-radius:2px;transition:width .1s}
+#loading{position:fixed;inset:0;z-index:150;background:#020814;display:flex;align-items:center;
+  justify-content:center;font-family:'Orbitron',monospace;color:#00e5ff;font-size:14px;letter-spacing:2px;transition:opacity .8s}
+#loading.hide{opacity:0;pointer-events:none}
+#tip{position:fixed;z-index:30;pointer-events:none;background:rgba(0,10,35,.92);
+  border:1px solid #00e5ff33;color:#00e5ff;font-family:'Orbitron',monospace;font-size:10px;
+  padding:6px 12px;border-radius:8px;letter-spacing:1px;opacity:0;transition:opacity .2s;transform:translate(-50%,-120%)}
+#tip.show{opacity:1}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+</style>
+</head>
+<body>
+<div id="loading">MEMUAT INDOCOIN CITY...</div>
+<div id="welcome">
+  <div class="wlogo">🏙️</div>
+  <div class="wcity">INDOCOIN CITY</div>
+  <div class="wmayor">Selamat Datang di Kota Indocoin</div>
+  <div class="wsub">Membangun kota...</div>
+  <div class="lbar-w"><div id="lbar"></div></div>
+</div>
+<canvas id="cvs"></canvas>
+<div id="hud">
+  <div>
+    <div class="hcity">🏙️ INDOCOIN CITY</div>
+    <div class="hmayor">👑 Walikota: Sanjaya</div>
+  </div>
+  <div class="hright">
+    <div id="hclock">--:--:--</div>
+    <div class="hhint">📱 Cubit=Zoom • Seret=Putar<br>👆 Tap Gedung=Masuk</div>
+  </div>
+</div>
+<div id="hbot"><div class="hticker">INDOCOIN CITY • INDC TOKEN • BINANCE SMART CHAIN</div></div>
+<div id="tip"></div>
+<button id="backbtn" onclick="window.closeInterior()">← KEMBALI KE KOTA</button>
+<div id="interior">
+  <div id="int-hdr">
+    <span id="int-em"></span>
+    <div id="int-ttl"></div>
+    <div id="int-sub">Pilih layanan yang ingin Anda masuki</div>
+  </div>
+  <div id="int-grid"></div>
+</div>
+<script>
+window._startCity = function(){
+'use strict';
+try{
+
+// ══════════════════════════════════════════════════
+//  KONFIGURASI — Edit sesuka Walikota Sanjaya!
+// ══════════════════════════════════════════════════
+const KOTA = {
+  bangunan: [
+    { id:"earn",    nama:"Earn Center",     emoji:"💰", hex:"#00e5ff",
+      rgb:[0,0.9,1.0], pos:{x:-65,z:-65}, sz:{w:22,d:22,h:32},
+      sub:[{nama:"Earn Dashboard",link:"earn.html",icon:"📊"}] },
+    { id:"trading", nama:"Trading Tower",   emoji:"📈", hex:"#ff6600",
+      rgb:[1,0.4,0],   pos:{x:0,z:-68},   sz:{w:18,d:18,h:52},
+      sub:[
+        {nama:"Phantom Box", link:"phantom-box-trade.html",icon:"👻"},
+        {nama:"Clash Trade", link:"clash-trade.html",      icon:"⚔️"},
+        {nama:"Cycle Trade", link:"cycle-trade.html",      icon:"🔄"},
+        {nama:"Wave Trade",  link:"wave-trade.html",       icon:"🌊"},
+        {nama:"Blitz Trade", link:"blitz-trade.html",      icon:"⚡"},
+        {nama:"Three Trade", link:"three-trade.html",      icon:"3️⃣"},
+        {nama:"Delta Trade", link:"delta-trade.html",      icon:"△"},
+        {nama:"Shadow Copy", link:"shadow-copy-trade.html",icon:"🌑"}
+      ]},
+    { id:"staking", nama:"Staking Bank",    emoji:"🏛️", hex:"#7c4dff",
+      rgb:[0.49,0.3,1],pos:{x:65,z:-65},  sz:{w:22,d:22,h:36},
+      sub:[
+        {nama:"INDC Staking", link:"indc-staking.html",       icon:"🔒"},
+        {nama:"Growth Lock",  link:"growth-lock-staking.html", icon:"📈"},
+        {nama:"Dynamic Level",link:"dynamiclevelstaking.html", icon:"🎯"},
+        {nama:"AutoCompound", link:"autocompoundstaking.html", icon:"⚙️"},
+        {nama:"Point Vault",  link:"pointvaultstaking.html",   icon:"🏦"},
+        {nama:"Flexi Yield",  link:"flexiyieldstaking.html",   icon:"💎"}
+      ]},
+    { id:"airdrop", nama:"Airdrop Station", emoji:"🎁", hex:"#ff4081",
+      rgb:[1,0.25,0.51],pos:{x:-65,z:0}, sz:{w:18,d:18,h:24},
+      sub:[
+        {nama:"Klaim Airdrop",     link:"airdrop.html",           icon:"🎁"},
+        {nama:"Stairway to Heaven",link:"stairway-to-heaven.html",icon:"⭐"}
+      ]},
+    { id:"referral",nama:"Referral Hall",   emoji:"👥", hex:"#00e676",
+      rgb:[0,0.9,0.46],pos:{x:65,z:0},   sz:{w:18,d:18,h:22},
+      sub:[
+        {nama:"Program Referral",      link:"referral.html",           icon:"🤝"},
+        {nama:"Referral Power Staking",link:"referralpowerstaking.html",icon:"💪"}
+      ]},
+    { id:"gamefi",  nama:"GameFi Arena",    emoji:"🎮", hex:"#ffd600",
+      rgb:[1,0.84,0],  pos:{x:-65,z:65},  sz:{w:24,d:24,h:30},
+      sub:[
+        {nama:"BrainClash",  link:"brainclash.html",  icon:"🧠"},
+        {nama:"Sanjaya",     link:"sanjaya.html",     icon:"⚔️"},
+        {nama:"Battle Arena",link:"battle-arena.html",icon:"🏟️"},
+        {nama:"PVP Duel",    link:"pvp-duel.html",    icon:"🥊"},
+        {nama:"Tournament",  link:"tournament.html",  icon:"🏆"}
+      ]},
+    { id:"vip",     nama:"VIP Lounge",      emoji:"💎", hex:"#ffa726",
+      rgb:[1,0.65,0.15],pos:{x:0,z:65},  sz:{w:20,d:20,h:24},
+      sub:[
+        {nama:"Member VIP Pool",link:"member-vip.html",icon:"👑"},
+        {nama:"Info VIP",       link:"vip.html",       icon:"ℹ️"}
+      ]},
+    { id:"paidads", nama:"Paid Ads Plaza",  emoji:"📢", hex:"#e91e63",
+      rgb:[0.91,0.12,0.39],pos:{x:65,z:65},sz:{w:20,d:20,h:28},
+      sub:[
+        {nama:"Pasang Iklan",link:"paid-ads-register.html",icon:"📝"},
+        {nama:"Toko Iklan",  link:"paid-ads-store.html",   icon:"🏪"},
+        {nama:"Seller Iklan",link:"paid-ads-seller.html",  icon:"💼"}
+      ]},
+    { id:"presale", nama:"Presale Market",  emoji:"🚀", hex:"#40c4ff",
+      rgb:[0.25,0.77,1],pos:{x:-65,z:-68},sz:{w:18,d:18,h:22},
+      sub:[{nama:"Beli INDC Presale",link:"presale.html",icon:"🛒"}] },
+  ]
+};
+
+// ══════════════════════════════════════════════════
+//  ENGINE & SCENE
+// ══════════════════════════════════════════════════
+const canvas=document.getElementById('cvs');
+const engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:true,stencil:true,adaptToDeviceRatio:true});
+const scene=new BABYLON.Scene(engine);
+scene.clearColor=new BABYLON.Color4(0.58,0.72,0.90,1);
+
+// Camera — ArcRotate handles drag+pinch automatically
+const camera=new BABYLON.ArcRotateCamera("cam",-Math.PI/3.5,0.95,230,new BABYLON.Vector3(0,8,0),scene);
+camera.lowerRadiusLimit=18; camera.upperRadiusLimit=400;
+camera.lowerBetaLimit=0.08; camera.upperBetaLimit=Math.PI/2.1;
+camera.wheelDeltaPercentage=0.008; camera.pinchDeltaPercentage=0.008;
+camera.attachControl(canvas,true);
+// Disable gamepad - diblokir di browser mobile
+camera.inputs.removeByType("ArcRotateCameraGamepadInput");
+
+// Lights
+const hemi=new BABYLON.HemisphericLight("hemi",new BABYLON.Vector3(0,1,0),scene);
+hemi.intensity=0.65; hemi.diffuse=new BABYLON.Color3(0.88,0.92,1.0);
+hemi.groundColor=new BABYLON.Color3(0.35,0.42,0.25); hemi.specular=BABYLON.Color3.Black();
+
+const sun=new BABYLON.DirectionalLight("sun",new BABYLON.Vector3(-0.6,-1.2,-0.5),scene);
+sun.position=new BABYLON.Vector3(100,180,100); sun.intensity=2.1;
+sun.diffuse=new BABYLON.Color3(1.0,0.96,0.86);
+
+// Shadows
+const shadow=new BABYLON.ShadowGenerator(1024,sun);
+shadow.useBlurExponentialShadowMap=true; shadow.blurKernel=6;
+function addShadow(m){shadow.addShadowCaster(m,true);m.receiveShadows=true;}
+
+// Fog
+scene.fogMode=BABYLON.Scene.FOGMODE_EXP2;
+scene.fogColor=new BABYLON.Color3(0.68,0.80,0.94);
+scene.fogDensity=0.0025;
+
+// Sky dome
+const skyMat=new BABYLON.StandardMaterial("sky",scene);
+skyMat.emissiveColor=new BABYLON.Color3(0.55,0.70,0.90);
+skyMat.backFaceCulling=false; skyMat.disableLighting=true;
+const skyDome=BABYLON.MeshBuilder.CreateSphere("sd",{diameter:700,sideOrientation:BABYLON.Mesh.BACKSIDE,segments:8},scene);
+skyDome.material=skyMat; skyDome.isPickable=false;
+
+// ══════════════════════════════════════════════════
+//  MATERIALS
+// ══════════════════════════════════════════════════
+function pbr(name,col,met=0,rgh=0.85,em=null){
+  const m=new BABYLON.PBRMaterial(name,scene);
+  m.albedoColor=new BABYLON.Color3(...col);
+  m.metallic=met; m.roughness=rgh;
+  if(em) m.emissiveColor=new BABYLON.Color3(...em);
+  return m;
+}
+const M={
+  asphalt:  pbr("asp",[0.13,0.13,0.15]),
+  sidewalk: pbr("sw", [0.55,0.52,0.46]),
+  grass:    pbr("grs",[0.16,0.38,0.14]),
+  grass2:   pbr("gr2",[0.20,0.48,0.18]),
+  concrete: pbr("con",[0.60,0.58,0.54]),
+  cream:    pbr("crm",[0.92,0.88,0.78]),
+  white:    pbr("wht",[0.94,0.94,0.94]),
+  glass:    pbr("gl", [0.08,0.16,0.32],0.88,0.04),
+  metal:    pbr("met",[0.55,0.57,0.60],0.95,0.25),
+  gold:     pbr("gld",[0.88,0.72,0.22],0.95,0.18),
+  yellow:   pbr("yel",[1.0,0.85,0.0]),
+  white2:   pbr("wh2",[0.96,0.96,0.96],0,0.75),
+  bark:     pbr("brk",[0.30,0.17,0.07]),
+  leaf:     pbr("lf1",[0.12,0.40,0.08]),
+  leaf2:    pbr("lf2",[0.08,0.35,0.05]),
+  water:    pbr("wat",[0.05,0.22,0.55],0.5,0.10,[0.02,0.08,0.22]),
+  roof:     pbr("rf", [0.28,0.33,0.42],0.2,0.70),
+  red:      pbr("rd", [0.85,0.10,0.10]),
+};
+
+// ══════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════
+let _id=0;
+function nid(pfx){return pfx+(_id++);}
+function BOX(w,h,d,mat,x,y,z,cast=false){
+  const m=BABYLON.MeshBuilder.CreateBox(nid("b"),{width:w,height:h,depth:d},scene);
+  m.position.set(x,y,z); if(mat)m.material=mat; m.receiveShadows=true;
+  if(cast)addShadow(m); return m;
+}
+function CYL(dt,db,h,tess,mat,x,y,z,cast=false){
+  const m=BABYLON.MeshBuilder.CreateCylinder(nid("c"),{diameterTop:dt,diameterBottom:db,height:h,tessellation:tess},scene);
+  m.position.set(x,y,z); if(mat)m.material=mat; m.receiveShadows=true;
+  if(cast)addShadow(m); return m;
+}
+function SPH(d,mat,x,y,z){
+  const m=BABYLON.MeshBuilder.CreateSphere(nid("s"),{diameter:d,segments:10},scene);
+  m.position.set(x,y,z); if(mat)m.material=mat; m.receiveShadows=true; return m;
+}
+function light(x,y,z,col,intensity,range){
+  const l=new BABYLON.PointLight(nid("l"),new BABYLON.Vector3(x,y,z),scene);
+  l.diffuse=new BABYLON.Color3(...col); l.intensity=intensity; l.range=range; return l;
+}
+
+// ══════════════════════════════════════════════════
+//  GROUND
+// ══════════════════════════════════════════════════
+const gnd=BABYLON.MeshBuilder.CreateGround(nid("g"),{width:500,height:500,subdivisions:1},scene);
+gnd.material=M.grass; gnd.receiveShadows=true;
+BOX(170,0.2,170,M.concrete,0,0.05,0); // city block
+
+// ══════════════════════════════════════════════════
+//  ROADS — Posisi eksplisit, tidak ada overlap
+//  Jalan di x=±40, z=±40, lebar=18
+// ══════════════════════════════════════════════════
+const RW=18, RL=230, RY=0.12;
+const H1Z=-40, H2Z=40, V1X=-40, V2X=40;
+
+// Aspal
+BOX(RL,0.22,RW,M.asphalt,0,RY,H1Z);
+BOX(RL,0.22,RW,M.asphalt,0,RY,H2Z);
+BOX(RW,0.22,RL,M.asphalt,V1X,RY,0);
+BOX(RW,0.22,RL,M.asphalt,V2X,RY,0);
+// Intersections
+[[V1X,H1Z],[V2X,H1Z],[V1X,H2Z],[V2X,H2Z]].forEach(([x,z])=>BOX(RW,0.22,RW,M.asphalt,x,RY,z));
+
+// Center double-yellow lines
+function cline(isH,fv){
+  const len=RL-RW;
+  [-0.28,0.28].forEach(o=>{
+    BOX(isH?len:0.28,0.23,isH?0.28:len,M.yellow,isH?0:fv+o,RY+0.01,isH?fv+o:0);
+  });
+}
+cline(true,H1Z);cline(true,H2Z);cline(false,V1X);cline(false,V2X);
+
+// Lane dashes (white)
+function ldash(isH,fv,off){
+  const step=11,count=Math.floor((RL-RW)/step);
+  for(let i=0;i<count;i++){
+    const p=-(RL-RW)/2+i*step+4;
+    if(isH&&(Math.abs(p-V1X)<14||Math.abs(p-V2X)<14))continue;
+    if(!isH&&(Math.abs(p-H1Z)<14||Math.abs(p-H2Z)<14))continue;
+    BOX(isH?5.5:0.25,0.23,isH?0.25:5.5,M.white2,isH?p:fv+off,RY+0.01,isH?fv+off:p);
+  }
+}
+[-3.8,3.8].forEach(o=>{ldash(true,H1Z,o);ldash(true,H2Z,o);ldash(false,V1X,o);ldash(false,V2X,o);});
+
+// Edge lines
+function eline(isH,fv){
+  [-RW/2,RW/2].forEach(o=>BOX(isH?RL:0.3,0.23,isH?0.3:RL,M.white2,isH?0:fv+o,RY+0.01,isH?fv+o:0));
+}
+eline(true,H1Z);eline(true,H2Z);eline(false,V1X);eline(false,V2X);
+
+// Zebra crossings (logis, clear)
+function zH(cx,cz){
+  const ns=7,sw=0.72,sg=0.58,rw=RW-1;
+  for(let i=0;i<ns;i++) BOX(sw,0.24,rw,M.white2,cx+i*(sw+sg)-((ns-1)*(sw+sg))/2,RY+0.02,cz);
+}
+function zV(cx,cz){
+  const ns=7,sw=0.72,sg=0.58,rw=RW-1;
+  for(let i=0;i<ns;i++) BOX(rw,0.24,sw,M.white2,cx,RY+0.02,cz+i*(sw+sg)-((ns-1)*(sw+sg))/2);
+}
+[0,-70,70].forEach(v=>{zH(v,H1Z);zH(v,H2Z);});
+[0,-70,70].forEach(v=>{zV(V1X,v);zV(V2X,v);});
+
+// Sidewalks
+const SW=RW/2+3;
+function mkSW(isH,fv,side,len=200){
+  const off=fv+side*(SW);
+  const base=BOX(isH?len:5,0.28,isH?5:len,M.sidewalk,isH?0:off,0.15,isH?off:0);
+  const step2=6,n=Math.floor(len/step2);
+  for(let i=0;i<n;i++){
+    const tp=i*step2-len/2+step2/2;
+    BOX(isH?0.08:5.1,0.29,isH?5.1:0.08,M.concrete,isH?tp:off,0.16,isH?off:tp);
+  }
+}
+mkSW(true,H1Z,1);mkSW(true,H1Z,-1);mkSW(true,H2Z,1);mkSW(true,H2Z,-1);
+mkSW(false,V1X,1);mkSW(false,V1X,-1);mkSW(false,V2X,1);mkSW(false,V2X,-1);
+
+// ══════════════════════════════════════════════════
+//  TREE BUILDER
+// ══════════════════════════════════════════════════
+function makeTree(x,z,h=6){
+  CYL(0.35*(h/6),0.55*(h/6),h*0.45,8,M.bark,x,h*0.225,z,true);
+  [[h*0.62,h*0.65],[h*0.88,h*0.44],[h*1.10,h*0.30]].forEach(([cy2,r],i)=>{
+    const l=BABYLON.MeshBuilder.CreateCylinder(nid("lf"),
+      {diameterTop:0,diameterBottom:r*2,height:h*0.42,tessellation:7},scene);
+    l.position.set(x,cy2,z); l.material=i===1?M.leaf2:M.leaf; l.receiveShadows=true; addShadow(l);
+  });
+}
+
+// Boulevard trees
+for(let v=-90;v<=90;v+=18){
+  if(Math.abs(v-V1X)>12&&Math.abs(v-V2X)>12){makeTree(v,H1Z-SW-3,4.5);makeTree(v,H2Z+SW+3,4.5);}
+  if(Math.abs(v-H1Z)>12&&Math.abs(v-H2Z)>12){makeTree(V1X-SW-3,v,4.5);makeTree(V2X+SW+3,v,4.5);}
+}
+
+// ══════════════════════════════════════════════════
+//  STREET LIGHTS
+// ══════════════════════════════════════════════════
+function strLight(x,z){
+  CYL(0.14,0.2,9,6,M.metal,x,4.5,z,true);
+  BOX(2.5,0.18,0.18,M.metal,x+1.25,9.5,z);
+  SPH(0.6,pbr(nid("slg"),[1,1,0.82],0,0.3,[0.9,0.9,0.65]),x+2.5,9.5,z);
+  light(x+2.5,9.2,z,[1,0.95,0.7],1.0,22);
+}
+for(let v=-90;v<=90;v+=25){
+  if(Math.abs(v-V1X)>10&&Math.abs(v-V2X)>10){strLight(v,H1Z-SW-1);strLight(v,H2Z+SW+1);}
+  if(Math.abs(v-H1Z)>10&&Math.abs(v-H2Z)>10){strLight(V1X-SW-1,v);strLight(V2X+SW+1,v);}
+}
+
+// ══════════════════════════════════════════════════
+//  KANTOR WALI KOTA — Pusat Kota
+// ══════════════════════════════════════════════════
+(function(){
+  const CX=0,CZ=-4;
+  // Taman halaman
+  BOX(28,0.2,20,M.grass2,CX,0.1,CZ+12); // lawn
+  BOX(3,0.22,20,M.sidewalk,CX,0.12,CZ+12); // jalan setapak tengah
+  BOX(28,0.22,2.5,M.sidewalk,CX,0.12,CZ+10); // jalur samping
+  // Kolam fountain
+  CYL(5,5.5,1.2,20,M.concrete,CX,0.85,CZ+16);
+  CYL(4.6,4.6,0.5,20,M.water,CX,1.45,CZ+16);
+  CYL(0.5,0.7,4.5,10,M.concrete,CX,3.2,CZ+16);
+  const fo=SPH(2,pbr(nid("fo"),[0.2,0.5,1],0.5,0.1,[0.1,0.3,0.8]),CX,6,CZ+16);
+  fo.metadata={isFountain:true}; light(CX,6,CZ+16,[0.3,0.6,1],0.8,14);
+  // Pohon taman
+  [[-9,6],[9,6],[-9,14],[9,14],[-5,18],[5,18]].forEach(([ox,oz])=>makeTree(CX+ox,CZ+oz,5));
+  // Bunga
+  const fc=[[1,0.2,0.2],[1,0.6,0],[1,1,0],[1,0.4,0.8]];
+  [[-11,10],[11,10],[-11,15],[11,15],[-6,19],[6,19]].forEach(([ox,oz],i)=>{
+    BOX(2,0.5,2,pbr(nid("fl"),fc[i%fc.length],0,0.7,fc[i%fc.length].map(v=>v*0.3)),CX+ox,0.4,CZ+oz);
+  });
+  // Pagar
+  BOX(0.6,1.8,24,M.cream,CX-13.5,0.9,CZ+11); BOX(0.6,1.8,24,M.cream,CX+13.5,0.9,CZ+11);
+  BOX(28,0.9,0.6,M.cream,CX,0.45,CZ+23);
+  // Gerbang emas
+  BOX(1.4,3,0.7,M.gold,CX-2.5,1.5,CZ+23); BOX(1.4,3,0.7,M.gold,CX+2.5,1.5,CZ+23);
+  BOX(6.5,0.9,0.8,M.gold,CX,3.4,CZ+23);
+  SPH(1,M.gold,CX-2.5,3.2,CZ+23); SPH(1,M.gold,CX+2.5,3.2,CZ+23);
+  // Tiang bendera
+  CYL(0.15,0.2,14,8,M.metal,CX,7,CZ+2,true);
+  BOX(4,0.05,2.4,M.red,CX+2,14,CZ+2); BOX(4,0.05,2.4,M.white2,CX+2,13.3,CZ+2);
+  // GEDUNG UTAMA
+  BOX(34,1.2,18,M.concrete,CX,0.6,CZ,true);
+  for(let s=0;s<3;s++) BOX(20,0.55,1.6-s*0.4,M.concrete,CX,0.55+s*0.55,CZ+8.8-s*1.5);
+  BOX(30,18,14,M.cream,CX,10,CZ-1,true);
+  BOX(8,14,12,M.cream,CX-19,8,CZ-1.5,true); BOX(8,14,12,M.cream,CX+19,8,CZ-1.5,true);
+  // Pediment atap
+  const ped=BABYLON.MeshBuilder.CreateCylinder(nid("ped"),{diameterTop:0,diameterBottom:28,height:5,tessellation:3},scene);
+  ped.position.set(CX,20.5,CZ); ped.rotation.y=Math.PI/6; ped.material=M.roof; addShadow(ped);
+  BOX(8,1.4,12,M.roof,CX-19,15.7,CZ-1.5); BOX(8,1.4,12,M.roof,CX+19,15.7,CZ-1.5);
+  // Strip emas
+  BOX(30.2,0.5,14.2,M.gold,CX,3.5,CZ-1); BOX(30.2,0.5,14.2,M.gold,CX,11,CZ-1);
+  // Kolom depan (6)
+  for(let ci=-2;ci<=2;ci++){
+    CYL(0.7,0.85,18,12,M.white,CX+ci*3.6,10,CZ+7.1,true);
+    CYL(1,1.1,0.8,12,M.concrete,CX+ci*3.6,0.4,CZ+7.1);
+    BOX(1.6,0.6,1.6,M.concrete,CX+ci*3.6,19.3,CZ+7.1);
+  }
+  // Kolom sayap
+  [-1,1].forEach(s=>{
+    CYL(0.55,0.65,14,10,M.white,CX-19+s*2.5,8,CZ+5.6,true);
+    CYL(0.55,0.65,14,10,M.white,CX+19+s*2.5,8,CZ+5.6,true);
+  });
+  // Jendela
+  const wm=pbr(nid("cw"),[0.08,0.18,0.38],0.8,0.05,[0.02,0.06,0.15]);
+  [-9,-3,3,9].forEach(wx=>BOX(3.2,5,0.1,wm,CX+wx,5,CZ+5.95));
+  [-10,-5,0,5,10].forEach(wx=>BOX(2.5,4,0.1,wm,CX+wx,12,CZ+5.95));
+  [-7,-2,2,7].forEach(wx=>BOX(2,3,0.1,wm,CX+wx,16.5,CZ+5.95));
+  // Pintu
+  BOX(6.5,8.5,0.4,M.gold,CX,5.3,CZ+7.3); BOX(5.2,7.8,0.1,wm,CX,5.2,CZ+7.5);
+  BOX(6.5,0.5,1.2,M.gold,CX,9.3,CZ+7.5);
+  // Panel nama
+  BOX(22,3,0.5,pbr(nid("spb"),[0.05,0.1,0.28]),CX,12,CZ+7.3);
+  BOX(22.5,0.35,0.6,M.gold,CX,13.7,CZ+7.3); BOX(22.5,0.35,0.6,M.gold,CX,10.3,CZ+7.3);
+  // Label HTML papan nama
+  const signDiv=document.createElement('div');
+  signDiv.id='ch-sign';
+  signDiv.style.cssText='position:fixed;z-index:15;pointer-events:none;text-align:center;transform:translate(-50%,-50%);font-family:Orbitron,monospace;font-weight:700;color:#ffd700;line-height:1.3;display:none;text-shadow:0 0 8px #ffd700aa';
+  signDiv.innerHTML='<div style="font-size:clamp(5px,1.1vw,9px);letter-spacing:1.5px">KANTOR ADMINISTRASI</div><div style="font-size:clamp(4px,0.9vw,8px);letter-spacing:1px;opacity:.9">KOTA INDOCOIN</div>';
+  document.body.appendChild(signDiv);
+  window._chSign={div:signDiv,pos:new BABYLON.Vector3(CX,12.5,CZ+8)};
+  // Lampu sorot gedung
+  light(CX,40,CZ,[1,0.95,0.82],1.2,60);
+  // Lampu taman
+  [[CX-8,CZ+3],[CX+8,CZ+3],[CX-11,CZ+9],[CX+11,CZ+9]].forEach(([lx,lz])=>{
+    CYL(0.12,0.18,2.8,6,M.metal,lx,1.4,lz);
+    SPH(0.6,pbr(nid("lg"),[1,1,0.85],0,0.3,[0.9,0.9,0.7]),lx,3,lz);
+    light(lx,3,lz,[1,0.95,0.7],0.7,8);
+  });
+})();
+
+// ══════════════════════════════════════════════════
+//  8 GEDUNG INDOCOIN
+// ══════════════════════════════════════════════════
+const pickableMeshes=[];
+
+function makeBuilding(cfg){
+  const {pos,sz,rgb,id}=cfg;
+  const {x,z}=pos,{w,d,h}=sz;
+  // PBR materials kustom per gedung
+  const fac=pbr(nid("fc"),rgb.map(v=>v*0.22),0.92,0.04,rgb.map(v=>v*0.04));
+  const acc=pbr(nid("ac"),rgb,0.3,0.45,rgb.map(v=>v*0.28));
+  const wm=pbr(nid("wn"),rgb.map(v=>v*0.10),0.88,0.04,rgb.map(v=>v*0.07));
+  // Pondasi
+  BOX(w+3,1,d+3,M.concrete,x,0.5,z,true);
+  // Badan utama glass facade
+  const body=BOX(w,h,d,fac,x,h/2+1,z,true);
+  body.metadata={buildingCfg:cfg}; body.isPickable=true; pickableMeshes.push(body);
+  // Strips warna
+  const ns2=Math.floor(h/9);
+  for(let s=0;s<ns2;s++) BOX(w+0.1,0.7,d+0.1,acc,x,1+s*9+4.5,z);
+  // Crown
+  const crown=BOX(w-1,2,d-1,acc,x,h+2,z,true);
+  crown.metadata={buildingCfg:cfg}; crown.isPickable=true; pickableMeshes.push(crown);
+  // Orb bercahaya
+  const orbMat=pbr(nid("ob"),rgb,0.1,0.2,rgb);
+  const orb=SPH(2.2,orbMat,x,h+5.5,z);
+  orb.metadata={isOrb:true,phase:Math.random()*Math.PI*2};
+  light(x,h+5,z,rgb,1.5,38);
+  // Antena tall buildings
+  if(h>=45) CYL(0.1,0.4,9,6,M.metal,x,h+9,z,true);
+  // Ruko pendamping (3 unit di samping gedung, sesuai blok)
+  const rukoX=[x-w/2-4, x, x+w/2+4];
+  const rukoZ=z+d/2+4;
+  rukoX.forEach((rx,ri)=>{
+    const rh=6+Math.random()*5;
+    const rc=[0.4+Math.random()*0.3,0.35+Math.random()*0.2,0.25+Math.random()*0.2];
+    const rm=pbr(nid("rk"),rc);
+    const rb=BOX(5,rh,4.5,rm,rx,rh/2,rukoZ,true);
+    // Jendela toko
+    BOX(3.5,2.8,0.1,pbr(nid("rw"),[0.1,0.2,0.32],0.6,0.08),rx,2.2,rukoZ+2.26);
+    // Tanda toko (strip warna)
+    BOX(5.2,0.6,0.1,pbr(nid("rs"),rc.map(v=>v*0.6)),rx,3.9,rukoZ+2.27);
+  });
+}
+KOTA.bangunan.forEach(cfg=>makeBuilding(cfg));
+
+// ══════════════════════════════════════════════════
+//  TAMAN & LAPANGAN
+// ══════════════════════════════════════════════════
+// Taman pojok barat-selatan
+(function(){
+  const PX=-72,PZ=72;
+  BOX(32,0.2,32,M.grass2,PX,0.1,PZ);
+  BOX(30,0.22,2.5,M.sidewalk,PX,0.12,PZ); BOX(2.5,0.22,30,M.sidewalk,PX,0.12,PZ);
+  [[-10,-10],[-10,10],[10,-10],[10,10],[0,-12],[0,12]].forEach(([ox,oz])=>makeTree(PX+ox,PZ+oz,5));
+  [[-6,-6],[-6,6],[6,-6],[6,6]].forEach(([ox,oz])=>BOX(3,0.4,0.8,M.bark,PX+ox,0.5,PZ+oz));
+  CYL(4,4,0.3,16,M.water,PX,0.3,PZ); light(PX,3,PZ,[0.3,0.5,1],0.7,12);
+  [[-14,0],[14,0],[0,-14],[0,14]].forEach(([ox,oz])=>{
+    BOX(0.4,1.2,28,M.cream,PX+ox,0.6,PZ); BOX(28,1.2,0.4,M.cream,PX,0.6,PZ+oz);
+  });
+  BOX(28,1.2,0.4,M.cream,PX,0.6,PZ-14); BOX(28,1.2,0.4,M.cream,PX,0.6,PZ+14);
+  BOX(0.4,1.2,28,M.cream,PX-14,0.6,PZ); BOX(0.4,1.2,28,M.cream,PX+14,0.6,PZ);
+})();
+
+// Lapangan bola pojok timur-selatan
+(function(){
+  const FX=72,FZ=72;
+  BOX(40,0.2,26,M.grass2,FX,0.1,FZ);
+  BOX(0.3,0.22,24,M.white2,FX,0.12,FZ);
+  BOX(38,0.22,0.3,M.white2,FX,0.12,FZ-12); BOX(38,0.22,0.3,M.white2,FX,0.12,FZ+12); BOX(38,0.22,0.3,M.white2,FX,0.12,FZ);
+  [[FX-20,FZ],[FX+20,FZ]].forEach(([gx,gz])=>{
+    BOX(0.3,3,0.3,M.white2,gx,1.5,gz-3); BOX(0.3,3,0.3,M.white2,gx,1.5,gz+3);
+    BOX(0.3,0.3,6.2,M.white2,gx,3,gz);
+  });
+  [[FX-20,FZ-13],[FX-20,FZ+13],[FX+20,FZ-13],[FX+20,FZ+13]].forEach(([lx,lz])=>{
+    CYL(0.2,0.25,10,8,M.metal,lx,5,lz,true);
+    light(lx,11,lz,[1,0.97,0.88],1.3,30);
+    SPH(0.9,pbr(nid("fg"),[1,1,0.85],0,0.2,[0.95,0.95,0.75]),lx,11,lz);
+  });
+})();
+
+// ══════════════════════════════════════════════════
+//  VEHICLES — Grid lanes, anti-collision
+// ══════════════════════════════════════════════════
+const LANES=[
+  {id:0,p0:new BABYLON.Vector3(-115,1.0,H1Z-4.5),p1:new BABYLON.Vector3(115,1.0,H1Z-4.5),cnt:0},
+  {id:1,p0:new BABYLON.Vector3(115,1.0,H1Z+4.5), p1:new BABYLON.Vector3(-115,1.0,H1Z+4.5),cnt:0},
+  {id:2,p0:new BABYLON.Vector3(-115,1.0,H2Z-4.5),p1:new BABYLON.Vector3(115,1.0,H2Z-4.5),cnt:0},
+  {id:3,p0:new BABYLON.Vector3(115,1.0,H2Z+4.5), p1:new BABYLON.Vector3(-115,1.0,H2Z+4.5),cnt:0},
+  {id:4,p0:new BABYLON.Vector3(V1X-4.5,1.0,-115),p1:new BABYLON.Vector3(V1X-4.5,1.0,115), cnt:0},
+  {id:5,p0:new BABYLON.Vector3(V1X+4.5,1.0,115), p1:new BABYLON.Vector3(V1X+4.5,1.0,-115),cnt:0},
+  {id:6,p0:new BABYLON.Vector3(V2X-4.5,1.0,-115),p1:new BABYLON.Vector3(V2X-4.5,1.0,115), cnt:0},
+  {id:7,p0:new BABYLON.Vector3(V2X+4.5,1.0,115), p1:new BABYLON.Vector3(V2X+4.5,1.0,-115),cnt:0},
+];
+const vehicles=[];
+
+function spawnVeh(type,laneId){
+  const lane=LANES[laneId];
+  const dir=lane.p1.subtract(lane.p0).normalize();
+  const rot=Math.atan2(dir.x,dir.z);
+  const slot=lane.cnt++;
+  const t0=(slot*0.26+Math.random()*0.04)%1;
+  const veh=buildVeh(type);
+  veh.root.rotation.y=rot;
+  const p=BABYLON.Vector3.Lerp(lane.p0,lane.p1,t0);
+  veh.root.position.set(p.x,p.y,p.z);
+  vehicles.push({root:veh.root,lane,t:t0,spd:veh.spd,minGap:0.21});
+}
+
+function buildVeh(type){
+  const g=new BABYLON.TransformNode(nid("v"),scene);
+  let spd=0.15;
+  const wmat=pbr(nid("wm"),[0.08,0.08,0.08],0.5,0.9);
+  function wheel(wx,wy,wz){
+    const w=CYL(0.55,0.55,0.42,10,wmat,wx,wy,wz); w.rotation.z=Math.PI/2; w.parent=g;
+  }
+  function child(mesh){mesh.parent=g;return mesh;}
+  if(type==='car'){
+    const col=[Math.random()*0.8+0.1,Math.random()*0.6,Math.random()*0.8+0.1];
+    const cm=pbr(nid("cm"),col,0.6,0.2);
+    child(BOX(2.2,1.4,5,cm,0,0.9,0,true));
+    child(BOX(2.0,1.0,2.8,pbr(nid("ca"),col.map(v=>v*0.7),0.5,0.3),0,1.9,0.15));
+    child(BOX(1.8,0.9,0.1,M.glass,0,1.85,1.51));
+    [[-1.15,0.55,1.8],[-1.15,0.55,-1.8],[1.15,0.55,1.8],[1.15,0.55,-1.8]].forEach(p=>wheel(...p));
+    child(BOX(0.5,0.38,0.1,pbr(nid("hl"),[1,1,0.82],0,0.1,[0.9,0.9,0.65]),-0.75,0.88,2.51));
+    child(BOX(0.5,0.38,0.1,pbr(nid("hl2"),[1,1,0.82],0,0.1,[0.9,0.9,0.65]),0.75,0.88,2.51));
+    child(BOX(0.45,0.35,0.1,pbr(nid("tl"),[1,0.08,0.05],0,0.2,[0.8,0.04,0]),-0.75,0.88,-2.51));
+    child(BOX(0.45,0.35,0.1,pbr(nid("tl2"),[1,0.08,0.05],0,0.2,[0.8,0.04,0]),0.75,0.88,-2.51));
+    spd=0.14+Math.random()*0.18;
+  } else if(type==='bus'){
+    const iscool=Math.random()>0.5;
+    const bc=iscool?[1,0.85,0]:[0.9,0.92,0.95];
+    const bm=pbr(nid("bm"),bc,0.3,0.5);
+    child(BOX(2.8,3.2,12,bm,0,2.2,0,true));
+    child(BOX(2.6,3,1,bm,0,2,6.2));
+    child(BOX(2.2,1.4,0.1,M.glass,0,2.5,6.61));
+    if(iscool){child(BOX(2.82,0.6,12.2,pbr(nid("bs"),[0.85,0.1,0.1]),0,1.5,0));}
+    else {child(BOX(2.82,0.5,12.2,pbr(nid("bs2"),[0.08,0.15,0.5]),0,1.6,0));}
+    [-1.41,1.41].forEach(sx=>{for(let i=-3;i<=3;i++) child(BOX(0.1,1.2,1.5,M.glass,sx,2.4,i*1.7));});
+    [[-1.5,1,4],[-1.5,1,0],[-1.5,1,-4],[1.5,1,4],[1.5,1,0],[1.5,1,-4]].forEach(p=>wheel(...p));
+    child(BOX(0.8,0.6,0.1,pbr(nid("bhl"),[1,1,0.8],0,0.1,[0.9,0.9,0.65]),0,1.8,6.62));
+    child(BOX(0.8,0.5,0.1,pbr(nid("btl"),[1,0.08,0],0,0.15,[0.8,0.04,0]),0,1.8,-6.01));
+    spd=0.08+Math.random()*0.07;
+  } else if(type==='truck'){
+    const tc=[0.6+Math.random()*0.35,0.45+Math.random()*0.2,0.1+Math.random()*0.15];
+    const tm=pbr(nid("tm"),tc,0.4,0.4);
+    child(BOX(3.2,0.7,9,M.metal,0,0.6,0));
+    child(BOX(3,2.8,3.5,tm,0,2.0,3.5,true));
+    child(BOX(2.5,1.4,0.1,M.glass,0,2.4,5.26));
+    child(BOX(2.8,1.6,5.5,pbr(nid("tb"),[0.28,0.38,0.18]),0,1.7,-2));
+    child(CYL(0.18,0.18,4,6,M.metal,1.8,4,3));
+    [[-1.7,1,4],[-1.7,1,-1.5],[-2.1,1,-1.5],[-1.7,1,-3.8],[-2.1,1,-3.8],
+     [1.7,1,4],[1.7,1,-1.5],[2.1,1,-1.5],[1.7,1,-3.8],[2.1,1,-3.8]].forEach(p=>wheel(...p));
+    child(BOX(1,0.6,0.1,pbr(nid("thl"),[1,1,0.8],0,0.1,[0.9,0.9,0.65]),0,1.5,5.27));
+    spd=0.06+Math.random()*0.06;
+  } else { // angkot
+    const ac=[[1,0.18,0.1],[0.1,0.3,0.9],[0.1,0.65,0.2],[0.9,0.5,0]][Math.floor(Math.random()*4)];
+    const am=pbr(nid("am"),ac,0.3,0.5);
+    child(BOX(2.4,2.3,6,am,0,1.5,0,true));
+    child(BOX(2.2,1.8,1.5,pbr(nid("ah"),ac.map(v=>v*0.7),0.3,0.5),0,1.2,3.8));
+    child(BOX(2,0.9,1.5,am,0,0.8,4.2));
+    child(BOX(1.7,1.1,0.1,M.glass,0,1.5,4.71));
+    child(BOX(2.42,0.45,6.1,M.white2,0,2.3,0));
+    [-1.21,1.21].forEach(sx=>{for(let i=-1;i<=1;i++) child(BOX(0.1,0.8,1.2,M.glass,sx,1.7,i*1.5));});
+    [[-1.2,0.7,1.8],[-1.2,0.7,-1.8],[1.2,0.7,1.8],[1.2,0.7,-1.8]].forEach(p=>wheel(...p));
+    spd=0.10+Math.random()*0.14;
+  }
+  return {root:g,spd};
+}
+
+const VTYPES=['car','car','car','bus','truck','angkot'];
+LANES.forEach((_,li)=>{for(let i=0;i<4;i++) spawnVeh(VTYPES[Math.floor(Math.random()*VTYPES.length)],li);});
+
+// ══════════════════════════════════════════════════
+//  PEDESTRIANS — Di trotoar, linear bolak-balik
+// ══════════════════════════════════════════════════
+const pedestrians=[];
+const PCOLS=[[0.2,0.3,0.9],[0.9,0.2,0.4],[0.2,0.75,0.3],[1,0.7,0.1],[0.7,0.2,0.9],[1,0.4,0.1],[0.1,0.7,0.7],[0.9,0.5,0.7]];
+
+function makePed(pathFixed,pMin,pMax,isH,col){
+  const g=new BABYLON.TransformNode(nid("p"),scene);
+  const bm=pbr(nid("pm"),col);
+  const bod=CYL(0.28,0.32,1.5,8,bm,0,0.95,0,true); bod.parent=g;
+  const sk=pbr(nid("sk"),[0.95,0.80,0.65]);
+  const hd=SPH(0.6,sk,0,1.9,0); hd.parent=g;
+  if(Math.random()>0.5){
+    const bg=pbr(nid("bg"),[Math.random(),Math.random()*0.4,Math.random()*0.3],0.2,0.7);
+    const ba=BOX(0.35,0.35,0.25,bg,0.4,0.9,-0.3); ba.parent=g;
+  }
+  const startPos=pMin+(pMax-pMin)*Math.random();
+  if(isH) g.position.set(startPos,0.25,pathFixed);
+  else g.position.set(pathFixed,0.25,startPos);
+  const spd2=(0.04+Math.random()*0.05)*(Math.random()>0.5?1:-1);
+  pedestrians.push({g,isH,pathFixed,pMin,pMax,pos:startPos,spd:spd2,wc:Math.random()*Math.PI*2,fd:spd2>0?1:-1});
+}
+const swZn=H1Z-SW-0.5,swZs=H1Z+SW+0.5,swZn2=H2Z-SW-0.5,swZs2=H2Z+SW+0.5;
+const swXw=V1X-SW-0.5,swXe=V1X+SW+0.5,swXw2=V2X-SW-0.5,swXe2=V2X+SW+0.5;
+const segs=[[-100,-50],[-30,-10],[10,30],[50,100]];
+[swZn,swZs,swZn2,swZs2].forEach((fz,fi)=>{
+  segs.forEach((sg,si)=>{
+    const n=2+Math.floor(Math.random()*2);
+    for(let i=0;i<n;i++) makePed(fz,sg[0],sg[1],true,PCOLS[(fi*4+si*2+i)%PCOLS.length]);
+  });
+});
+[swXw,swXe,swXw2,swXe2].forEach((fx,fi)=>{
+  segs.forEach((sg,si)=>{
+    const n=2+Math.floor(Math.random()*2);
+    for(let i=0;i<n;i++) makePed(fx,sg[0],sg[1],false,PCOLS[(fi*4+si*2+i)%PCOLS.length]);
+  });
+});
+
+// ══════════════════════════════════════════════════
+//  KARAKTER 3D ASLI (HVGirl dari Babylon.js CDN)
+// ══════════════════════════════════════════════════
+const charObjs=[];
+[{z:swZn,xMin:-90,xMax:90,dir:1},{z:swZs2,xMin:-90,xMax:90,dir:-1}].forEach((cfg,i)=>{
+  BABYLON.SceneLoader.ImportMeshAsync("","https://assets.babylonjs.com/meshes/","HVGirl.glb",scene)
+  .then(r=>{
+    const root=r.meshes[0];
+    root.scaling.setAll(0.065);
+    root.position.set(cfg.xMin+(cfg.xMax-cfg.xMin)*0.3*i,0,cfg.z);
+    root.rotation.y=cfg.dir>0?0:Math.PI;
+    r.animationGroups.forEach(ag=>ag.stop());
+    const walk=r.animationGroups.find(ag=>ag.name==="Walking");
+    if(walk) walk.start(true,1.0,walk.from,walk.to,false);
+    r.meshes.forEach(m=>{if(m!==root){shadow.addShadowCaster(m,true);m.receiveShadows=true;}});
+    charObjs.push({root,cfg,pos:cfg.xMin+(cfg.xMax-cfg.xMin)*0.3*i,spd:0.055*cfg.dir});
+  }).catch(()=>{});
+});
+
+// ══════════════════════════════════════════════════
+//  LABELS HTML
+// ══════════════════════════════════════════════════
+const labelEls=[];
+KOTA.bangunan.forEach(cfg=>{
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;z-index:15;pointer-events:none;text-align:center;transform:translate(-50%,-100%);display:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.9))';
+  div.innerHTML=`<div style="font-size:clamp(14px,3.5vw,20px);line-height:1">${cfg.emoji}</div>
+  <div style="font-family:'Orbitron',monospace;font-size:clamp(7px,1.8vw,10px);font-weight:700;letter-spacing:1px;color:${cfg.hex};text-shadow:0 0 8px ${cfg.hex}">${cfg.nama}</div>
+  <div style="font-size:8px;color:#ffffff22">TAP UNTUK MASUK</div>`;
+  document.body.appendChild(div);
+  labelEls.push({div,cfg});
+});
+const tipEl=document.getElementById('tip');
+
+// ══════════════════════════════════════════════════
+//  INTERACTION
+// ══════════════════════════════════════════════════
+scene.onPointerObservable.add(evt=>{
+  if(evt.type!==BABYLON.PointerEventTypes.POINTERPICK)return;
+  const hit=evt.pickInfo;
+  if(hit.hit&&hit.pickedMesh?.metadata?.buildingCfg) openInterior(hit.pickedMesh.metadata.buildingCfg);
+});
+scene.onPointerObservable.add(evt=>{
+  if(evt.type!==BABYLON.PointerEventTypes.POINTERMOVE)return;
+  const pick=scene.pick(scene.pointerX,scene.pointerY);
+  if(pick.hit&&pick.pickedMesh?.metadata?.buildingCfg){
+    const cfg=pick.pickedMesh.metadata.buildingCfg;
+    tipEl.textContent=`${cfg.emoji} ${cfg.nama}`;
+    tipEl.style.left=scene.pointerX+'px'; tipEl.style.top=scene.pointerY+'px';
+    tipEl.classList.add('show'); canvas.style.cursor='pointer';
+  } else {tipEl.classList.remove('show');canvas.style.cursor='default';}
+});
+function openInterior(cfg){
+  const hex=cfg.hex;
+  document.getElementById('int-em').textContent=cfg.emoji;
+  document.getElementById('int-ttl').textContent=cfg.nama;
+  document.getElementById('int-ttl').style.color=hex;
+  document.getElementById('int-grid').innerHTML=cfg.sub.map(item=>`
+    <a href="${item.link}" class="scard" style="border-color:${hex}44"
+       onmouseover="this.style.background='${hex}18';this.style.borderColor='${hex}'"
+       onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='${hex}44'">
+      <span class="sicon">${item.icon}</span><span class="sname">${item.nama}</span></a>`).join('');
+  document.getElementById('interior').classList.add('open');
+  document.getElementById('backbtn').classList.add('open');
+}
+window.closeInterior=function(){
+  document.getElementById('interior').classList.remove('open');
+  document.getElementById('backbtn').classList.remove('open');
+};
+
+// Clock
+function tick(){document.getElementById('hclock').textContent=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+tick();setInterval(tick,1000);
+
+// ══════════════════════════════════════════════════
+//  RENDER LOOP
+// ══════════════════════════════════════════════════
+let introStart=null,introDone=false;
+const INTRO_DUR=3500;
+
+scene.registerBeforeRender(()=>{
+  const now=performance.now();
+  const dt=engine.getDeltaTime()/1000;
+  const t=now/1000;
+
+  // Intro fly-in
+  if(!introDone){
+    if(!introStart)introStart=now;
+    const p=Math.min(1,(now-introStart)/INTRO_DUR);
+    const e=1-Math.pow(1-p,3);
+    document.getElementById('lbar').style.width=(p*100)+'%';
+    camera.radius=340+(230-340)*e;
+    camera.beta=0.15+(0.95-0.15)*e;
+    if(p>=1){
+      introDone=true;
+      const w=document.getElementById('welcome');
+      w.classList.add('out');
+      setTimeout(()=>w.style.display='none',1300);
+    }
+  }
+
+  // Vehicles — anti collision
+  const laneMap={};
+  vehicles.forEach(v=>{const lid=v.lane.id;if(!laneMap[lid])laneMap[lid]=[];laneMap[lid].push(v);});
+  vehicles.forEach(v=>{
+    const peers=laneMap[v.lane.id]||[];
+    let blocked=false;
+    peers.forEach(o=>{if(o===v)return;const d=(o.t-v.t+1)%1;if(d<v.minGap&&d>0.005)blocked=true;});
+    if(!blocked){v.t+=v.spd*dt;if(v.t>1)v.t-=1;}
+    const p=BABYLON.Vector3.Lerp(v.lane.p0,v.lane.p1,v.t);
+    v.root.position.x=p.x; v.root.position.z=p.z;
+  });
+
+  // Pedestrians
+  pedestrians.forEach(p=>{
+    p.pos+=p.spd*dt*60; p.wc+=Math.abs(p.spd)*5*dt*60;
+    if(p.pos>p.pMax){p.pos=p.pMax;p.spd*=-1;p.fd*=-1;}
+    if(p.pos<p.pMin){p.pos=p.pMin;p.spd*=-1;p.fd*=-1;}
+    if(p.isH){p.g.position.x=p.pos;p.g.rotation.y=p.fd>0?0:Math.PI;}
+    else{p.g.position.z=p.pos;p.g.rotation.y=p.fd>0?-Math.PI/2:Math.PI/2;}
+    p.g.position.y=0.25+Math.abs(Math.sin(p.wc))*0.10;
+  });
+
+  // HVGirl chars
+  charObjs.forEach(c=>{
+    c.pos+=c.spd*dt*60;
+    if(c.pos>c.cfg.xMax){c.pos=c.cfg.xMax;c.spd*=-1;c.root.rotation.y+=Math.PI;}
+    if(c.pos<c.cfg.xMin){c.pos=c.cfg.xMin;c.spd*=-1;c.root.rotation.y+=Math.PI;}
+    c.root.position.x=c.pos;
+  });
+
+  // Orb pulse
+  scene.meshes.forEach(m=>{
+    if(m.metadata?.isOrb){const sc=1+0.18*Math.sin(t*2.5+(m.metadata.phase||0));m.scaling.setAll(sc);}
+    if(m.metadata?.isFountain){m.scaling.setAll(1+0.15*Math.sin(t*3));}
+  });
+
+  // Labels
+  const vp=camera.viewport.toGlobal(engine.getRenderWidth(),engine.getRenderHeight());
+  const tm2=scene.getTransformMatrix();
+  labelEls.forEach(({div,cfg})=>{
+    const wp=new BABYLON.Vector3(cfg.pos.x,cfg.sz.h+8,cfg.pos.z);
+    const sp=BABYLON.Vector3.Project(wp,BABYLON.Matrix.Identity(),tm2,vp);
+    if(sp.z<0||sp.z>1){div.style.display='none';return;}
+    const dist=BABYLON.Vector3.Distance(camera.position,wp);
+    const op=Math.max(0,Math.min(1,1-(dist-30)/140));
+    div.style.display=op>0?'block':'none';
+    div.style.left=sp.x+'px';div.style.top=sp.y+'px';div.style.opacity=op;
+  });
+
+  // City hall sign
+  if(window._chSign){
+    const{div,pos}=window._chSign;
+    const sp2=BABYLON.Vector3.Project(pos,BABYLON.Matrix.Identity(),tm2,vp);
+    if(sp2.z>0&&sp2.z<1){
+      const d2=BABYLON.Vector3.Distance(camera.position,pos);
+      const op2=Math.max(0,Math.min(1,1-(d2-10)/70));
+      div.style.display=op2>0?'block':'none';
+      div.style.left=sp2.x+'px';div.style.top=sp2.y+'px';div.style.opacity=op2;
+    } else div.style.display='none';
+  }
+});
+
+scene.executeWhenReady(()=>{
+  document.getElementById('loading').classList.add('hide');
+  setTimeout(()=>{const el=document.getElementById('loading');if(el)el.remove();},900);
+});
+engine.runRenderLoop(()=>scene.render());
+window.addEventListener('resize',()=>engine.resize());
+}catch(e){
+  var el=document.getElementById('loading');
+  if(el){el.style.opacity='1';el.style.pointerEvents='all';
+    el.innerHTML='<div style="text-align:center;padding:20px"><div style="font-size:18px;margin-bottom:12px">⚠️ Error</div><div style="font-size:12px;color:#ff4444;font-family:monospace;word-break:break-all;padding:10px;background:#111;border-radius:8px">'+e.message+'</div><div style="font-size:10px;margin-top:8px;color:#666">'+e.stack+'</div></div>';}
+  console.error('City error:',e);
+}
+}; // end _startCity
+if(window._babylonReady) window._startCity();
+</script>
+</body>
+</html>
