@@ -731,23 +731,9 @@ const segs=[[-100,-50],[-30,-10],[10,30],[50,100]];
 });
 
 // ══════════════════════════════════════════════════
-//  KARAKTER 3D ASLI (HVGirl dari Babylon.js CDN)
+//  KARAKTER 3D — Dihapus (menyebabkan scene hang di mobile)
 // ══════════════════════════════════════════════════
 const charObjs=[];
-[{z:swZn,xMin:-90,xMax:90,dir:1},{z:swZs2,xMin:-90,xMax:90,dir:-1}].forEach((cfg,i)=>{
-  BABYLON.SceneLoader.ImportMeshAsync("","https://assets.babylonjs.com/meshes/","HVGirl.glb",scene)
-  .then(r=>{
-    const root=r.meshes[0];
-    root.scaling.setAll(0.065);
-    root.position.set(cfg.xMin+(cfg.xMax-cfg.xMin)*0.3*i,0,cfg.z);
-    root.rotation.y=cfg.dir>0?0:Math.PI;
-    r.animationGroups.forEach(ag=>ag.stop());
-    const walk=r.animationGroups.find(ag=>ag.name==="Walking");
-    if(walk) walk.start(true,1.0,walk.from,walk.to,false);
-    r.meshes.forEach(m=>{if(m!==root){shadow.addShadowCaster(m,true);m.receiveShadows=true;}});
-    charObjs.push({root,cfg,pos:cfg.xMin+(cfg.xMax-cfg.xMin)*0.3*i,spd:0.055*cfg.dir});
-  }).catch(()=>{});
-});
 
 // ══════════════════════════════════════════════════
 //  LABELS HTML
@@ -893,13 +879,16 @@ scene.registerBeforeRender(()=>{
   }
 });
 
-scene.executeWhenReady(()=>{
-  clearTimeout(_readyTimer);
-  document.getElementById('loading').classList.add('hide');
-  setTimeout(()=>{const el=document.getElementById('loading');if(el)el.remove();},900);
-});
 engine.runRenderLoop(()=>scene.render());
 window.addEventListener('resize',()=>engine.resize());
+
+// Sembunyikan loading 2 detik setelah render loop jalan
+// (tidak bergantung pada executeWhenReady yang bisa hang)
+clearTimeout(_readyTimer);
+setTimeout(()=>{
+  const ld=document.getElementById('loading');
+  if(ld){ld.classList.add('hide');setTimeout(()=>{if(ld.parentNode)ld.remove();},900);}
+}, 2000);
 }catch(e){
   var el=document.getElementById('loading');
   if(el){el.style.opacity='1';el.style.pointerEvents='all';
