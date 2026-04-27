@@ -5,14 +5,14 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "69.9";
+const VERSION = "70.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
-// File yang di-cache
 const CACHE_FILES = [
   "/",
   "/index.html",
   "/dashboard.html",
+  "/indocoin-city.html",
   "/earn.html",
   "/permainan.html",
   "/referral.html",
@@ -94,7 +94,6 @@ const CACHE_FILES = [
   "/token-lock-tracker.html",
 ];
 
-// ── INSTALL: cache semua file ──
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -103,11 +102,9 @@ self.addEventListener("install", (event) => {
       });
     })
   );
-  // Langsung aktif tanpa tunggu tab lama ditutup
   self.skipWaiting();
 });
 
-// ── ACTIVATE: hapus cache lama ──
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -121,13 +118,10 @@ self.addEventListener("activate", (event) => {
       );
     })
   );
-  // Ambil kontrol semua tab yang sudah terbuka
   self.clients.claim();
 });
 
-// ── FETCH: Network first, fallback ke cache ──
 self.addEventListener("fetch", (event) => {
-  // Skip non-GET dan chrome-extension
   if (event.request.method !== "GET") return;
   if (event.request.url.startsWith("chrome-extension")) return;
   if (event.request.url.includes("firebase") || 
@@ -139,7 +133,6 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Simpan response terbaru ke cache
         if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -149,13 +142,11 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => {
-        // Kalau offline, pakai cache
         return caches.match(event.request);
       })
   );
 });
 
-// ── MESSAGE: force update dari halaman ──
 self.addEventListener("message", (event) => {
   if (event.data === "skipWaiting") {
     self.skipWaiting();
