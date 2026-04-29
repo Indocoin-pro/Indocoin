@@ -738,18 +738,32 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    // Ambil event RequestedUSDT dari block awal hingga sekarang
-    const filter   = _staking.filters.RequestedUSDT();
+    const filter       = _staking.filters.RequestedUSDT();
     const DEPLOY_BLOCK = 89_800_000; // Contract deployed ~12 Mar 2026
-    const events   = await _staking.queryFilter(filter, DEPLOY_BLOCK); // Semua request sejak deploy
+    const CHUNK_SIZE   = 2_000;      // Max block per query (aman untuk public RPC)
 
-    // Kumpulkan unique users
-    const userSet = new Set(events.map(e => e.args.user.toLowerCase()));
+    // Ambil block terbaru
+    const latestBlock = await _provider.getBlockNumber();
+
+    // Query per chunk — gabung semua events
+    const allEvents = [];
+    for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
+      const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
+      try{
+        const chunk = await _staking.queryFilter(filter, from, to);
+        allEvents.push(...chunk);
+      }catch(e){
+        console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
+      }
+    }
+
+    // Kumpulkan unique users dari semua events
+    const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
     const users   = Array.from(userSet);
 
     _allRequests = [];
 
-    // Ambil semua request per user
+    // Ambil semua request per user dari contract
     for(const user of users){
       try{
         const reqs = await _staking.getRequests(user);
@@ -782,7 +796,7 @@ async function loadRequestsFromEvents(){
     renderList();
 
   }catch(e){
-    // Fallback: jika query event gagal (RPC limit), tampilkan form manual
+    // Fallback: jika semua gagal, tampilkan form manual
     console.warn('Event query gagal, fallback ke manual:', e);
     document.getElementById('reqList').innerHTML = `
       <div class="empty-state">
