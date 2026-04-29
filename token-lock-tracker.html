@@ -242,6 +242,15 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
+  <div id="sec-app6" class="sec-div">&#9878; Token Terkunci &#8212; Pool Staking</div>
+
+  <div id="app6">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div>
+    </div>
+  </div>
+
   <div class="footer">
     <div class="total-lock">
       <div class="total-lock-lbl">TOTAL TOKEN TERKUNCI</div>
@@ -285,6 +294,21 @@ const ABI4 = [
   "function getAllPeriodeReadable() view returns (tuple(uint256 periodeKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool triggered, string status, uint256 hariLagiUnlock)[])"
 ];
 const CONTRACT5 = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf'; // Member VIP Pool
+
+// 9 Program Staking Pool
+const STAKING_POOLS = [
+  { name: 'Growth Lock Staking',        addr: '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5' },
+  { name: 'Auto Compound Staking',      addr: '0x5a492b4b4680868b60f0d942e764e8c7fcf9b358' },
+  { name: 'Dynamic Level Staking',      addr: '0x51b94ab16165430972236ae62ce93ed4fd9f5ac7' },
+  { name: 'Point Vault Staking',        addr: '0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c' },
+  { name: 'Power Staking',              addr: '0xF2FD48D3D5a84ab2b9d76ec2bDe34a5699aE3552' },
+  { name: 'Boost Staking',              addr: '0x0c445da047b9f7702382e0cc7fecdf5f245305ad' },
+  { name: 'Flexi Yield Staking',        addr: '0xc31ddfd5e703f094ac8af66832a8c1ec3a209952' },
+  { name: 'Locked Diamond Staking',     addr: '0x858cece880f2ab7fdf8602148c61083c4a338373' },
+  { name: 'Garuda Force Mission',       addr: '0xdfabc3159c8a195feced77069b8d4fb16deed667' },
+];
+const INDC_CA = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const ERC20_ABI = ["function balanceOf(address account) view returns (uint256)"];
 
 const ABI_VIP = [
   "function getLockSummary(uint256) view returns (tuple(uint256 lockId,address token,string namaLock,string kategori,uint256 totalLocked,uint256 totalClaimed,uint256 masihTerkunci,uint256 bisaDiklaim,uint256 slotCount,uint256 slotAktif,uint256 t1,uint256 t2,uint256 t3,uint256 t4,uint256 t5,uint256 createdAtTs))",
@@ -577,12 +601,95 @@ async function loadLock(contractAddress, appId, slotPrefix) {
   }
 }
 
+async function loadStakingPools() {
+  document.getElementById('app6').innerHTML =
+    '<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA DARI BLOCKCHAIN...</div></div>';
+  try {
+    const provider = await getProvider();
+    const indc = new ethers.Contract(INDC_CA, ERC20_ABI, provider);
+
+    // Baca balanceOf semua 9 contract sekaligus
+    const balances = await Promise.all(
+      STAKING_POOLS.map(p => indc.balanceOf(p.addr).catch(() => ethers.BigNumber.from(0)))
+    );
+
+    let totalIndc = ethers.BigNumber.from(0);
+    const rows = STAKING_POOLS.map((p, i) => {
+      totalIndc = totalIndc.add(balances[i]);
+      const bal = Number(balances[i]) / 1e9;
+      return { name: p.name, addr: p.addr, bal };
+    });
+
+    const totalNum = Number(totalIndc) / 1e9;
+
+    // Update total terkunci global
+    updateTotalLocked('app6', totalIndc);
+
+    // Render kartu
+    let html = `<div class="lock-card">
+      <div class="lock-stats" style="grid-template-columns:1fr 1fr;">
+        <div class="lock-stat" style="grid-column:span 2;">
+          <div class="lock-stat-lbl">TOTAL INDC TERKUNCI DI 9 PROGRAM</div>
+          <div class="lock-stat-val" style="font-size:18px;">${totalNum.toLocaleString('id-ID')} <span style="font-size:11px;color:var(--gold)">INDC</span></div>
+        </div>
+      </div>
+      <button class="toggle-btn" onclick="toggleDetail(this,'detPool')" data-open="0" style="margin-bottom:6px;">
+        LIHAT DETAIL PER PROGRAM ▼
+      </button>
+      <div id="detPool" style="display:none;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;border-radius:10px;overflow:hidden;border:1px solid rgba(200,146,42,0.12);margin-bottom:8px;">`;
+
+    rows.forEach((r, i) => {
+      const pct = totalNum > 0 ? (r.bal / totalNum * 100).toFixed(1) : 0;
+      const bg = i % 2 === 0 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.15)';
+      html += `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:${bg};gap:8px;">
+            <span style="color:var(--white2);flex:1;">${r.name}</span>
+            <span style="color:var(--gold3);white-space:nowrap;">${r.bal.toLocaleString('id-ID')} INDC</span>
+            <span style="color:var(--muted);width:36px;text-align:right;">${pct}%</span>
+          </div>`;
+    });
+
+    html += `</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);padding:6px 2px;line-height:1.8;">
+          Data dibaca realtime dari blockchain BSC via balanceOf INDC token.<br>
+          Saldo berkurang otomatis saat user klaim reward dari program staking.
+        </div>
+      </div>`;
+
+    // Contract list
+    html += `<button class="toggle-btn" onclick="toggleDetail(this,'addrPool')" data-open="0">
+        LIHAT ALAMAT CONTRACT (9) ▼
+      </button>
+      <div id="addrPool" style="display:none;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);line-height:2;padding:4px 0;">`;
+
+    rows.forEach(r => {
+      html += `<div style="word-break:break-all;">${r.name}:<br>
+        <a href="https://bscscan.com/address/${r.addr}#readContract" target="_blank" style="color:var(--gold);opacity:0.7;">${r.addr}</a>
+      </div>`;
+    });
+
+    html += `</div>
+    </div>`;
+
+    document.getElementById('app6').innerHTML = html;
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('app6').innerHTML = `
+      <div class="error">⚠️ Gagal memuat data pool staking.<br>
+      <small style="word-break:break-all;font-size:9px;opacity:0.7">${e.message||e}</small><br><br>
+      <button class="refresh-btn" onclick="loadStakingPools()">↻ COBA LAGI</button></div>`;
+  }
+}
+
 function loadAll() {
   loadLock(CONTRACT1, 'app',  '0');
   loadLock(CONTRACT2, 'app2', '2');
   loadLock(CONTRACT3, 'app3', '3');
   loadLock(CONTRACT4, 'app4', '4');
   loadVIPPool();
+  loadStakingPools();
 }
 
 loadAll();
