@@ -704,8 +704,10 @@ async function loadLPReserve() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT LP RESERVE...</div></div>';
   try {
     const provider   = await getProvider();
-    const indcC      = new ethers.Contract(INDC_CA || '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', ["function balanceOf(address) view returns (uint256)"], provider);
-    const lpC        = new ethers.Contract(LP_CA, LP_ABI, provider);
+    const LP_ADDR    = ethers.utils.getAddress('0xbdecc8e7736e901fce05e1b64ef24a2fa8a1eedc');
+    const INDC_ADDR  = ethers.utils.getAddress('0xD772c96e1beFd2ea9C9a83182c71f4d32f306571');
+    const indcC      = new ethers.Contract(INDC_ADDR, ["function balanceOf(address) view returns (uint256)"], provider);
+    const lpC        = new ethers.Contract(LP_ADDR, LP_ABI, provider);
 
     const [
       indcBal, totalDep, totalUsed, lpBurned,
@@ -732,6 +734,41 @@ async function loadLPReserve() {
 
     updateTotalLocked('app7', indcBal);
 
+    // Riwayat addLiquidity dari events
+    let riwayatHtml = '';
+    try {
+      const lpEvents = new ethers.Contract(LP_ADDR, [
+        "event LiquidityAdded(uint8 pairType, uint256 indcAmt, uint256 pairedAmt, uint256 lpBurned, uint256 ts)"
+      ], provider);
+      const filter   = lpEvents.filters.LiquidityAdded();
+      const events   = await lpEvents.queryFilter(filter, -50000);
+      if (events.length === 0) {
+        riwayatHtml = '<div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#4a3f30;text-align:center;padding:10px;">Belum ada riwayat add liquidity</div>';
+      } else {
+        const pairName = ['','INDC/BNB','INDC/USDT','Custom'];
+        riwayatHtml = events.slice().reverse().map(ev => {
+          const pt    = ev.args.pairType;
+          const indc  = (Number(ev.args.indcAmt)   / 1e9).toLocaleString('id-ID');
+          const pair  = (Number(ev.args.pairedAmt) / 1e18).toFixed(4);
+          const lp    = (Number(ev.args.lpBurned)  / 1e18).toFixed(4);
+          const ts    = new Date(Number(ev.args.ts) * 1000).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'});
+          return '<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.1);border-radius:8px;padding:8px 10px;margin-bottom:6px;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+            + '<span style="font-family:Orbitron,sans-serif;font-size:9px;color:#f5c842;">' + (pairName[pt]||'Custom') + '</span>'
+            + '<span style="font-family:Share Tech Mono,monospace;font-size:8px;color:#4a3f30;">' + ts + '</span>'
+            + '</div>'
+            + '<div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#a89880;line-height:1.8;">'
+            + 'INDC: ' + indc + '<br>'
+            + (pairName[pt]==='INDC/BNB' ? 'BNB: ' : pairName[pt]==='INDC/USDT' ? 'USDT: ' : 'Token: ') + pair + '<br>'
+            + 'LP Dibakar: ' + lp
+            + '</div>'
+            + '</div>';
+        }).join('');
+      }
+    } catch(ev_err) {
+      riwayatHtml = '<div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#4a3f30;text-align:center;padding:10px;">Belum ada riwayat</div>';
+    }
+
     const tlHtml = tl > 0
       ? '<span style="color:var(--gold);">Timelock ' + tl + ' hari lagi</span>'
       : '<span style="color:#a89880;">Timelock selesai</span>';
@@ -756,19 +793,15 @@ async function loadLPReserve() {
         <div class="lock-stat"><div class="lock-stat-lbl">LP TOKEN DIBAKAR</div><div class="lock-stat-val">${burned > 0 ? burned.toFixed(4) : '—'}</div></div>
         <div class="lock-stat"><div class="lock-stat-lbl">TOTAL ADD LIQUIDITY</div><div class="lock-stat-val">${count}x</div></div>
       </div>
-      <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9px;line-height:2;color:#4a3f30;">
-        <div>${tlHtml}</div>
-        <div>Dana tidak bisa ditarik Dev</div>
-        <div>LP Token dibakar otomatis saat addLiquidity</div>
-        <div>Emergency trigger: ${em} hari tersisa</div>
-      </div>
       ${announceHtml}
       <div style="margin-top:10px;">
-        <button class="toggle-btn" onclick="toggleDetail(this,'lpAddr')" data-open="0">LIHAT ALAMAT CONTRACT &#9660;</button>
-        <div id="lpAddr" style="display:none;font-family:'Share Tech Mono',monospace;font-size:8px;color:#4a3f30;margin-top:6px;word-break:break-all;">
-          LP Reserve Contract:<br>
-          <a href="https://bscscan.com/address/${LP_CA}#readContract" target="_blank" style="color:var(--gold);opacity:.7;">${LP_CA}</a>
+        <button class="toggle-btn" onclick="toggleDetail(this,'lpRiwayat')" data-open="0">LIHAT RIWAYAT ADD LIQUIDITY &#9660;</button>
+        <div id="lpRiwayat" style="display:none;margin-top:8px;">
+          ${riwayatHtml}
         </div>
+      </div>
+      <div class="lock-contract">
+        CONTRACT: <a href="https://bscscan.com/address/0xbdecc8e7736e901fce05e1b64ef24a2fa8a1eedc#readContract" target="_blank">0xbdecc8e7736e901fce05e1b64ef24a2fa8a1eedc</a>
       </div>
     </div>`;
 
