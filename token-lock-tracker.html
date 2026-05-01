@@ -251,6 +251,11 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
+  <div id="sec-app7" class="sec-div">&#128274; Token Terkunci &#8212; LP Reserve</div>
+  <div id="app7">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT LP RESERVE...</div></div>
+  </div>
+
   <div class="footer">
     <div class="total-lock">
       <div class="total-lock-lbl">TOTAL TOKEN TERKUNCI</div>
@@ -293,7 +298,18 @@ const ABI4 = [
   "function getRingkasan() view returns (tuple(address token, address airdropContract, string namaLock, string kategori, uint256 totalDikunci, uint256 totalTerkirim, uint256 totalSisa, uint256 periodeCount, uint256 periodeBelumTrigger, uint256 nextUnlockTime, uint256 nextUnlockTahun, uint256 nextUnlockBulan, uint256 nextUnlockTanggal, uint256 hariLagiNextUnlock, uint256 createdAt))",
   "function getAllPeriodeReadable() view returns (tuple(uint256 periodeKe, uint256 amount, uint256 unlockTime, uint256 unlockTahun, uint256 unlockBulan, uint256 unlockTanggal, bool triggered, string status, uint256 hariLagiUnlock)[])"
 ];
-const CONTRACT5 = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf'; // Member VIP Pool
+const CONTRACT5  = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf'; // Member VIP Pool
+const LP_CA      = '0xbdEcc8E7736E901FCe05E1b64EF24a2fa8a1Eedc'; // LP Reserve
+const LP_ABI     = [
+  "function totalIndcDeposited() view returns (uint256)",
+  "function totalIndcAddedToLP() view returns (uint256)",
+  "function totalLpBurned() view returns (uint256)",
+  "function addLiquidityCount() view returns (uint256)",
+  "function timelockRemainingDays() view returns (uint256)",
+  "function emergencyRemainingDays() view returns (uint256)",
+  "function hasAnnouncement() view returns (bool)",
+  "function getAnnouncementInfo() view returns (bool active, uint8 pairType, address tokenB, uint256 indcAmount, uint256 pairedAmount, uint256 executeAfter, uint256 remainingHours, bool executed, bool cancelled)"
+];
 
 // 9 Program Staking Pool
 const STAKING_POOLS = [
@@ -683,6 +699,87 @@ async function loadStakingPools() {
   }
 }
 
+async function loadLPReserve() {
+  const el = document.getElementById('app7');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT LP RESERVE...</div></div>';
+  try {
+    const provider   = await getProvider();
+    const indcC      = new ethers.Contract(INDC_CA || '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', ["function balanceOf(address) view returns (uint256)"], provider);
+    const lpC        = new ethers.Contract(LP_CA, LP_ABI, provider);
+
+    const [
+      indcBal, totalDep, totalUsed, lpBurned,
+      lpCount, tlDays, emDays, hasAnnounce, annInfo
+    ] = await Promise.all([
+      indcC.balanceOf(LP_CA),
+      lpC.totalIndcDeposited(),
+      lpC.totalIndcAddedToLP(),
+      lpC.totalLpBurned(),
+      lpC.addLiquidityCount(),
+      lpC.timelockRemainingDays(),
+      lpC.emergencyRemainingDays(),
+      lpC.hasAnnouncement(),
+      lpC.getAnnouncementInfo(),
+    ]);
+
+    const bal      = Number(indcBal)   / 1e9;
+    const dep      = Number(totalDep)  / 1e9;
+    const used     = Number(totalUsed) / 1e9;
+    const burned   = Number(lpBurned)  / 1e18;
+    const count    = Number(lpCount);
+    const tl       = Number(tlDays);
+    const em       = Number(emDays);
+
+    updateTotalLocked('app7', indcBal);
+
+    const tlHtml = tl > 0
+      ? '<span style="color:var(--gold);">Timelock ' + tl + ' hari lagi</span>'
+      : '<span style="color:#a89880;">Timelock selesai</span>';
+
+    let announceHtml = '';
+    if (hasAnnounce && !annInfo.executed && !annInfo.cancelled) {
+      const pName = ['','INDC/BNB','INDC/USDT','Custom'][annInfo.pairType] || '?';
+      const hrs   = Number(annInfo.remainingHours);
+      announceHtml = `<div style="background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.25);border-radius:8px;padding:8px 12px;margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold);">
+        Pengumuman Aktif: AddLiquidity ${pName} &mdash; ${hrs > 0 ? 'Eksekusi dalam ' + hrs + ' jam' : 'Siap dieksekusi'}
+      </div>`;
+    }
+
+    el.innerHTML = `<div class="lock-card">
+      <div class="lock-stats" style="grid-template-columns:1fr 1fr;">
+        <div class="lock-stat" style="grid-column:span 2;">
+          <div class="lock-stat-lbl">INDC CADANGAN LP TERKUNCI</div>
+          <div class="lock-stat-val" style="font-size:20px;">${Math.floor(bal).toLocaleString('id-ID')} <span style="font-size:11px;color:var(--gold);">INDC</span></div>
+        </div>
+        <div class="lock-stat"><div class="lock-stat-lbl">TOTAL DISETOR</div><div class="lock-stat-val">${Math.floor(dep).toLocaleString('id-ID')}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">SUDAH KE LP</div><div class="lock-stat-val">${Math.floor(used).toLocaleString('id-ID')}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">LP TOKEN DIBAKAR</div><div class="lock-stat-val">${burned > 0 ? burned.toFixed(4) : '—'}</div></div>
+        <div class="lock-stat"><div class="lock-stat-lbl">TOTAL ADD LIQUIDITY</div><div class="lock-stat-val">${count}x</div></div>
+      </div>
+      <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:9px;line-height:2;color:#4a3f30;">
+        <div>${tlHtml}</div>
+        <div>Dana tidak bisa ditarik Dev</div>
+        <div>LP Token dibakar otomatis saat addLiquidity</div>
+        <div>Emergency trigger: ${em} hari tersisa</div>
+      </div>
+      ${announceHtml}
+      <div style="margin-top:10px;">
+        <button class="toggle-btn" onclick="toggleDetail(this,'lpAddr')" data-open="0">LIHAT ALAMAT CONTRACT &#9660;</button>
+        <div id="lpAddr" style="display:none;font-family:'Share Tech Mono',monospace;font-size:8px;color:#4a3f30;margin-top:6px;word-break:break-all;">
+          LP Reserve Contract:<br>
+          <a href="https://bscscan.com/address/${LP_CA}#readContract" target="_blank" style="color:var(--gold);opacity:.7;">${LP_CA}</a>
+        </div>
+      </div>
+    </div>`;
+
+  } catch(e) {
+    console.error('loadLPReserve:', e);
+    el.innerHTML = `<div class="error">Gagal memuat LP Reserve.<br>
+      <small style="font-size:9px;opacity:.7;">${e.message||e}</small><br><br>
+      <button class="refresh-btn" onclick="loadLPReserve()">&#8635; COBA LAGI</button></div>`;
+  }
+}
+
 function loadAll() {
   loadLock(CONTRACT1, 'app',  '0');
   loadLock(CONTRACT2, 'app2', '2');
@@ -690,6 +787,7 @@ function loadAll() {
   loadLock(CONTRACT4, 'app4', '4');
   loadVIPPool();
   loadStakingPools();
+  loadLPReserve();
 }
 
 loadAll();
