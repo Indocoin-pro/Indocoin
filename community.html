@@ -572,6 +572,11 @@ let _chatUnsubscribe = null;
 let _renderedIds = new Set(); // Simpan ID pesan yang sudah ditampilkan
 let _chatInitialized = false; // Flag apakah sudah load awal
 
+// Variabel untuk load more
+let _allMsgs = [];
+let _loadedCount = 50;
+const LOAD_STEP = 50;
+
 function startChat() {
   if (_chatUnsubscribe) {
     _chatUnsubscribe();
@@ -579,45 +584,68 @@ function startChat() {
   }
   _renderedIds = new Set();
   _chatInitialized = false;
+  _allMsgs = [];
+  _loadedCount = 50;
 
   const area = document.getElementById('chatArea');
   if (area) area.innerHTML = '';
 
+  // Hapus tombol load more lama kalau ada
+  const oldBtn = document.getElementById('loadMoreBtn');
+  if (oldBtn) oldBtn.remove();
+  const oldNotif = document.getElementById('newMsgNotif');
+  if (oldNotif) oldNotif.remove();
+
   // STEP 1: Load semua pesan dari Firebase
-  let _lastTs = 0; // Simpan timestamp pesan terakhir yang sudah dirender
+  let _lastTs = 0;
   get(ref(db, 'community_chat')).then(snap => {
     if (snap && snap.exists()) {
-      const msgs = [];
-      snap.forEach(c => msgs.push({ id: c.key, ...c.val() }));
-      // Sort by ts ascending
-      msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      // Ambil 100 terakhir saja
-      msgs.slice(-100).forEach(msg => {
+      snap.forEach(c => _allMsgs.push({ id: c.key, ...c.val() }));
+      _allMsgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+      // Tampilkan 50 pesan terakhir
+      const toShow = _allMsgs.slice(-_loadedCount);
+      toShow.forEach(msg => {
         appendMsg(msg);
         _renderedIds.add(msg.id);
         if (msg.ts && msg.ts > _lastTs) _lastTs = msg.ts;
       });
+
+      // Tambah tombol LOAD MORE di atas kalau ada lebih dari 50 pesan
+      if (_allMsgs.length > _loadedCount) {
+        addLoadMoreBtn();
+      }
+
       if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
     } else {
       if (area) area.innerHTML = '<div class="empty-chat"><div style="font-size:40px">💬</div><div>Belum ada pesan. Mulai percakapan!</div></div>';
     }
     _chatInitialized = true;
 
-    // STEP 2: Listen pesan BARU — hanya yang ts lebih baru dari terakhir
-    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(5));
+    // STEP 2: Listen pesan BARU
+    const newMsgsRef = query(ref(db, 'community_chat'), orderByChild('ts'), limitToLast(50));
     _chatUnsubscribe = onValue(newMsgsRef, snap => {
       if (!_chatInitialized) return;
       if (!snap || !snap.exists()) return;
       snap.forEach(c => {
         const msg = { id: c.key, ...c.val() };
-        // Hanya tampilkan kalau belum dirender DAN ts lebih baru
         if (!_renderedIds.has(msg.id) && msg.ts > _lastTs) {
           const empty = area ? area.querySelector('.empty-chat') : null;
           if (empty) empty.remove();
-          appendMsg(msg);
+          _allMsgs.push(msg);
           _renderedIds.add(msg.id);
           _lastTs = msg.ts;
-          if (area) requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+
+          // Cek apakah user sedang scroll ke atas
+          const isAtBottom = area.scrollHeight - area.scrollTop <= area.clientHeight + 80;
+          if (isAtBottom) {
+            appendMsg(msg);
+            requestAnimationFrame(() => { area.scrollTop = area.scrollHeight; });
+          } else {
+            // Tampilkan notif pesan baru
+            appendMsg(msg);
+            showNewMsgNotif();
+          }
         }
       });
     });
@@ -625,6 +653,98 @@ function startChat() {
     showToast('❌ Gagal memuat chat');
   });
 }
+
+function addLoadMoreBtn() {
+  const area = document.getElementById('chatArea');
+  if (!area) return;
+  const oldBtn = document.getElementById('loadMoreBtn');
+  if (oldBtn) oldBtn.remove();
+
+  const btn = document.createElement('div');
+  btn.id = 'loadMoreBtn';
+  btn.style.cssText = 'text-align:center;padding:10px;cursor:pointer;font-family:monospace;font-size:11px;color:#64748b;letter-spacing:1px;';
+  btn.textContent = '⬆ Muat pesan lebih lama';
+  btn.onclick = loadMoreMsgs;
+  area.insertBefore(btn, area.firstChild);
+}
+
+function loadMoreMsgs() {
+  const area = document.getElementById('chatArea');
+  if (!area) return;
+
+  const btn = document.getElementById('loadMoreBtn');
+  if (btn) { btn.textContent = '⏳ Memuat...'; btn.onclick = null; }
+
+  const prevHeight = area.scrollHeight;
+  const already = _allMsgs.length - _loadedCount;
+  if (already <= 0) {
+    if (btn) btn.remove();
+    return;
+  }
+
+  const start = Math.max(0, _allMsgs.length - _loadedCount - LOAD_STEP);
+  const end   = _allMsgs.length - _loadedCount;
+  const older = _allMsgs.slice(start, end);
+
+  // Insert pesan lama di atas
+  older.reverse().forEach(msg => {
+    if (!document.getElementById('msg-' + msg.id)) {
+      const div = createMsgEl(msg);
+      if (div) area.insertBefore(div, btn ? btn.nextSibling : area.firstChild);
+    }
+  });
+
+  _loadedCount += LOAD_STEP;
+
+  // Pertahankan posisi scroll
+  requestAnimationFrame(() => {
+    area.scrollTop = area.scrollHeight - prevHeight;
+  });
+
+  // Kalau masih ada lebih
+  if (_allMsgs.length > _loadedCount) {
+    if (btn) { btn.textContent = '⬆ Muat pesan lebih lama'; btn.onclick = loadMoreMsgs; }
+  } else {
+    if (btn) btn.remove();
+  }
+}
+
+function showNewMsgNotif() {
+  const old = document.getElementById('newMsgNotif');
+  if (old) return; // sudah ada
+
+  const notif = document.createElement('div');
+  notif.id = 'newMsgNotif';
+  notif.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+    'background:linear-gradient(135deg,#1a3a5c,#1e6abf);' +
+    'color:#fff;font-family:monospace;font-size:11px;letter-spacing:1px;' +
+    'padding:8px 18px;border-radius:20px;cursor:pointer;z-index:999;' +
+    'box-shadow:0 4px 15px rgba(30,106,191,0.4);white-space:nowrap;';
+  notif.textContent = '⬇ Pesan baru';
+  notif.onclick = () => {
+    const area = document.getElementById('chatArea');
+    if (area) area.scrollTop = area.scrollHeight;
+    notif.remove();
+  };
+  document.body.appendChild(notif);
+
+  // Auto hide setelah 5 detik
+  setTimeout(() => { if (notif.parentNode) notif.remove(); }, 5000);
+}
+
+// Scroll ke bawah = hapus notif
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('chatArea');
+  if (area) {
+    area.addEventListener('scroll', () => {
+      const isAtBottom = area.scrollHeight - area.scrollTop <= area.clientHeight + 80;
+      if (isAtBottom) {
+        const notif = document.getElementById('newMsgNotif');
+        if (notif) notif.remove();
+      }
+    });
+  }
+});
 
 // ===== APPEND SATU PESAN KE AREA =====
 function appendMsg(msg) {
@@ -718,6 +838,25 @@ function appendMsg(msg) {
   } catch(e) {
     console.warn('appendMsg error:', e.message);
   }
+}
+
+// Buat element pesan tanpa append — untuk loadMore
+function createMsgEl(msg) {
+  if (!currentUser) return null;
+  try {
+    const tmp = document.createElement('div');
+    // Simpan area sementara
+    const realArea = document.getElementById('chatArea');
+    const fakeArea = document.createElement('div');
+    fakeArea.id = 'chatArea';
+    document.body.appendChild(fakeArea);
+    appendMsg(msg);
+    const el = fakeArea.firstChild;
+    fakeArea.remove();
+    // Restore chatArea id
+    realArea.id = 'chatArea';
+    return el;
+  } catch(e) { return null; }
 }
 
 function renderChat(snap) {
