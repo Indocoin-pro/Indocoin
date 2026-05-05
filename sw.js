@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "70.8";
+const VERSION = "70.9";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -92,6 +92,7 @@ const CACHE_FILES = [
   "/indc-staking.html",
   "/dev-panel.html",
   "/token-lock-tracker.html",
+  "/premium-games.html",
 ];
 
 self.addEventListener("install", (event) => {

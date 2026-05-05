@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Premium Games</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#0a0f1e;--dark2:#0f172a;--dark3:#1e293b;
+  --text:#e2e8f0;--muted:#64748b;
+  --green:#34d399;--red:#f87171;--cyan:#38bdf8;--violet:#a78bfa;
+  --orange:#fb923c;
+  --border:rgba(250,204,21,0.12);--card:rgba(15,23,42,0.97);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+.star{position:fixed;background:#fff;border-radius:50%;animation:twinkle var(--d) ease-in-out infinite alternate;z-index:0;pointer-events:none;}
+@keyframes twinkle{from{opacity:.04}to{opacity:.45}}
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(250,204,21,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(250,204,21,0.03) 1px,transparent 1px);
+  background-size:40px 40px;animation:gridMove 20s linear infinite;}
+@keyframes gridMove{from{background-position:0 0}to{background-position:40px 40px}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+  background:rgba(5,10,25,0.98);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(248,113,113,0.2);
+  position:sticky;top:0;z-index:100;}
+.nav-back{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);}
+.nav-brand{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold);letter-spacing:2px;}
+.nav-sub{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;}
+.nav-badge{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);
+  border-radius:20px;padding:4px 10px;color:var(--red);}
+
+/* HERO */
+.hero{position:relative;z-index:1;padding:20px 16px 12px;text-align:center;}
+.hero::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(248,113,113,0.06) 0%,transparent 70%);pointer-events:none;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;
+  background:linear-gradient(135deg,var(--red),var(--orange),var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:3px;margin-bottom:4px;}
+.hero-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;}
+
+/* SEARCH */
+.search-wrap{position:relative;z-index:1;padding:10px 12px 6px;}
+.search-box{width:100%;padding:11px 16px 11px 40px;border-radius:12px;
+  background:rgba(15,23,42,0.8);border:1px solid rgba(248,113,113,0.25);
+  color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;outline:none;
+  transition:border-color .2s;}
+.search-box:focus{border-color:rgba(248,113,113,0.6);}
+.search-box::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:24px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;}
+.search-count{position:absolute;right:24px;top:50%;transform:translateY(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+
+/* CATEGORY FILTER */
+.cat-filter{position:relative;z-index:1;padding:6px 12px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
+.cat-filter::-webkit-scrollbar{display:none;}
+.cfbtn{flex-shrink:0;padding:6px 14px;border-radius:20px;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:.5px;
+  border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);
+  transition:all .2s;}
+.cfbtn.on{background:rgba(248,113,113,0.12);border-color:rgba(248,113,113,0.5);color:var(--red);
+  box-shadow:0 0 10px rgba(248,113,113,0.15);}
+
+/* GRID */
+.page{position:relative;z-index:1;padding:8px 10px 84px;}
+.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* CARD */
+.game-card{position:relative;border-radius:14px;overflow:hidden;cursor:pointer;
+  border:1px solid rgba(248,113,113,0.15);background:var(--card);
+  transition:transform .2s,box-shadow .2s;animation:fadeUp .3s ease both;}
+.game-card:active{transform:scale(0.96);}
+.game-card:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(248,113,113,0.15);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.card-thumb{height:110px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(248,113,113,0.1),rgba(251,146,60,0.07));}
+.card-thumb::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 40%,rgba(10,15,30,0.85));}
+.thumb-img{width:100%;height:100%;object-fit:cover;transition:transform .3s;}
+.game-card:hover .thumb-img{transform:scale(1.08);}
+.thumb-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;
+  color:rgba(248,113,113,0.25);letter-spacing:-2px;user-select:none;}
+.card-cat-badge{position:absolute;top:6px;right:6px;z-index:2;
+  font-family:'Orbitron',sans-serif;font-size:6px;font-weight:700;
+  padding:2px 7px;border-radius:20px;letter-spacing:.5px;
+  background:rgba(248,113,113,0.2);border:1px solid rgba(248,113,113,0.4);color:var(--red);}
+
+.card-body{padding:8px 10px 10px;}
+.card-name{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  color:var(--text);letter-spacing:.5px;margin-bottom:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-cat{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-bottom:8px;}
+.card-play-btn{width:100%;padding:6px;border-radius:8px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,rgba(248,113,113,0.2),rgba(251,146,60,0.15));
+  border:1px solid rgba(248,113,113,0.35);
+  font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  color:var(--red);letter-spacing:.5px;transition:all .2s;}
+.card-play-btn:hover{background:linear-gradient(135deg,rgba(248,113,113,0.35),rgba(251,146,60,0.25));
+  box-shadow:0 0 10px rgba(248,113,113,0.2);}
+
+/* EMPTY */
+.empty-state{grid-column:1/-1;text-align:center;padding:50px 20px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+
+/* PAY MODAL */
+.pay-modal{position:fixed;inset:0;z-index:998;background:rgba(5,10,25,0.92);
+  display:none;align-items:center;justify-content:center;padding:20px;}
+.pay-modal.open{display:flex;}
+.pay-box{background:var(--dark2);border:1px solid rgba(248,113,113,0.3);border-radius:20px;
+  padding:28px 24px;max-width:320px;width:100%;text-align:center;
+  box-shadow:0 0 40px rgba(248,113,113,0.1);}
+.pay-icon{font-size:44px;margin-bottom:10px;}
+.pay-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;}
+.pay-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--text);letter-spacing:1px;margin-bottom:16px;line-height:1.4;}
+.pay-divider{height:1px;background:rgba(248,113,113,0.15);margin:0 0 16px;}
+.pay-price-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.pay-price-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
+.pay-price-val{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;
+  background:linear-gradient(135deg,var(--gold),var(--orange));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.pay-note{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(100,116,139,0.7);
+  margin-bottom:20px;line-height:1.5;text-align:left;}
+.pay-btn{width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold),var(--orange));
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  color:#000;letter-spacing:1px;margin-bottom:10px;transition:all .2s;}
+.pay-btn:hover{box-shadow:0 0 20px rgba(250,204,21,0.35);}
+.pay-cancel{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);
+  cursor:pointer;padding:8px;display:block;transition:color .2s;}
+.pay-cancel:hover{color:var(--text);}
+
+/* GAME MODAL */
+.game-modal{position:fixed;inset:0;z-index:999;background:#000;display:none;flex-direction:column;}
+.game-modal.open{display:flex;}
+.gm-header{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:rgba(5,10,25,1);border-bottom:1px solid var(--border);flex-shrink:0;}
+.gm-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;}
+.gm-close{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--muted);
+  cursor:pointer;padding:5px 10px;border-radius:8px;
+  border:1px solid var(--border);background:rgba(255,255,255,0.03);
+  transition:all .2s;letter-spacing:.5px;}
+.gm-close:hover{color:var(--red);border-color:rgba(248,113,113,0.4);}
+.gm-iframe{flex:1;width:100%;border:none;}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(5,10,25,0.98);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(250,204,21,0.2);display:flex;height:60px;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-decoration:none;color:#6b7280;transition:all .2s;}
+.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:17px;}
+.bnav-label{font-size:7px;font-weight:700;letter-spacing:.8px;font-family:'Orbitron',sans-serif;}
+
+/* TOAST */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  background:rgba(15,23,42,0.97);border:1px solid var(--border);
+  border-radius:20px;padding:9px 18px;
+  font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);
+  z-index:9999;white-space:nowrap;display:none;}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <a href="permainan.html" class="nav-back">
+    <span style="font-size:18px;">←</span>
+    <div>
+      <div class="nav-brand">INDOCOIN</div>
+      <div class="nav-sub">PREMIUM GAMES</div>
+    </div>
+  </a>
+  <div class="nav-badge" id="totalBadge">— GAMES</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-title">PREMIUM GAMES</div>
+  <div class="hero-sub">GAME PREMIUM · AKSES PAKAI INDC · MAIN SEKARANG</div>
+</div>
+
+<!-- SEARCH -->
+<div class="search-wrap">
+  <span class="search-icon">🔍</span>
+  <input class="search-box" id="searchBox" type="text" placeholder="Cari game... (racing, action, puzzle...)" oninput="filterGames()">
+  <span class="search-count" id="searchCount"></span>
+</div>
+
+<!-- CATEGORY FILTER -->
+<div class="cat-filter" id="catFilter">
+  <div class="cfbtn on" onclick="setCategory('all',this)">SEMUA</div>
+  <div class="cfbtn" onclick="setCategory('Racing',this)">RACING</div>
+  <div class="cfbtn" onclick="setCategory('Action',this)">ACTION</div>
+  <div class="cfbtn" onclick="setCategory('Strategy',this)">STRATEGY</div>
+  <div class="cfbtn" onclick="setCategory('Puzzle',this)">PUZZLE</div>
+  <div class="cfbtn" onclick="setCategory('Simulation',this)">SIMULATION</div>
+</div>
+
+<!-- GRID -->
+<div class="page">
+  <div class="game-grid" id="gameGrid"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
+  <a href="permainan.html" class="bnav-item"><span class="bnav-icon">🎮</span><span class="bnav-label">GAMES</span></a>
+  <a href="leaderboard.html" class="bnav-item"><span class="bnav-icon">🏆</span><span class="bnav-label">RANKING</span></a>
+  <a href="wallet.html" class="bnav-item"><span class="bnav-icon">💰</span><span class="bnav-label">WALLET</span></a>
+  <a href="profile.html" class="bnav-item"><span class="bnav-icon">👤</span><span class="bnav-label">PROFIL</span></a>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- PAY MODAL -->
+<div class="pay-modal" id="payModal">
+  <div class="pay-box">
+    <div class="pay-icon">🎮</div>
+    <div class="pay-label">AKSES GAME</div>
+    <div class="pay-title" id="payTitle">—</div>
+    <div class="pay-divider"></div>
+    <div class="pay-price-row">
+      <div class="pay-price-label">BIAYA AKSES</div>
+      <div class="pay-price-val">50 INDC</div>
+    </div>
+    <div class="pay-note">
+      • Bayar sekali, akses penuh game ini<br>
+      • INDC dipotong dari wallet kamu<br>
+      • Game dibuka langsung setelah konfirmasi
+    </div>
+    <button class="pay-btn" onclick="confirmPay()">BAYAR 50 INDC & MAIN</button>
+    <span class="pay-cancel" onclick="closePayModal()">Batal</span>
+  </div>
+</div>
+
+<!-- GAME MODAL -->
+<div class="game-modal" id="gameModal">
+  <div class="gm-header">
+    <div class="gm-title" id="gmTitle">—</div>
+    <div class="gm-close" onclick="closeGameModal()">✕ TUTUP</div>
+  </div>
+  <iframe class="gm-iframe" id="gmIframe" src="" allowfullscreen allow="fullscreen"></iframe>
+</div>
+
+<script>
+// STARS
+for(let i=0;i<35;i++){
+  const s=document.createElement('div');s.className='star';
+  const z=Math.random()*2+1;
+  s.style.cssText=`width:${z}px;height:${z}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*4}s;opacity:0;`;
+  document.body.appendChild(s);
+}
+
+// DATA — 178 games dari madkidgames
+const HARD_GAMES = [
+  {slug:'pov-car-driving',name:'POV Car Driving',cat:'Racing'},
+  {slug:'moto-rider-go-highway-traffic',name:'Moto Rider GO: Highway Traffic',cat:'Racing'},
+  {slug:'speed-legends-car-driving-simulator',name:'Speed Legends: Car Driving Simulator',cat:'Racing'},
+  {slug:'speed-legends-drift-racing',name:'Speed Legends: Drift Racing',cat:'Racing'},
+  {slug:'ultimate-car-driving-classics',name:'Ultimate Car Driving: Classics',cat:'Racing'},
+  {slug:'racing-fever-moto',name:'Racing Fever: Moto',cat:'Racing'},
+  {slug:'drag-sim-2018',name:'Drag Sim 2018',cat:'Racing'},
+  {slug:'racing-in-city-2-car-driving',name:'Racing in City 2 - Car Driving',cat:'Racing'},
+  {slug:'driving-school-classics',name:'Driving School Classics',cat:'Racing'},
+  {slug:'truck-racer',name:'Truck Racer',cat:'Racing'},
+  {slug:'racing-in-car-2',name:'Racing in Car 2',cat:'Racing'},
+  {slug:'taxi-sim-2016',name:'Taxi Sim 2016',cat:'Racing'},
+  {slug:'driving-school-2017',name:'Driving School 2017',cat:'Racing'},
+  {slug:'driving-school-2016',name:'Driving School 2016',cat:'Racing'},
+  {slug:'racing-limits',name:'Racing Limits',cat:'Racing'},
+  {slug:'garbage-truck-driving-simulator',name:'Garbage Truck Driving Simulator',cat:'Racing'},
+  {slug:'extreme-bus-driver-simulator',name:'Extreme Bus Driver Simulator',cat:'Racing'},
+  {slug:'school-bus-driving-simulator',name:'School Bus Driving Simulator',cat:'Racing'},
+  {slug:'cargo-truck-simulator',name:'Cargo Truck Simulator',cat:'Racing'},
+  {slug:'truck-racing-game-3d',name:'Truck Racing Game 3D',cat:'Racing'},
+  {slug:'truck-simulator-17',name:'Truck Simulator 17',cat:'Racing'},
+  {slug:'truck-simulator-europe',name:'Truck Simulator: Europe',cat:'Racing'},
+  {slug:'bus-simulator-ultimate',name:'Bus Simulator: Ultimate',cat:'Racing'},
+  {slug:'coach-bus-simulator-17',name:'Coach Bus Simulator 17',cat:'Racing'},
+  {slug:'euro-truck-driver-18-truckers-wanted',name:'Euro Truck Driver 18',cat:'Racing'},
+  {slug:'european-truck-simulator',name:'European Truck Simulator',cat:'Racing'},
+  {slug:'coach-bus-simulator',name:'Coach Bus Simulator',cat:'Racing'},
+  {slug:'truck-simulator-usa-classic',name:'Truck Simulator USA: Classic',cat:'Racing'},
+  {slug:'bus-simulator-17',name:'Bus Simulator 17',cat:'Racing'},
+  {slug:'truckers-of-europe-2',name:'Truckers of Europe 2',cat:'Racing'},
+  {slug:'truck-simulator-pro-2',name:'Truck Simulator PRO 2',cat:'Racing'},
+  {slug:'elite-trials',name:'Elite Trials',cat:'Racing'},
+  {slug:'gx-racing',name:'GX Racing',cat:'Racing'},
+  {slug:'bike-up',name:'Bike Up!',cat:'Racing'},
+  {slug:'ship-simulator-19',name:'Ship Simulator 19',cat:'Racing'},
+  {slug:'mountain-climb-4x4-car-drive',name:'Mountain Climb 4x4: Car Drive',cat:'Racing'},
+  {slug:'train-driver-2018',name:'Train Driver 2018',cat:'Racing'},
+  {slug:'car-eats-car-3-survival-racing',name:'Car Eats Car 3 Survival Racing',cat:'Racing'},
+  {slug:'car-eats-car-2-racing-game',name:'Car Eats Car 2 - Racing Game',cat:'Racing'},
+  {slug:'smashy-drift-racing',name:'Smashy Drift Racing',cat:'Racing'},
+  {slug:'drift-it',name:'Drift It!',cat:'Racing'},
+  {slug:'rocket-car-ball',name:'Rocket Car Ball',cat:'Racing'},
+  {slug:'police-car-chase-cop-simulator',name:'Police Car Chase Cop Simulator',cat:'Racing'},
+  {slug:'demolition-derby-2',name:'Demolition Derby 2',cat:'Racing'},
+  {slug:'car-parking-pro-park-and-drive',name:'Car Parking Pro - Park & Drive',cat:'Racing'},
+  {slug:'race-max-ultimate-racing-game',name:'Race Max: Ultimate Racing Game',cat:'Racing'},
+  {slug:'offroad-outlaws',name:'Offroad Outlaws',cat:'Racing'},
+  {slug:'stickman-racer-survival-zombie',name:'Stickman Racer: Survival Zombie',cat:'Racing'},
+  {slug:'car-crash-parkour-demolition',name:'Car Crash Parkour Demolition',cat:'Racing'},
+  {slug:'stunt-bike-extreme',name:'Stunt Bike Extreme',cat:'Racing'},
+  {slug:'rovercraft-race-your-space-car',name:'Rovercraft: Race Your Space Car',cat:'Racing'},
+  {slug:'zombie-hill-racing-earn-climb',name:'Zombie Hill Racing: Earn Climb',cat:'Racing'},
+  {slug:'railroad-madness-xtreme-hill-climb-offroad-racing',name:'Railroad Madness: Hill Climb',cat:'Racing'},
+  {slug:'jungle-hill-climb-racing',name:'Jungle Hill Climb Racing',cat:'Racing'},
+  {slug:'hill-climb-racing-2-adventure-game',name:'Hill Climb Racing 2',cat:'Racing'},
+  {slug:'hill-climb-racing-adventure',name:'Hill Climb Racing Adventure',cat:'Racing'},
+  {slug:'traffic-racer',name:'Traffic Racer',cat:'Racing'},
+  {slug:'traffic-rider',name:'Traffic Rider',cat:'Racing'},
+  {slug:'gta-car-stunt-mega-ramp',name:'GTA Car Stunt: Mega Ramp',cat:'Racing'},
+  {slug:'toy-rally-cars-racing-3d',name:'Toy Rally Cars Racing 3D',cat:'Racing'},
+  {slug:'formula-race-championship-f1-racing',name:'Formula Race Championship F1',cat:'Racing'},
+  {slug:'formula-f1-race-lite',name:'Formula F1 Race Lite',cat:'Racing'},
+  {slug:'monster-truck-go-racing-games',name:'Monster Truck Go: Racing Games',cat:'Racing'},
+  {slug:'temple-rider-bmx-racing-3d',name:'Temple Rider: BMX Racing 3D',cat:'Racing'},
+  {slug:'crazy-gt-car-stunts-simulator-ramp-car-stunts',name:'Crazy GT Car Stunts Simulator',cat:'Racing'},
+  {slug:'formula-racer-f1-championship',name:'Formula Racer F1 Championship',cat:'Racing'},
+  {slug:'car-driving-simulator',name:'Car Driving Simulator',cat:'Racing'},
+  {slug:'infinite-speed-no-limit-racer',name:'Infinite Speed: No Limit Racer',cat:'Racing'},
+  {slug:'mini-car-race-3d',name:'Mini Car Race 3D',cat:'Racing'},
+  {slug:'car-racing-realistic-car-simulator',name:'Car Racing: Realistic Simulator',cat:'Racing'},
+  {slug:'hot-wheels-race-off',name:'Hot Wheels: Race Off',cat:'Racing'},
+  {slug:'mmx-hill-dash-2-race-offroad',name:'MMX Hill Dash 2: Race Offroad',cat:'Racing'},
+  {slug:'mmx-hill-dash',name:'MMX Hill Dash',cat:'Racing'},
+  {slug:'mad-truck-challenge-4x4-racing',name:'Mad Truck Challenge 4x4 Racing',cat:'Racing'},
+  {slug:'car-eats-car-apocalypse-race',name:'Car Eats Car: Apocalypse Race',cat:'Racing'},
+  {slug:'drive-or-die-zombie-apocalypse',name:'Drive or Die: Zombie Apocalypse',cat:'Racing'},
+  {slug:'hill-climb-racing-mcqueen',name:'Hill Climb Racing: McQueen',cat:'Racing'},
+  {slug:'hill-climb-racing-3d',name:'Hill Climb Racing 3D',cat:'Racing'},
+  {slug:'royal-battletown-gta-game',name:'Royal Battletown: GTA Game',cat:'Racing'},
+  {slug:'train-climb-racing-train-simulator-3d',name:'Train Climb Racing 3D',cat:'Racing'},
+  {slug:'fastest-cars-traffic-racer',name:'Fastest Cars Traffic Racer',cat:'Racing'},
+  {slug:'police-car-suv-simulator',name:'Police Car SUV Simulator',cat:'Racing'},
+  {slug:'offroad-jeep-4x4-car-driving-simulator',name:'Offroad Jeep 4x4 Simulator',cat:'Racing'},
+  {slug:'octopus-robot-car-game-3d',name:'Octopus Robot Car Game 3D',cat:'Racing'},
+  {slug:'race-warrior-3d-car-racing',name:'Race Warrior 3D: Car Racing',cat:'Racing'},
+  {slug:'ultimate-motorcycle-simulator',name:'Ultimate Motorcycle Simulator',cat:'Racing'},
+  {slug:'ultimate-car-driving-simulator',name:'Ultimate Car Driving Simulator',cat:'Racing'},
+  {slug:'carage-open-world-simulator-3d',name:'CarAge: Open World Simulator 3D',cat:'Racing'},
+  {slug:'carquest-open-world-racing',name:'CarQuest: Open World Racing',cat:'Racing'},
+  {slug:'police-car-chase',name:'Police Car Chase',cat:'Racing'},
+  {slug:'bike-race-racing-game',name:'Bike Race: Racing Game',cat:'Racing'},
+  {slug:'nitro-racing-3d-car-racing-games',name:'Nitro Racing 3D: Car Racing',cat:'Racing'},
+  {slug:'truck-simulator-offroad-2',name:'Truck Simulator Offroad 2',cat:'Racing'},
+  {slug:'truck-simulator-offroad-4',name:'Truck Simulator OffRoad 4',cat:'Racing'},
+  {slug:'robot-war-superhero-fight',name:'Robot War: Superhero Fight',cat:'Action'},
+  {slug:'ramboat',name:'Ramboat',cat:'Action'},
+  {slug:'beat-the-boss-4',name:'Beat the Boss 4',cat:'Action'},
+  {slug:'samurai-ii-vengeance',name:'Samurai II: Vengeance',cat:'Action'},
+  {slug:'smashy-road-wanted',name:'Smashy Road: Wanted',cat:'Action'},
+  {slug:'cat-runner-decorate-home',name:'Cat Runner: Decorate Home',cat:'Action'},
+  {slug:'subway-princess-runner',name:'Subway Princess Runner',cat:'Action'},
+  {slug:'bob-the-robber-4',name:'Bob The Robber 4',cat:'Action'},
+  {slug:'safe-zone',name:'Safe Zone!',cat:'Action'},
+  {slug:'mr-meat-horror-escape-room',name:'Mr Meat Horror Escape Room',cat:'Action'},
+  {slug:'evil-nun-horror-at-school',name:'Evil Nun: Horror at School',cat:'Action'},
+  {slug:'lucky-life',name:'Lucky Life',cat:'Action'},
+  {slug:'last-day-on-earth-survival',name:'Last Day on Earth: Survival',cat:'Action'},
+  {slug:'short-life',name:'Short Life',cat:'Action'},
+  {slug:'flat-zombies-defense-and-cleanup',name:'Flat Zombies: Defense & Cleanup',cat:'Action'},
+  {slug:'hunter-assassin-3d-ninja-samurai',name:'Hunter Assassin 3D: Ninja Samurai',cat:'Action'},
+  {slug:'wolf-clan-simulator-wild-animal-survival-game',name:'Wolf Clan Simulator',cat:'Action'},
+  {slug:'ninja-samurai-action-rpg-survival',name:'Ninja Samurai: Action RPG',cat:'Action'},
+  {slug:'wild-elephant-simulator-animal-survival-game',name:'Wild Elephant Simulator',cat:'Action'},
+  {slug:'tiger-survival-simulator',name:'Tiger Survival Simulator',cat:'Action'},
+  {slug:'fantasy-dragon-simulator-animal-survival-game',name:'Fantasy Dragon Simulator',cat:'Action'},
+  {slug:'mad-day-2-shoot-the-aliens',name:'Mad Day 2: Shoot The Aliens',cat:'Action'},
+  {slug:'stickman-world-battle',name:'Stickman World Battle',cat:'Action'},
+  {slug:'grow-empire-rome',name:'Grow Empire: Rome',cat:'Action'},
+  {slug:'war-of-ships-io',name:'War of Ships.io',cat:'Action'},
+  {slug:'lich-ghost-simulator',name:'Lich Ghost Simulator',cat:'Action'},
+  {slug:'orc-slinger-simulator',name:'Orc Slinger Simulator',cat:'Action'},
+  {slug:'carnivorous-plant-simulator',name:'Carnivorous Plant Simulator',cat:'Action'},
+  {slug:'monster-bee-simulator',name:'Monster Bee Simulator',cat:'Action'},
+  {slug:'bear-warrior-simulator',name:'Bear Warrior Simulator',cat:'Action'},
+  {slug:'ultimate-spider-simulator',name:'Ultimate Spider Simulator',cat:'Action'},
+  {slug:'boar-clan-animal-simulator',name:'Boar Clan: Animal Simulator',cat:'Action'},
+  {slug:'rhino-king-animal-simulator',name:'Rhino King: Animal Simulator',cat:'Action'},
+  {slug:'snake-kingdom-simulator',name:'Snake Kingdom Simulator',cat:'Action'},
+  {slug:'open-world-rpg-bald-knight',name:'Open World RPG: Bald Knight',cat:'Action'},
+  {slug:'jurassic-world-simulator',name:'Jurassic World Simulator',cat:'Action'},
+  {slug:'ghost-simulator',name:'Ghost Simulator',cat:'Action'},
+  {slug:'yeti-simulator-yeti-vlog-veo-3',name:'Yeti Simulator',cat:'Action'},
+  {slug:'assassins-creed-barbarian-open-world-rpg',name:"Assassin's Creed Barbarian RPG",cat:'Action'},
+  {slug:'stickman-revenge-3-ninja-warrior',name:'Stickman Revenge 3: Ninja Warrior',cat:'Action'},
+  {slug:'hero-tower-wars-merge-puzzle',name:'Hero Tower Wars - Merge Puzzle',cat:'Action'},
+  {slug:'squad-shooter',name:'Squad Shooter',cat:'Action'},
+  {slug:'epic-runner-soldiers-shooting',name:'Epic Runner Soldiers Shooting',cat:'Action'},
+  {slug:'hit-expert-3d-shooting-game',name:'Hit Expert 3D: Shooting Game',cat:'Action'},
+  {slug:'stick-war-legacy',name:'Stick War: Legacy',cat:'Strategy'},
+  {slug:'tower-defense-defense-legend',name:'Tower Defense: Defense Legend',cat:'Strategy'},
+  {slug:'grow-castle-tower-defense',name:'Grow Castle - Tower Defense',cat:'Strategy'},
+  {slug:'magic-siege-castle-defender',name:'Magic Siege: Castle Defender',cat:'Strategy'},
+  {slug:'tower-defense-alien-war-td-2',name:'Tower Defense: Alien War TD 2',cat:'Strategy'},
+  {slug:'tower-defense-alien-war-td',name:'Tower Defense: Alien War TD',cat:'Strategy'},
+  {slug:'tower-crush-defense-td',name:'Tower Crush: Defense TD',cat:'Strategy'},
+  {slug:'tower-defense-galaxy-legend',name:'Tower Defense: Galaxy Legend',cat:'Strategy'},
+  {slug:'tower-defense-zone-2-strategy-game',name:'Tower Defense Zone 2',cat:'Strategy'},
+  {slug:'tower-defense-zone-strategy-game',name:'Tower Defense Zone',cat:'Strategy'},
+  {slug:'zombie-rabbits-vs-sheldon',name:'Zombie Rabbits vs Sheldon',cat:'Strategy'},
+  {slug:'holyday-city-tycoon',name:'Holyday City Tycoon',cat:'Strategy'},
+  {slug:'keep-on-mining',name:'Keep on Mining!',cat:'Strategy'},
+  {slug:'keep-on-mining-worlds',name:'Keep on Mining! Worlds',cat:'Strategy'},
+  {slug:'nuclear-power-reactor-inc-in',name:'Nuclear Power Reactor INC',cat:'Strategy'},
+  {slug:'farm-simulator-evo',name:'Farm Simulator: Evo',cat:'Strategy'},
+  {slug:'euro-truck-driver-2018',name:'Euro Truck Driver 2018',cat:'Strategy'},
+  {slug:'faraway-puzzle-escape',name:'Faraway: Puzzle Escape',cat:'Puzzle'},
+  {slug:'stranger-cases-mystery-escape',name:'Stranger Cases: Mystery Escape',cat:'Puzzle'},
+  {slug:'escape-machine-city',name:'Escape Machine City',cat:'Puzzle'},
+  {slug:'escape-machine-city-airborne',name:'Escape Machine City: Airborne',cat:'Puzzle'},
+  {slug:'1010-block-puzzle-game',name:'1010! Block Puzzle Game',cat:'Puzzle'},
+  {slug:'2-for-2-connect-the-numbers',name:'2 For 2: Connect the Numbers',cat:'Puzzle'},
+  {slug:'mahjong-infinite',name:'Mahjong Infinite',cat:'Puzzle'},
+  {slug:'mahjong-adventures',name:'Mahjong Adventures',cat:'Puzzle'},
+  {slug:'seven-seas-jewels-2',name:'Seven Seas Jewels 2',cat:'Puzzle'},
+  {slug:'seaside-match',name:'Seaside Match',cat:'Puzzle'},
+  {slug:'cat-slide-tiles',name:'Cat Slide Tiles',cat:'Puzzle'},
+  {slug:'color-road',name:'Color Road',cat:'Puzzle'},
+  {slug:'color-bump-3d-asmr-ball-game',name:'Color Bump 3D: ASMR Ball Game',cat:'Puzzle'},
+  {slug:'bottle-flip-3d-tap-and-jump',name:'Bottle Flip 3D: Tap & Jump!',cat:'Puzzle'},
+  {slug:'pegidle',name:'PegIdle',cat:'Puzzle'},
+  {slug:'merge-cake-merge-cooking',name:'Merge Cake - Merge Cooking',cat:'Puzzle'},
+  {slug:'bus-simulator-pro-2',name:'Bus Simulator PRO 2',cat:'Simulation'},
+  {slug:'airplane-flight-simulator-evo',name:'Airplane Flight Simulator EVO',cat:'Simulation'},
+  {slug:'submarine-war-submarine-games',name:'Submarine War: Submarine Games',cat:'Simulation'},
+];
+
+const PRICE = 50;
+let activeCat = 'all';
+let searchVal = '';
+let pendingSlug = '';
+let pendingName = '';
+
+function getEmoji(cat) {
+  const map = {Racing:'🏎️',Action:'⚔️',Strategy:'🏰',Puzzle:'🧩',Simulation:'🚀'};
+  return map[cat] || '🎮';
+}
+
+function getLetters(name) {
+  return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+}
+
+function setCategory(cat, el) {
+  activeCat = cat;
+  document.querySelectorAll('.cfbtn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  filterGames();
+}
+
+function filterGames() {
+  searchVal = document.getElementById('searchBox').value.toLowerCase().trim();
+  const grid = document.getElementById('gameGrid');
+  grid.innerHTML = '';
+
+  const filtered = HARD_GAMES.filter(g => {
+    const matchCat = activeCat === 'all' || g.cat === activeCat;
+    const matchSearch = !searchVal || g.name.toLowerCase().includes(searchVal) || g.cat.toLowerCase().includes(searchVal);
+    return matchCat && matchSearch;
+  });
+
+  document.getElementById('searchCount').textContent = filtered.length;
+  document.getElementById('totalBadge').textContent = filtered.length + ' GAMES';
+
+  if(filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Game tidak ditemukan. Coba kata kunci lain.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach((g,i) => {
+    const card = document.createElement('div');
+    card.className = 'game-card';
+    card.style.animationDelay = Math.min(i,20)*0.04+'s';
+    card.innerHTML = `
+      <div class="card-thumb">
+        <img class="thumb-img" 
+          src="https://www.madkidgames.com/games/${g.slug}/thumb_1.jpg"
+          alt="${g.name}"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="thumb-fallback" style="display:none">${getLetters(g.name)}</div>
+        <div class="card-cat-badge">${g.cat.toUpperCase()}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-name" title="${g.name}">${g.name}</div>
+        <div class="card-cat">${getEmoji(g.cat)} ${g.cat}</div>
+        <button class="card-play-btn" onclick="openPayModal(event,'${g.slug}','${g.name.replace(/'/g,"\\'")}')">
+          MAIN — ${PRICE} INDC
+        </button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function openPayModal(e, slug, name) {
+  e.stopPropagation();
+  pendingSlug = slug;
+  pendingName = name;
+  document.getElementById('payTitle').textContent = name;
+  document.getElementById('payModal').classList.add('open');
+}
+
+function closePayModal() {
+  document.getElementById('payModal').classList.remove('open');
+  pendingSlug = '';
+  pendingName = '';
+}
+
+function confirmPay() {
+  // TODO: Connect INDC smart contract payment
+  closePayModal();
+  if(pendingSlug) {
+    document.getElementById('gmTitle').textContent = pendingName;
+    document.getElementById('gmIframe').src = `https://www.madkidgames.com/full/${pendingSlug}`;
+    document.getElementById('gameModal').classList.add('open');
+  }
+}
+
+function closeGameModal() {
+  document.getElementById('gameModal').classList.remove('open');
+  document.getElementById('gmIframe').src = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.style.display='none', 2500);
+}
+
+// INIT
+filterGames();
+</script>
+</body>
+</html>
