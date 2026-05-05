@@ -647,20 +647,37 @@ async function doPayment(){
 }
 
 function bukaGame(slug, name){
-  // Buka via iframe fullscreen di dalam DApp
   const existing = document.getElementById('gameFrame');
   if(existing) existing.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'gameFrame';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0f1e;display:flex;flex-direction:column;';
 
   overlay.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:rgba(5,10,25,1);border-bottom:1px solid rgba(250,204,21,0.2);flex-shrink:0;">
       <div style="font-family:Orbitron,sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;">${name}</div>
-      <div onclick="document.getElementById('gameFrame').remove()" style="font-family:Orbitron,sans-serif;font-size:8px;font-weight:700;color:var(--muted);cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid rgba(250,204,21,0.2);background:rgba(255,255,255,0.03);letter-spacing:.5px;">✕ TUTUP</div>
+      <div onclick="document.getElementById('gameFrame').remove()" style="font-family:Orbitron,sans-serif;font-size:8px;font-weight:700;color:#94a3b8;cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid rgba(250,204,21,0.2);">✕ TUTUP</div>
     </div>
-    <iframe src="https://www.madkidgames.com/full/${slug}" style="flex:1;width:100%;border:none;" allowfullscreen allow="fullscreen;gamepad"></iframe>`;
+    <div id="gameLoading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+      <div style="font-family:Orbitron,sans-serif;font-size:28px;font-weight:900;background:linear-gradient(135deg,#facc15,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">INDOCOIN</div>
+      <div style="font-family:Share Tech Mono,monospace;font-size:10px;color:#64748b;letter-spacing:2px;">MEMUAT GAME...</div>
+      <div style="width:40px;height:40px;border:3px solid rgba(250,204,21,0.2);border-top-color:#facc15;border-radius:50%;animation:spin 1s linear infinite;"></div>
+    </div>
+    <iframe id="gameIframe" src="https://www.madkidgames.com/full/${slug}"
+      style="flex:1;width:100%;border:none;display:none;"
+      allowfullscreen allow="fullscreen;gamepad"
+      onload="document.getElementById('gameLoading').style.display='none';this.style.display='block';"
+      onerror="document.getElementById('gameLoading').innerHTML='<div style=text-align:center;padding:20px><div style=font-size:40px>😔</div><div style=font-family:Orbitron,sans-serif;font-size:12px;color:#facc15;margin:10px 0>GAME TIDAK TERSEDIA</div><div style=font-family:Share\\ Tech\\ Mono,monospace;font-size:9px;color:#64748b>Game ini tidak support embed.<br>Akses anda tetap aktif 24 jam.</div></div>'">
+    </iframe>`;
+
+  // Tambah CSS spin
+  if(!document.getElementById('spinStyle')){
+    const st = document.createElement('style');
+    st.id = 'spinStyle';
+    st.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
 
   document.body.appendChild(overlay);
 }
