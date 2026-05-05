@@ -926,19 +926,16 @@ svg.chart { width: 100%; overflow: visible; }
       </div>
     </div>
 
-    <!-- Top Gainers / Losers -->
+    <!-- Statistik Ekosistem INDC -->
     <div class="card">
-      <div class="card-head" style="padding-bottom:0; border-bottom:none;">
+      <div class="card-head">
         <div class="card-title">
-          <div class="title-dot" style="background:var(--c-green);box-shadow:0 0 6px var(--c-green)"></div>
-          Top Movers
+          <div class="title-dot" style="background:#facc15;box-shadow:0 0 6px #facc15"></div>
+          Ekosistem INDC
         </div>
+        <span class="card-meta" id="ecoUpdate">Live · BSC</span>
       </div>
-      <div class="gl-tabs">
-        <div class="gl-tab on" id="gainTab">▲ Gainers</div>
-        <div class="gl-tab" id="loseTab">▼ Losers</div>
-      </div>
-      <div class="gl-list" id="glList"></div>
+      <div id="glList" style="padding:8px 0;"></div>
     </div>
   </div>
 
@@ -1058,81 +1055,119 @@ const state = {
   txPage: 1
 };
 
-/* ── Seed data ── */
-function mkTVL(n) {
-  const base = 200; const data = [];
-  for (let i = 0; i < n; i++) {
-    base + (Math.random() - 0.45) * 8;
-    data.push({ tvl: 180 + Math.random() * 80, liq: 100 + Math.random() * 50 });
-  }
-  return data;
-}
+/* ── INDOCOIN Real Data Config ── */
+const INDC_CA   = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const BSCSCAN_API = 'https://api.bscscan.com/api';
+const BSCSCAN_KEY = 'YourApiKeyToken'; // ganti dengan API key BSCScan
 
-function mkVol(n) {
-  return Array.from({length:n}, (_,i) => {
-    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-    return { label: months[i % 12], swap: 20 + Math.random() * 80, liq: 10 + Math.random() * 40 };
-  });
-}
-
-const gainers = [
-  { sym:'ARB',  name:'Arbitrum',   price:'$1.82',  chg:'+24.7%', col:'#38bdf8', icon:'A' },
-  { sym:'OP',   name:'Optimism',   price:'$2.41',  chg:'+18.2%', col:'#f87171', icon:'O' },
-  { sym:'SOL',  name:'Solana',     price:'$148.72',chg:'+7.9%',  col:'#34d399', icon:'S' },
-  { sym:'LINK', name:'Chainlink',  price:'$14.33', chg:'+6.1%',  col:'#60a5fa', icon:'L' },
-  { sym:'MATIC',name:'Polygon',    price:'$0.98',  chg:'+4.8%',  col:'#a78bfa', icon:'M' },
+// Semua staking contracts untuk hitung TVL
+const STAKING_CONTRACTS = [
+  { name:'Growth Lock',   addr:'0x...', type:'usdt' },
+  { name:'Auto Compound', addr:'0x496bd8E240E42693caBee50304977896A434d584', type:'indc' },
+  { name:'Flexi Yield',   addr:'0x156dfa702178aa31331edb9302512628f9c103b9', type:'usdt' },
+  { name:'Dynamic Level', addr:'0xCd3AaA06dAc8329C9143dd9623fedA1AC61Fcf48', type:'usdt' },
+  { name:'Vault Game',    addr:'0xb1136B943A855F1e743ae2a7452B147Bb89f85eD', type:'indc' },
+  { name:'Game Savings',  addr:'0xBD4f0DbbdC192423524Fb94EfCFa635380f6fBc0', type:'indc' },
 ];
 
-const losers = [
-  { sym:'UNI',  name:'Uniswap',    price:'$6.12',  chg:'-9.3%',  col:'#f472b6', icon:'U' },
-  { sym:'AAVE', name:'Aave',       price:'$82.40', chg:'-6.7%',  col:'#818cf8', icon:'A' },
-  { sym:'CRV',  name:'Curve',      price:'$0.44',  chg:'-5.1%',  col:'#fb923c', icon:'C' },
-  { sym:'SNX',  name:'Synthetix',  price:'$2.88',  chg:'-3.9%',  col:'#2dd4bf', icon:'S' },
-  { sym:'COMP', name:'Compound',   price:'$48.20', chg:'-2.4%',  col:'#4ade80', icon:'C' },
+const INDC_PRICE_USD = 0.003;
+let _tvlHistory = [];
+let _volHistory = [];
+let allTxData   = [];
+
+// ── Ambil TVL dari semua staking contracts ──
+async function fetchRealTVL() {
+  try {
+    const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
+    const USDT_CA   = '0x55d398326f99059fF775485246999027B3197955';
+    
+    let totalUSDT = 0; let totalINDC = 0;
+    
+    for(const sc of STAKING_CONTRACTS) {
+      try {
+        if(sc.type === 'usdt') {
+          const c = new ethers.Contract(USDT_CA, ERC20_ABI, provider);
+          const bal = await c.balanceOf(sc.addr);
+          totalUSDT += parseFloat(ethers.utils.formatUnits(bal, 18));
+        } else {
+          const c = new ethers.Contract(INDC_CA, ERC20_ABI, provider);
+          const bal = await c.balanceOf(sc.addr);
+          totalINDC += parseFloat(ethers.utils.formatUnits(bal, 9));
+        }
+      } catch(e) {}
+    }
+    
+    const tvlUSD = totalUSDT + (totalINDC * INDC_PRICE_USD);
+    return { tvlUSD, totalUSDT, totalINDC };
+  } catch(e) { return { tvlUSD:0, totalUSDT:0, totalINDC:0 }; }
+}
+
+// ── Ambil transaksi INDC dari BSCScan ──
+async function fetchRealTx() {
+  try {
+    const url = `${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CA}&page=1&offset=25&sort=desc&apikey=${BSCSCAN_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.status !== '1') return [];
+    
+    return data.result.map(tx => ({
+      type: 'Transfer',
+      pair: 'INDC/BSC',
+      value: parseFloat(ethers.utils.formatUnits(tx.value, 9)).toLocaleString('id', {maximumFractionDigits:2}) + ' INDC',
+      wallet: tx.from.slice(0,6) + '...' + tx.from.slice(-4),
+      to: tx.to.slice(0,6) + '...' + tx.to.slice(-4),
+      network: 'BNB Chain',
+      time: timeAgo(parseInt(tx.timeStamp) * 1000),
+      status: tx.txreceipt_status === '1' ? 'Sukses' : 'Gagal',
+      hash: tx.hash.slice(0,8) + '...',
+      hashFull: tx.hash,
+    }));
+  } catch(e) { return []; }
+}
+
+// ── Ambil BSC Gas Price ──
+async function fetchBSCGas() {
+  try {
+    const url = `${BSCSCAN_API}?module=gastracker&action=gasoracle&apikey=${BSCSCAN_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.status !== '1') return null;
+    return data.result;
+  } catch(e) { return null; }
+}
+
+// ── Ambil volume INDC dari BSCScan ──
+async function fetchINDCVolume() {
+  try {
+    const url = `${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CA}&page=1&offset=100&sort=desc&apikey=${BSCSCAN_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.status !== '1') return 0;
+    
+    const total = data.result.reduce((sum, tx) => {
+      return sum + parseFloat(ethers.utils.formatUnits(tx.value, 9));
+    }, 0);
+    return total;
+  } catch(e) { return 0; }
+}
+
+// ── Statistik ekosistem INDC ──
+const indcEcosystem = [
+  { sym:'STAKING', name:'Total Staker',    col:'#34d399', icon:'S', idVal:'eco-staker',  idChg:'eco-staker-chg'  },
+  { sym:'PRESALE', name:'INDC Terjual',    col:'#facc15', icon:'P', idVal:'eco-presale', idChg:'eco-presale-chg' },
+  { sym:'MEMBER',  name:'Total Member',    col:'#38bdf8', icon:'M', idVal:'eco-member',  idChg:'eco-member-chg'  },
+  { sym:'GAME',    name:'Game Savings',    col:'#a78bfa', icon:'G', idVal:'eco-game',    idChg:'eco-game-chg'    },
+  { sym:'VAULT',   name:'Vault Balance',   col:'#fb923c', icon:'V', idVal:'eco-vault',   idChg:'eco-vault-chg'   },
 ];
 
-const txTypes = ['swap','add','remove','bridge','stake'];
-const txTypeLbl = { swap:'Swap', add:'Tambah Likuiditas', remove:'Tarik Likuiditas', bridge:'Bridge', stake:'Staking' };
-const networks  = ['Ethereum','Polygon','Arbitrum','BNB Chain','Optimism'];
-const pairs = ['ETH/USDC','WBTC/ETH','SOL/USDT','MATIC/USDC','ARB/ETH','LINK/ETH','OP/USDC','AVAX/USDC'];
-
-function rndAddr() {
-  const h = '0123456789abcdef';
-  let s = '0x';
-  for (let i=0;i<4;i++) s += h[Math.floor(Math.random()*16)];
-  s += '...';
-  for (let i=0;i<4;i++) s += h[Math.floor(Math.random()*16)];
-  return s;
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if(diff < 60)   return diff + ' dtk lalu';
+  if(diff < 3600) return Math.floor(diff/60) + ' mnt lalu';
+  if(diff < 86400)return Math.floor(diff/3600) + ' jam lalu';
+  return Math.floor(diff/86400) + ' hari lalu';
 }
-
-function rndHash() {
-  const h = '0123456789abcdef';
-  let s = '0x';
-  for (let i=0;i<6;i++) s += h[Math.floor(Math.random()*16)];
-  return s + '...';
-}
-
-function rndTime(i) {
-  const units = ['dtk','mnt','mnt','jam','jam'];
-  const vals  = [Math.floor(Math.random()*59)+1, Math.floor(Math.random()*59)+1,
-                 Math.floor(Math.random()*30)+30, Math.floor(Math.random()*12)+1, Math.floor(Math.random()*6)+12];
-  return `${vals[i % 5]} ${units[i % 5]} lalu`;
-}
-
-function buildTxData() {
-  return Array.from({length:50}, (_,i) => ({
-    type: txTypes[Math.floor(Math.random()*txTypes.length)],
-    pair: pairs[Math.floor(Math.random()*pairs.length)],
-    value: '$' + (Math.random()*50000+100).toLocaleString('id',{maximumFractionDigits:0}),
-    wallet: rndAddr(),
-    network: networks[Math.floor(Math.random()*networks.length)],
-    time: rndTime(i),
-    status: Math.random() > 0.05 ? 'Sukses' : 'Gagal',
-    hash: rndHash()
-  }));
-}
-
-const allTxData = buildTxData();
 
 /* ════════════════════════════════════
    RENDER FUNCTIONS
@@ -1219,21 +1254,118 @@ function renderVolBars() {
   }).join('');
 }
 
-/* Gainers / Losers */
+/* Ekosistem INDC */
 function renderGL() {
-  const data = state.glTab === 'gainers' ? gainers : losers;
-  const isGainer = state.glTab === 'gainers';
-  document.getElementById('glList').innerHTML = data.map((d,i) => `
-    <div class="gl-row">
-      <div class="gl-rank">${i+1}</div>
-      <div class="gl-logo" style="background:${d.col}22;color:${d.col}">${d.icon}</div>
+  const items = [
+    { icon:'👥', label:'Total Member',     id:'eco-member',  color:'#38bdf8', val:'—', sub:'Terdaftar' },
+    { icon:'🔒', label:'Total Staker',     id:'eco-staker',  color:'#34d399', val:'—', sub:'Aktif staking' },
+    { icon:'🚀', label:'INDC Terjual',     id:'eco-presale', color:'#facc15', val:'—', sub:'Presale Phase 1' },
+    { icon:'🎮', label:'Game Savings',     id:'eco-game',    color:'#a78bfa', val:'—', sub:'Total tabungan' },
+    { icon:'💰', label:'TVL Ekosistem',    id:'eco-tvl',     color:'#fb923c', val:'—', sub:'Semua program' },
+  ];
+  document.getElementById('glList').innerHTML = items.map(d => `
+    <div class="gl-row" id="${d.id}-row">
+      <div class="gl-logo" style="background:${d.color}22;color:${d.color};font-size:14px;">${d.icon}</div>
       <div class="gl-info">
-        <div class="gl-sym">${d.sym}</div>
-        <div class="gl-name">${d.name}</div>
+        <div class="gl-sym">${d.label}</div>
+        <div class="gl-name">${d.sub}</div>
       </div>
-      <div class="gl-price">${d.price}</div>
-      <div class="gl-chg" style="color:${isGainer ? 'var(--c-green)' : 'var(--c-red)'}">${d.chg}</div>
+      <div class="gl-price" id="${d.id}" style="color:${d.color};">—</div>
     </div>`).join('');
+
+  // Load data real
+  loadEcoStats();
+}
+
+/* Load Ekosistem Stats dari BSC */
+async function loadEcoStats() {
+  try {
+    // TVL dari contracts
+    const tvlData = await fetchRealTVL();
+    const tvlEl = document.getElementById('eco-tvl');
+    if(tvlEl) tvlEl.textContent = '$' + tvlData.tvlUSD.toLocaleString('id',{maximumFractionDigits:0});
+
+    // Update KPI TVL
+    const kpiTvl = document.getElementById('kpi-tvl');
+    if(kpiTvl) kpiTvl.textContent = '$' + tvlData.tvlUSD.toLocaleString('id',{maximumFractionDigits:0});
+
+    // Update TVL chart total
+    const tvlTotal = document.getElementById('tvlTotal');
+    if(tvlTotal) tvlTotal.textContent = 'TVL: $' + tvlData.tvlUSD.toLocaleString('id',{maximumFractionDigits:0});
+
+  } catch(e) {}
+
+  try {
+    // Presale data dari contract
+    const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const PRESALE_CA = '0xC7ad4802d073917a8cBC0E89362abCd6c93bfDfA';
+    const PRESALE_ABI = ['function totalSold() view returns (uint256)'];
+    const presaleContract = new ethers.Contract(PRESALE_CA, PRESALE_ABI, provider);
+    const sold = await presaleContract.totalSold();
+    const soldNum = parseFloat(ethers.utils.formatUnits(sold, 9));
+    const el = document.getElementById('eco-presale');
+    if(el) el.textContent = soldNum.toLocaleString('id',{maximumFractionDigits:0}) + ' INDC';
+
+    // Update KPI presale
+    const indcSold = document.getElementById('indcSold');
+    if(indcSold) indcSold.textContent = (soldNum/1000000).toFixed(2) + 'M';
+    const indcSisa = document.getElementById('indcSisa');
+    if(indcSisa) indcSisa.textContent = ((10000000 - soldNum)/1000000).toFixed(2) + 'M';
+  } catch(e) {
+    // Fallback ke manual
+    const el = document.getElementById('eco-presale');
+    if(el) el.textContent = '1,530,184 INDC';
+  }
+
+  try {
+    // Gas BSC real
+    const gasData = await fetchBSCGas();
+    if(gasData) {
+      updateGasDisplay(gasData);
+    }
+  } catch(e) {}
+
+  try {
+    // Volume INDC real
+    const vol = await fetchINDCVolume();
+    const volTotal = document.getElementById('volTotal');
+    if(volTotal) volTotal.textContent = 'Vol: ' + vol.toLocaleString('id',{maximumFractionDigits:0}) + ' INDC';
+    const kpiVol = document.getElementById('kpi-vol');
+    if(kpiVol) kpiVol.textContent = (vol * 0.003).toLocaleString('id',{maximumFractionDigits:0,style:'currency',currency:'USD'});
+  } catch(e) {}
+
+  try {
+    // Transaksi real
+    const txs = await fetchRealTx();
+    if(txs.length > 0) {
+      allTxData = txs;
+      renderTX();
+      const txCount = document.getElementById('txCount');
+      if(txCount) txCount.textContent = 'Menampilkan ' + txs.length + ' transaksi terbaru';
+    }
+  } catch(e) {}
+
+  // Update timestamp
+  const ecoUpdate = document.getElementById('ecoUpdate');
+  if(ecoUpdate) ecoUpdate.textContent = 'Update: ' + new Date().toLocaleTimeString('id');
+}
+
+function updateGasDisplay(gasData) {
+  // Update semua gas cards dengan data BSC real
+  const gasCards = document.querySelectorAll('.gas-card');
+  if(gasCards.length >= 3) {
+    // Slow, Standard, Fast
+    const labels = ['Lambat','Standar','Cepat'];
+    const vals   = [gasData.SafeGasPrice, gasData.ProposeGasPrice, gasData.FastGasPrice];
+    gasCards.forEach((card, i) => {
+      if(i < 3) {
+        const valEl = card.querySelector('.gas-val');
+        const lblEl = card.querySelector('.gas-lbl');
+        if(valEl) valEl.textContent = vals[i] + ' Gwei';
+        if(lblEl) lblEl.textContent = labels[i];
+      }
+    });
+  }
 }
 
 /* Transaction Table */
@@ -1250,10 +1382,12 @@ function renderTX() {
 
   document.getElementById('txBody').innerHTML = pageData.map(tx => `
     <tr>
-      <td><span class="tx-type-badge ${tx.type}">${txTypeLbl[tx.type]}</span></td>
-      <td style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tx.pair}</td>
+      <td><span class="tx-type-badge stake">Transfer</span></td>
+      <td style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#facc15">INDC</td>
       <td style="font-family:'Share Tech Mono',monospace;font-weight:600;font-size:12px">${tx.value}</td>
-      <td class="addr-cell"><a class="addr-link" href="#">${tx.wallet}</a></td>
+      <td class="addr-cell">
+        <a class="addr-link" href="https://bscscan.com/address/${tx.wallet}" target="_blank">${tx.wallet}</a>
+      </td>
       <td>
         <span style="display:inline-flex;align-items:center;gap:5px">
           <span style="width:6px;height:6px;border-radius:50%;background:${statusColor(tx.status)};flex-shrink:0;display:inline-block"></span>
@@ -1370,7 +1504,25 @@ renderGL();
 renderTX();
 updateTime();
 setInterval(updateTime, 1000);
-setInterval(simGas, 8000);
+// Load data real saat halaman dibuka
+loadEcoStats();
+// Refresh data real setiap 60 detik
+setInterval(loadEcoStats, 60000);
+// Toast
+function showToast(msg){
+  let t = document.getElementById("ana-toast");
+  if(!t){ t = document.createElement("div"); t.id="ana-toast";
+    t.style.cssText="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid rgba(250,204,21,0.3);color:#e2e8f0;font-family:monospace;font-size:11px;padding:8px 18px;border-radius:20px;z-index:9999;white-space:nowrap;";
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.display="block";
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display="none",2500);
+}
+
+// Refresh button
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  loadEcoStats();
+  showToast('🔄 Memuat data terbaru...');
+});
 </script>
 <script>
 if("serviceWorker" in navigator){
