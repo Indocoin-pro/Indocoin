@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "72.1";
+const VERSION = "71.2";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -129,7 +129,7 @@ self.addEventListener("fetch", (event) => {
       event.request.url.includes("googleapis") ||
       event.request.url.includes("ethers") ||
       event.request.url.includes("binance.org") ||
-      event.request.url.includes("cdn")) return;
+      event.request.url.includes("cdn.binance") || event.request.url.includes("madkidgames")) return;
 
   event.respondWith(
     fetch(event.request)
