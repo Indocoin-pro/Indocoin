@@ -636,9 +636,9 @@ async function doPayment(){
     const tx = await gameAccessContract.buyAccess(pendingSlug);
     showToast('⏳ Menunggu blockchain...');
     await tx.wait();
-    showToast('✅ Berhasil! Membuka game...');
+    showToast('✅ Berhasil! Akses aktif 24 jam.');
     closePayModal();
-    bukaGame(pendingSlug, pendingName);
+    tampilSplash(pendingSlug, pendingName);
   }catch(e){
     showToast('❌ '+(e.reason||e.message||'Gagal'));
     btn.textContent=`BAYAR ${currentPriceINDC} INDC & MAIN`;
@@ -647,12 +647,16 @@ async function doPayment(){
 }
 
 function bukaGame(slug, name){
+  // Langsung buka game tanpa splash
+  window.location.href = `https://www.madkidgames.com/full/${slug}`;
+}
+
+function tampilSplash(slug, name){
+  // Splash screen hanya setelah bayar
   const existing = document.getElementById('gameFrame');
   if(existing) existing.remove();
 
-  // Cari data game
-  const g = HARD_GAMES.find(x=>x.slug===slug) || {cat:'Game',slug:slug};
-
+  const g = HARD_GAMES.find(x=>x.slug===slug) || {cat:'Game'};
   const overlay = document.createElement('div');
   overlay.id = 'gameFrame';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0f1e;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;';
@@ -660,23 +664,18 @@ function bukaGame(slug, name){
   overlay.innerHTML = `
     <div style="max-width:360px;width:100%;text-align:center;">
       <div style="font-family:Orbitron,sans-serif;font-size:11px;color:rgba(250,204,21,0.5);letter-spacing:3px;margin-bottom:20px;">INDOCOIN GAME CENTER</div>
-
       <img src="https://www.madkidgames.com/games/${slug}/thumb_1.jpg"
         style="width:100%;border-radius:16px;margin-bottom:20px;border:1px solid rgba(250,204,21,0.2);"
         onerror="this.style.display='none'">
-
       <div style="font-family:Orbitron,sans-serif;font-size:18px;font-weight:900;color:#facc15;letter-spacing:1px;margin-bottom:8px;">${name}</div>
       <div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#64748b;letter-spacing:2px;margin-bottom:20px;">${g.cat.toUpperCase()} · AKSES AKTIF 24 JAM</div>
-
       <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:12px;margin-bottom:20px;">
         <div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#34d399;letter-spacing:1px;">✅ AKSES BERHASIL DIAKTIFKAN</div>
         <div style="font-family:Share Tech Mono,monospace;font-size:8px;color:#64748b;margin-top:4px;">5 INDC telah dipotong dari wallet vault</div>
       </div>
-
       <div style="font-family:Rajdhani,sans-serif;font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;">
-        Akses game aktif selama 24 jam. Kembali ke daftar game dan klik tombol hijau untuk mulai bermain.
+        Akses aktif 24 jam. Klik tombol hijau di daftar game untuk mulai bermain.
       </div>
-
       <button onclick="document.getElementById('gameFrame').remove()"
         style="width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
         background:linear-gradient(135deg,#facc15,#fb923c);
