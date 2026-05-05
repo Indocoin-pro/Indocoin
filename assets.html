@@ -258,18 +258,75 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
           <div style="font-size:8px;color:var(--muted);margin-top:4px;" id="vaultUsdDisplay">≈ $0.00</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">ITEM DIMILIKI</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);line-height:1;">—</div>
-          <div style="font-size:8px;color:var(--muted);margin-top:4px;">item aktif</div>
+          <div style="font-size:7px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">TABUNGAN + REWARD</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#34d399;line-height:1;" id="savingsTotalDisplay">—</div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:4px;">
+            <div id="savingsStatusDot" style="width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;"></div>
+            <div id="savingsDailyDisplay" style="font-size:8px;color:var(--muted);">+0 INDC/hari</div>
+          </div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:12px 14px;gap:10px;">
         <button onclick="openVaultModal('deposit')" style="padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">DEPOSIT</button>
-        <button onclick="openVaultModal('withdraw')" style="padding:12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">WITHDRAW</button>
+        <button onclick="openWithdrawOptions()" style="padding:12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">WITHDRAW</button>
       </div>
     </div>
 
-    <!-- TOKEN TERKUNCI -->
+    <!-- MODAL WITHDRAW OPTIONS -->
+    <div id="withdrawOptionsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;align-items:flex-end;justify-content:center;">
+      <div style="background:#111;border:1px solid var(--border);border-radius:16px 16px 0 0;padding:24px 20px;width:100%;max-width:480px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;margin-bottom:4px;">PILIH WITHDRAW</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:20px;letter-spacing:1px;">Pilih dana yang ingin dicairkan</div>
+
+        <!-- Opsi 1: Vault -->
+        <div onclick="closeWithdrawOptions();openVaultModal('withdraw');" style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;cursor:pointer;">
+          <div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);margin-bottom:4px;">VAULT GAME</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">Saldo utama game vault</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold2);" id="wdVaultBal">—</div>
+            <div style="font-size:8px;color:var(--muted);">INDC</div>
+          </div>
+        </div>
+
+        <!-- Opsi 2: Tabungan -->
+        <div onclick="closeWithdrawOptions();openSavingsWithdrawModal();" style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid rgba(52,211,153,0.15);border-radius:10px;margin-bottom:20px;cursor:pointer;">
+          <div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#34d399;margin-bottom:4px;">GAME SAVINGS</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">Tabungan + reward (min. 1,000 INDC)</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#34d399;" id="wdSavingsBal">—</div>
+            <div style="font-size:8px;color:var(--muted);">INDC</div>
+          </div>
+        </div>
+
+        <button onclick="closeWithdrawOptions()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">BATAL</button>
+      </div>
+    </div>
+
+    <!-- MODAL SAVINGS WITHDRAW -->
+    <div id="savingsWithdrawOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#111;border:1px solid rgba(52,211,153,0.2);border-radius:16px;padding:24px 20px;width:100%;max-width:360px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#34d399;letter-spacing:2px;margin-bottom:16px;">CAIRKAN TABUNGAN</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">TOTAL (Pokok + Reward)</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#34d399;" id="swTotalBal">—</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);">HANYA REWARD</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#34d399;" id="swRewardBal">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <button onclick="withdrawSavingsAll()" id="btnWithdrawAll" style="padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#1a4a2a,#34d399);color:#080808;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;cursor:pointer;">SEMUA</button>
+          <button onclick="withdrawSavingsReward()" id="btnWithdrawReward" style="padding:12px;background:transparent;border:1px solid rgba(52,211,153,0.3);border-radius:8px;color:#34d399;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:1px;cursor:pointer;">REWARD SAJA</button>
+        </div>
+        <button onclick="closeSavingsWithdrawModal()" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;cursor:pointer;">BATAL</button>
+      </div>
+    </div>
+
+        <!-- TOKEN TERKUNCI -->
     <div class="sec-hd">TOKEN TERKUNCI</div>
     <div class="card">
       <div id="lockedList"></div>
@@ -462,6 +519,9 @@ async function loadWalletData() {
   } catch(e) {
     updateUI(bnbPrice, 0.003, 0, []);
   }
+
+  // Load Game Savings
+  loadSavingsBalance();
 }
 
 function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
@@ -1096,6 +1156,120 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) updateTerkumpul();
 });
 // ──────────────────────────────────────────────────────────
+
+// ══ GAME SAVINGS ══════════════════════════════════════════
+const SAVINGS_CA_A = "0xBD4f0DbbdC192423524Fb94EfCFa635380f6fBc0";
+const SAVINGS_ABI_A = [
+  "function withdraw() external",
+  "function withdrawRewardOnly() external",
+  "function getUserInfo(address) external view returns (uint256,uint256,uint256,uint256,bool,bool,uint256)",
+];
+
+let savingsContractA = null;
+
+async function loadSavingsBalance() {
+  try {
+    if (!signer || !userAddress) return;
+    if (!savingsContractA) {
+      savingsContractA = new ethers.Contract(SAVINGS_CA_A, SAVINGS_ABI_A, signer);
+    }
+    const info = await savingsContractA.getUserInfo(userAddress);
+    const principal = parseFloat(ethers.formatUnits(info[0], 9));
+    const reward    = parseFloat(ethers.formatUnits(info[1], 9));
+    const total     = parseFloat(ethers.formatUnits(info[2], 9));
+    const aktif     = info[4];
+    const daily     = parseFloat(ethers.formatUnits(info[6], 9));
+
+    // Update di Wallet Game card
+    const totalEl = document.getElementById('savingsTotalDisplay');
+    const dailyEl = document.getElementById('savingsDailyDisplay');
+    const dotEl   = document.getElementById('savingsStatusDot');
+
+    if(totalEl) totalEl.textContent = total > 0 ? total.toLocaleString('id',{maximumFractionDigits:4})+' INDC' : '—';
+    if(dailyEl) dailyEl.textContent = daily > 0 ? '+'+daily.toLocaleString('id',{maximumFractionDigits:4})+' INDC/hari' : '+0 INDC/hari';
+    if(dotEl){
+      if(aktif && principal > 0){
+        dotEl.style.background = '#34d399';
+        dotEl.style.boxShadow  = '0 0 5px #34d399';
+      } else {
+        dotEl.style.background = 'var(--muted)';
+        dotEl.style.boxShadow  = 'none';
+      }
+    }
+
+    // Update di modal withdraw options
+    const wdSav = document.getElementById('wdSavingsBal');
+    const swTot = document.getElementById('swTotalBal');
+    const swRew = document.getElementById('swRewardBal');
+    if(wdSav) wdSav.textContent = total.toLocaleString('id',{maximumFractionDigits:2});
+    if(swTot) swTot.textContent = total.toLocaleString('id',{maximumFractionDigits:4})+' INDC';
+    if(swRew) swRew.textContent = reward.toLocaleString('id',{maximumFractionDigits:4})+' INDC';
+
+    // Enable/disable tombol withdraw
+    const btnAll    = document.getElementById('btnWithdrawAll');
+    const btnReward = document.getElementById('btnWithdrawReward');
+    if(btnAll)    btnAll.disabled    = total < 1000 * 1e9 / 1e9;
+    if(btnReward) btnReward.disabled = reward < 1000 * 1e9 / 1e9;
+
+  } catch(e) { console.warn('Savings load error:', e); }
+}
+
+function openWithdrawOptions() {
+  // Update vault bal di modal
+  const vb = document.getElementById('vaultBalDisplay');
+  const wd = document.getElementById('wdVaultBal');
+  if(vb && wd) wd.textContent = vb.textContent;
+
+  const el = document.getElementById('withdrawOptionsOverlay');
+  if(el) el.style.display = 'flex';
+}
+function closeWithdrawOptions() {
+  const el = document.getElementById('withdrawOptionsOverlay');
+  if(el) el.style.display = 'none';
+}
+function openSavingsWithdrawModal() {
+  const el = document.getElementById('savingsWithdrawOverlay');
+  if(el) el.style.display = 'flex';
+}
+function closeSavingsWithdrawModal() {
+  const el = document.getElementById('savingsWithdrawOverlay');
+  if(el) el.style.display = 'none';
+}
+
+async function withdrawSavingsAll() {
+  try {
+    const btn = document.getElementById('btnWithdrawAll');
+    btn.textContent = '⏳ PROSES...';
+    btn.disabled = true;
+    const tx = await savingsContractA.withdraw();
+    await tx.wait();
+    showToast('✅ Berhasil! INDC dikirim ke wallet');
+    loadSavingsBalance();
+  } catch(e) {
+    showToast('❌ ' + (e.reason || e.message || 'Gagal'));
+    document.getElementById('btnWithdrawAll').textContent = 'CAIRKAN SEMUA';
+    document.getElementById('btnWithdrawAll').disabled = false;
+  }
+}
+
+async function withdrawSavingsReward() {
+  try {
+    const btn = document.getElementById('btnWithdrawReward');
+    btn.textContent = '⏳ PROSES...';
+    btn.disabled = true;
+    const tx = await savingsContractA.withdrawRewardOnly();
+    await tx.wait();
+    showToast('✅ Reward berhasil dicairkan!');
+    loadSavingsBalance();
+  } catch(e) {
+    showToast('❌ ' + (e.reason || e.message || 'Gagal'));
+    document.getElementById('btnWithdrawReward').textContent = 'CAIRKAN REWARD';
+    document.getElementById('btnWithdrawReward').disabled = false;
+  }
+}
+
+// Auto refresh savings setiap 30 detik
+setInterval(() => { if(userAddress) loadSavingsBalance(); }, 30000);
 
 // ══ VAULT GAME ════════════════════════════════════════════
 const VAULT_CA  = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";

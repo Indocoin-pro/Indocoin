@@ -255,6 +255,8 @@ html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-s
 // ── CONFIG ──
 const GAME_ACCESS_CA = "0x93d93ba38c8a3550b17670fc703965e643491dbc";
 const VAULT_CA_G     = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const SAVINGS_CA     = "0xBD4f0DbbdC192423524Fb94EfCFa635380f6fBc0";
+const INDC_CA_G      = "0xD772c96e1beFd2ea9C9a83182c71f4d32f306571";
 const BSC_ID         = "0x38";
 const BSC_RPC        = "https://bsc-dataseed.binance.org/";
 
@@ -267,10 +269,21 @@ const GAME_ACCESS_ABI = [
 const VAULT_ABI_G = [
   "function getGameBalance(address) external view returns (uint256)",
 ];
+const SAVINGS_ABI = [
+  "function deposit(address user, uint256 amount) external",
+  "function checkIn() external",
+  "function getUserInfo(address user) external view returns (uint256,uint256,uint256,uint256,bool,bool,uint256)",
+  "function isActive(address user) external view returns (bool)",
+];
+const INDC_ABI_G = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+];
 
 let provider, signer, userAddress;
-let gameAccessContract, vaultContract;
+let gameAccessContract, vaultContract, savingsContract, indcContract;
 let currentPriceINDC = 5;
+const DEPOSIT_AMOUNT = "5000000000"; // 5 INDC decimal 9
 let walletReady = false;
 
 // ── CONNECT WALLET ──
@@ -294,6 +307,8 @@ async function connectWallet() {
     userAddress = await signer.getAddress();
     gameAccessContract = new ethers.Contract(GAME_ACCESS_CA, GAME_ACCESS_ABI, signer);
     vaultContract      = new ethers.Contract(VAULT_CA_G, VAULT_ABI_G, provider);
+    savingsContract    = new ethers.Contract(SAVINGS_CA, SAVINGS_ABI, signer);
+    indcContract       = new ethers.Contract(INDC_CA_G, INDC_ABI_G, signer);
     try {
       const p = await gameAccessContract.getCurrentPrice();
       currentPriceINDC = parseFloat(ethers.formatUnits(p, 9));
@@ -636,7 +651,24 @@ async function doPayment(){
     const tx = await gameAccessContract.buyAccess(pendingSlug);
     showToast('⏳ Menunggu blockchain...');
     await tx.wait();
-    showToast('✅ Berhasil! Akses aktif 24 jam.');
+
+    // Auto deposit 5 INDC ke GameSavings
+    try{
+      showToast('⏳ Menyimpan ke tabungan...');
+      // Cek allowance dulu
+      const allowance = await indcContract.allowance(userAddress, SAVINGS_CA);
+      if(BigInt(allowance) < BigInt(DEPOSIT_AMOUNT)){
+        const appTx = await indcContract.approve(SAVINGS_CA, "999999999999999999");
+        await appTx.wait();
+      }
+      const depTx = await savingsContract.deposit(userAddress, DEPOSIT_AMOUNT);
+      await depTx.wait();
+      showToast('✅ Akses aktif + 5 INDC masuk tabungan!');
+    }catch(e){
+      // Deposit gagal tidak batalkan akses
+      showToast('✅ Akses aktif 24 jam!');
+    }
+
     closePayModal();
     tampilSplash(pendingSlug, pendingName);
   }catch(e){
@@ -670,8 +702,14 @@ function tampilSplash(slug, name){
       <div style="font-family:Orbitron,sans-serif;font-size:18px;font-weight:900;color:#facc15;letter-spacing:1px;margin-bottom:8px;">${name}</div>
       <div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#64748b;letter-spacing:2px;margin-bottom:20px;">${g.cat.toUpperCase()} · AKSES AKTIF 24 JAM</div>
       <div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);border-radius:12px;padding:12px;margin-bottom:20px;">
-        <div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#34d399;letter-spacing:1px;">✅ AKSES BERHASIL DIAKTIFKAN</div>
-        <div style="font-family:Share Tech Mono,monospace;font-size:8px;color:#64748b;margin-top:4px;">5 INDC telah dipotong dari wallet vault</div>
+        <div style="font-family:Share Tech Mono,monospace;font-size:9px;color:#34d399;letter-spacing:1px;margin-bottom:8px;">✅ AKSES BERHASIL DIAKTIFKAN</div>
+        <div style="font-family:Share Tech Mono,monospace;font-size:8px;color:#64748b;line-height:1.6;">
+          • 5 INDC dipotong dari wallet vault<br>
+          • 5 INDC otomatis masuk tabungan Game Savings<br>
+          • Reward <b style="color:#34d399">0.3%/hari</b> berjalan selama kamu aktif buka game<br>
+          • Tidak buka game > 24 jam → reward berhenti<br>
+          • Cairkan setelah mencapai 1,000 INDC di menu Assets
+        </div>
       </div>
       <div style="font-family:Rajdhani,sans-serif;font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;">
         Akses aktif 24 jam. Klik tombol hijau di daftar game untuk mulai bermain.
@@ -706,6 +744,15 @@ window.addEventListener('load', async()=>{
     const accounts = await window.ethereum.request({method:'eth_accounts'});
     if(accounts.length > 0){
       await connectWallet();
+      // Auto check-in saat buka halaman
+      try{
+        const info = await savingsContract.getUserInfo(userAddress);
+        if(BigInt(info[0]) > 0n){ // ada tabungan
+          const tx = await savingsContract.checkIn();
+          await tx.wait();
+          console.log('Check-in berhasil');
+        }
+      }catch(e){ console.log('Check-in skip:', e.message); }
     }
   }
   filterGames();
