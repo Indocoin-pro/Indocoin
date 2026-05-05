@@ -252,45 +252,63 @@ html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-s
 <!-- GAME MODAL -->
 <!-- game modal removed - game opens in new tab -->
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <script>
-// ── CONTRACT CONFIG ──
+// ── CONFIG ──
 const GAME_ACCESS_CA = "0x93d93ba38c8a3550b17670fc703965e643491dbc";
 const VAULT_CA_G     = "0xb1136B943A855F1e743ae2a7452B147Bb89f85eD";
+const BSC_ID         = "0x38";
+const BSC_RPC        = "https://bsc-dataseed.binance.org/";
+
 const GAME_ACCESS_ABI = [
   "function buyAccess(string) external",
   "function hasActiveAccess(address, string) external view returns (bool)",
+  "function getAccessInfo(address, string) external view returns (bool, uint256, uint256)",
   "function getCurrentPrice() external view returns (uint256)",
 ];
 const VAULT_ABI_G = [
   "function getGameBalance(address) external view returns (uint256)",
 ];
+
 let provider, signer, userAddress;
 let gameAccessContract, vaultContract;
 let currentPriceINDC = 5;
+let walletReady = false;
 
+// ── CONNECT WALLET ──
 async function connectWallet() {
   try {
-    if (!window.ethereum) { showToast('❌ Install TokenPocket dulu!'); return false; }
+    if (!window.ethereum) { showToast('❌ Buka via DApps browser!'); return false; }
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    try {
+      await window.ethereum.request({method:'wallet_switchEthereumChain', params:[{chainId:BSC_ID}]});
+    } catch(e) {
+      if(e.code===4902) {
+        await window.ethereum.request({method:'wallet_addEthereumChain', params:[{
+          chainId:BSC_ID, chainName:'BNB Smart Chain',
+          nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
+          rpcUrls:[BSC_RPC], blockExplorerUrls:['https://bscscan.com']
+        }]});
+      }
+    }
     provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send('eth_requestAccounts', []);
-    signer = await provider.getSigner();
+    signer   = await provider.getSigner();
     userAddress = await signer.getAddress();
-    const network = await provider.getNetwork();
-    if (network.chainId !== 56n) { showToast('❌ Ganti ke BSC Mainnet!'); return false; }
     gameAccessContract = new ethers.Contract(GAME_ACCESS_CA, GAME_ACCESS_ABI, signer);
-    vaultContract = new ethers.Contract(VAULT_CA_G, VAULT_ABI_G, provider);
+    vaultContract      = new ethers.Contract(VAULT_CA_G, VAULT_ABI_G, provider);
     try {
       const p = await gameAccessContract.getCurrentPrice();
       currentPriceINDC = parseFloat(ethers.formatUnits(p, 9));
     } catch(e) {}
+    walletReady = true;
     return true;
-  } catch(e) { showToast('❌ ' + (e.message || 'Gagal connect')); return false; }
+  } catch(e) {
+    showToast('❌ ' + (e.message || 'Gagal connect wallet'));
+    return false;
+  }
 }
 
 async function getVaultBalance() {
   try {
-    if (!userAddress) return 0;
     const r = await vaultContract.getGameBalance(userAddress);
     return parseFloat(ethers.formatUnits(r, 9));
   } catch(e) { return 0; }
@@ -481,7 +499,6 @@ const HARD_GAMES = [
 ];
 
 let activeCat = 'all';
-let searchVal = '';
 let pendingSlug = '';
 let pendingName = '';
 
@@ -499,12 +516,12 @@ function setCategory(cat,el){
   filterGames();
 }
 function filterGames(){
-  searchVal=document.getElementById('searchBox').value.toLowerCase().trim();
+  const sv=document.getElementById('searchBox').value.toLowerCase().trim();
   const grid=document.getElementById('gameGrid');
   grid.innerHTML='';
   const filtered=HARD_GAMES.filter(g=>{
     const mc=activeCat==='all'||g.cat===activeCat;
-    const ms=!searchVal||g.name.toLowerCase().includes(searchVal)||g.cat.toLowerCase().includes(searchVal);
+    const ms=!sv||g.name.toLowerCase().includes(sv)||g.cat.toLowerCase().includes(sv);
     return mc&&ms;
   });
   document.getElementById('searchCount').textContent=filtered.length;
@@ -532,156 +549,128 @@ function filterGames(){
       <div class="card-body">
         <div class="card-name" title="${g.name}">${g.name}</div>
         <div class="card-cat">${getEmoji(g.cat)} ${g.cat}</div>
-        <button class="card-play-btn" id="btn-${g.slug}" onclick="handleGameClick(event,'${g.slug}','${g.name.replace(/'/g,"\\'")}')">
+        <button class="card-play-btn" id="btn-${g.slug}" onclick="handleClick('${g.slug}','${g.name.replace(/'/g,"\\'")}')">
           MAIN — ${currentPriceINDC} INDC
         </button>
       </div>`;
     grid.appendChild(card);
   });
-  if(userAddress) checkAllAccess(filtered);
+  if(walletReady && userAddress) checkAllAccess(filtered);
 }
 
 function formatSisa(expiry){
-  const now = Math.floor(Date.now()/1000);
-  const sisa = Number(expiry) - now;
-  if(sisa <= 0) return null;
-  if(sisa >= 3600){
-    const jam = Math.floor(sisa/3600);
-    const menit = Math.floor((sisa%3600)/60);
-    return `${jam}j ${menit}m`;
-  }
-  const menit = Math.floor(sisa/60);
-  const detik = sisa%60;
-  return `${menit}m ${detik}s`;
+  const now=Math.floor(Date.now()/1000);
+  const sisa=Number(expiry)-now;
+  if(sisa<=0) return null;
+  const jam=Math.floor(sisa/3600);
+  const menit=Math.floor((sisa%3600)/60);
+  return jam>0?`${jam}j ${menit}m`:`${menit}m`;
+}
+
+function setBtnAktif(slug, expiry){
+  const btn=document.getElementById('btn-'+slug);
+  if(!btn) return;
+  const isPermanent = expiry.toString().length > 15;
+  const sisa = isPermanent ? null : formatSisa(expiry);
+  btn.textContent = sisa ? `▶ MAIN · ${sisa}` : '▶ MAIN SEKARANG';
+  btn.style.background='linear-gradient(135deg,rgba(52,211,153,0.2),rgba(56,189,248,0.15))';
+  btn.style.borderColor='rgba(52,211,153,0.4)';
+  btn.style.color='#34d399';
+  btn.onclick=()=>bukaGame(slug, btn.closest('.game-card').querySelector('.card-name').textContent);
 }
 
 async function checkAllAccess(games){
   for(const g of games){
     try{
-      const info = await gameAccessContract.getAccessInfo(userAddress, g.slug);
-      const btn = document.getElementById('btn-'+g.slug);
-      if(btn && info[0]){ // info[0] = active
-        const expiry = info[1]; // info[1] = expiry timestamp
-        const isPermanent = expiry.toString() === '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-        const sisa = isPermanent ? null : formatSisa(expiry);
-        btn.textContent = sisa ? `▶ MAIN · ${sisa}` : '▶ MAIN SEKARANG';
-        btn.style.cssText='background:linear-gradient(135deg,rgba(52,211,153,0.2),rgba(56,189,248,0.15));border-color:rgba(52,211,153,0.4);color:#34d399;width:100%;padding:6px;border-radius:8px;border:1px solid;font-family:Orbitron,sans-serif;font-size:7px;font-weight:700;cursor:pointer;letter-spacing:.3px;';
-        btn.onclick=(e)=>{e.stopPropagation();openGame(g.slug,g.name);};
-        // Update countdown setiap menit
-        if(!isPermanent && sisa){
-          const slug = g.slug; const name = g.name;
-          const timer = setInterval(()=>{
-            const b = document.getElementById('btn-'+slug);
-            if(!b){clearInterval(timer);return;}
-            const s = formatSisa(expiry);
-            if(!s){b.textContent='AKSES HABIS — BAYAR LAGI';b.style.color='var(--red)';clearInterval(timer);return;}
-            b.textContent=`▶ MAIN · ${s}`;
-          }, 30000);
-        }
-      }
+      const info=await gameAccessContract.getAccessInfo(userAddress,g.slug);
+      if(info[0]) setBtnAktif(g.slug, info[1]);
     }catch(e){}
   }
 }
 
-function handleGameClick(e, slug, name) {
-  e.stopPropagation();
-  openPayModal(e, slug, name).catch(err => {
-    console.error('openPayModal error:', err);
-    showToast('❌ Error: ' + (err.message || 'Coba lagi'));
-  });
-}
-async function openPayModal(e,slug,name){
-  e.stopPropagation();
-  pendingSlug=slug;
-  pendingName=name;
-
-  // Cek window.ethereum tersedia
-  if(!window.ethereum){
-    showToast('❌ Buka via DApp INDOCOIN atau install TokenPocket!');
+function handleClick(slug, name){
+  if(!walletReady){
+    connectWallet().then(ok=>{
+      if(ok) showModal(slug, name);
+    });
     return;
   }
+  showModal(slug, name);
+}
 
-  // Connect wallet kalau belum
-  if(!userAddress){
-    showToast('⏳ Menghubungkan wallet...');
-    const ok=await connectWallet();
-    if(!ok) return;
-  }
-
-  // Cek akses existing
+async function showModal(slug, name){
   try{
-    const active=await gameAccessContract.hasActiveAccess(userAddress,slug);
-    if(active){openGame(slug,name);return;}
-  }catch(e){
-    console.warn('hasActiveAccess error:',e);
-  }
+    const active = await gameAccessContract.hasActiveAccess(userAddress, slug);
+    if(active){ bukaGame(slug, name); return; }
+  }catch(e){}
 
-  // Cek saldo vault
-  const vaultBal=await getVaultBalance();
-  const price=currentPriceINDC;
+  const vaultBal = await getVaultBalance();
+  const price = currentPriceINDC;
+  pendingSlug = slug;
+  pendingName = name;
 
-  document.getElementById('payTitle').textContent=name;
-  document.getElementById('payPriceVal').textContent=price+' INDC';
-  document.getElementById('payVaultBal').textContent=vaultBal.toFixed(2)+' INDC';
+  document.getElementById('payTitle').textContent = name;
+  document.getElementById('payPriceVal').textContent = price+' INDC';
+  document.getElementById('payVaultBal').textContent = vaultBal.toFixed(2)+' INDC';
 
-  const btn=document.getElementById('payBtn');
-  const note=document.getElementById('payNote');
+  const btn = document.getElementById('payBtn');
+  const note = document.getElementById('payNote');
 
-  if(vaultBal<price){
-    btn.textContent='SALDO KURANG — TOPUP DULU';
-    btn.style.opacity='0.6';
-    btn.onclick=()=>window.location.href='assets.html';
-    note.innerHTML=`⚠️ Saldo vault <b style="color:var(--red)">${vaultBal.toFixed(2)} INDC</b><br>Butuh ${price} INDC. Topup dulu di Assets.`;
-  }else{
-    btn.textContent=`BAYAR ${price} INDC & MAIN`;
-    btn.style.opacity='1';
-    btn.onclick=confirmPay;
-    note.innerHTML=`• Bayar sekali, akses penuh game ini<br>• Dipotong dari wallet vault<br>• Saldo vault: <b style="color:var(--gold)">${vaultBal.toFixed(2)} INDC</b>`;
+  if(vaultBal < price){
+    btn.textContent = 'SALDO KURANG — TOPUP DULU';
+    btn.onclick = ()=>{ window.location.href='assets.html'; };
+    note.innerHTML = `⚠️ Saldo vault <b style="color:#f87171">${vaultBal.toFixed(2)} INDC</b><br>Butuh ${price} INDC. Topup dulu di Assets.`;
+  } else {
+    btn.textContent = `BAYAR ${price} INDC & MAIN`;
+    btn.onclick = doPayment;
+    note.innerHTML = `• Bayar sekali, akses 24 jam<br>• Dipotong dari wallet vault<br>• Saldo vault: <b style="color:var(--gold)">${vaultBal.toFixed(2)} INDC</b>`;
   }
   document.getElementById('payModal').classList.add('open');
 }
 
-function closePayModal(){
-  document.getElementById('payModal').classList.remove('open');
-  pendingSlug='';pendingName='';
-}
-
-async function confirmPay(){
-  if(!pendingSlug||!signer) return;
-  const btn=document.getElementById('payBtn');
-  btn.textContent='⏳ Proses...';
-  btn.style.opacity='0.7';
-  btn.onclick=null;
+async function doPayment(){
+  const btn = document.getElementById('payBtn');
+  btn.textContent = '⏳ Proses...';
+  btn.onclick = null;
   try{
     showToast('⏳ Konfirmasi di wallet...');
-    const tx=await gameAccessContract.buyAccess(pendingSlug);
+    const tx = await gameAccessContract.buyAccess(pendingSlug);
     showToast('⏳ Menunggu blockchain...');
     await tx.wait();
-    showToast('✅ Akses berhasil! Membuka game...');
+    showToast('✅ Berhasil! Membuka game...');
     closePayModal();
-    openGame(pendingSlug,pendingName);
+    bukaGame(pendingSlug, pendingName);
   }catch(e){
     showToast('❌ '+(e.reason||e.message||'Gagal'));
     btn.textContent=`BAYAR ${currentPriceINDC} INDC & MAIN`;
-    btn.style.opacity='1';
-    btn.onclick=confirmPay;
+    btn.onclick=doPayment;
   }
 }
 
-function openGame(slug,name){
-  const url = `https://www.madkidgames.com/full/${slug}`;
-  window.location.href = url;
+function bukaGame(slug, name){
+  window.location.href = `https://www.madkidgames.com/full/${slug}`;
 }
-function closeGameModal(){}
+
+function closePayModal(){
+  document.getElementById('payModal').classList.remove('open');
+  pendingSlug=''; pendingName='';
+}
+
 function showToast(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg;t.style.display='block';
+  t.textContent=msg; t.style.display='block';
   clearTimeout(t._t);
   t._t=setTimeout(()=>t.style.display='none',3000);
 }
 
-window.addEventListener('load',async()=>{
-  if(window.ethereum&&window.ethereum.selectedAddress) await connectWallet();
+// INIT
+window.addEventListener('load', async()=>{
+  if(window.ethereum){
+    const accounts = await window.ethereum.request({method:'eth_accounts'});
+    if(accounts.length > 0){
+      await connectWallet();
+    }
+  }
   filterGames();
 });
 </script>
