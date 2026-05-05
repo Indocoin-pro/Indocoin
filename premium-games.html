@@ -60,14 +60,15 @@ html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-s
   font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);}
 
 /* CATEGORY FILTER */
-.cat-filter{position:relative;z-index:1;padding:6px 12px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
+.cat-filter{position:relative;z-index:1;padding:6px 12px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;}
 .cat-filter::-webkit-scrollbar{display:none;}
-.cfbtn{flex-shrink:0;padding:6px 14px;border-radius:20px;cursor:pointer;
-  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;letter-spacing:.5px;
+.cfbtn{flex-shrink:0;padding:4px 9px;border-radius:20px;cursor:pointer;
+  font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;letter-spacing:.3px;
   border:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--muted);
   transition:all .2s;}
 .cfbtn.on{background:rgba(250,204,21,0.08);border-color:rgba(250,204,21,0.45);color:var(--gold);
   box-shadow:0 0 10px rgba(250,204,21,0.1);}
+.cfbtn.all-btn{border-style:dashed;}
 
 /* GRID */
 .page{position:relative;z-index:1;padding:8px 10px 84px;}
@@ -202,12 +203,12 @@ html,body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-s
 
 <!-- CATEGORY FILTER -->
 <div class="cat-filter" id="catFilter">
-  <div class="cfbtn on" onclick="setCategory('all',this)">SEMUA</div>
-  <div class="cfbtn" onclick="setCategory('Racing',this)">RACING</div>
+  <div class="cfbtn on" onclick="setCategory('Racing',this)">RACING</div>
   <div class="cfbtn" onclick="setCategory('Action',this)">ACTION</div>
   <div class="cfbtn" onclick="setCategory('Strategy',this)">STRATEGY</div>
   <div class="cfbtn" onclick="setCategory('Puzzle',this)">PUZZLE</div>
   <div class="cfbtn" onclick="setCategory('Simulation',this)">SIMULATION</div>
+  <div class="cfbtn all-btn" onclick="setCategory('all',this)">SEMUA</div>
 </div>
 
 <!-- GRID -->
@@ -336,11 +337,11 @@ for(let i=0;i<35;i++){
   document.body.appendChild(s);
 }
 const HARD_GAMES = [
-  {slug:'pov-car-driving',name:'POV Car Driving',cat:'Racing'},
-  {slug:'moto-rider-go-highway-traffic',name:'Moto Rider GO: Highway Traffic',cat:'Racing'},
   {slug:'speed-legends-car-driving-simulator',name:'Speed Legends: Car Driving Simulator',cat:'Racing'},
   {slug:'speed-legends-drift-racing',name:'Speed Legends: Drift Racing',cat:'Racing'},
   {slug:'ultimate-car-driving-classics',name:'Ultimate Car Driving: Classics',cat:'Racing'},
+  {slug:'moto-rider-go-highway-traffic',name:'Moto Rider GO: Highway Traffic',cat:'Racing'},
+  {slug:'pov-car-driving',name:'POV Car Driving',cat:'Racing'},
   {slug:'racing-fever-moto',name:'Racing Fever: Moto',cat:'Racing'},
   {slug:'drag-sim-2018',name:'Drag Sim 2018',cat:'Racing'},
   {slug:'racing-in-city-2-car-driving',name:'Racing in City 2 - Car Driving',cat:'Racing'},
@@ -512,7 +513,7 @@ const HARD_GAMES = [
   {slug:'submarine-war-submarine-games',name:'Submarine War: Submarine Games',cat:'Simulation'},
 ];
 
-let activeCat = 'all';
+let activeCat = 'Racing';
 let pendingSlug = '';
 let pendingName = '';
 
@@ -605,11 +606,11 @@ async function checkAllAccess(games){
 function handleClick(slug, name){
   if(!walletReady){
     connectWallet().then(ok=>{
-      if(ok) showModal(slug, name).catch(e=>showToast('❌ '+(e.message||'Error')));
+      if(ok) tampilPopupReward(() => showModal(slug, name).catch(e=>showToast('❌ '+(e.message||'Error'))));
     }).catch(e=>showToast('❌ '+(e.message||'Gagal connect')));
     return;
   }
-  showModal(slug, name).catch(e=>showToast('❌ '+(e.message||'Error')));
+  tampilPopupReward(() => showModal(slug, name).catch(e=>showToast('❌ '+(e.message||'Error'))));
 }
 
 async function showModal(slug, name){
@@ -768,20 +769,103 @@ function showToast(msg){
 }
 
 // INIT
+// ── CHECKIN SISTEM ──
+function sudahCheckInHariIni(){
+  if(!userAddress) return true;
+  const key = 'checkin_' + userAddress.toLowerCase();
+  const last = localStorage.getItem(key);
+  if(!last) return false;
+  const lastDate = new Date(parseInt(last));
+  const today    = new Date();
+  // Reset setiap jam 00:00
+  return lastDate.getDate()  === today.getDate() &&
+         lastDate.getMonth() === today.getMonth() &&
+         lastDate.getFullYear() === today.getFullYear();
+}
+
+function tandaiSudahCheckIn(){
+  if(!userAddress) return;
+  const key = 'checkin_' + userAddress.toLowerCase();
+  localStorage.setItem(key, Date.now().toString());
+}
+
+async function tampilPopupReward(onLanjut){
+  // Cek apakah punya tabungan
+  let adaTabungan = false;
+  try{
+    const info = await savingsContract.getUserInfo(userAddress);
+    adaTabungan = BigInt(info[0]) > 0n;
+  }catch(e){}
+
+  // Kalau tidak ada tabungan atau sudah checkIn hari ini → langsung lanjut
+  if(!adaTabungan || sudahCheckInHariIni()){
+    onLanjut();
+    return;
+  }
+
+  // Tampil popup reward
+  const existing = document.getElementById('rewardPopup');
+  if(existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'rewardPopup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(5,10,25,0.92);display:flex;align-items:center;justify-content:center;padding:20px;';
+  popup.innerHTML = `
+    <div style="max-width:320px;width:100%;background:#0f172a;border:1px solid rgba(250,204,21,0.3);border-radius:20px;padding:24px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">🎯</div>
+      <div style="font-family:Orbitron,sans-serif;font-size:13px;font-weight:900;color:#facc15;letter-spacing:1px;margin-bottom:6px;">AKTIFKAN REWARD HARI INI</div>
+      <div style="font-family:Share Tech Mono,monospace;font-size:8px;color:#64748b;letter-spacing:1px;margin-bottom:16px;">RESET SETIAP JAM 00:00</div>
+      <div style="background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:10px;padding:10px;margin-bottom:20px;">
+        <div style="font-family:Share Tech Mono,monospace;font-size:8px;color:#34d399;line-height:1.6;">
+          Aktifkan untuk mendapatkan<br>
+          <b style="font-size:11px;">reward 0.3%/hari</b> dari tabungan kamu
+        </div>
+      </div>
+      <button id="btnAktifkanReward" style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+        background:linear-gradient(135deg,#facc15,#fb923c);
+        font-family:Orbitron,sans-serif;font-size:11px;font-weight:700;
+        color:#000;letter-spacing:1px;margin-bottom:10px;">
+        AKTIFKAN & MAIN
+      </button>
+      <div id="btnSkipReward" style="font-family:Share Tech Mono,monospace;font-size:9px;color:#64748b;cursor:pointer;padding:8px;">
+        MAIN TANPA AKTIFKAN
+      </div>
+    </div>`;
+
+  document.body.appendChild(popup);
+
+  // Tombol AKTIFKAN
+  document.getElementById('btnAktifkanReward').onclick = async () => {
+    const btn = document.getElementById('btnAktifkanReward');
+    btn.textContent = '⏳ Konfirmasi di wallet...';
+    btn.style.opacity = '0.7';
+    try{
+      const tx = await savingsContract.checkIn();
+      btn.textContent = '⏳ Menunggu blockchain...';
+      await tx.wait();
+      tandaiSudahCheckIn();
+      showToast('✅ Reward aktif hari ini!');
+      popup.remove();
+      onLanjut();
+    }catch(e){
+      showToast('❌ ' + (e.reason || e.message || 'Gagal'));
+      btn.textContent = 'AKTIFKAN & MAIN';
+      btn.style.opacity = '1';
+    }
+  };
+
+  // Tombol SKIP
+  document.getElementById('btnSkipReward').onclick = () => {
+    popup.remove();
+    onLanjut();
+  };
+}
+
 window.addEventListener('load', async()=>{
   if(window.ethereum){
     const accounts = await window.ethereum.request({method:'eth_accounts'});
     if(accounts.length > 0){
       await connectWallet();
-      // Auto check-in saat buka halaman
-      try{
-        const info = await savingsContract.getUserInfo(userAddress);
-        if(BigInt(info[0]) > 0n){ // ada tabungan
-          const tx = await savingsContract.checkIn();
-          await tx.wait();
-          console.log('Check-in berhasil');
-        }
-      }catch(e){ console.log('Check-in skip:', e.message); }
     }
   }
   filterGames();
