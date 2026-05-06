@@ -43,7 +43,7 @@
           </div>
 
           <button id="wb-tp" style="width:100%;padding:14px;margin-bottom:10px;background:rgba(41,182,246,0.1);border:1px solid rgba(41,182,246,0.3);border-radius:12px;color:#fff;font-size:12px;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:12px;">
-            <span style="font-size:24px;">💎</span>
+            <img src="https://cdn.jsdelivr.net/gh/trustwallet/assets/dapps/tokenpocket.pro.png" width="36" height="36" style="border-radius:8px;object-fit:contain;flex-shrink:0;" onerror="this.outerHTML='<span style=\\'font-size:24px;\\'>💎</span>'">
             <div style="text-align:left;">
               <div style="font-weight:700;margin-bottom:2px;">TOKENPOCKET</div>
               <div style="font-size:10px;color:#888;">Wallet DeFi terpopuler di Indonesia</div>
@@ -51,7 +51,7 @@
           </button>
 
           <button id="wb-trust" style="width:100%;padding:14px;margin-bottom:10px;background:rgba(51,117,255,0.1);border:1px solid rgba(51,117,255,0.3);border-radius:12px;color:#fff;font-size:12px;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:12px;">
-            <span style="font-size:24px;">🛡️</span>
+            <img src="https://cdn.jsdelivr.net/gh/trustwallet/assets/dapps/trustwallet.com.png" width="36" height="36" style="border-radius:8px;object-fit:contain;flex-shrink:0;" onerror="this.outerHTML='<span style=\\'font-size:24px;\\'>🛡️</span>'">
             <div style="text-align:left;">
               <div style="font-weight:700;margin-bottom:2px;">TRUST WALLET</div>
               <div style="font-size:10px;color:#888;">Buka di Trust Wallet DApps</div>
@@ -59,7 +59,7 @@
           </button>
 
           <button id="wb-mm" style="width:100%;padding:14px;margin-bottom:10px;background:rgba(246,133,27,0.1);border:1px solid rgba(246,133,27,0.3);border-radius:12px;color:#fff;font-size:12px;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:12px;">
-            <span style="font-size:24px;">🦊</span>
+            <img src="https://cdn.jsdelivr.net/gh/trustwallet/assets/dapps/metamask.io.png" width="36" height="36" style="border-radius:8px;object-fit:contain;flex-shrink:0;" onerror="this.outerHTML='<span style=\\'font-size:24px;\\'>🦊</span>'">
             <div style="text-align:left;">
               <div style="font-weight:700;margin-bottom:2px;">METAMASK</div>
               <div style="font-size:10px;color:#888;">Buka di MetaMask</div>
