@@ -197,7 +197,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     <p class="subtitle">Data diambil langsung dari blockchain BSC secara realtime.</p>
   </div>
 
-  <div id="sec-app" class="sec-div">🔐 Token Terkunci — Tim Inti</div>
+  <div id="sec-app" class="sec-div">🔒 Token Terkunci — Tim Inti</div>
 
   <div id="app">
     <div class="loading">
@@ -206,7 +206,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app2" class="sec-div">🔐 Token Terkunci — Cadangan Strategis</div>
+  <div id="sec-app2" class="sec-div">🔒 Token Terkunci — Cadangan Strategis</div>
 
   <div id="app2">
     <div class="loading">
@@ -215,7 +215,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app3" class="sec-div">🔐 Token Terkunci — Marketing & Partnership</div>
+  <div id="sec-app3" class="sec-div">🔒 Token Terkunci — Marketing & Partnership</div>
 
   <div id="app3">
     <div class="loading">
@@ -224,7 +224,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app4" class="sec-div">🔐 Token Terkunci — Airdrop</div>
+  <div id="sec-app4" class="sec-div">🔒 Token Terkunci — Airdrop</div>
 
   <div id="app4">
     <div class="loading">
@@ -233,7 +233,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app5" class="sec-div">👑 Token Terkunci — Member VIP Pool</div>
+  <div id="sec-app5" class="sec-div">🔒 Token Terkunci — Member VIP Pool</div>
 
   <div id="app5">
     <div class="loading">
@@ -242,7 +242,7 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app6" class="sec-div">&#9878; Token Terkunci &#8212; Pool Staking</div>
+  <div id="sec-app6" class="sec-div">🔒 Token Terkunci — Pool Staking</div>
 
   <div id="app6">
     <div class="loading">
@@ -251,9 +251,14 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     </div>
   </div>
 
-  <div id="sec-app7" class="sec-div">&#128274; Token Terkunci &#8212; LP Reserve</div>
+  <div id="sec-app7" class="sec-div">🔒 Token Terkunci — LP Reserve</div>
   <div id="app7">
     <div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT LP RESERVE...</div></div>
+  </div>
+
+  <div id="sec-app8" class="sec-div">🔒 Token Terkunci — Pool Game</div>
+  <div id="app8">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA POOL GAME...</div></div>
   </div>
 
   <div class="footer">
@@ -813,6 +818,115 @@ async function loadLPReserve() {
   }
 }
 
+const SAVINGS_CA_T = '0xBD4f0DbbdC192423524Fb94EfCFa635380f6fBc0';
+const VAULT_CA_T   = '0xb1136B943A855F1e743ae2a7452B147Bb89f85eD';
+
+const SAVINGS_ABI_T = [
+  "function getRewardPool() view returns (uint256)",
+  "function totalUserSavings() view returns (uint256)",
+  "function poolUnlockTime() view returns (uint256)",
+  "function poolLockDaysLeft() view returns (uint256)",
+  "function poolFilled() view returns (bool)",
+  "function dailyRateBPS() view returns (uint256)",
+];
+const VAULT_ABI_T = [
+  "function getVaultBalance() view returns (uint256)",
+];
+
+async function loadGamePool() {
+  const el = document.getElementById('app8');
+  try {
+    const savingsC = new ethers.Contract(SAVINGS_CA_T, SAVINGS_ABI_T, provider);
+    const [
+      rewardPool,
+      userSavings,
+      unlockTime,
+      daysLeft,
+      poolFilled,
+      rateBPS,
+    ] = await Promise.all([
+      savingsC.getRewardPool(),
+      savingsC.totalUserSavings(),
+      savingsC.poolUnlockTime(),
+      savingsC.poolLockDaysLeft(),
+      savingsC.poolFilled(),
+      savingsC.dailyRateBPS(),
+    ]);
+
+    const rewardNum  = parseFloat(ethers.utils.formatUnits(rewardPool,  9));
+    const savingsNum = parseFloat(ethers.utils.formatUnits(userSavings, 9));
+
+    const daysNum    = parseInt(daysLeft.toString());
+    const rateNum    = parseInt(rateBPS.toString()) / 1000;
+
+    // Format unlock date
+    const unlockDate = unlockTime.toString() === '0' ? 'Belum diisi' :
+      new Date(parseInt(unlockTime.toString()) * 1000).toLocaleDateString('id-ID', {
+        day:'2-digit', month:'long', year:'numeric'
+      });
+
+
+
+    el.innerHTML = `
+      <div class="lock-card">
+        <div class="lock-header">
+          <div class="lock-title">🏆 Game Savings — Pool Reward</div>
+          <div class="lock-badge" style="background:rgba(52,211,153,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3);">
+            ${poolFilled ? '🔒 TERKUNCI 5 TAHUN' : '⏳ BELUM DIISI'}
+          </div>
+        </div>
+        <div class="lock-stats">
+          <div class="lock-stat">
+            <div class="ls-lbl">POOL REWARD</div>
+            <div class="ls-val" style="color:#34d399">${rewardNum.toLocaleString('id',{maximumFractionDigits:2})} INDC</div>
+          </div>
+          <div class="lock-stat">
+            <div class="ls-lbl">TABUNGAN USER</div>
+            <div class="ls-val" style="color:#a78bfa">${savingsNum.toLocaleString('id',{maximumFractionDigits:2})} INDC</div>
+          </div>
+          <div class="lock-stat">
+            <div class="ls-lbl">RATE REWARD</div>
+            <div class="ls-val" style="color:#facc15">${rateNum}% / Hari</div>
+          </div>
+          <div class="lock-stat">
+            <div class="ls-lbl">SISA LOCK</div>
+            <div class="ls-val" style="color:#f87171">${daysNum > 0 ? daysNum.toLocaleString('id') + ' Hari' : 'Sudah Bebas'}</div>
+          </div>
+        </div>
+        <div class="nu-row" style="margin:8px 0;">
+          <div><div class="nu-lbl">⏳ UNLOCK POOL REWARD</div><div class="nu-val">${unlockDate}</div></div>
+        </div>
+        <div class="lock-contract">
+          CONTRACT: <a href="https://bscscan.com/address/${SAVINGS_CA_T}#readContract" target="_blank">${SAVINGS_CA_T}</a>
+        </div>
+      </div>
+
+      <div class="lock-card" style="margin-top:12px;background:rgba(250,204,21,0.04);border:1px solid rgba(250,204,21,0.1);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#7a6a58;letter-spacing:1px;">TOTAL POOL GAME TERKUNCI</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#facc15;">${(rewardNum + savingsNum).toLocaleString('id',{maximumFractionDigits:2})} INDC</div>
+        </div>
+      </div>`;
+
+    // Update total locked
+    updateTotalLocked(totalGame);
+
+  } catch(e) {
+    el.innerHTML = `<div class="error">Gagal memuat Pool Game.<br>
+      <small style="font-size:9px;opacity:.7;">${e.message||e}</small><br><br>
+      <button class="refresh-btn" onclick="loadGamePool()">&#8635; COBA LAGI</button></div>`;
+  }
+}
+
+function updateTotalLocked(amount) {
+  // Tambahkan ke total locked yang sudah ada
+  const el = document.getElementById('totalLocked');
+  if(!el) return;
+  const existing = parseFloat((el.textContent || '0').replace(/[^0-9.]/g,'')) || 0;
+  const newTotal = existing + amount;
+  if(newTotal > 0) el.textContent = newTotal.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
+}
+
 function loadAll() {
   loadLock(CONTRACT1, 'app',  '0');
   loadLock(CONTRACT2, 'app2', '2');
@@ -821,6 +935,7 @@ function loadAll() {
   loadVIPPool();
   loadStakingPools();
   loadLPReserve();
+  loadGamePool();
 }
 
 loadAll();
