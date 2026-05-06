@@ -13,7 +13,7 @@
   // ===== KONFIGURASI =====
   const BSC_CHAIN_ID = 56;
   const BSC_RPC = 'https://bsc-dataseed.binance.org/';
-  const WC_PROJECT_ID = 'a4f0f1bbc60fe53af12b2f9e88ab6ccf'; // WalletConnect Project ID
+  const WC_PROJECT_ID = '58821258cd5f963d7324df3832dde2fd'; // WalletConnect Project ID
 
   // Cek apakah sudah ada injected wallet (DApps browser)
   const hasInjectedWallet = typeof window.ethereum !== 'undefined' && window.ethereum !== null;
