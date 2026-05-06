@@ -89,6 +89,7 @@ const CACHE_FILES = [
   "/airdrop.html",
   "/airdrop-widget.js",
   "/airdrop-questions.js",
+  "/wallet-bridge.js",
   "/indc-staking.html",
   "/dev-panel.html",
   "/token-lock-tracker.html",
