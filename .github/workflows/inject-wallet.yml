@@ -1,0 +1,31 @@
+name: Inject Wallet Bridge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject wallet-bridge.js ke semua HTML
+        run: |
+          for file in *.html; do
+            if grep -q "ethereum\|connectWallet\|web3" "$file" 2>/dev/null; then
+              if ! grep -q "wallet-bridge.js" "$file"; then
+                sed -i 's|</head>|<script src="wallet-bridge.js"></script>\n</head>|' "$file"
+                echo "✅ Injected: $file"
+              else
+                echo "⏭️ Skip (sudah ada): $file"
+              fi
+            fi
+          done
+
+      - name: Commit perubahan
+        run: |
+          git config user.name "Indocoin Bot"
+          git config user.email "bot@indocoin.id"
+          git add -A
+          git diff --staged --quiet || git commit -m "Inject wallet-bridge.js ke semua halaman"
+          git push
