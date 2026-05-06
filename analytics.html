@@ -1060,50 +1060,79 @@ async function fetchRealTVL() {
 }
 
 // ── Ambil transaksi INDC dari BSCScan ──
+// ── Ambil transaksi INDC via RPC langsung (tanpa BSCScan API) ──
 async function fetchRealTx() {
   try {
-    const url = `${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CA}&page=1&offset=25&sort=desc&apikey=${BSCSCAN_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data.status !== '1') return [];
-    
-    return data.result.map(tx => ({
-      type: 'Transfer',
-      pair: 'INDC/BSC',
-      value: parseFloat(ethers.utils.formatUnits(tx.value, 9)).toLocaleString('id', {maximumFractionDigits:2}) + ' INDC',
-      wallet: tx.from.slice(0,6) + '...' + tx.from.slice(-4),
-      to: tx.to.slice(0,6) + '...' + tx.to.slice(-4),
-      network: 'BNB Chain',
-      time: timeAgo(parseInt(tx.timeStamp) * 1000),
-      status: tx.txreceipt_status === '1' ? 'Sukses' : 'Gagal',
-      hash: tx.hash.slice(0,8) + '...',
-      hashFull: tx.hash,
-    }));
+    const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const filter = {
+      address: INDC_CA,
+      topics: [ethers.utils.id('Transfer(address,address,uint256)')],
+      fromBlock: 'latest',
+    };
+    const latest = await provider.getBlockNumber();
+    filter.fromBlock = latest - 500;
+    filter.toBlock = latest;
+    const logs = await provider.getLogs(filter);
+    const iface = new ethers.utils.Interface([
+      'event Transfer(address indexed from, address indexed to, uint256 value)'
+    ]);
+    const txs = [];
+    for(const log of logs.slice(-25).reverse()) {
+      try {
+        const parsed = iface.parseLog(log);
+        const block  = await provider.getBlock(log.blockNumber);
+        txs.push({
+          type: 'Transfer',
+          pair: 'INDC/BSC',
+          value: parseFloat(ethers.utils.formatUnits(parsed.args.value, 9)).toLocaleString('id',{maximumFractionDigits:2}) + ' INDC',
+          wallet: parsed.args.from.slice(0,6) + '...' + parsed.args.from.slice(-4),
+          to:     parsed.args.to.slice(0,6)   + '...' + parsed.args.to.slice(-4),
+          network: 'BNB Chain',
+          time: timeAgo(block.timestamp * 1000),
+          status: 'Sukses',
+          hash: log.transactionHash.slice(0,8) + '...',
+          hashFull: log.transactionHash,
+        });
+      } catch(e) {}
+    }
+    return txs;
   } catch(e) { return []; }
 }
 
-// ── Ambil BSC Gas Price ──
+// ── Gas BSC via RPC langsung ──
 async function fetchBSCGas() {
   try {
-    const url = `${BSCSCAN_API}?module=gastracker&action=gasoracle&apikey=${BSCSCAN_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data.status !== '1') return null;
-    return data.result;
+    const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const gasPrice = await provider.getGasPrice();
+    const gwei = parseFloat(ethers.utils.formatUnits(gasPrice, 'gwei')).toFixed(1);
+    return {
+      SafeGasPrice:    (parseFloat(gwei) * 0.8).toFixed(1),
+      ProposeGasPrice: gwei,
+      FastGasPrice:    (parseFloat(gwei) * 1.2).toFixed(1),
+    };
   } catch(e) { return null; }
 }
 
-// ── Ambil volume INDC dari BSCScan ──
+// ── Volume INDC via RPC ──
 async function fetchINDCVolume() {
   try {
-    const url = `${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CA}&page=1&offset=100&sort=desc&apikey=${BSCSCAN_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data.status !== '1') return 0;
-    
-    const total = data.result.reduce((sum, tx) => {
-      return sum + parseFloat(ethers.utils.formatUnits(tx.value, 9));
-    }, 0);
+    const provider = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const latest = await provider.getBlockNumber();
+    const filter = {
+      address: INDC_CA,
+      topics: [ethers.utils.id('Transfer(address,address,uint256)')],
+      fromBlock: latest - 5000,
+      toBlock: latest,
+    };
+    const logs = await provider.getLogs(filter);
+    const iface = new ethers.utils.Interface(['event Transfer(address indexed from, address indexed to, uint256 value)']);
+    let total = 0;
+    for(const log of logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        total += parseFloat(ethers.utils.formatUnits(parsed.args.value, 9));
+      } catch(e) {}
+    }
     return total;
   } catch(e) { return 0; }
 }
@@ -1322,19 +1351,31 @@ async function loadEcoStats() {
 
     // Staker — hitung dari BSCScan transaksi ke staking contracts
     try {
+      // Hitung staker dari contract langsung via RPC
+      const provider4 = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
       const STAKING_ADDRS = [
         '0x496bd8E240E42693caBee50304977896A434d584',
         '0x156dfa702178aa31331edb9302512628f9c103b9',
         '0xeD477Eb74597CCdb67f7927bBcb68bc6ed7EeCD7',
       ];
+      const latest4 = await provider4.getBlockNumber();
+      const iface4 = new ethers.utils.Interface(['event Transfer(address indexed from, address indexed to, uint256 value)']);
       let uniqueStakers = new Set();
       for(const addr of STAKING_ADDRS) {
-        const url = `${BSCSCAN_API}?module=account&action=tokentx&contractaddress=${INDC_CA}&address=${addr}&page=1&offset=100&sort=desc&apikey=${BSCSCAN_KEY}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if(data.status === '1') {
-          data.result.forEach(tx => uniqueStakers.add(tx.from.toLowerCase()));
-        }
+        try {
+          const logs = await provider4.getLogs({
+            address: INDC_CA,
+            topics: [ethers.utils.id('Transfer(address,address,uint256)'), null, ethers.utils.hexZeroPad(addr, 32)],
+            fromBlock: latest4 - 100000,
+            toBlock: latest4,
+          });
+          logs.forEach(log => {
+            try {
+              const parsed = iface4.parseLog(log);
+              uniqueStakers.add(parsed.args.from.toLowerCase());
+            } catch(e) {}
+          });
+        } catch(e) {}
       }
       const stakerCount = Math.max(uniqueStakers.size + BASE_STAKER, BASE_STAKER);
       const elStaker = document.getElementById('eco-staker');
@@ -1534,7 +1575,8 @@ function renderTX() {
    ════════════════════════════════════ */
 
 /* Range selector */
-document.getElementById('rangeCtrl').addEventListener('click', e => {
+const _rc = document.getElementById('rangeCtrl');
+if(_rc) _rc.addEventListener('click', e => {
   const btn = e.target.closest('.seg-btn');
   if (!btn) return;
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
@@ -1555,18 +1597,7 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
 });
 
 /* GL Tabs */
-document.getElementById('gainTab').addEventListener('click', () => {
-  state.glTab = 'gainers';
-  document.getElementById('gainTab').classList.add('on');
-  document.getElementById('loseTab').classList.remove('on');
-  renderGL();
-});
-document.getElementById('loseTab').addEventListener('click', () => {
-  state.glTab = 'losers';
-  document.getElementById('loseTab').classList.add('on');
-  document.getElementById('gainTab').classList.remove('on');
-  renderGL();
-});
+// gainTab/loseTab removed
 
 /* TX Filters */
 document.querySelectorAll('.tx-filter-btn').forEach(btn => {
@@ -1605,10 +1636,8 @@ function showToast(msg){
 }
 
 // Refresh button
-document.getElementById('refreshBtn').addEventListener('click', () => {
-  loadEcoStats();
-  showToast('🔄 Memuat data terbaru...');
-});
+const _rfBtn = document.getElementById('refreshBtn');
+if(_rfBtn) _rfBtn.addEventListener('click', () => { loadEcoStats(); showToast('🔄 Memuat data terbaru...'); });
 </script>
 <script>
 if("serviceWorker" in navigator){
