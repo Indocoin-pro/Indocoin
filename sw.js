@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "76.3";
+const VERSION = "76.4";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -17,6 +17,7 @@ const CACHE_FILES = [
   "/permainan.html",
   "/referral.html",
   "/analytics.html",
+  "/agrikultur.html",
   "/assets.html",
   "/arisan.html",
   "/guild.html",
