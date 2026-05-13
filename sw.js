@@ -93,6 +93,8 @@ const CACHE_FILES = [
   "/wallet-bridge.js",
   "/indc-staking.html",
   "/dev-panel.html",
+  "/merchant.html",
+  "/merchant-pay.html",
   "/token-lock-tracker.html",
   "/premium-games.html",
 ];
