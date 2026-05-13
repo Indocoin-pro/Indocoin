@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Merchant Program</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="wallet-bridge.js"></script>
+<style>
+:root{
+  --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
+  --white:#f5f0e8;--white2:#a89880;--white3:#6b5a48;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#2ea86a;--red:#c94040;
+  --border:rgba(200,146,42,0.18);--border2:rgba(200,146,42,0.1);
+  --text:#f5f0e8;--muted:#a89880;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.star{position:fixed;background:white;border-radius:50%;pointer-events:none;animation:twinkle var(--d,3s) infinite alternate;}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
+@keyframes twinkle{from{opacity:0.1}to{opacity:0.6}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes goldShimmer{0%{background-position:0% center}100%{background-position:300% center}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;flex-shrink:0;box-shadow:0 0 12px rgba(255,255,255,0.15);}
+.nav-brand{display:flex;flex-direction:column;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+.pool-badge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;letter-spacing:1px;display:flex;align-items:center;gap:5px;background:rgba(168,152,128,0.1);border:1px solid rgba(168,152,128,0.3);color:var(--white2);}
+.pool-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1s infinite;}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 110px;max-width:480px;margin:0 auto;width:100%;}
+
+/* HERO */
+.hero{text-align:center;padding:28px 16px 20px;animation:fadeUp 0.5s ease both;}
+.hero-icon{font-size:40px;margin-bottom:10px;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--gold);letter-spacing:2px;margin-bottom:6px;}
+.hero-sub{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;}
+.hero-desc{font-size:13px;color:var(--white2);line-height:1.6;max-width:340px;margin:0 auto;}
+
+/* SECTION */
+.sec-div{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);letter-spacing:2px;margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-div::after{content:'';flex:1;height:1px;background:rgba(250,204,21,0.15);}
+
+/* CARA KERJA */
+.step-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;animation:fadeUp 0.5s ease both;}
+.step-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:#000;flex-shrink:0;}
+.step-body{flex:1;}
+.step-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--white);letter-spacing:1px;margin-bottom:2px;}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+
+/* INFO CARD */
+.info-card{background:linear-gradient(135deg,#0d2557,#0a1628,#0f1f3d);border:2px solid rgba(255,255,255,0.7);border-radius:18px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden;width:100%;box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+.info-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:900;color:var(--gold);margin-bottom:10px;letter-spacing:2px;}
+.fee-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+.fee-row:last-child{border-bottom:none;}
+.fee-label{font-size:12px;color:var(--white2);}
+.fee-val{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold);}
+.fee-total-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;margin-top:4px;border-top:1px solid rgba(200,146,42,0.3);}
+.fee-total-label{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--white);letter-spacing:1px;}
+.fee-total-val{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold2);font-weight:700;}
+
+/* FORM CARD */
+.form-card{background:var(--bg2);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:14px;margin-bottom:12px;}
+.form-label{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;display:block;}
+.form-input{width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(200,146,42,0.25);border-radius:10px;padding:11px 14px;color:var(--white);font-family:'Rajdhani',sans-serif;font-size:14px;outline:none;transition:border 0.2s;}
+.form-input:focus{border-color:var(--gold);}
+textarea.form-input{resize:vertical;min-height:70px;}
+.form-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* BUTTONS */
+.btn-gold{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;margin-top:10px;}
+.btn-gold:hover{box-shadow:0 4px 20px rgba(200,146,42,0.4);transform:translateY(-1px);}
+.btn-gold:disabled{background:#333;color:#666;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-outline{width:100%;padding:12px;border-radius:12px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;margin-top:8px;}
+.btn-outline:hover{background:rgba(200,146,42,0.1);}
+
+/* STATUS */
+.status-box{padding:10px 14px;border-radius:10px;font-family:'Share Tech Mono',monospace;font-size:11px;margin-top:8px;display:none;}
+.status-box.ok{background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.3);color:#2ea86a;}
+.status-box.err{background:rgba(201,64,64,0.12);border:1px solid rgba(201,64,64,0.3);color:#c94040;}
+.status-box.info{background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.25);color:var(--gold);}
+
+/* DASHBOARD */
+.dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.dash-stat{background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.15);border-radius:10px;padding:10px;text-align:center;}
+.dash-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:var(--gold);}
+.dash-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.dash-name{font-family:'Orbitron',sans-serif;font-size:14px;color:var(--white);margin-bottom:2px;}
+.dash-desc{font-size:12px;color:var(--muted);}
+.dash-status{display:inline-flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:9px;padding:4px 10px;border-radius:20px;margin-bottom:10px;}
+.dash-status.active{background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.3);color:var(--green);}
+.dash-status.inactive{background:rgba(201,64,64,0.12);border:1px solid rgba(201,64,64,0.3);color:var(--red);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s infinite;}
+
+/* QR */
+.qr-wrap{text-align:center;padding:16px;}
+.qr-box{width:180px;height:180px;margin:0 auto 12px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.qr-box canvas{width:160px!important;height:160px!important;}
+.qr-link{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);word-break:break-all;margin-bottom:10px;}
+
+/* NOT CONNECTED */
+.not-connected{text-align:center;padding:30px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;}
+.not-connected-icon{font-size:36px;margin-bottom:10px;}
+.not-connected-title{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--white);margin-bottom:6px;}
+.not-connected-desc{font-size:12px;color:var(--muted);}
+
+/* TABS */
+.tab-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:12px;padding:4px;margin-bottom:12px;}
+.tab-btn{padding:10px;border-radius:9px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;color:var(--muted);border:1px solid transparent;transition:all 0.2s;}
+.tab-btn.active{background:rgba(200,146,42,0.12);border-color:rgba(200,146,42,0.3);color:var(--gold);}
+.tab-content{display:none;}
+.tab-content.active{display:block;animation:fadeUp 0.2s ease both;}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--muted);transition:color 0.2s;flex:1;}
+.bn-item.active{color:var(--gold);}
+.bn-icon{font-size:20px;}
+.bn-label{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
+<div class="scanline"></div>
+
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN">
+    <div class="nav-brand">
+      <span class="nav-brand-main">INDOCOIN</span>
+      <span class="nav-brand-sub">▸ MERCHANT PROGRAM</span>
+    </div>
+  </div>
+  <div class="pool-badge"><span class="pool-dot"></span>LIVE</div>
+</nav>
+
+<div class="layout">
+<div class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-icon">🏪</div>
+    <div class="hero-title">MERCHANT PROGRAM</div>
+    <div class="hero-sub">TERIMA PEMBAYARAN INDC</div>
+    <div class="hero-desc">Daftarkan tokomu, terima pembayaran INDC dari siapapun, dan nikmati ekosistem yang saling menguntungkan.</div>
+  </div>
+
+  <!-- CARA KERJA -->
+  <div class="sec-div">CARA KERJA</div>
+  <div class="step-row">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">DAFTAR TOKO</div>
+      <div class="step-desc">Hubungkan wallet, isi nama dan deskripsi toko. Pastikan hold minimal 1.000 INDC.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">BAGIKAN QR CODE</div>
+      <div class="step-desc">Dapatkan QR Code unik tokomu. Pasang di toko, media sosial, atau WhatsApp.</div>
+    </div>
+  </div>
+  <div class="step-row">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">TERIMA PEMBAYARAN</div>
+      <div class="step-desc">Customer scan QR, input nominal, bayar dengan INDC. Dana langsung masuk ke walletmu.</div>
+    </div>
+  </div>
+
+  <!-- FEE STRUCTURE -->
+  <div class="sec-div">STRUKTUR FEE</div>
+  <div class="info-card">
+    <div class="info-title">DISTRIBUSI FEE — 1.7% DITANGGUNG PEMBELI</div>
+    <div class="fee-row"><span class="fee-label">Platform INDOCOIN</span><span class="fee-val">0.5%</span></div>
+    <div class="fee-row"><span class="fee-label">Upline Level 1</span><span class="fee-val">0.3%</span></div>
+    <div class="fee-row"><span class="fee-label">Upline Level 2</span><span class="fee-val">0.3%</span></div>
+    <div class="fee-row"><span class="fee-label">Upline Level 3</span><span class="fee-val">0.3%</span></div>
+    <div class="fee-row"><span class="fee-label">Pool Sosial</span><span class="fee-val">0.3%</span></div>
+    <div class="fee-total-row"><span class="fee-total-label">TOTAL FEE</span><span class="fee-total-val">1.7%</span></div>
+  </div>
+
+  <!-- SYARAT -->
+  <div class="sec-div">SYARAT MERCHANT</div>
+  <div class="form-card" style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+    <span style="font-size:24px;">💎</span>
+    <div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);">HOLD MINIMAL 1.000 INDC</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;">Setara ±Rp 50.000. Tidak perlu dikunci, cukup ada di wallet.</div>
+    </div>
+  </div>
+
+  <!-- TABS: DAFTAR / DASHBOARD -->
+  <div id="merchantSection">
+    <div class="tab-row">
+      <div class="tab-btn active" onclick="switchTab('daftar')">🏪 DAFTAR TOKO</div>
+      <div class="tab-btn" onclick="switchTab('dashboard')">📊 DASHBOARD</div>
+    </div>
+
+    <!-- TAB DAFTAR -->
+    <div class="tab-content active" id="tab-daftar">
+      <div id="notConnected" class="not-connected">
+        <div class="not-connected-icon">🔌</div>
+        <div class="not-connected-title">WALLET BELUM TERHUBUNG</div>
+        <div class="not-connected-desc">Hubungkan wallet untuk mendaftar sebagai merchant.</div>
+        <button class="btn-gold" onclick="connectWallet()">HUBUNGKAN WALLET</button>
+      </div>
+
+      <div id="formDaftar" style="display:none;">
+        <div class="form-card">
+          <label class="form-label">NAMA TOKO</label>
+          <input type="text" class="form-input" id="inputName" placeholder="Contoh: Warung Kopi Nusantara" maxlength="50">
+          <label class="form-label" style="margin-top:10px;">DESKRIPSI TOKO</label>
+          <textarea class="form-input" id="inputDesc" placeholder="Jelaskan produk atau jasa yang kamu jual..." maxlength="200"></textarea>
+          <div class="form-hint">Nama dan deskripsi tersimpan permanen di blockchain.</div>
+          <button class="btn-gold" id="btnDaftar" onclick="daftarMerchant()">🏪 DAFTAR SEKARANG</button>
+          <div class="status-box" id="daftarStatus"></div>
+        </div>
+      </div>
+
+      <div id="sudahDaftar" style="display:none;">
+        <div class="form-card" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">✅</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:12px;color:var(--green);">SUDAH TERDAFTAR</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">Lihat dashboard untuk QR Code tokomu.</div>
+          <button class="btn-outline" onclick="switchTab('dashboard')">LIHAT DASHBOARD</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB DASHBOARD -->
+    <div class="tab-content" id="tab-dashboard">
+      <div id="dashNotConnected" class="not-connected">
+        <div class="not-connected-icon">🔌</div>
+        <div class="not-connected-title">WALLET BELUM TERHUBUNG</div>
+        <div class="not-connected-desc">Hubungkan wallet untuk melihat dashboard tokomu.</div>
+        <button class="btn-gold" onclick="connectWallet()">HUBUNGKAN WALLET</button>
+      </div>
+
+      <div id="dashContent" style="display:none;">
+        <!-- Status & Info Toko -->
+        <div class="dash-card">
+          <div id="dashStatusBadge" class="dash-status active"><span class="status-dot"></span>AKTIF</div>
+          <div class="dash-name" id="dashName">—</div>
+          <div class="dash-desc" id="dashDesc">—</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="dash-grid">
+          <div class="dash-stat">
+            <div class="dash-val" id="dashTotalDiterima">—</div>
+            <div class="dash-lbl">TOTAL DITERIMA</div>
+          </div>
+          <div class="dash-stat">
+            <div class="dash-val" id="dashTotalTx">—</div>
+            <div class="dash-lbl">TRANSAKSI</div>
+          </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="sec-div">QR CODE TOKO</div>
+        <div class="form-card">
+          <div class="qr-wrap">
+            <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
+            <div class="qr-link" id="qrLink">—</div>
+            <button class="btn-gold" onclick="downloadQR()">⬇️ DOWNLOAD QR CODE</button>
+          </div>
+        </div>
+
+        <!-- Update Info -->
+        <div class="sec-div">UPDATE INFO TOKO</div>
+        <div class="form-card">
+          <label class="form-label">NAMA TOKO BARU</label>
+          <input type="text" class="form-input" id="updateName" placeholder="Nama toko baru..." maxlength="50">
+          <label class="form-label" style="margin-top:10px;">DESKRIPSI BARU</label>
+          <textarea class="form-input" id="updateDesc" placeholder="Deskripsi baru..." maxlength="200"></textarea>
+          <button class="btn-gold" id="btnUpdate" onclick="updateMerchant()">💾 SIMPAN PERUBAHAN</button>
+          <div class="status-box" id="updateStatus"></div>
+        </div>
+      </div>
+
+      <div id="dashNotMerchant" style="display:none;">
+        <div class="not-connected" style="margin-bottom:0;">
+          <div class="not-connected-icon">🏪</div>
+          <div class="not-connected-title">BELUM TERDAFTAR</div>
+          <div class="not-connected-desc">Daftar sebagai merchant terlebih dahulu.</div>
+          <button class="btn-outline" onclick="switchTab('daftar')">DAFTAR SEKARANG</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
+  <a href="earn.html" class="bn-item"><span class="bn-icon">💰</span><span class="bn-label">EARN</span></a>
+  <a href="referral.html" class="bn-item"><span class="bn-icon">🌐</span><span class="bn-label">REFERRAL</span></a>
+  <a href="presale.html" class="bn-item"><span class="bn-icon">🚀</span><span class="bn-label">PRESALE</span></a>
+  <a href="community.html" class="bn-item"><span class="bn-icon">💬</span><span class="bn-label">COMMUNITY</span></a>
+</nav>
+
+<!-- QR Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
+const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const INDC_DECIMALS     = 9;
+
+const MERCHANT_ABI = [
+  "function registerMerchant(string name, string description) external",
+  "function updateMerchantInfo(string name, string description) external",
+  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
+  "function isMerchant(address) external view returns (bool)",
+  "function getStats() external view returns (uint256,uint256,uint256)"
+];
+
+let provider, signer, userAddress, merchantContract, merchantContractWrite;
+
+// ── STARS ──
+(function(){
+  for(let i=0;i<40;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2+0.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}vh;left:${Math.random()*100}vw;--d:${2+Math.random()*4}s`;
+    document.body.appendChild(s);
+  }
+})();
+
+// ── TABS ──
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['daftar','dashboard'][i]===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+// ── STATUS ──
+function setStatus(id,msg,type){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=msg;
+  el.className='status-box '+type;
+  el.style.display='block';
+}
+
+// ── CONNECT WALLET ──
+async function connectWallet(){
+  try{
+    if(typeof window.walletBridge !== 'undefined'){
+      await window.walletBridge.connect();
+    } else if(window.ethereum){
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts',[]);
+      signer = provider.getSigner();
+      userAddress = await signer.getAddress();
+    } else {
+      alert('Wallet tidak ditemukan. Install MetaMask atau gunakan WalletConnect.');
+      return;
+    }
+    await onWalletConnected();
+  } catch(e){ console.error(e); }
+}
+
+async function onWalletConnected(){
+  try{
+    if(window.walletBridge && window.walletBridge.provider){
+      provider = window.walletBridge.provider;
+      signer   = window.walletBridge.signer;
+      userAddress = window.walletBridge.address;
+    }
+    merchantContract      = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, provider);
+    merchantContractWrite = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, signer);
+
+    await loadMerchantData();
+  } catch(e){ console.error(e); }
+}
+
+async function loadMerchantData(){
+  try{
+    const isMerch = await merchantContract.isMerchant(userAddress);
+
+    // Tab Daftar
+    document.getElementById('notConnected').style.display    = 'none';
+    document.getElementById('dashNotConnected').style.display = 'none';
+
+    if(isMerch){
+      document.getElementById('formDaftar').style.display  = 'none';
+      document.getElementById('sudahDaftar').style.display = 'block';
+
+      // Load dashboard
+      const data = await merchantContract.getMerchant(userAddress);
+      document.getElementById('dashContent').style.display      = 'block';
+      document.getElementById('dashNotMerchant').style.display  = 'none';
+      document.getElementById('dashName').textContent  = data.name;
+      document.getElementById('dashDesc').textContent  = data.description;
+
+      const received = parseFloat(ethers.utils.formatUnits(data.totalReceived, INDC_DECIMALS));
+      document.getElementById('dashTotalDiterima').textContent = received.toLocaleString('id') + ' INDC';
+
+      const badge = document.getElementById('dashStatusBadge');
+      badge.className = 'dash-status ' + (data.isActive ? 'active' : 'inactive');
+      badge.innerHTML = `<span class="status-dot"></span>${data.isActive ? 'AKTIF' : 'NONAKTIF'}`;
+
+      // Get tx count for this merchant from stats (approximate)
+      document.getElementById('dashTotalTx').textContent = '—';
+
+      // Update form prefill
+      document.getElementById('updateName').value = data.name;
+      document.getElementById('updateDesc').value = data.description;
+
+      // Generate QR
+      generateQR(userAddress);
+
+    } else {
+      document.getElementById('formDaftar').style.display      = 'block';
+      document.getElementById('sudahDaftar').style.display     = 'none';
+      document.getElementById('dashContent').style.display     = 'none';
+      document.getElementById('dashNotMerchant').style.display = 'block';
+    }
+  } catch(e){ console.error(e); }
+}
+
+// ── GENERATE QR ──
+function generateQR(addr){
+  const url = `${window.location.origin}/merchant-pay.html?addr=${addr}`;
+  document.getElementById('qrLink').textContent = url;
+
+  const canvas = document.getElementById('qrCanvas');
+  canvas.getContext('2d').clearRect(0,0,200,200);
+
+  try{
+    QRCode.toCanvas(canvas, url, {
+      width: 160,
+      color: { dark: '#000000', light: '#ffffff' }
+    });
+  } catch(e){
+    // fallback
+    const qr = new QRCode(canvas, { text: url, width: 160, height: 160 });
+  }
+}
+
+function downloadQR(){
+  const canvas = document.getElementById('qrCanvas');
+  const link   = document.createElement('a');
+  link.download = 'merchant-qr-indocoin.png';
+  link.href      = canvas.toDataURL();
+  link.click();
+}
+
+// ── DAFTAR MERCHANT ──
+async function daftarMerchant(){
+  const name = document.getElementById('inputName').value.trim();
+  const desc = document.getElementById('inputDesc').value.trim();
+
+  if(!name) return setStatus('daftarStatus','❌ Nama toko wajib diisi','err');
+  if(!merchantContractWrite) return setStatus('daftarStatus','❌ Hubungkan wallet dulu','err');
+
+  const btn = document.getElementById('btnDaftar');
+  btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
+  setStatus('daftarStatus','⏳ Mengirim transaksi...','info');
+
+  try{
+    const tx = await merchantContractWrite.registerMerchant(name, desc);
+    setStatus('daftarStatus','⏳ Menunggu konfirmasi...','info');
+    await tx.wait();
+    setStatus('daftarStatus','✅ Toko berhasil didaftarkan!','ok');
+    setTimeout(()=>loadMerchantData(), 2000);
+  } catch(e){
+    setStatus('daftarStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally{
+    btn.disabled = false; btn.textContent = '🏪 DAFTAR SEKARANG';
+  }
+}
+
+// ── UPDATE MERCHANT ──
+async function updateMerchant(){
+  const name = document.getElementById('updateName').value.trim();
+  const desc = document.getElementById('updateDesc').value.trim();
+
+  if(!name) return setStatus('updateStatus','❌ Nama toko wajib diisi','err');
+
+  const btn = document.getElementById('btnUpdate');
+  btn.disabled = true; btn.textContent = '⏳ MENYIMPAN...';
+  setStatus('updateStatus','⏳ Mengirim transaksi...','info');
+
+  try{
+    const tx = await merchantContractWrite.updateMerchantInfo(name, desc);
+    setStatus('updateStatus','⏳ Menunggu konfirmasi...','info');
+    await tx.wait();
+    setStatus('updateStatus','✅ Info toko berhasil diupdate!','ok');
+    setTimeout(()=>loadMerchantData(), 2000);
+  } catch(e){
+    setStatus('updateStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally{
+    btn.disabled = false; btn.textContent = '💾 SIMPAN PERUBAHAN';
+  }
+}
+
+// ── AUTO CONNECT ──
+window.addEventListener('load', async()=>{
+  if(window.walletBridge){
+    window.walletBridge.on('connected', onWalletConnected);
+    if(window.walletBridge.isConnected) await onWalletConnected();
+  } else if(window.ethereum){
+    const accounts = await window.ethereum.request({method:'eth_accounts'});
+    if(accounts.length > 0){
+      provider    = new ethers.providers.Web3Provider(window.ethereum);
+      signer      = provider.getSigner();
+      userAddress = accounts[0];
+      await onWalletConnected();
+    }
+  }
+});
+</script>
+</body>
+</html>

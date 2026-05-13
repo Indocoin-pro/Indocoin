@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Bayar ke Merchant</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="wallet-bridge.js"></script>
+<style>
+:root{
+  --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
+  --white:#f5f0e8;--white2:#a89880;--white3:#6b5a48;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#2ea86a;--red:#c94040;
+  --border:rgba(200,146,42,0.18);
+  --text:#f5f0e8;--muted:#a89880;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(200,146,42,0.3) 40%,rgba(200,146,42,0.1) 60%,transparent);animation:scan 10s linear infinite;opacity:0.4;}
+@keyframes scan{0%{top:-2px}100%{top:100vh}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOPNAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:54px;background:rgba(8,8,8,0.98);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;border-radius:50%;border:2px solid #fff;object-fit:cover;}
+.nav-brand{display:flex;flex-direction:column;}
+.nav-brand-main{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:800;color:var(--white);letter-spacing:3px;}
+.nav-brand-sub{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--gold2);letter-spacing:2px;}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;}
+.main{padding:16px 16px 40px;max-width:480px;margin:0 auto;width:100%;}
+
+/* TOKO CARD */
+.toko-card{background:linear-gradient(135deg,rgba(200,146,42,0.08),rgba(200,146,42,0.02));border:1px solid rgba(200,146,42,0.3);border-radius:18px;padding:20px;margin-bottom:16px;text-align:center;animation:fadeUp 0.4s ease both;}
+.toko-icon{font-size:44px;margin-bottom:10px;}
+.toko-name{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:var(--gold);margin-bottom:6px;}
+.toko-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px;}
+.toko-addr{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--white3);word-break:break-all;background:rgba(0,0,0,0.3);padding:6px 10px;border-radius:8px;}
+.toko-status{display:inline-flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:9px;padding:4px 12px;border-radius:20px;margin-bottom:12px;background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.3);color:var(--green);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1s infinite;}
+
+/* PAYMENT CARD */
+.pay-card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px;animation:fadeUp 0.5s ease both;}
+.pay-title{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:14px;}
+
+/* AMOUNT INPUT */
+.amount-wrap{position:relative;margin-bottom:14px;}
+.amount-input{width:100%;background:rgba(0,0,0,0.5);border:2px solid rgba(200,146,42,0.3);border-radius:14px;padding:16px 70px 16px 18px;color:var(--white);font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;outline:none;transition:border 0.2s;text-align:center;}
+.amount-input:focus{border-color:var(--gold);}
+.amount-unit{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold);pointer-events:none;}
+
+/* BREAKDOWN */
+.breakdown{background:rgba(0,0,0,0.3);border-radius:12px;padding:12px;margin-bottom:14px;}
+.brk-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;}
+.brk-row + .brk-row{border-top:1px solid rgba(255,255,255,0.04);}
+.brk-label{font-size:12px;color:var(--muted);}
+.brk-val{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white2);}
+.brk-total{display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;margin-top:6px;border-top:1px solid rgba(200,146,42,0.3);}
+.brk-total-label{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--white);letter-spacing:1px;}
+.brk-total-val{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:var(--gold2);}
+
+/* BUTTONS */
+.btn-gold{width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.2s;}
+.btn-gold:hover{box-shadow:0 4px 24px rgba(200,146,42,0.4);transform:translateY(-1px);}
+.btn-gold:disabled{background:#333;color:#666;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-connect{width:100%;padding:14px;border-radius:14px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:10px;}
+
+/* STATUS */
+.status-box{padding:12px 16px;border-radius:12px;font-family:'Share Tech Mono',monospace;font-size:11px;margin-top:10px;display:none;text-align:center;line-height:1.6;}
+.status-box.ok{background:rgba(46,168,106,0.12);border:1px solid rgba(46,168,106,0.3);color:#2ea86a;}
+.status-box.err{background:rgba(201,64,64,0.12);border:1px solid rgba(201,64,64,0.3);color:#c94040;}
+.status-box.info{background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.25);color:var(--gold);}
+
+/* LOADING */
+.loading-wrap{text-align:center;padding:40px 16px;}
+.spinner{width:36px;height:36px;border:3px solid rgba(200,146,42,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
+.loading-text{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+
+/* ERROR STATE */
+.error-wrap{text-align:center;padding:40px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;}
+.error-icon{font-size:40px;margin-bottom:10px;}
+.error-title{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--red);margin-bottom:6px;}
+.error-desc{font-size:12px;color:var(--muted);}
+
+/* SUCCESS */
+.success-wrap{text-align:center;padding:30px 16px;background:rgba(46,168,106,0.06);border:1px solid rgba(46,168,106,0.3);border-radius:18px;animation:fadeUp 0.4s ease both;}
+.success-icon{font-size:56px;margin-bottom:12px;}
+.success-title{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--green);margin-bottom:6px;}
+.success-amount{font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--white2);margin-bottom:4px;}
+.success-to{font-size:12px;color:var(--muted);}
+
+/* INDC BALANCE */
+.balance-info{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.3);border-radius:10px;padding:8px 12px;margin-bottom:12px;}
+.balance-label{font-size:12px;color:var(--muted);}
+.balance-val{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold);}
+</style>
+</head>
+<body>
+<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
+<div class="scanline"></div>
+
+<nav class="topnav">
+  <div class="nav-left">
+    <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN">
+    <div class="nav-brand">
+      <span class="nav-brand-main">INDOCOIN</span>
+      <span class="nav-brand-sub">▸ PEMBAYARAN MERCHANT</span>
+    </div>
+  </div>
+</nav>
+
+<div class="layout">
+<div class="main">
+
+  <!-- LOADING STATE -->
+  <div id="loadingState" class="loading-wrap">
+    <div class="spinner"></div>
+    <div class="loading-text">MEMUAT DATA TOKO...</div>
+  </div>
+
+  <!-- ERROR STATE -->
+  <div id="errorState" class="error-wrap" style="display:none;">
+    <div class="error-icon">❌</div>
+    <div class="error-title">TOKO TIDAK DITEMUKAN</div>
+    <div class="error-desc">Link tidak valid atau merchant tidak terdaftar.</div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="mainContent" style="display:none;">
+
+    <!-- INFO TOKO -->
+    <div class="toko-card">
+      <div class="toko-icon">🏪</div>
+      <div class="toko-status"><span class="status-dot"></span>MERCHANT AKTIF</div>
+      <div class="toko-name" id="tokoName">—</div>
+      <div class="toko-desc" id="tokoDesc">—</div>
+      <div class="toko-addr" id="tokoAddr">—</div>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div id="successState" style="display:none;">
+      <div class="success-wrap">
+        <div class="success-icon">✅</div>
+        <div class="success-title">PEMBAYARAN BERHASIL!</div>
+        <div class="success-amount" id="successAmount">—</div>
+        <div class="success-to">telah dikirim ke <span id="successTo">—</span></div>
+        <button class="btn-connect" style="margin-top:16px;" onclick="resetPayment()">BAYAR LAGI</button>
+      </div>
+    </div>
+
+    <!-- PAYMENT FORM -->
+    <div id="paymentForm">
+      <!-- Connect wallet -->
+      <div id="connectSection" class="pay-card">
+        <div class="pay-title">HUBUNGKAN WALLET</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Hubungkan wallet untuk melakukan pembayaran.</div>
+        <button class="btn-connect" onclick="connectWallet()">🔌 HUBUNGKAN WALLET</button>
+      </div>
+
+      <!-- Payment input -->
+      <div id="paySection" style="display:none;">
+        <div class="pay-card">
+          <div class="pay-title">NOMINAL PEMBAYARAN</div>
+
+          <!-- Balance -->
+          <div class="balance-info">
+            <span class="balance-label">Saldo INDC kamu</span>
+            <span class="balance-val" id="userBalance">—</span>
+          </div>
+
+          <!-- Input -->
+          <div class="amount-wrap">
+            <input type="number" class="amount-input" id="amountInput" placeholder="0" min="1" oninput="calcFee()">
+            <span class="amount-unit">INDC</span>
+          </div>
+
+          <!-- Breakdown -->
+          <div class="breakdown">
+            <div class="brk-row">
+              <span class="brk-label">Diterima merchant</span>
+              <span class="brk-val" id="brkMerchant">0 INDC</span>
+            </div>
+            <div class="brk-row">
+              <span class="brk-label">Fee layanan (1.7%)</span>
+              <span class="brk-val" id="brkFee">0 INDC</span>
+            </div>
+            <div class="brk-total">
+              <span class="brk-total-label">TOTAL KAMU BAYAR</span>
+              <span class="brk-total-val" id="brkTotal">0 INDC</span>
+            </div>
+          </div>
+
+          <button class="btn-gold" id="btnPay" onclick="processPayment()" disabled>💳 BAYAR SEKARANG</button>
+          <div class="status-box" id="payStatus"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
+const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const INDC_DECIMALS     = 9;
+const FEE_TOTAL         = 170; // 1.7% in basis points
+const BASIS             = 10000;
+
+const MERCHANT_ABI = [
+  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
+  "function isMerchant(address) external view returns (bool)",
+  "function pay(address merchant, uint256 amount) external"
+];
+
+const ERC20_ABI = [
+  "function balanceOf(address) external view returns (uint256)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)"
+];
+
+let provider, signer, userAddress;
+let merchantContract, merchantContractWrite, indcContract, indcContractWrite;
+let merchantAddr = '';
+let currentAmount = 0;
+
+// ── GET MERCHANT FROM URL ──
+const urlParams  = new URLSearchParams(window.location.search);
+merchantAddr     = urlParams.get('addr') || '';
+
+// ── LOAD MERCHANT ──
+async function loadMerchant(){
+  document.getElementById('loadingState').style.display = 'block';
+
+  if(!merchantAddr || !ethers.utils.isAddress(merchantAddr)){
+    showError(); return;
+  }
+
+  try{
+    const rpc      = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const contract = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, rpc);
+    const isMerch  = await contract.isMerchant(merchantAddr);
+
+    if(!isMerch){ showError(); return; }
+
+    const data = await contract.getMerchant(merchantAddr);
+    if(!data.isActive){ showError(); return; }
+
+    document.getElementById('tokoName').textContent = data.name;
+    document.getElementById('tokoDesc').textContent = data.description;
+    document.getElementById('tokoAddr').textContent = merchantAddr;
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display  = 'block';
+
+  } catch(e){
+    console.error(e);
+    showError();
+  }
+}
+
+function showError(){
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('errorState').style.display   = 'block';
+}
+
+// ── CONNECT WALLET ──
+async function connectWallet(){
+  try{
+    if(window.walletBridge){
+      await window.walletBridge.connect();
+    } else if(window.ethereum){
+      provider    = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send('eth_requestAccounts',[]);
+      signer      = provider.getSigner();
+      userAddress = await signer.getAddress();
+    } else {
+      alert('Wallet tidak ditemukan.');
+      return;
+    }
+    await onWalletConnected();
+  } catch(e){ console.error(e); }
+}
+
+async function onWalletConnected(){
+  if(window.walletBridge?.provider){
+    provider    = window.walletBridge.provider;
+    signer      = window.walletBridge.signer;
+    userAddress = window.walletBridge.address;
+  }
+
+  merchantContractWrite = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, signer);
+  indcContract          = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, provider);
+  indcContractWrite     = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, signer);
+
+  // Load balance
+  const bal = await indcContract.balanceOf(userAddress);
+  const fmt = parseFloat(ethers.utils.formatUnits(bal, INDC_DECIMALS)).toLocaleString('id',{maximumFractionDigits:2});
+  document.getElementById('userBalance').textContent = fmt + ' INDC';
+
+  document.getElementById('connectSection').style.display = 'none';
+  document.getElementById('paySection').style.display     = 'block';
+}
+
+// ── CALC FEE ──
+function calcFee(){
+  const amt = parseFloat(document.getElementById('amountInput').value) || 0;
+  currentAmount = amt;
+
+  const fee   = (amt * FEE_TOTAL) / BASIS;
+  const total = amt + fee;
+
+  document.getElementById('brkMerchant').textContent = amt.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+
+  document.getElementById('btnPay').disabled = amt <= 0;
+}
+
+// ── PROCESS PAYMENT ──
+async function processPayment(){
+  if(currentAmount <= 0) return;
+
+  const fee      = (currentAmount * FEE_TOTAL) / BASIS;
+  const total    = currentAmount + fee;
+  const amtWei   = ethers.utils.parseUnits(currentAmount.toString(), INDC_DECIMALS);
+  const totalWei = ethers.utils.parseUnits(total.toFixed(INDC_DECIMALS), INDC_DECIMALS);
+
+  const btn = document.getElementById('btnPay');
+  btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
+
+  try{
+    // Check allowance
+    setStatus('payStatus','⏳ Memeriksa allowance...','info');
+    const allowance = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
+
+    if(allowance.lt(totalWei)){
+      setStatus('payStatus','⏳ Approve INDC dulu...','info');
+      const approveTx = await indcContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
+      await approveTx.wait();
+    }
+
+    setStatus('payStatus','⏳ Mengirim pembayaran...','info');
+    const tx = await merchantContractWrite.pay(merchantAddr, amtWei);
+    setStatus('payStatus','⏳ Menunggu konfirmasi...','info');
+    await tx.wait();
+
+    // SUCCESS
+    document.getElementById('paymentForm').style.display = 'none';
+    document.getElementById('successState').style.display = 'block';
+    document.getElementById('successAmount').textContent = currentAmount.toLocaleString('id') + ' INDC';
+    document.getElementById('successTo').textContent = document.getElementById('tokoName').textContent;
+
+  } catch(e){
+    setStatus('payStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+    btn.disabled = false; btn.textContent = '💳 BAYAR SEKARANG';
+  }
+}
+
+function resetPayment(){
+  document.getElementById('successState').style.display = 'none';
+  document.getElementById('paymentForm').style.display  = 'block';
+  document.getElementById('amountInput').value = '';
+  calcFee();
+}
+
+function setStatus(id,msg,type){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg;
+  el.className   = 'status-box '+type;
+  el.style.display = 'block';
+}
+
+// ── INIT ──
+window.addEventListener('load', async()=>{
+  await loadMerchant();
+
+  if(window.walletBridge){
+    window.walletBridge.on('connected', onWalletConnected);
+    if(window.walletBridge.isConnected) await onWalletConnected();
+  } else if(window.ethereum){
+    const accounts = await window.ethereum.request({method:'eth_accounts'});
+    if(accounts.length > 0){
+      provider    = new ethers.providers.Web3Provider(window.ethereum);
+      signer      = provider.getSigner();
+      userAddress = accounts[0];
+      await onWalletConnected();
+    }
+  }
+});
+</script>
+</body>
+</html>
