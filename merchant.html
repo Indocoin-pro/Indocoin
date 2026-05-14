@@ -107,8 +107,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
 
 /* QR */
 .qr-wrap{text-align:center;padding:16px;}
-.qr-box{width:180px;height:180px;margin:0 auto 12px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.qr-box canvas{width:160px!important;height:160px!important;}
+.qr-box{width:200px;height:240px;margin:0 auto 12px;background:transparent;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .qr-link{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);word-break:break-all;margin-bottom:10px;}
 
 /* NOT CONNECTED */
@@ -435,31 +434,78 @@ async function loadMerchantData(){
 // ── GENERATE QR ──
 function generateQR(addr){
   const url    = `https://indocoin.id/merchant-pay.html?addr=${addr}`;
-  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000&margin=1`;
+  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000&margin=1`;
+  const nama   = document.getElementById('dashName').textContent || 'INDOCOIN MERCHANT';
 
   document.getElementById('qrLink').textContent = url;
 
   const wrap = document.getElementById('qrBox');
   wrap.innerHTML = '';
 
-  const img = document.createElement('img');
-  img.src   = apiUrl;
-  img.style.cssText = 'width:160px;height:160px;border-radius:8px;display:block;';
-  img.setAttribute('crossorigin','anonymous');
-  img.onload  = () => { wrap._qrUrl = apiUrl; };
-  img.onerror = () => { wrap.innerHTML = '<div style="color:#c94040;font-size:10px;padding:10px;">Gagal load QR.<br>Cek koneksi internet.</div>'; };
-  wrap.appendChild(img);
-  wrap._qrUrl = apiUrl;
+  // Buat canvas 200x240
+  const canvas = document.createElement('canvas');
+  canvas.width  = 200;
+  canvas.height = 240;
+  canvas.style.cssText = 'border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+  wrap.appendChild(canvas);
+  wrap._canvas = canvas;
+
+  const ctx = canvas.getContext('2d');
+
+  function drawCanvas(qrImg){
+    const W = 200, H = 240;
+    // Background putih
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, W, H, 14);
+    ctx.fill();
+
+    // Nama toko di atas
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 13px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    // Truncate nama kalau terlalu panjang
+    let namaText = nama.length > 22 ? nama.substring(0,20)+'...' : nama;
+    ctx.fillText(namaText, W/2, 22);
+
+    // Garis gold
+    ctx.strokeStyle = '#c8922a';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(20, 30);
+    ctx.lineTo(W-20, 30);
+    ctx.stroke();
+
+    // QR image
+    if(qrImg) ctx.drawImage(qrImg, 25, 38, 150, 150);
+
+    // URL kecil
+    ctx.fillStyle = '#888888';
+    ctx.font      = '8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('indocoin.id', W/2, 205);
+
+    // Branding bawah
+    ctx.fillStyle = '#c8922a';
+    ctx.font      = 'bold 10px Arial, sans-serif';
+    ctx.fillText('INDOCOIN MERCHANT', W/2, 222);
+  }
+
+  // Load QR dari API
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload  = () => drawCanvas(img);
+  img.onerror = () => drawCanvas(null);
+  img.src = apiUrl;
 }
 
 function downloadQR(){
-  const wrap = document.getElementById('qrBox');
-  const url  = wrap._qrUrl;
-  if(!url){ alert('QR belum siap'); return; }
+  const wrap   = document.getElementById('qrBox');
+  const canvas = wrap._canvas;
+  if(!canvas){ alert('QR belum siap'); return; }
   const link    = document.createElement('a');
-  link.href     = url;
   link.download = 'merchant-qr-indocoin.png';
-  link.target   = '_blank';
+  link.href     = canvas.toDataURL('image/png');
   link.click();
 }
 
