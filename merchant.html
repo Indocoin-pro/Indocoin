@@ -303,10 +303,11 @@ textarea.form-input{resize:vertical;min-height:70px;}
 
 <!-- MODAL SIMPAN QR -->
 <div id="qrModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
-  <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;">TAHAN GAMBAR UNTUK MENYIMPAN</div>
-  <img id="qrModalImg" src="" style="width:220px;height:264px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+  <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;text-align:center;padding:0 20px;">TAHAN GAMBAR UNTUK MENYIMPAN</div>
+  <img id="qrModalImg" src="" style="width:220px;height:220px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);" referrerpolicy="no-referrer" crossorigin="anonymous">
   <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;text-align:center;padding:0 20px;">Tahan gambar di atas → pilih<br>"Simpan gambar" atau "Download"</div>
-  <button onclick="document.getElementById('qrModal').style.display='none'" style="padding:12px 32px;border-radius:12px;border:1px solid #c8922a;background:transparent;color:#c8922a;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">TUTUP</button>
+  <button id="btnBukaBrowser" style="padding:12px 32px;border-radius:12px;border:1px solid #2ea86a;background:rgba(46,168,106,0.1);color:#2ea86a;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;">BUKA DI BROWSER → SIMPAN</button>
+  <button onclick="document.getElementById('qrModal').style.display='none'" style="padding:10px 32px;border-radius:12px;border:1px solid #c8922a;background:transparent;color:#c8922a;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">TUTUP</button>
 </div>
 
 <nav class="bottom-nav">
@@ -510,14 +511,20 @@ function generateQR(addr){
 function simpanQR(){
   const wrap   = document.getElementById('qrBox');
   const canvas = wrap._canvas;
+  const addr   = wrap._addr;
   if(!canvas){ alert('QR belum siap'); return; }
 
-  const dataUrl = canvas.toDataURL('image/png');
-  const modal   = document.getElementById('qrModal');
-  const img     = document.getElementById('qrModalImg');
+  const url    = `https://indocoin.id/merchant-pay.html?addr=${addr}`;
+  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000&margin=2`;
 
-  img.src              = dataUrl;
-  modal.style.display  = 'flex';
+  const modal = document.getElementById('qrModal');
+  const img   = document.getElementById('qrModalImg');
+  img.src = apiUrl;
+  modal.style.display = 'flex';
+
+  document.getElementById('btnBukaBrowser').onclick = function(){
+    window.open(apiUrl, '_blank');
+  };
 }
 
 // ── DAFTAR MERCHANT ──
