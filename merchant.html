@@ -117,8 +117,8 @@ textarea.form-input{resize:vertical;min-height:70px;}
 .not-connected-desc{font-size:12px;color:var(--muted);}
 
 /* TABS */
-.tab-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:12px;padding:4px;margin-bottom:12px;}
-.tab-btn{padding:10px;border-radius:9px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;color:var(--muted);border:1px solid transparent;transition:all 0.2s;}
+.tab-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:12px;padding:4px;margin-bottom:12px;}
+.tab-btn{padding:10px 4px;border-radius:9px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:1px;color:var(--muted);border:1px solid transparent;transition:all 0.2s;}
 .tab-btn.active{background:rgba(200,146,42,0.12);border-color:rgba(200,146,42,0.3);color:var(--gold);}
 .tab-content{display:none;}
 .tab-content.active{display:block;animation:fadeUp 0.2s ease both;}
@@ -206,6 +206,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
     <div class="tab-row">
       <div class="tab-btn active" onclick="switchTab('daftar')">DAFTAR TOKO</div>
       <div class="tab-btn" onclick="switchTab('dashboard')">DASHBOARD</div>
+      <div class="tab-btn" onclick="switchTab('customer')">CUSTOMER</div>
     </div>
 
     <!-- TAB DAFTAR -->
@@ -296,6 +297,62 @@ textarea.form-input{resize:vertical;min-height:70px;}
         </div>
       </div>
     </div>
+
+    <!-- TAB CUSTOMER -->
+    <div class="tab-content" id="tab-customer">
+
+      <div id="custNotConnected" class="not-connected">
+        <div class="not-connected-title">WALLET BELUM TERHUBUNG</div>
+        <div class="not-connected-desc">Hubungkan wallet untuk melakukan pembayaran.</div>
+        <button class="btn-gold" onclick="connectWallet()">HUBUNGKAN WALLET</button>
+      </div>
+
+      <div id="custContent" style="display:none;">
+
+        <div class="form-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:12px;color:var(--muted);">Saldo INDC kamu</span>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold);" id="custBalance">—</span>
+        </div>
+
+        <div class="form-card">
+          <label class="form-label">WALLET ADDRESS MERCHANT</label>
+          <input type="text" class="form-input" id="custMerchAddr" placeholder="0x..." style="font-size:11px;" oninput="custCheckMerchant()">
+          <div class="form-hint" id="custMerchName" style="margin-top:6px;color:var(--gold);min-height:16px;"></div>
+
+          <label class="form-label" style="margin-top:12px;">NOMINAL (INDC)</label>
+          <input type="number" class="form-input" id="custAmount" placeholder="0" min="1" oninput="custCalcFee()">
+
+          <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px;margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+              <span style="font-size:12px;color:var(--muted);">Diterima merchant</span>
+              <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white2);" id="custBrkMerchant">0 INDC</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+              <span style="font-size:12px;color:var(--muted);">Fee layanan (1.7%)</span>
+              <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white2);" id="custBrkFee">0 INDC</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid rgba(200,146,42,0.3);">
+              <span style="font-family:'Orbitron',sans-serif;font-size:10px;color:var(--white);">TOTAL BAYAR</span>
+              <span style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="custBrkTotal">0 INDC</span>
+            </div>
+          </div>
+
+          <button class="btn-gold" id="btnCustPay" onclick="custProcessPayment()" disabled style="margin-top:12px;">BAYAR SEKARANG</button>
+          <div class="status-box" id="custPayStatus"></div>
+        </div>
+
+        <div id="custSuccess" style="display:none;">
+          <div class="form-card" style="text-align:center;">
+            <div style="font-size:40px;margin-bottom:8px;">✅</div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:13px;color:var(--green);margin-bottom:4px;">PEMBAYARAN BERHASIL!</div>
+            <div style="font-size:12px;color:var(--muted);" id="custSuccessText">—</div>
+            <button class="btn-outline" onclick="custReset()" style="margin-top:12px;">BAYAR LAGI</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -349,7 +406,7 @@ let provider, signer, userAddress, merchantContract, merchantContractWrite;
 
 // ── TABS ──
 function switchTab(tab){
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['daftar','dashboard'][i]===tab));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['daftar','dashboard','customer'][i]===tab));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
 }
@@ -392,6 +449,7 @@ async function onWalletConnected(){
     merchantContractWrite = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, signer);
 
     await loadMerchantData();
+    await loadCustBalance();
   } catch(e){ console.error(e); }
 }
 
@@ -509,13 +567,42 @@ function generateQR(addr){
 }
 
 async function simpanQR(){
-  const wrap = document.getElementById('qrBox');
-  const addr = wrap._addr || userAddress;
-  const nama = document.getElementById('dashName').textContent || 'INDOCOIN MERCHANT';
-  if(!addr){ alert('QR belum siap'); return; }
+  const wrap   = document.getElementById('qrBox');
+  const canvas = wrap._canvas;
+  if(!canvas){ alert('QR belum siap'); return; }
 
-  const url = `merchant-qr.html?addr=${encodeURIComponent(addr)}&nama=${encodeURIComponent(nama)}`;
-  window.open(url, '_blank');
+  // Konversi canvas ke blob
+  canvas.toBlob(async function(blob){
+    if(!blob){ alert('Gagal buat file'); return; }
+
+    // Coba Web Share API dulu (native Android share sheet)
+    if(navigator.share && navigator.canShare){
+      try{
+        const file = new File([blob], 'merchant-qr-indocoin.png', { type: 'image/png' });
+        if(navigator.canShare({ files: [file] })){
+          await navigator.share({
+            title: 'QR Code Merchant INDOCOIN',
+            files: [file]
+          });
+          return;
+        }
+      } catch(e){ console.log('Share cancelled or failed', e); }
+    }
+
+    // Fallback: buka modal dengan gambar
+    const dataUrl = canvas.toDataURL('image/png');
+    const modal   = document.getElementById('qrModal');
+    const img     = document.getElementById('qrModalImg');
+    img.src = dataUrl;
+    modal.style.display = 'flex';
+
+    document.getElementById('btnBukaBrowser').onclick = function(){
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'merchant-qr-indocoin.png';
+      a.click();
+    };
+  }, 'image/png');
 }
 
 // ── DAFTAR MERCHANT ──
@@ -582,6 +669,107 @@ window.addEventListener('load', async()=>{
     }
   }
 });
+
+// ── CUSTOMER TAB ──
+const ERC20_ABI = [
+  "function balanceOf(address) external view returns (uint256)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function approve(address spender, uint256 amount) external returns (bool)"
+];
+
+let indcContract, indcContractWrite;
+let custMerchantValid = false;
+let custCurrentAmount = 0;
+
+async function loadCustBalance(){
+  if(!provider || !userAddress) return;
+  try{
+    indcContract      = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, provider);
+    indcContractWrite = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, signer);
+    const bal = await indcContract.balanceOf(userAddress);
+    const fmt = parseFloat(ethers.utils.formatUnits(bal, INDC_DECIMALS)).toLocaleString('id',{maximumFractionDigits:2});
+    document.getElementById('custBalance').textContent = fmt + ' INDC';
+    document.getElementById('custNotConnected').style.display = 'none';
+    document.getElementById('custContent').style.display      = 'block';
+  } catch(e){ console.error(e); }
+}
+
+async function custCheckMerchant(){
+  const addr = document.getElementById('custMerchAddr').value.trim();
+  const nameEl = document.getElementById('custMerchName');
+  custMerchantValid = false;
+  nameEl.textContent = '';
+  if(!ethers.utils.isAddress(addr)) return;
+  try{
+    const isMerch = await merchantContract.isMerchant(addr);
+    if(!isMerch){ nameEl.textContent = '❌ Bukan merchant aktif'; nameEl.style.color='#c94040'; return; }
+    const data = await merchantContract.getMerchant(addr);
+    if(!data.isActive){ nameEl.textContent = '❌ Merchant tidak aktif'; nameEl.style.color='#c94040'; return; }
+    nameEl.textContent = '✅ ' + data.name;
+    nameEl.style.color = '#2ea86a';
+    custMerchantValid = true;
+    custCalcFee();
+  } catch(e){ console.error(e); }
+}
+
+function custCalcFee(){
+  const amt = parseFloat(document.getElementById('custAmount').value) || 0;
+  custCurrentAmount = amt;
+  const fee   = (amt * 170) / 10000;
+  const total = amt + fee;
+  document.getElementById('custBrkMerchant').textContent = amt.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('custBrkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('custBrkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('btnCustPay').disabled = !(amt > 0 && custMerchantValid);
+}
+
+async function custProcessPayment(){
+  const merchant = document.getElementById('custMerchAddr').value.trim();
+  const amt      = custCurrentAmount;
+  if(!amt || !custMerchantValid) return;
+
+  const fee      = (amt * 170) / 10000;
+  const total    = amt + fee;
+  const amtWei   = ethers.utils.parseUnits(amt.toString(), INDC_DECIMALS);
+  const totalWei = ethers.utils.parseUnits(total.toFixed(INDC_DECIMALS), INDC_DECIMALS);
+
+  const btn = document.getElementById('btnCustPay');
+  btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
+  setStatus('custPayStatus','⏳ Memeriksa allowance...','info');
+
+  try{
+    const allowance = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
+    if(allowance.lt(totalWei)){
+      setStatus('custPayStatus','⏳ Approve INDC dulu...','info');
+      const approveTx = await indcContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
+      await approveTx.wait();
+    }
+    setStatus('custPayStatus','⏳ Mengirim pembayaran...','info');
+    const tx = await merchantContractWrite.pay(merchant, amtWei);
+    await tx.wait();
+
+    const nama = document.getElementById('custMerchName').textContent.replace('✅ ','');
+    document.getElementById('custSuccessText').textContent = amt.toLocaleString('id') + ' INDC dikirim ke ' + nama;
+    document.getElementById('custContent').style.display  = 'none';
+    document.getElementById('custSuccess').style.display  = 'block';
+    loadCustBalance();
+  } catch(e){
+    setStatus('custPayStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+    btn.disabled = false; btn.textContent = 'BAYAR SEKARANG';
+  }
+}
+
+function custReset(){
+  document.getElementById('custSuccess').style.display = 'none';
+  document.getElementById('custContent').style.display = 'block';
+  document.getElementById('custMerchAddr').value = '';
+  document.getElementById('custAmount').value    = '';
+  document.getElementById('custMerchName').textContent = '';
+  custMerchantValid = false;
+  custCurrentAmount = 0;
+  custCalcFee();
+}
+
 </script>
 </body>
 </html>
