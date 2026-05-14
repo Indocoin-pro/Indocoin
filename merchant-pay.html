@@ -189,8 +189,12 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
               <span class="brk-val" id="brkMerchant">0 INDC</span>
             </div>
             <div class="brk-row">
-              <span class="brk-label">Fee layanan (1.7%)</span>
+              <span class="brk-label">Fee layanan (<span id="feeLabel">1.4</span>%)</span>
               <span class="brk-val" id="brkFee">0 INDC</span>
+            </div>
+            <div class="brk-row" style="background:rgba(46,168,106,0.05);border-radius:6px;padding:4px 6px;">
+              <span class="brk-label" style="color:#2ea86a;">🎁 Cashback Tabungan Rezeki</span>
+              <span class="brk-val" style="color:#2ea86a;" id="brkCashback">0 INDC</span>
             </div>
             <div class="brk-total">
               <span class="brk-total-label">TOTAL KAMU BAYAR</span>
@@ -209,15 +213,17 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 </div>
 
 <script>
-const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
+const MERCHANT_CONTRACT = '0x1f6c11c0ad44e9a73a01744f3f46828e895c98b9';
 const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const INDC_DECIMALS     = 9;
-const FEE_TOTAL         = 170; // 1.7% in basis points
 const BASIS             = 10000;
+let   FEE_TOTAL         = 140; // default 1.4%, akan dibaca dari kontrak
 
 const MERCHANT_ABI = [
   "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
   "function isMerchant(address) external view returns (bool)",
+  "function isMerchantActive(address) external view returns (bool)",
+  "function getTotalFee() external view returns (uint256)",
   "function pay(address merchant, uint256 amount) external"
 ];
 
@@ -253,6 +259,12 @@ async function loadMerchant(){
 
     const data = await contract.getMerchant(merchantAddr);
     if(!data.isActive){ showError(); return; }
+
+    // Baca fee dari kontrak
+    try{
+      const feeFromContract = await contract.getTotalFee();
+      FEE_TOTAL = feeFromContract.toNumber();
+    } catch(e){ FEE_TOTAL = 140; }
 
     document.getElementById('tokoName').textContent = data.name;
     document.getElementById('tokoDesc').textContent = data.description;
@@ -315,11 +327,14 @@ function calcFee(){
   const amt = parseFloat(document.getElementById('amountInput').value) || 0;
   currentAmount = amt;
 
-  const fee   = (amt * FEE_TOTAL) / BASIS;
-  const total = amt + fee;
+  const fee      = (amt * FEE_TOTAL) / BASIS;
+  const total    = amt + fee;
+  const cashback = (amt * 20) / BASIS; // 0.2% cashback buyer
 
+  document.getElementById('feeLabel').textContent    = (FEE_TOTAL/100).toFixed(1);
   document.getElementById('brkMerchant').textContent = amt.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
   document.getElementById('brkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkCashback').textContent = '+ ' + cashback.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
   document.getElementById('brkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
 
   document.getElementById('btnPay').disabled = amt <= 0;

@@ -281,6 +281,31 @@ textarea.form-input{resize:vertical;min-height:70px;}
           <button class="btn-gold" id="btnUpdate" onclick="updateMerchant()">SIMPAN PERUBAHAN</button>
           <div class="status-box" id="updateStatus"></div>
         </div>
+
+        <!-- TABUNGAN REZEKI MERCHANT -->
+        <div class="sec-div">TABUNGAN REZEKI</div>
+        <div class="form-card">
+          <div class="dash-grid" style="margin-bottom:10px;">
+            <div class="dash-stat">
+              <div class="dash-val" id="dashMerchSavings">—</div>
+              <div class="dash-lbl">SALDO TABUNGAN</div>
+            </div>
+            <div class="dash-stat">
+              <div class="dash-val" id="dashMerchUnlock">—</div>
+              <div class="dash-lbl">TANGGAL CAIRKAN</div>
+            </div>
+          </div>
+          <div id="dashMerchSavingsStatus" class="status-box info" style="display:none;margin-bottom:10px;"></div>
+          <div id="dashMerchSetDate" style="display:none;">
+            <label class="form-label">PILIH TANGGAL HARI RAYA</label>
+            <input type="date" class="form-input" id="merchantSavingsDate">
+            <div class="form-hint">Tabungan terkunci 1 tahun. Window cairkan 3 bulan.</div>
+            <button class="btn-gold" id="btnSetMerchDate" onclick="setMerchantSavingsDate()" style="margin-top:8px;">SIMPAN TANGGAL</button>
+            <div class="status-box" id="setMerchDateStatus"></div>
+          </div>
+          <button class="btn-gold" id="btnWithdrawMerchSavings" onclick="withdrawMerchantSavings()" style="display:none;margin-top:8px;">🎉 CAIRKAN TABUNGAN REZEKI</button>
+          <div class="status-box" id="withdrawMerchSavingsStatus"></div>
+        </div>
       </div>
 
       <div id="dashNotMerchant" style="display:none;">
@@ -354,6 +379,31 @@ textarea.form-input{resize:vertical;min-height:70px;}
           </div>
         </div>
 
+        <!-- TABUNGAN REZEKI BUYER -->
+        <div class="sec-div" style="margin-top:14px;">TABUNGAN REZEKI</div>
+        <div class="form-card">
+          <div class="dash-grid" style="margin-bottom:10px;">
+            <div class="dash-stat">
+              <div class="dash-val" id="custSavingsBal">—</div>
+              <div class="dash-lbl">SALDO TABUNGAN</div>
+            </div>
+            <div class="dash-stat">
+              <div class="dash-val" id="custSavingsUnlock">—</div>
+              <div class="dash-lbl">TANGGAL CAIRKAN</div>
+            </div>
+          </div>
+          <div id="custSavingsStatus" class="status-box info" style="display:none;margin-bottom:10px;"></div>
+          <div id="custSetDateSection" style="display:none;">
+            <label class="form-label">PILIH TANGGAL HARI RAYA</label>
+            <input type="date" class="form-input" id="custSavingsDate">
+            <div class="form-hint">Cashback terkunci 1 tahun. Window cairkan 3 bulan.</div>
+            <button class="btn-gold" id="btnSetCustDate" onclick="setCustSavingsDate()" style="margin-top:8px;">SIMPAN TANGGAL</button>
+            <div class="status-box" id="setCustDateStatus"></div>
+          </div>
+          <button class="btn-gold" id="btnWithdrawCustSavings" onclick="withdrawCustSavings()" style="display:none;margin-top:8px;">🎉 CAIRKAN TABUNGAN REZEKI</button>
+          <div class="status-box" id="withdrawCustSavingsStatus"></div>
+        </div>
+
       </div>
     </div>
 
@@ -404,7 +454,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
 <!-- QR Library removed - using API instead -->
 
 <script>
-const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
+const MERCHANT_CONTRACT = '0x1f6c11c0ad44e9a73a01744f3f46828e895c98b9';
 const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const INDC_DECIMALS     = 9;
 
@@ -413,7 +463,14 @@ const MERCHANT_ABI = [
   "function updateMerchantInfo(string name, string description) external",
   "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
   "function isMerchant(address) external view returns (bool)",
-  "function getStats() external view returns (uint256,uint256,uint256)"
+  "function isMerchantActive(address) external view returns (bool)",
+  "function getStats() external view returns (uint256,uint256,uint256)",
+  "function getTotalFee() external view returns (uint256)",
+  "function getUserSavingsInfo(address user) external view returns (uint256 buyerBal, uint256 merchantBal, uint256 unlockDate, uint256 windowClose, bool canWithdraw)",
+  "function setSavingsDate(uint256 unlockTimestamp) external",
+  "function withdrawBuyerSavings() external",
+  "function withdrawMerchantSavings() external",
+  "function pay(address merchant, uint256 amount) external"
 ];
 
 let provider, signer, userAddress, merchantContract, merchantContractWrite;
@@ -513,6 +570,9 @@ async function loadMerchantData(){
 
       // Generate QR
       generateQR(userAddress);
+
+      // Load merchant savings
+      await loadSavingsInfo(userAddress, 'merchant');
 
     } else {
       document.getElementById('formDaftar').style.display      = 'block';
@@ -716,6 +776,9 @@ async function loadCustBalance(){
     document.getElementById('custBalance').textContent = fmt + ' INDC';
     document.getElementById('custNotConnected').style.display = 'none';
     document.getElementById('custContent').style.display      = 'block';
+
+    // Load buyer savings
+    await loadSavingsInfo(userAddress, 'buyer');
   } catch(e){ console.error(e); }
 }
 
@@ -842,6 +905,128 @@ function stopScanQR(){
   if(scanInterval){ clearInterval(scanInterval); scanInterval=null; }
   if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
   document.getElementById('scanModal').style.display = 'none';
+}
+
+// ── TABUNGAN REZEKI ──
+async function loadSavingsInfo(addr, type){
+  try{
+    const info = await merchantContract.getUserSavingsInfo(addr);
+    const isMerchType = type === 'merchant';
+
+    const balEl     = document.getElementById(isMerchType ? 'dashMerchSavings'  : 'custSavingsBal');
+    const unlockEl  = document.getElementById(isMerchType ? 'dashMerchUnlock'   : 'custSavingsUnlock');
+    const statusEl  = document.getElementById(isMerchType ? 'dashMerchSavingsStatus' : 'custSavingsStatus');
+    const setDateEl = document.getElementById(isMerchType ? 'dashMerchSetDate'  : 'custSetDateSection');
+    const wdBtn     = document.getElementById(isMerchType ? 'btnWithdrawMerchSavings' : 'btnWithdrawCustSavings');
+
+    const bal     = parseFloat(ethers.utils.formatUnits(isMerchType ? info.merchantBal : info.buyerBal, INDC_DECIMALS));
+    const unlock  = info.unlockDate.toNumber();
+    const winClose= info.windowClose.toNumber();
+    const canWd   = info.canWithdraw;
+    const now     = Math.floor(Date.now()/1000);
+
+    balEl.textContent = bal.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+
+    if(unlock === 0){
+      unlockEl.textContent = 'Belum diset';
+      statusEl.textContent = '💡 Set tanggal hari raya untuk mulai menabung';
+      statusEl.className   = 'status-box info';
+      statusEl.style.display = 'block';
+      setDateEl.style.display = 'block';
+      wdBtn.style.display     = 'none';
+    } else if(canWd){
+      const d = new Date(unlock*1000);
+      unlockEl.textContent    = d.toLocaleDateString('id');
+      statusEl.textContent    = '🎉 Window pencairan TERBUKA! Cairkan sebelum ' + new Date(winClose*1000).toLocaleDateString('id');
+      statusEl.className      = 'status-box ok';
+      statusEl.style.display  = 'block';
+      setDateEl.style.display = 'none';
+      wdBtn.style.display     = 'block';
+    } else if(now < unlock){
+      const d = new Date(unlock*1000);
+      unlockEl.textContent    = d.toLocaleDateString('id');
+      const days = Math.ceil((unlock - now) / 86400);
+      statusEl.textContent    = `🔒 Terkunci — ${days} hari lagi`;
+      statusEl.className      = 'status-box info';
+      statusEl.style.display  = 'block';
+      setDateEl.style.display = 'none';
+      wdBtn.style.display     = 'none';
+    } else {
+      // Lewat window
+      unlockEl.textContent    = 'Window tutup';
+      statusEl.textContent    = '⏰ Window pencairan sudah tutup. Tabungan berlanjut ke tahun depan.';
+      statusEl.className      = 'status-box err';
+      statusEl.style.display  = 'block';
+      setDateEl.style.display = 'none';
+      wdBtn.style.display     = 'none';
+    }
+  } catch(e){ console.error(e); }
+}
+
+function tsFromDate(dateStr){
+  return Math.floor(new Date(dateStr).getTime() / 1000);
+}
+
+async function setMerchantSavingsDate(){
+  const dateVal = document.getElementById('merchantSavingsDate').value;
+  if(!dateVal) return setStatus('setMerchDateStatus','❌ Pilih tanggal dulu','err');
+  const ts = tsFromDate(dateVal);
+  const btn = document.getElementById('btnSetMerchDate');
+  btn.disabled = true; btn.textContent = '⏳ MENYIMPAN...';
+  setStatus('setMerchDateStatus','⏳ Mengirim transaksi...','info');
+  try{
+    const tx = await merchantContractWrite.setSavingsDate(ts);
+    await tx.wait();
+    setStatus('setMerchDateStatus','✅ Tanggal berhasil disimpan!','ok');
+    setTimeout(()=>loadSavingsInfo(userAddress,'merchant'), 2000);
+  } catch(e){
+    setStatus('setMerchDateStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally { btn.disabled=false; btn.textContent='SIMPAN TANGGAL'; }
+}
+
+async function setCustSavingsDate(){
+  const dateVal = document.getElementById('custSavingsDate').value;
+  if(!dateVal) return setStatus('setCustDateStatus','❌ Pilih tanggal dulu','err');
+  const ts = tsFromDate(dateVal);
+  const btn = document.getElementById('btnSetCustDate');
+  btn.disabled = true; btn.textContent = '⏳ MENYIMPAN...';
+  setStatus('setCustDateStatus','⏳ Mengirim transaksi...','info');
+  try{
+    const tx = await merchantContractWrite.setSavingsDate(ts);
+    await tx.wait();
+    setStatus('setCustDateStatus','✅ Tanggal berhasil disimpan!','ok');
+    setTimeout(()=>loadSavingsInfo(userAddress,'buyer'), 2000);
+  } catch(e){
+    setStatus('setCustDateStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally { btn.disabled=false; btn.textContent='SIMPAN TANGGAL'; }
+}
+
+async function withdrawMerchantSavings(){
+  const btn = document.getElementById('btnWithdrawMerchSavings');
+  btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
+  setStatus('withdrawMerchSavingsStatus','⏳ Mengirim transaksi...','info');
+  try{
+    const tx = await merchantContractWrite.withdrawMerchantSavings();
+    await tx.wait();
+    setStatus('withdrawMerchSavingsStatus','✅ Tabungan Rezeki berhasil dicairkan! 🎉','ok');
+    setTimeout(()=>loadSavingsInfo(userAddress,'merchant'), 2000);
+  } catch(e){
+    setStatus('withdrawMerchSavingsStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally { btn.disabled=false; btn.textContent='🎉 CAIRKAN TABUNGAN REZEKI'; }
+}
+
+async function withdrawCustSavings(){
+  const btn = document.getElementById('btnWithdrawCustSavings');
+  btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
+  setStatus('withdrawCustSavingsStatus','⏳ Mengirim transaksi...','info');
+  try{
+    const tx = await merchantContractWrite.withdrawBuyerSavings();
+    await tx.wait();
+    setStatus('withdrawCustSavingsStatus','✅ Tabungan Rezeki berhasil dicairkan! 🎉','ok');
+    setTimeout(()=>loadSavingsInfo(userAddress,'buyer'), 2000);
+  } catch(e){
+    setStatus('withdrawCustSavingsStatus','❌ '+(e?.reason||e?.message||'Gagal').slice(0,80),'err');
+  } finally { btn.disabled=false; btn.textContent='🎉 CAIRKAN TABUNGAN REZEKI'; }
 }
 
 </script>
