@@ -272,7 +272,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
           <div class="qr-wrap">
             <div class="qr-box" id="qrBox"></div>
             <div class="qr-link" id="qrLink">—</div>
-            <button class="btn-gold" onclick="downloadQR()">DOWNLOAD QR CODE</button>
+            <button class="btn-gold" onclick="simpanQR()">SIMPAN QR CODE</button>
           </div>
         </div>
 
@@ -299,6 +299,14 @@ textarea.form-input{resize:vertical;min-height:70px;}
   </div>
 
 </div>
+</div>
+
+<!-- MODAL SIMPAN QR -->
+<div id="qrModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+  <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;">TAHAN GAMBAR UNTUK MENYIMPAN</div>
+  <img id="qrModalImg" src="" style="width:220px;height:264px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+  <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;text-align:center;padding:0 20px;">Tahan gambar di atas → pilih<br>"Simpan gambar" atau "Download"</div>
+  <button onclick="document.getElementById('qrModal').style.display='none'" style="padding:12px 32px;border-radius:12px;border:1px solid #c8922a;background:transparent;color:#c8922a;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">TUTUP</button>
 </div>
 
 <nav class="bottom-nav">
@@ -499,22 +507,17 @@ function generateQR(addr){
   img.src = apiUrl;
 }
 
-function downloadQR(){
+function simpanQR(){
   const wrap   = document.getElementById('qrBox');
   const canvas = wrap._canvas;
   if(!canvas){ alert('QR belum siap'); return; }
 
-  canvas.toBlob(function(blob){
-    if(!blob){ alert('Gagal buat file'); return; }
-    const blobUrl = URL.createObjectURL(blob);
-    const link    = document.createElement('a');
-    link.href     = blobUrl;
-    link.download = 'merchant-qr-indocoin.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(()=> URL.revokeObjectURL(blobUrl), 3000);
-  }, 'image/png');
+  const dataUrl = canvas.toDataURL('image/png');
+  const modal   = document.getElementById('qrModal');
+  const img     = document.getElementById('qrModalImg');
+
+  img.src              = dataUrl;
+  modal.style.display  = 'flex';
 }
 
 // ── DAFTAR MERCHANT ──
