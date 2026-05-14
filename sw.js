@@ -95,6 +95,7 @@ const CACHE_FILES = [
   "/dev-panel.html",
   "/merchant.html",
   "/merchant-pay.html",
+  "/merchant-qr.html",
   "/token-lock-tracker.html",
   "/premium-games.html",
 ];
