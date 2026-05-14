@@ -176,11 +176,20 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
             <span class="balance-val" id="userBalance">—</span>
           </div>
 
+          <!-- Toggle INDC / Rupiah -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:10px;padding:4px;margin-bottom:10px;">
+            <div id="toggleINDC" onclick="setMode('indc')" style="padding:8px;border-radius:8px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);color:var(--gold);">INDC</div>
+            <div id="toggleRupiah" onclick="setMode('rupiah')" style="padding:8px;border-radius:8px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;color:var(--muted);border:1px solid transparent;">RUPIAH</div>
+          </div>
+
           <!-- Input -->
           <div class="amount-wrap">
             <input type="number" class="amount-input" id="amountInput" placeholder="0" min="1" oninput="calcFee()">
-            <span class="amount-unit">INDC</span>
+            <span class="amount-unit" id="amountUnit">INDC</span>
           </div>
+
+          <!-- Konversi -->
+          <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:8px;" id="konversiInfo">—</div>
 
           <!-- Breakdown -->
           <div class="breakdown">
@@ -322,22 +331,91 @@ async function onWalletConnected(){
   document.getElementById('paySection').style.display     = 'block';
 }
 
+// ── KURS & MODE ──
+const INDC_PRICE_USD = 0.003; // harga presale
+let   usdToIdr       = 16500; // default, akan diupdate
+let   inputMode      = 'indc'; // 'indc' atau 'rupiah'
+
+// Fetch kurs USD/IDR real-time
+async function fetchKurs(){
+  try{
+    const res  = await fetch('https://open.er-api.com/v6/latest/USD');
+    const data = await res.json();
+    if(data && data.rates && data.rates.IDR){
+      usdToIdr = data.rates.IDR;
+    }
+  } catch(e){ /* pakai default */ }
+}
+
+function indcToRupiah(indc){ return indc * INDC_PRICE_USD * usdToIdr; }
+function rupiahToIndc(rp){ return rp / (INDC_PRICE_USD * usdToIdr); }
+
+function setMode(mode){
+  inputMode = mode;
+  const indc   = document.getElementById('toggleINDC');
+  const rupiah = document.getElementById('toggleRupiah');
+  const unit   = document.getElementById('amountUnit');
+
+  if(mode === 'indc'){
+    indc.style.background   = 'rgba(200,146,42,0.15)';
+    indc.style.border       = '1px solid rgba(200,146,42,0.4)';
+    indc.style.color        = 'var(--gold)';
+    rupiah.style.background = 'transparent';
+    rupiah.style.border     = '1px solid transparent';
+    rupiah.style.color      = 'var(--muted)';
+    unit.textContent        = 'INDC';
+  } else {
+    rupiah.style.background = 'rgba(200,146,42,0.15)';
+    rupiah.style.border     = '1px solid rgba(200,146,42,0.4)';
+    rupiah.style.color      = 'var(--gold)';
+    indc.style.background   = 'transparent';
+    indc.style.border       = '1px solid transparent';
+    indc.style.color        = 'var(--muted)';
+    unit.textContent        = 'Rp';
+  }
+
+  document.getElementById('amountInput').value = '';
+  document.getElementById('konversiInfo').textContent = '—';
+  calcFee();
+}
+
 // ── CALC FEE ──
 function calcFee(){
-  const amt = parseFloat(document.getElementById('amountInput').value) || 0;
-  currentAmount = amt;
+  const raw = parseFloat(document.getElementById('amountInput').value) || 0;
+  let indcAmt = 0;
 
-  const fee      = (amt * FEE_TOTAL) / BASIS;
-  const total    = amt + fee;
-  const cashback = (amt * 20) / BASIS; // 0.2% cashback buyer
+  if(inputMode === 'rupiah'){
+    indcAmt = rupiahToIndc(raw);
+    if(raw > 0){
+      document.getElementById('konversiInfo').textContent =
+        '≈ ' + indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
+    } else {
+      document.getElementById('konversiInfo').textContent = '—';
+    }
+  } else {
+    indcAmt = raw;
+    if(raw > 0){
+      const rp = indcToRupiah(raw);
+      document.getElementById('konversiInfo').textContent =
+        '≈ Rp ' + rp.toLocaleString('id',{maximumFractionDigits:0});
+    } else {
+      document.getElementById('konversiInfo').textContent = '—';
+    }
+  }
+
+  currentAmount = indcAmt;
+
+  const fee      = (indcAmt * FEE_TOTAL) / BASIS;
+  const total    = indcAmt + fee;
+  const cashback = (indcAmt * 20) / BASIS;
 
   document.getElementById('feeLabel').textContent    = (FEE_TOTAL/100).toFixed(1);
-  document.getElementById('brkMerchant').textContent = amt.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkMerchant').textContent = indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
   document.getElementById('brkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
   document.getElementById('brkCashback').textContent = '+ ' + cashback.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
-  document.getElementById('brkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
 
-  document.getElementById('btnPay').disabled = amt <= 0;
+  document.getElementById('btnPay').disabled = indcAmt <= 0;
 }
 
 // ── PROCESS PAYMENT ──
@@ -397,6 +475,7 @@ function setStatus(id,msg,type){
 
 // ── INIT ──
 window.addEventListener('load', async()=>{
+  await fetchKurs();
   await loadMerchant();
 
   if(window.walletBridge){
