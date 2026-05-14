@@ -271,7 +271,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
         <div class="sec-div">QR CODE TOKO</div>
         <div class="form-card">
           <div class="qr-wrap">
-            <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
+            <div class="qr-box" id="qrBox"></div>
             <div class="qr-link" id="qrLink">—</div>
             <button class="btn-gold" onclick="downloadQR()">DOWNLOAD QR CODE</button>
           </div>
@@ -311,7 +311,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
 </nav>
 
 <!-- QR Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 <script>
 const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
@@ -434,28 +434,34 @@ async function loadMerchantData(){
 
 // ── GENERATE QR ──
 function generateQR(addr){
-  const url = `${window.location.origin}/merchant-pay.html?addr=${addr}`;
+  const url = `https://indocoin.id/merchant-pay.html?addr=${addr}`;
   document.getElementById('qrLink').textContent = url;
 
-  const canvas = document.getElementById('qrCanvas');
-  canvas.getContext('2d').clearRect(0,0,200,200);
+  const wrap = document.getElementById('qrBox');
+  wrap.innerHTML = '';
 
-  try{
-    QRCode.toCanvas(canvas, url, {
-      width: 160,
-      color: { dark: '#000000', light: '#ffffff' }
-    });
-  } catch(e){
-    // fallback
-    const qr = new QRCode(canvas, { text: url, width: 160, height: 160 });
-  }
+  QRCode.toDataURL(url, {
+    width: 160,
+    margin: 1,
+    color: { dark: '#000000', light: '#ffffff' }
+  }, function(err, dataUrl){
+    if(err){ console.error(err); return; }
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.cssText = 'width:160px;height:160px;border-radius:8px;';
+    wrap.appendChild(img);
+    // Store for download
+    wrap._qrDataUrl = dataUrl;
+  });
 }
 
 function downloadQR(){
-  const canvas = document.getElementById('qrCanvas');
+  const wrap = document.getElementById('qrBox');
+  const dataUrl = wrap._qrDataUrl;
+  if(!dataUrl){ alert('QR belum siap'); return; }
   const link   = document.createElement('a');
   link.download = 'merchant-qr-indocoin.png';
-  link.href      = canvas.toDataURL();
+  link.href      = dataUrl;
   link.click();
 }
 
