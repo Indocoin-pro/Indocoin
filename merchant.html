@@ -180,16 +180,10 @@ textarea.form-input{resize:vertical;min-height:70px;}
     </div>
   </div>
 
-  <!-- FEE STRUCTURE -->
-  <div class="sec-div">STRUKTUR FEE</div>
-  <div class="info-card">
-    <div class="info-title">DISTRIBUSI FEE — 1.7% DITANGGUNG PEMBELI</div>
-    <div class="fee-row"><span class="fee-label">Platform INDOCOIN</span><span class="fee-val">0.5%</span></div>
-    <div class="fee-row"><span class="fee-label">Upline Level 1</span><span class="fee-val">0.3%</span></div>
-    <div class="fee-row"><span class="fee-label">Upline Level 2</span><span class="fee-val">0.3%</span></div>
-    <div class="fee-row"><span class="fee-label">Upline Level 3</span><span class="fee-val">0.3%</span></div>
-    <div class="fee-row"><span class="fee-label">Pool Sosial</span><span class="fee-val">0.3%</span></div>
-    <div class="fee-total-row"><span class="fee-total-label">TOTAL FEE</span><span class="fee-total-val">1.7%</span></div>
+  <!-- INFO BAR -->
+  <div style="background:linear-gradient(135deg,#0d2557,#0a1628);border:1px solid rgba(99,179,237,0.3);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:10px;">
+    <span style="font-size:16px;">🔒</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#90cdf4;letter-spacing:1px;">Aman · Cepat · Transparan · OnChain</span>
   </div>
 
   <!-- SYARAT -->
@@ -316,7 +310,17 @@ textarea.form-input{resize:vertical;min-height:70px;}
 
         <div class="form-card">
           <label class="form-label">WALLET ADDRESS MERCHANT</label>
-          <input type="text" class="form-input" id="custMerchAddr" placeholder="0x..." style="font-size:11px;" oninput="custCheckMerchant()">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" class="form-input" id="custMerchAddr" placeholder="0x..." style="font-size:11px;flex:1;" oninput="custCheckMerchant()">
+            <button onclick="startScanQR()" style="flex-shrink:0;width:44px;height:44px;border-radius:10px;border:1px solid rgba(200,146,42,0.4);background:rgba(200,146,42,0.1);color:var(--gold);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/>
+                <rect x="2" y="14" width="8" height="8" rx="1"/>
+                <rect x="14" y="14" width="4" height="4" rx="0.5"/><rect x="20" y="14" width="2" height="2"/>
+                <rect x="14" y="20" width="2" height="2"/><rect x="18" y="18" width="4" height="4" rx="0.5"/>
+              </svg>
+            </button>
+          </div>
           <div class="form-hint" id="custMerchName" style="margin-top:6px;color:var(--gold);min-height:16px;"></div>
 
           <label class="form-label" style="margin-top:12px;">NOMINAL (INDC)</label>
@@ -366,6 +370,27 @@ textarea.form-input{resize:vertical;min-height:70px;}
   <button id="btnBukaBrowser" style="padding:12px 32px;border-radius:12px;border:1px solid #2ea86a;background:rgba(46,168,106,0.1);color:#2ea86a;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;">COBA DOWNLOAD LANGSUNG</button>
   <button onclick="document.getElementById('qrModal').style.display='none'" style="padding:10px 32px;border-radius:12px;border:1px solid #c8922a;background:transparent;color:#c8922a;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">TUTUP</button>
 </div>
+
+<!-- QR SCANNER MODAL -->
+<div id="scanModal" style="display:none;position:fixed;inset:0;z-index:999;background:#000;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#c8922a;letter-spacing:2px;margin-bottom:16px;">SCAN QR CODE MERCHANT</div>
+  <div style="position:relative;width:280px;height:280px;">
+    <video id="scanVideo" style="width:280px;height:280px;object-fit:cover;border-radius:12px;" playsinline autoplay muted></video>
+    <!-- Corner guides -->
+    <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-top:3px solid #c8922a;border-left:3px solid #c8922a;border-radius:4px 0 0 0;"></div>
+    <div style="position:absolute;top:10px;right:10px;width:30px;height:30px;border-top:3px solid #c8922a;border-right:3px solid #c8922a;border-radius:0 4px 0 0;"></div>
+    <div style="position:absolute;bottom:10px;left:10px;width:30px;height:30px;border-bottom:3px solid #c8922a;border-left:3px solid #c8922a;border-radius:0 0 0 4px;"></div>
+    <div style="position:absolute;bottom:10px;right:10px;width:30px;height:30px;border-bottom:3px solid #c8922a;border-right:3px solid #c8922a;border-radius:0 0 4px 0;"></div>
+    <!-- Scan line -->
+    <div id="scanLine" style="position:absolute;left:10px;right:10px;height:2px;background:rgba(200,146,42,0.7);animation:scanAnim 2s linear infinite;top:50%;"></div>
+  </div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#a89880;margin-top:14px;">Arahkan kamera ke QR Code merchant</div>
+  <button onclick="stopScanQR()" style="margin-top:16px;padding:12px 32px;border-radius:12px;border:1px solid #c8922a;background:transparent;color:#c8922a;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;cursor:pointer;">BATAL</button>
+</div>
+
+<style>
+@keyframes scanAnim{0%{top:15%}50%{top:85%}100%{top:15%}}
+</style>
 
 <nav class="bottom-nav">
   <a href="dashboard.html" class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
@@ -768,6 +793,55 @@ function custReset(){
   custMerchantValid = false;
   custCurrentAmount = 0;
   custCalcFee();
+}
+
+// ── QR SCANNER ──
+let scanStream = null;
+let scanInterval = null;
+
+async function startScanQR(){
+  const modal = document.getElementById('scanModal');
+  modal.style.display = 'flex';
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    const video = document.getElementById('scanVideo');
+    video.srcObject = scanStream;
+    video.play();
+    if('BarcodeDetector' in window){
+      const detector = new BarcodeDetector({ formats:['qr_code'] });
+      scanInterval = setInterval(async()=>{
+        try{
+          const codes = await detector.detect(video);
+          if(codes.length > 0) processScanResult(codes[0].rawValue);
+        } catch(e){}
+      }, 500);
+    } else {
+      stopScanQR();
+      alert('Browser ini tidak support scan QR langsung. Silakan ketik address merchant secara manual.');
+    }
+  } catch(e){
+    stopScanQR();
+    alert('Tidak bisa akses kamera. Pastikan izin kamera sudah diberikan.');
+  }
+}
+
+function processScanResult(raw){
+  stopScanQR();
+  let addr = '';
+  if(raw.includes('addr=')){
+    try{ const u = new URL(raw); addr = u.searchParams.get('addr')||''; } catch(e){ addr=''; }
+  } else if(raw.startsWith('0x') && raw.length===42){
+    addr = raw;
+  }
+  if(!addr){ alert('QR Code tidak valid'); return; }
+  document.getElementById('custMerchAddr').value = addr;
+  custCheckMerchant();
+}
+
+function stopScanQR(){
+  if(scanInterval){ clearInterval(scanInterval); scanInterval=null; }
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  document.getElementById('scanModal').style.display = 'none';
 }
 
 </script>
