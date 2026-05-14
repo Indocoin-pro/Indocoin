@@ -311,7 +311,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
 </nav>
 
 <!-- QR Library -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- QR Library removed - using API instead -->
 
 <script>
 const MERCHANT_CONTRACT = '0xd389da3fad85cf574ad7982309a3226e629cfb5c';
@@ -434,34 +434,32 @@ async function loadMerchantData(){
 
 // ── GENERATE QR ──
 function generateQR(addr){
-  const url = `https://indocoin.id/merchant-pay.html?addr=${addr}`;
+  const url    = `https://indocoin.id/merchant-pay.html?addr=${addr}`;
+  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000&margin=1`;
+
   document.getElementById('qrLink').textContent = url;
 
   const wrap = document.getElementById('qrBox');
   wrap.innerHTML = '';
 
-  QRCode.toDataURL(url, {
-    width: 160,
-    margin: 1,
-    color: { dark: '#000000', light: '#ffffff' }
-  }, function(err, dataUrl){
-    if(err){ console.error(err); return; }
-    const img = document.createElement('img');
-    img.src = dataUrl;
-    img.style.cssText = 'width:160px;height:160px;border-radius:8px;';
-    wrap.appendChild(img);
-    // Store for download
-    wrap._qrDataUrl = dataUrl;
-  });
+  const img = document.createElement('img');
+  img.src   = apiUrl;
+  img.style.cssText = 'width:160px;height:160px;border-radius:8px;display:block;';
+  img.setAttribute('crossorigin','anonymous');
+  img.onload  = () => { wrap._qrUrl = apiUrl; };
+  img.onerror = () => { wrap.innerHTML = '<div style="color:#c94040;font-size:10px;padding:10px;">Gagal load QR.<br>Cek koneksi internet.</div>'; };
+  wrap.appendChild(img);
+  wrap._qrUrl = apiUrl;
 }
 
 function downloadQR(){
   const wrap = document.getElementById('qrBox');
-  const dataUrl = wrap._qrDataUrl;
-  if(!dataUrl){ alert('QR belum siap'); return; }
-  const link   = document.createElement('a');
+  const url  = wrap._qrUrl;
+  if(!url){ alert('QR belum siap'); return; }
+  const link    = document.createElement('a');
+  link.href     = url;
   link.download = 'merchant-qr-indocoin.png';
-  link.href      = dataUrl;
+  link.target   = '_blank';
   link.click();
 }
 
