@@ -509,42 +509,13 @@ function generateQR(addr){
 }
 
 async function simpanQR(){
-  const wrap   = document.getElementById('qrBox');
-  const canvas = wrap._canvas;
-  if(!canvas){ alert('QR belum siap'); return; }
+  const wrap = document.getElementById('qrBox');
+  const addr = wrap._addr || userAddress;
+  const nama = document.getElementById('dashName').textContent || 'INDOCOIN MERCHANT';
+  if(!addr){ alert('QR belum siap'); return; }
 
-  // Konversi canvas ke blob
-  canvas.toBlob(async function(blob){
-    if(!blob){ alert('Gagal buat file'); return; }
-
-    // Coba Web Share API dulu (native Android share sheet)
-    if(navigator.share && navigator.canShare){
-      try{
-        const file = new File([blob], 'merchant-qr-indocoin.png', { type: 'image/png' });
-        if(navigator.canShare({ files: [file] })){
-          await navigator.share({
-            title: 'QR Code Merchant INDOCOIN',
-            files: [file]
-          });
-          return;
-        }
-      } catch(e){ console.log('Share cancelled or failed', e); }
-    }
-
-    // Fallback: buka modal dengan gambar
-    const dataUrl = canvas.toDataURL('image/png');
-    const modal   = document.getElementById('qrModal');
-    const img     = document.getElementById('qrModalImg');
-    img.src = dataUrl;
-    modal.style.display = 'flex';
-
-    document.getElementById('btnBukaBrowser').onclick = function(){
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = 'merchant-qr-indocoin.png';
-      a.click();
-    };
-  }, 'image/png');
+  const url = `merchant-qr.html?addr=${encodeURIComponent(addr)}&nama=${encodeURIComponent(nama)}`;
+  window.open(url, '_blank');
 }
 
 // ── DAFTAR MERCHANT ──
