@@ -951,8 +951,8 @@ const STAKING_CONTRACTS = [
   {
     // Growth Lock: getUserStakes() → array of structs, cek length > 0
     id: 1, name: "Growth Lock",
-    ca: "0xf017dF02f2BEFe09B7969E5E818c320607C5d900",
-    abi: ["function getUserStakes(address user) view returns (tuple(uint256 amount,uint256 startTime,uint256 endTime,uint256 reward,bool claimed)[])"],
+    ca: "0xcb9261633af02bec4ceb13be970b0b4d2462c8d5",
+    abi: ["function getUserStakes(address user) view returns (tuple(uint8 optionId,uint256 amount,uint256 indcReward,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool principalPending)[])"],
     check: async (c, addr) => {
       const s = await c.getUserStakes(addr);
       return Array.isArray(s) && s.length > 0 && ethers.BigNumber.from(s[0].amount.toString()).gt(0);
@@ -961,27 +961,28 @@ const STAKING_CONTRACTS = [
   {
     // Dynamic Level: getUserStakes() → array of structs, cek length > 0
     id: 2, name: "Dynamic Level",
-    ca: "0x3662356ef99E6566D216a0e241B9C5038A0B04C3",
-    abi: ["function getUserStakes(address user) view returns (tuple(uint8 level,uint256 amount,uint256 startTime,uint256 claimedAt,bool claimed,bool withdrawn,bool rewardPending)[])"],
+    ca: "0x51b94ab16165430972236ae62ce93ed4fd9f5ac7",
+    abi: ["function getUserStakes(address user) view returns (tuple(uint8 level,uint256 amount,uint256 indcReward,uint256 startTime,bool claimed,bool withdrawn,bool principalPending)[])"],
     check: async (c, addr) => {
       const s = await c.getUserStakes(addr);
       return Array.isArray(s) && s.length > 0;
     }
   },
   {
-    // Flexi Yield: getStakeCount() → uint256
+    // Flexi Yield: getStakeInfo() → struct, cek active
     id: 3, name: "Flexi Yield",
-    ca: "0x1EfE297BE37f3FDa2a6eb933e609CBb951fC37D9",
-    abi: ["function getStakeCount(address) view returns(uint256)"],
+    ca: "0xc31ddfd5e703f094ac8af66832a8c1ec3a209952",
+    abi: ["function getStakeInfo(address user) view returns(uint256 amount,uint256 startTime,uint256 lastRewardTime,uint256 accruedIndc,uint8 category,uint256 holdRequired,bool active)"],
     check: async (c, addr) => {
-      const n = await c.getStakeCount(addr);
-      return ethers.BigNumber.from(n.toString()).gt(0);
+      const s = await c.getStakeInfo(addr);
+      const active = s.active !== undefined ? s.active : s[6];
+      return active === true;
     }
   },
   {
     // Boost Level: getStakeCount() → uint256
     id: 4, name: "Boost Level",
-    ca: "0x77AAB6C0B5643735A98294760D474B2c09FC8e7f",
+    ca: "0x0c445da047b9f7702382e0cc7fecdf5f245305ad",
     abi: ["function getStakeCount(address) view returns(uint256)"],
     check: async (c, addr) => {
       const n = await c.getStakeCount(addr);
@@ -989,9 +990,9 @@ const STAKING_CONTRACTS = [
     }
   },
   {
-    // Locked Diamond: getStakeCount() → uint256
+    // Locked Diamond: getUserActiveTiers() → bool[4]
     id: 5, name: "Locked Diamond",
-    ca: "0xeD477Eb74597CCdb67f7927bBcb68bc6ed7EeCD7",
+    ca: "0x858cece880f2ab7fdf8602148c61083c4a338373",
     abi: ["function getUserActiveTiers(address user) view returns(bool[4])"],
     check: async (c, addr) => {
       const active = await c.getUserActiveTiers(addr);
@@ -999,12 +1000,12 @@ const STAKING_CONTRACTS = [
     }
   },
   {
-    // Auto Compound: getStakeCount() → uint256
+    // Auto Compound: getTotalCompoundBalance() → uint256
     id: 6, name: "Auto Compound",
-    ca: "0x5A1EBe20493DbF69d781453870F96953EdB16f34",
-    abi: ["function getStakeCount(address) view returns(uint256)"],
+    ca: "0x99aAbacb9b57Df83d1539e250b799C6615207616",
+    abi: ["function getTotalCompoundBalance(address user) view returns(uint256)"],
     check: async (c, addr) => {
-      const n = await c.getStakeCount(addr);
+      const n = await c.getTotalCompoundBalance(addr);
       return ethers.BigNumber.from(n.toString()).gt(0);
     }
   },
@@ -1015,31 +1016,31 @@ const STAKING_CONTRACTS = [
     abi: ["function getUserInfo(address userAddr) view returns(bool registered,bool active,address referrer,uint256 principal,uint256 rewardClaimed,uint256 pendingReward,uint256 roiCapRemaining,bool roiCapReached)"],
     check: async (c, addr) => {
       const u = await c.getUserInfo(addr);
-      // u bisa berupa array atau object tergantung ethers versi
       const registered = u.registered !== undefined ? u.registered : u[0];
       const active     = u.active     !== undefined ? u.active     : u[1];
       return registered === true && active === true;
     }
   },
   {
-    // Garuda Force: getMemberInfo1() → struct, cek isActive
+    // Garuda Force: getStakeInfo() → struct, cek active
     id: 8, name: "Garuda Force",
-    ca: "0x6a22e4871aa23b61289CB3544d0915bf5083610a",
-    abi: ["function getMemberInfo1(address _member) view returns(bool isActive,bool isFrozen,uint8 tier,uint8 rank,uint256 stakeAmount)"],
+    ca: "0xdfabc3159c8a195feced77069b8d4fb16deed667",
+    abi: ["function getStakeInfo(address user) view returns(uint256 principal,uint256 startTime,uint256 lastClaimTime,uint256 pendingRewardIndc,uint8 currentTier,string tierLabel,uint256 downlineActive,bool active)"],
     check: async (c, addr) => {
-      const m = await c.getMemberInfo1(addr);
-      const isActive = m.isActive !== undefined ? m.isActive : m[0];
-      return isActive === true;
+      const m = await c.getStakeInfo(addr);
+      const active = m.active !== undefined ? m.active : m[7];
+      return active === true;
     }
   },
   {
-    // Point Vault: getPinCount() → uint256
+    // Point Vault: getUserStake() → struct, cek active
     id: 9, name: "Point Vault",
-    ca: "0x3A5729aAa08167E71bD4EA73B583DA668D330Af9",
-    abi: ["function getPinCount(address _user) view returns(uint256)"],
+    ca: "0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c",
+    abi: ["function getUserStake(address user) view returns(uint256 indcStaked,uint256 usdValue,uint256 pointPerDayEst,uint256 pendingPointNow,bool active)"],
     check: async (c, addr) => {
-      const n = await c.getPinCount(addr);
-      return ethers.BigNumber.from(n.toString()).gt(0);
+      const s = await c.getUserStake(addr);
+      const active = s.active !== undefined ? s.active : s[4];
+      return active === true;
     }
   },
   {
