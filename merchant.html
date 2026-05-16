@@ -893,6 +893,16 @@ async function custCheckMerchant(){
     if(!isMerch){ nameEl.textContent = '❌ Bukan akun merchant aktif'; nameEl.style.color='#c94040'; return; }
     const data = await merchantContract.getMerchant(addr);
     if(!data.isActive){ nameEl.textContent = '❌ Akun tidak aktif'; nameEl.style.color='#c94040'; return; }
+
+    // Cek hold INDC minimal 1000
+    const indcBal = await indcContract.balanceOf(addr);
+    const MIN_HOLD = ethers.utils.parseUnits('1000', 9);
+    if(indcBal.lt(MIN_HOLD)){
+      nameEl.textContent = '⚠️ Merchant tidak dapat menerima pembayaran saat ini';
+      nameEl.style.color = '#e6a817';
+      return;
+    }
+
     nameEl.textContent = '✅ ' + data.name;
     nameEl.style.color = '#2ea86a';
     custMerchantValid = true;
