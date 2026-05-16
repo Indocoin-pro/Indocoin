@@ -177,6 +177,30 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
             <span class="balance-val" id="userBalance">—</span>
           </div>
 
+          <!-- Merchant receive info -->
+          <div id="merchantReceiveInfo" style="background:rgba(200,146,42,0.06);border:1px solid rgba(200,146,42,0.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--gold);text-align:center;"></div>
+
+          <!-- Token selector -->
+          <div style="margin-bottom:10px;">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;">KAMU BAYAR DENGAN</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+              <div onclick="selectToken('INDC',this)" id="tok_INDC" style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:8px;border:1px solid rgba(200,146,42,0.5);background:rgba(200,146,42,0.12);cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);transition:all 0.2s;">
+                <span style="font-size:18px;margin-bottom:2px;">🪙</span>INDC
+              </div>
+              <div onclick="selectToken('USDT',this)" id="tok_USDT" style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);transition:all 0.2s;">
+                <span style="font-size:18px;margin-bottom:2px;">💵</span>USDT
+              </div>
+              <div onclick="selectToken('BNB',this)" id="tok_BNB" style="display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);transition:all 0.2s;">
+                <span style="font-size:18px;margin-bottom:2px;">🔶</span>BNB
+              </div>
+            </div>
+          </div>
+
+          <!-- INDC fee notice -->
+          <div id="indcFeeNotice" style="display:none;background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.25);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--gold);">
+            ⚠️ Fee <span id="feeIndcEst">0</span> INDC dipotong terpisah dari wallet kamu.
+          </div>
+
           <!-- Toggle INDC / Rupiah -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(0,0,0,0.3);border-radius:10px;padding:4px;margin-bottom:10px;">
             <div id="toggleINDC" onclick="setMode('indc')" style="padding:8px;border-radius:8px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.4);color:var(--gold);">INDC</div>
@@ -223,18 +247,29 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 </div>
 
 <script>
-const MERCHANT_CONTRACT = '0x1f6c11c0ad44e9a73a01744f3f46828e895c98b9';
+const MERCHANT_CONTRACT = '0x1b108be31f8e3a88a30677aba56240c8d3e381b5';
 const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const USDT_CONTRACT     = '0x55d398326f99059fF775485246999027B3197955';
+const WBNB_CONTRACT     = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const INDC_DECIMALS     = 9;
 const BASIS             = 10000;
-let   FEE_TOTAL         = 140; // default 1.4%, akan dibaca dari kontrak
+let   FEE_TOTAL         = 120; // 1.2%
+
+const TOKENS = {
+  INDC: { address: INDC_CONTRACT, symbol:'INDC', decimals:9,  icon:'🪙' },
+  USDT: { address: USDT_CONTRACT, symbol:'USDT', decimals:18, icon:'💵' },
+  BNB:  { address: '0x0000000000000000000000000000000000000000', symbol:'BNB', decimals:18, icon:'🔶' },
+};
+let selectedTokenIn = 'INDC';
+let merchantReceiveToken = INDC_CONTRACT;
 
 const MERCHANT_ABI = [
-  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
-  "function isMerchant(address) external view returns (bool)",
+  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt,address receiveToken))",
   "function isMerchantActive(address) external view returns (bool)",
-  "function getTotalFee() external view returns (uint256)",
-  "function pay(address merchant, uint256 amount) external"
+  "function getTotalFeeBps() external view returns (uint256)",
+  "function pay(address merchant, address tokenIn, uint256 amountIn, uint256 amountOutMin) external payable",
+  "function estimateFeeIndc(address tokenIn, uint256 amountIn) external view returns (uint256)",
+  "function getTokenPriceUsd6(address token) external view returns (uint256)"
 ];
 
 const ERC20_ABI = [
@@ -263,7 +298,7 @@ async function loadMerchant(){
   try{
     const rpc      = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
     const contract = new ethers.Contract(MERCHANT_CONTRACT, MERCHANT_ABI, rpc);
-    const isMerch  = await contract.isMerchant(merchantAddr);
+    const isMerch  = await contract.isMerchantActive(merchantAddr);
 
     if(!isMerch){ showError(); return; }
 
@@ -272,13 +307,22 @@ async function loadMerchant(){
 
     // Baca fee dari kontrak
     try{
-      const feeFromContract = await contract.getTotalFee();
+      const feeFromContract = await contract.getTotalFeeBps();
       FEE_TOTAL = feeFromContract.toNumber();
-    } catch(e){ FEE_TOTAL = 140; }
+    } catch(e){ FEE_TOTAL = 120; }
+
+    // Simpan preferensi token merchant
+    merchantReceiveToken = data.receiveToken;
+    const recvSym = getTokenSymbol(data.receiveToken);
+    const recvIcon = getTokenIcon(recvSym);
 
     document.getElementById('tokoName').textContent = data.name;
     document.getElementById('tokoDesc').textContent = data.description;
     document.getElementById('tokoAddr').textContent = merchantAddr;
+
+    // Tampilkan token yang diterima merchant
+    const recvEl = document.getElementById('merchantReceiveInfo');
+    if(recvEl) recvEl.innerHTML = `<span style="font-size:14px;">${recvIcon}</span> Merchant terima <b>${recvSym}</b>`;
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('mainContent').style.display  = 'block';
@@ -287,6 +331,20 @@ async function loadMerchant(){
     console.error(e);
     showError();
   }
+}
+
+function getTokenSymbol(addr){
+  if(!addr || addr === '0x0000000000000000000000000000000000000000') return 'BNB';
+  if(addr.toLowerCase() === INDC_CONTRACT.toLowerCase()) return 'INDC';
+  if(addr.toLowerCase() === USDT_CONTRACT.toLowerCase()) return 'USDT';
+  if(addr.toLowerCase() === WBNB_CONTRACT.toLowerCase()) return 'BNB';
+  return addr.slice(0,6)+'...';
+}
+function getTokenIcon(sym){
+  if(sym==='INDC') return '🪙';
+  if(sym==='USDT') return '💵';
+  if(sym==='BNB')  return '🔶';
+  return '🔷';
 }
 
 function showError(){
@@ -380,77 +438,108 @@ function setMode(mode){
   calcFee();
 }
 
+function selectToken(sym, el){
+  selectedTokenIn = sym;
+  document.querySelectorAll('#paySection [id^="tok_"]').forEach(b=>{
+    b.style.background = 'rgba(255,255,255,0.03)';
+    b.style.border     = '1px solid rgba(255,255,255,0.1)';
+    b.style.color      = 'var(--muted)';
+  });
+  el.style.background = 'rgba(200,146,42,0.12)';
+  el.style.border     = '1px solid rgba(200,146,42,0.5)';
+  el.style.color      = 'var(--gold)';
+  document.getElementById('amountUnit').textContent = sym;
+  document.getElementById('indcFeeNotice').style.display = sym !== 'INDC' ? 'block' : 'none';
+  calcFee();
+}
+
 // ── CALC FEE ──
 function calcFee(){
   const raw = parseFloat(document.getElementById('amountInput').value) || 0;
-  let indcAmt = 0;
+  let inputAmt = 0;
 
   if(inputMode === 'rupiah'){
-    indcAmt = rupiahToIndc(raw);
-    if(raw > 0){
-      document.getElementById('konversiInfo').textContent =
-        '≈ ' + indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
-    } else {
-      document.getElementById('konversiInfo').textContent = '—';
-    }
+    inputAmt = rupiahToIndc(raw);
+    document.getElementById('konversiInfo').textContent = raw > 0 ? '≈ ' + inputAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + selectedTokenIn : '—';
   } else {
-    indcAmt = raw;
-    if(raw > 0){
-      const rp = indcToRupiah(raw);
-      document.getElementById('konversiInfo').textContent =
-        '≈ Rp ' + rp.toLocaleString('id',{maximumFractionDigits:0});
+    inputAmt = raw;
+    if(selectedTokenIn === 'INDC'){
+      document.getElementById('konversiInfo').textContent = raw > 0 ? '≈ Rp ' + indcToRupiah(raw).toLocaleString('id',{maximumFractionDigits:0}) : '—';
+    } else if(selectedTokenIn === 'USDT'){
+      document.getElementById('konversiInfo').textContent = raw > 0 ? '≈ Rp ' + (raw * usdToIdr).toLocaleString('id',{maximumFractionDigits:0}) : '—';
     } else {
       document.getElementById('konversiInfo').textContent = '—';
     }
   }
 
-  currentAmount = indcAmt;
+  currentAmount = inputAmt;
 
-  const fee      = (indcAmt * FEE_TOTAL) / BASIS;
-  const total    = indcAmt + fee;
-  const cashback = (indcAmt * 20) / BASIS;
+  // Hitung fee estimasi
+  let valueUsd = 0;
+  if(selectedTokenIn === 'INDC') valueUsd = inputAmt * INDC_PRICE_USD;
+  else if(selectedTokenIn === 'USDT') valueUsd = inputAmt;
+  else valueUsd = inputAmt; // BNB kasar
+
+  const feeIndc  = (valueUsd * (FEE_TOTAL/BASIS)) / INDC_PRICE_USD;
+  const cashback = (feeIndc * 20) / FEE_TOTAL;
 
   document.getElementById('feeLabel').textContent    = (FEE_TOTAL/100).toFixed(1);
-  document.getElementById('brkMerchant').textContent = indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
-  document.getElementById('brkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('brkMerchant').textContent = inputAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + selectedTokenIn;
+  document.getElementById('brkFee').textContent      = feeIndc.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
   document.getElementById('brkCashback').textContent = '+ ' + cashback.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
-  document.getElementById('brkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
+  document.getElementById('brkTotal').textContent    = inputAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + selectedTokenIn + (selectedTokenIn !== 'INDC' ? ' + ' + feeIndc.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC' : '');
+  document.getElementById('feeIndcEst').textContent  = feeIndc.toLocaleString('id',{maximumFractionDigits:4});
 
-  document.getElementById('btnPay').disabled = indcAmt <= 0;
+  document.getElementById('btnPay').disabled = inputAmt <= 0;
 }
 
 // ── PROCESS PAYMENT ──
 async function processPayment(){
   if(currentAmount <= 0) return;
 
-  const fee      = (currentAmount * FEE_TOTAL) / BASIS;
-  const total    = currentAmount + fee;
-  const amtWei   = ethers.utils.parseUnits(currentAmount.toString(), INDC_DECIMALS);
-  const totalWei = ethers.utils.parseUnits(total.toFixed(INDC_DECIMALS), INDC_DECIMALS);
+  const tok    = TOKENS[selectedTokenIn];
+  const isBNB  = selectedTokenIn === 'BNB';
+  const amtWei = ethers.utils.parseUnits(currentAmount.toFixed(tok.decimals), tok.decimals);
 
   const btn = document.getElementById('btnPay');
   btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
 
   try{
-    // Check allowance
-    setStatus('payStatus','⏳ Memeriksa allowance...','info');
-    const allowance = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
+    // Estimasi fee INDC dari kontrak
+    setStatus('payStatus','⏳ Menghitung fee...','info');
+    const feeIndc = await merchantContractWrite.estimateFeeIndc(tok.address, amtWei);
 
-    if(allowance.lt(totalWei)){
-      setStatus('payStatus','⏳ Approve INDC dulu...','info');
+    // Approve INDC untuk fee
+    setStatus('payStatus','⏳ Cek allowance INDC...','info');
+    const indcAllow = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
+    if(indcAllow.lt(feeIndc)){
+      setStatus('payStatus','⏳ Approve INDC fee...','info');
       const approveTx = await indcContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
       await approveTx.wait();
     }
 
+    // Approve token pembayaran jika bukan BNB/INDC
+    if(!isBNB && selectedTokenIn !== 'INDC'){
+      const tokenContract = new ethers.Contract(tok.address, ERC20_ABI, provider);
+      const tokenContractWrite = new ethers.Contract(tok.address, ERC20_ABI, signer);
+      const tokenAllow = await tokenContract.allowance(userAddress, MERCHANT_CONTRACT);
+      if(tokenAllow.lt(amtWei)){
+        setStatus('payStatus','⏳ Approve ' + selectedTokenIn + '...','info');
+        const approveTok = await tokenContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
+        await approveTok.wait();
+      }
+    }
+
     setStatus('payStatus','⏳ Mengirim pembayaran...','info');
-    const tx = await merchantContractWrite.pay(merchantAddr, amtWei);
+    const txOpts = isBNB ? { value: amtWei } : {};
+    const tx = await merchantContractWrite.pay(merchantAddr, tok.address, amtWei, 0, txOpts);
     setStatus('payStatus','⏳ Menunggu konfirmasi...','info');
     await tx.wait();
 
     // SUCCESS
     document.getElementById('paymentForm').style.display = 'none';
     document.getElementById('successState').style.display = 'block';
-    document.getElementById('successAmount').textContent = currentAmount.toLocaleString('id') + ' INDC';
+    document.getElementById('successAmount').textContent = currentAmount.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + selectedTokenIn;
     document.getElementById('successTo').textContent = document.getElementById('tokoName').textContent;
 
   } catch(e){

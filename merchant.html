@@ -238,6 +238,18 @@ textarea.form-input{resize:vertical;min-height:70px;}
           <input type="text" class="form-input" id="inputName" placeholder="Contoh: Warung Kopi Nusantara" maxlength="50">
           <label class="form-label" style="margin-top:10px;">TENTANG SAYA</label>
           <textarea class="form-input" id="inputDesc" placeholder="Pengusaha, freelancer, pelajar, ibu rumah tangga..." maxlength="200"></textarea>
+          <label class="form-label" style="margin-top:10px;">TERIMA PEMBAYARAN DALAM</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+            <div onclick="selectReceiveToken('INDC',this)" id="regToken_INDC" class="token-btn token-btn-active" style="justify-content:center;flex-direction:column;padding:10px 6px;text-align:center;">
+              <span style="font-size:18px;">🪙</span><span style="margin-top:2px;">INDC</span>
+            </div>
+            <div onclick="selectReceiveToken('USDT',this)" id="regToken_USDT" class="token-btn" style="justify-content:center;flex-direction:column;padding:10px 6px;text-align:center;">
+              <span style="font-size:18px;">💵</span><span style="margin-top:2px;">USDT</span>
+            </div>
+            <div onclick="selectReceiveToken('BNB',this)" id="regToken_BNB" class="token-btn" style="justify-content:center;flex-direction:column;padding:10px 6px;text-align:center;">
+              <span style="font-size:18px;">🔶</span><span style="margin-top:2px;">BNB</span>
+            </div>
+          </div>
           <div class="form-hint">Nama dan info akun tersimpan permanen di blockchain.</div>
           <button class="btn-gold" id="btnDaftar" onclick="daftarMerchant()">DAFTAR SEKARANG</button>
           <div class="status-box" id="daftarStatus"></div>
@@ -350,6 +362,42 @@ textarea.form-input{resize:vertical;min-height:70px;}
             <div id="custToggleRupiah" onclick="custSetMode('rupiah')" style="padding:8px;border-radius:8px;text-align:center;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;color:var(--muted);border:1px solid transparent;">RUPIAH</div>
           </div>
 
+          <!-- Token Selector -->
+          <label class="form-label" style="margin-top:6px;">TOKEN PEMBAYARAN</label>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:10px;">
+            <!-- Kiri: token yang dibayar customer -->
+            <div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px;">KAMU BAYAR</div>
+              <div style="display:flex;flex-direction:column;gap:4px;" id="tokenInSelector">
+                <div onclick="selectTokenIn('INDC')" id="tokenIn_INDC" class="token-btn token-btn-active">
+                  <span style="font-size:16px;">🪙</span><span>INDC</span>
+                </div>
+                <div onclick="selectTokenIn('USDT')" id="tokenIn_USDT" class="token-btn">
+                  <span style="font-size:16px;">💵</span><span>USDT</span>
+                </div>
+                <div onclick="selectTokenIn('BNB')" id="tokenIn_BNB" class="token-btn">
+                  <span style="font-size:16px;">🔶</span><span>BNB</span>
+                </div>
+              </div>
+            </div>
+            <!-- Panah -->
+            <div style="text-align:center;color:var(--gold);font-size:20px;">→</div>
+            <!-- Kanan: token yang diterima merchant -->
+            <div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px;">MERCHANT TERIMA</div>
+              <div style="background:rgba(200,146,42,0.05);border:1px solid rgba(200,146,42,0.2);border-radius:10px;padding:10px;text-align:center;">
+                <div style="font-size:20px;" id="merchantReceiveIcon">🪙</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:10px;color:var(--gold);margin-top:4px;" id="merchantReceiveToken">INDC</div>
+                <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">Preferensi merchant</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info INDC fee jika bukan bayar INDC -->
+          <div id="indcFeeNotice" style="display:none;background:rgba(200,146,42,0.08);border:1px solid rgba(200,146,42,0.25);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:var(--gold);">
+            ⚠️ Fee layanan <span id="feeIndcAmount">0</span> INDC akan dipotong terpisah dari wallet kamu.
+          </div>
+
           <label class="form-label">NOMINAL</label>
           <div style="position:relative;">
             <input type="number" class="form-input" id="custAmount" placeholder="0" min="1" oninput="custCalcFee()" style="padding-right:60px;">
@@ -363,7 +411,7 @@ textarea.form-input{resize:vertical;min-height:70px;}
               <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white2);" id="custBrkMerchant">0 INDC</span>
             </div>
             <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-              <span style="font-size:12px;color:var(--muted);">Fee layanan (1.4%)</span>
+              <span style="font-size:12px;color:var(--muted);">Fee layanan (1.2%)</span>
               <span style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--white2);" id="custBrkFee">0 INDC</span>
             </div>
             <div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid rgba(200,146,42,0.3);">
@@ -428,9 +476,9 @@ textarea.form-input{resize:vertical;min-height:70px;}
 
           <!-- Set tanggal -->
           <div id="tabSetDateSection" style="display:none;">
-            <label class="form-label">PILIH TANGGAL HARI RAYA KAMU</label>
-            <input type="date" class="form-input" id="tabSavingsDate">
-            <div class="form-hint">Tabungan terkunci hingga tanggal ini. Window cairkan 3 bulan setelahnya.</div>
+            <label class="form-label">PILIH TANGGAL CAIRKAN PER BULAN (1-28)</label>
+            <input type="number" class="form-input" id="tabSavingsDate" min="1" max="28" placeholder="Contoh: 15">
+            <div class="form-hint">Tabungan bisa dicairkan tanggal ini setiap bulan. Window 7 hari. Tidak bisa diubah.</div>
             <button class="btn-gold" id="btnSetTabDate" onclick="setTabSavingsDate()" style="margin-top:8px;">SIMPAN TANGGAL</button>
             <div class="status-box" id="setTabDateStatus"></div>
           </div>
@@ -469,6 +517,9 @@ textarea.form-input{resize:vertical;min-height:70px;}
 
 <style>
 @keyframes scanAnim{0%{top:15%}50%{top:85%}100%{top:15%}}
+.token-btn{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);cursor:pointer;font-family:'Orbitron',sans-serif;font-size:10px;color:var(--muted);transition:all 0.2s;}
+.token-btn:hover{border-color:rgba(200,146,42,0.4);color:var(--gold);}
+.token-btn-active{background:rgba(200,146,42,0.15)!important;border-color:rgba(200,146,42,0.5)!important;color:var(--gold)!important;}
 </style>
 
 <nav class="bottom-nav">
@@ -483,26 +534,46 @@ textarea.form-input{resize:vertical;min-height:70px;}
 <!-- QR Library removed - using API instead -->
 
 <script>
-const MERCHANT_CONTRACT = '0x1f6c11c0ad44e9a73a01744f3f46828e895c98b9';
+const MERCHANT_CONTRACT = '0x1b108be31f8e3a88a30677aba56240c8d3e381b5';
 const INDC_CONTRACT     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const USDT_CONTRACT     = '0x55d398326f99059fF775485246999027B3197955';
+const WBNB_CONTRACT     = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const INDC_DECIMALS     = 9;
+const USDT_DECIMALS     = 18;
+const BNB_DECIMALS      = 18;
+
+const TOKENS = {
+  INDC: { address: INDC_CONTRACT,  symbol: 'INDC', decimals: 9,  label: 'INDC' },
+  USDT: { address: USDT_CONTRACT,  symbol: 'USDT', decimals: 18, label: 'USDT' },
+  BNB:  { address: '0x0000000000000000000000000000000000000000', symbol: 'BNB', decimals: 18, label: 'BNB' },
+};
 
 const MERCHANT_ABI = [
-  "function registerMerchant(string name, string description) external",
+  "function registerMerchant(string name, string description, address receiveToken) external",
   "function updateMerchantInfo(string name, string description) external",
-  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt))",
+  "function setMerchantReceiveToken(address token) external",
+  "function getMerchant(address wallet) external view returns (tuple(address wallet,string name,string description,bool isActive,uint256 totalReceived,uint256 registeredAt,address receiveToken))",
   "function isMerchant(address) external view returns (bool)",
   "function isMerchantActive(address) external view returns (bool)",
-  "function getStats() external view returns (uint256,uint256,uint256)",
-  "function getTotalFee() external view returns (uint256)",
-  "function getUserSavingsInfo(address user) external view returns (uint256 buyerBal, uint256 merchantBal, uint256 unlockDate, uint256 windowClose, bool canWithdraw)",
-  "function setSavingsDate(uint256 unlockTimestamp) external",
-  "function withdrawBuyerSavings() external",
-  "function withdrawMerchantSavings() external",
-  "function pay(address merchant, uint256 amount) external"
+  "function getStats() external view returns (uint256 txCount,uint256 volumeUsd6,uint256 savingsLocked,uint256 indcPrice)",
+  "function getTotalFeeBps() external view returns (uint256)",
+  "function getSavingsInfo(address user) external view returns (uint256 balance,uint256 withdrawDay,bool inWindow,uint256 lastActive,uint256 heirCanClaimAt)",
+  "function setWithdrawDay(uint256 day) external",
+  "function withdrawSavings() external",
+  "function pingActivity() external",
+  "function setHeir(address heirWallet) external",
+  "function getHeirInfo(address user) external view returns (address heirWallet,bool isSet,uint256 setTime,bool canClaimNow,uint256 canClaimAt)",
+  "function pay(address merchant, address tokenIn, uint256 amountIn, uint256 amountOutMin) external payable",
+  "function estimateFeeIndc(address tokenIn, uint256 amountIn) external view returns (uint256)",
+  "function getSupportedTokens() external view returns (address[])",
+  "function getTokenPriceUsd6(address token) external view returns (uint256)",
+  "function getIndcPrice() external view returns (uint256)"
 ];
 
 let provider, signer, userAddress, merchantContract, merchantContractWrite;
+let indcContract, indcContractWrite, usdtContract, usdtContractWrite;
+let custSelectedTokenIn = 'INDC'; // default bayar INDC
+let custMerchantReceiveToken = INDC_CONTRACT; // default merchant terima INDC
 
 // ── STARS ──
 (function(){
@@ -717,7 +788,8 @@ async function daftarMerchant(){
   setStatus('daftarStatus','⏳ Mengirim transaksi...','info');
 
   try{
-    const tx = await merchantContractWrite.registerMerchant(name, desc);
+    const receiveAddr = getSelectedReceiveTokenAddr();
+    const tx = await merchantContractWrite.registerMerchant(name, desc, receiveAddr);
     setStatus('daftarStatus','⏳ Menunggu konfirmasi...','info');
     await tx.wait();
     setStatus('daftarStatus','✅ Akun merchant berhasil didaftarkan!','ok');
@@ -727,6 +799,19 @@ async function daftarMerchant(){
   } finally{
     btn.disabled = false; btn.textContent = 'DAFTAR SEKARANG';
   }
+}
+
+let selectedRegToken = 'INDC';
+function selectReceiveToken(sym, el){
+  selectedRegToken = sym;
+  document.querySelectorAll('#formDaftar .token-btn').forEach(b=>b.classList.remove('token-btn-active'));
+  el.classList.add('token-btn-active');
+}
+function getSelectedReceiveTokenAddr(){
+  if(selectedRegToken === 'INDC') return INDC_CONTRACT;
+  if(selectedRegToken === 'USDT') return USDT_CONTRACT;
+  if(selectedRegToken === 'BNB')  return '0x0000000000000000000000000000000000000000';
+  return INDC_CONTRACT;
 }
 
 // ── UPDATE MERCHANT ──
@@ -776,7 +861,6 @@ const ERC20_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)"
 ];
 
-let indcContract, indcContractWrite;
 let custMerchantValid = false;
 let custCurrentAmount = 0;
 
@@ -785,14 +869,13 @@ async function loadCustBalance(){
   try{
     indcContract      = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, provider);
     indcContractWrite = new ethers.Contract(INDC_CONTRACT, ERC20_ABI, signer);
+    usdtContract      = new ethers.Contract(USDT_CONTRACT, ERC20_ABI, provider);
+    usdtContractWrite = new ethers.Contract(USDT_CONTRACT, ERC20_ABI, signer);
     const bal = await indcContract.balanceOf(userAddress);
     const fmt = parseFloat(ethers.utils.formatUnits(bal, INDC_DECIMALS)).toLocaleString('id',{maximumFractionDigits:2});
     document.getElementById('custBalance').textContent = fmt + ' INDC';
     document.getElementById('custNotConnected').style.display = 'none';
     document.getElementById('custContent').style.display      = 'block';
-
-    // Load buyer savings
-    
   } catch(e){ console.error(e); }
 }
 
@@ -810,8 +893,39 @@ async function custCheckMerchant(){
     nameEl.textContent = '✅ ' + data.name;
     nameEl.style.color = '#2ea86a';
     custMerchantValid = true;
+    // Tampilkan token yang diterima merchant
+    custMerchantReceiveToken = data.receiveToken;
+    const recvSym = getTokenSymbol(data.receiveToken);
+    document.getElementById('merchantReceiveToken').textContent = recvSym;
+    document.getElementById('merchantReceiveIcon').textContent  = getTokenIcon(recvSym);
     custCalcFee();
   } catch(e){ console.error(e); }
+}
+
+function getTokenSymbol(addr){
+  if(!addr || addr === '0x0000000000000000000000000000000000000000') return 'BNB';
+  if(addr.toLowerCase() === INDC_CONTRACT.toLowerCase()) return 'INDC';
+  if(addr.toLowerCase() === USDT_CONTRACT.toLowerCase()) return 'USDT';
+  if(addr.toLowerCase() === WBNB_CONTRACT.toLowerCase()) return 'BNB';
+  return addr.slice(0,6)+'...';
+}
+
+function getTokenIcon(sym){
+  if(sym==='INDC') return '🪙';
+  if(sym==='USDT') return '💵';
+  if(sym==='BNB')  return '🔶';
+  return '🔷';
+}
+
+function selectTokenIn(sym){
+  custSelectedTokenIn = sym;
+  document.querySelectorAll('.token-btn').forEach(b=>b.classList.remove('token-btn-active'));
+  document.getElementById('tokenIn_'+sym).classList.add('token-btn-active');
+  // Update unit label
+  document.getElementById('custAmountUnit').textContent = sym;
+  // Tampilkan notice INDC fee jika bukan bayar INDC
+  document.getElementById('indcFeeNotice').style.display = sym !== 'INDC' ? 'block' : 'none';
+  custCalcFee();
 }
 
 // ── CUSTOMER MODE TOGGLE ──
@@ -835,7 +949,7 @@ function custSetMode(mode){
   if(mode === 'indc'){
     indc.style.background='rgba(200,146,42,0.15)';indc.style.border='1px solid rgba(200,146,42,0.4)';indc.style.color='var(--gold)';
     rupiah.style.background='transparent';rupiah.style.border='1px solid transparent';rupiah.style.color='var(--muted)';
-    unit.textContent='INDC';
+    unit.textContent = custSelectedTokenIn;
   } else {
     rupiah.style.background='rgba(200,146,42,0.15)';rupiah.style.border='1px solid rgba(200,146,42,0.4)';rupiah.style.color='var(--gold)';
     indc.style.background='transparent';indc.style.border='1px solid transparent';indc.style.color='var(--muted)';
@@ -848,24 +962,40 @@ function custSetMode(mode){
 
 function custCalcFee(){
   const raw = parseFloat(document.getElementById('custAmount').value) || 0;
-  let indcAmt = 0;
+  let inputAmt = 0;
   const ratePerIndc = INDC_PRICE_USD_CUST * usdToIdrCust;
 
   if(custInputMode === 'rupiah'){
-    indcAmt = raw / ratePerIndc;
-    document.getElementById('custKonversi').textContent = raw > 0 ? '≈ ' + indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC' : '—';
+    inputAmt = raw / ratePerIndc; // konversi ke INDC equivalent
+    document.getElementById('custKonversi').textContent = raw > 0 ? '≈ ' + inputAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + custSelectedTokenIn : '—';
   } else {
-    indcAmt = raw;
-    document.getElementById('custKonversi').textContent = raw > 0 ? '≈ Rp ' + (raw * ratePerIndc).toLocaleString('id',{maximumFractionDigits:0}) : '—';
+    inputAmt = raw;
+    if(custSelectedTokenIn === 'INDC'){
+      document.getElementById('custKonversi').textContent = raw > 0 ? '≈ Rp ' + (raw * ratePerIndc).toLocaleString('id',{maximumFractionDigits:0}) : '—';
+    } else if(custSelectedTokenIn === 'USDT'){
+      document.getElementById('custKonversi').textContent = raw > 0 ? '≈ Rp ' + (raw * usdToIdrCust).toLocaleString('id',{maximumFractionDigits:0}) : '—';
+    } else {
+      document.getElementById('custKonversi').textContent = '—';
+    }
   }
 
-  custCurrentAmount = indcAmt;
-  const fee   = (indcAmt * 140) / 10000;
-  const total = indcAmt + fee;
-  document.getElementById('custBrkMerchant').textContent = indcAmt.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
-  document.getElementById('custBrkFee').textContent      = fee.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
-  document.getElementById('custBrkTotal').textContent    = total.toLocaleString('id',{maximumFractionDigits:2}) + ' INDC';
-  document.getElementById('btnCustPay').disabled = !(indcAmt > 0 && custMerchantValid);
+  custCurrentAmount = inputAmt;
+
+  // Fee 1.2% dari nilai USD → dalam INDC
+  // Estimasi sederhana di frontend
+  let valueUsd = 0;
+  if(custSelectedTokenIn === 'INDC') valueUsd = inputAmt * INDC_PRICE_USD_CUST;
+  else if(custSelectedTokenIn === 'USDT') valueUsd = inputAmt;
+  else valueUsd = inputAmt; // BNB — estimasi kasar
+
+  const feeIndc  = (valueUsd * 0.012) / INDC_PRICE_USD_CUST;
+  const merchantAmt = inputAmt;
+
+  document.getElementById('custBrkMerchant').textContent = merchantAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + custSelectedTokenIn;
+  document.getElementById('custBrkFee').textContent      = feeIndc.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('custBrkTotal').textContent    = merchantAmt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + custSelectedTokenIn + ' + ' + feeIndc.toLocaleString('id',{maximumFractionDigits:4}) + ' INDC';
+  document.getElementById('feeIndcAmount').textContent   = feeIndc.toLocaleString('id',{maximumFractionDigits:4});
+  document.getElementById('btnCustPay').disabled = !(inputAmt > 0 && custMerchantValid);
 }
 
 async function custProcessPayment(){
@@ -873,29 +1003,48 @@ async function custProcessPayment(){
   const amt      = custCurrentAmount;
   if(!amt || !custMerchantValid) return;
 
-  const fee      = (amt * 140) / 10000;
-  const total    = amt + fee;
-  const amtFixed = parseFloat(amt.toFixed(INDC_DECIMALS));
-  const amtWei   = ethers.utils.parseUnits(amtFixed.toString(), INDC_DECIMALS);
-  const totalWei = ethers.utils.parseUnits(total.toFixed(INDC_DECIMALS), INDC_DECIMALS);
-
   const btn = document.getElementById('btnCustPay');
   btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
-  setStatus('custPayStatus','⏳ Memeriksa allowance...','info');
+  setStatus('custPayStatus','⏳ Menyiapkan transaksi...','info');
 
   try{
-    const allowance = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
-    if(allowance.lt(totalWei)){
-      setStatus('custPayStatus','⏳ Approve INDC dulu...','info');
+    // Tentukan tokenIn address
+    const tok = TOKENS[custSelectedTokenIn];
+    const tokenInAddr = tok.address;
+    const isBNB = custSelectedTokenIn === 'BNB';
+    const amtWei = ethers.utils.parseUnits(amt.toFixed(tok.decimals), tok.decimals);
+
+    // Estimasi fee INDC dari kontrak
+    const feeIndc = await merchantContract.estimateFeeIndc(tokenInAddr, amtWei);
+
+    // Approve INDC untuk fee (selalu butuh INDC approve)
+    setStatus('custPayStatus','⏳ Cek allowance INDC...','info');
+    const indcAllowance = await indcContract.allowance(userAddress, MERCHANT_CONTRACT);
+    if(indcAllowance.lt(feeIndc)){
+      setStatus('custPayStatus','⏳ Approve INDC fee...','info');
       const approveTx = await indcContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
       await approveTx.wait();
     }
+
+    // Kalau bukan BNB, approve token pembayaran juga
+    if(!isBNB && custSelectedTokenIn !== 'INDC'){
+      const tokenContract = new ethers.Contract(tokenInAddr, ERC20_ABI, provider);
+      const tokenContractWrite = new ethers.Contract(tokenInAddr, ERC20_ABI, signer);
+      const tokenAllowance = await tokenContract.allowance(userAddress, MERCHANT_CONTRACT);
+      if(tokenAllowance.lt(amtWei)){
+        setStatus('custPayStatus','⏳ Approve ' + custSelectedTokenIn + '...','info');
+        const approveToken = await tokenContractWrite.approve(MERCHANT_CONTRACT, ethers.constants.MaxUint256);
+        await approveToken.wait();
+      }
+    }
+
     setStatus('custPayStatus','⏳ Mengirim pembayaran...','info');
-    const tx = await merchantContractWrite.pay(merchant, amtWei);
+    const txOpts = isBNB ? { value: amtWei } : {};
+    const tx = await merchantContractWrite.pay(merchant, tokenInAddr, amtWei, 0, txOpts);
     await tx.wait();
 
     const nama = document.getElementById('custMerchName').textContent.replace('✅ ','');
-    document.getElementById('custSuccessText').textContent = amt.toLocaleString('id') + ' INDC dikirim ke ' + nama;
+    document.getElementById('custSuccessText').textContent = amt.toLocaleString('id',{maximumFractionDigits:4}) + ' ' + custSelectedTokenIn + ' dikirim ke ' + nama;
     const _ps = document.getElementById('custPayStatus');
     if(_ps){ _ps.style.display='none'; _ps.textContent=''; }
     document.getElementById('custContent').style.display  = 'none';
@@ -971,50 +1120,41 @@ function stopScanQR(){
 async function loadTabunganInfo(){
   if(!provider || !userAddress) return;
   try{
-    const info = await merchantContract.getUserSavingsInfo(userAddress);
-    const buyerBal   = parseFloat(ethers.utils.formatUnits(info.buyerBal, INDC_DECIMALS));
-    const merchantBal= parseFloat(ethers.utils.formatUnits(info.merchantBal, INDC_DECIMALS));
-    const total      = buyerBal + merchantBal;
-    const unlock     = info.unlockDate.toNumber();
-    const winClose   = info.windowClose.toNumber();
-    const canWd      = info.canWithdraw;
-    const now        = Math.floor(Date.now()/1000);
+    const info = await merchantContract.getSavingsInfo(userAddress);
+    const bal     = parseFloat(ethers.utils.formatUnits(info.balance, INDC_DECIMALS));
+    const wdDay   = info.withdrawDay.toNumber();
+    const inWin   = info.inWindow;
+    const claimAt = info.heirCanClaimAt.toNumber();
+    const now     = Math.floor(Date.now()/1000);
 
-    document.getElementById('tabBuyerSavings').textContent  = buyerBal.toLocaleString('id',{maximumFractionDigits:4});
-    document.getElementById('tabMerchSavings').textContent  = merchantBal.toLocaleString('id',{maximumFractionDigits:4});
-    document.getElementById('totalSavings').textContent     = total.toLocaleString('id',{maximumFractionDigits:4});
+    document.getElementById('totalSavings').textContent = bal.toLocaleString('id',{maximumFractionDigits:4});
+    // V3: single savings balance
+    document.getElementById('tabBuyerSavings').textContent  = '—';
+    document.getElementById('tabMerchSavings').textContent  = bal.toLocaleString('id',{maximumFractionDigits:4});
 
     const statusEl  = document.getElementById('tabSavingsStatus');
     const setDateEl = document.getElementById('tabSetDateSection');
     const wdBtn     = document.getElementById('btnWithdrawAll');
     const unlockEl  = document.getElementById('tabUnlockDate');
 
-    if(unlock === 0){
+    if(wdDay === 0){
       unlockEl.textContent    = 'Belum diset';
-      statusEl.textContent    = '💡 Set tanggal hari raya untuk mulai menabung';
+      statusEl.textContent    = '💡 Set tanggal cairkan bulanan (1-28) untuk bisa cairkan tabungan';
       statusEl.className      = 'status-box info';
       statusEl.style.display  = 'block';
       setDateEl.style.display = 'block';
       wdBtn.style.display     = 'none';
-    } else if(canWd){
-      unlockEl.textContent    = new Date(unlock*1000).toLocaleDateString('id');
-      statusEl.textContent    = '🎉 Window pencairan TERBUKA! Cairkan sebelum ' + new Date(winClose*1000).toLocaleDateString('id');
+    } else if(inWin){
+      unlockEl.textContent    = 'Tanggal ' + wdDay + ' setiap bulan';
+      statusEl.textContent    = '🎉 Window pencairan TERBUKA! Segera cairkan.';
       statusEl.className      = 'status-box ok';
       statusEl.style.display  = 'block';
       setDateEl.style.display = 'none';
-      wdBtn.style.display     = total > 0 ? 'block' : 'none';
-    } else if(now < unlock){
-      const days = Math.ceil((unlock - now) / 86400);
-      unlockEl.textContent    = new Date(unlock*1000).toLocaleDateString('id');
-      statusEl.textContent    = `🔒 Terkunci — ${days} hari lagi bisa dicairkan`;
-      statusEl.className      = 'status-box info';
-      statusEl.style.display  = 'block';
-      setDateEl.style.display = 'none';
-      wdBtn.style.display     = 'none';
+      wdBtn.style.display     = bal > 0 ? 'block' : 'none';
     } else {
-      unlockEl.textContent    = 'Window tutup';
-      statusEl.textContent    = '⏰ Window tutup. Tabungan berlanjut ke tahun depan tanggal sama.';
-      statusEl.className      = 'status-box err';
+      unlockEl.textContent    = 'Tanggal ' + wdDay + ' setiap bulan';
+      statusEl.textContent    = '🔒 Di luar window. Cairkan tanggal ' + wdDay + '-' + (wdDay+6) + ' setiap bulan.';
+      statusEl.className      = 'status-box info';
       statusEl.style.display  = 'block';
       setDateEl.style.display = 'none';
       wdBtn.style.display     = 'none';
@@ -1023,14 +1163,13 @@ async function loadTabunganInfo(){
 }
 
 async function setTabSavingsDate(){
-  const dateVal = document.getElementById('tabSavingsDate').value;
-  if(!dateVal) return setStatus('setTabDateStatus','❌ Pilih tanggal dulu','err');
-  const ts  = Math.floor(new Date(dateVal).getTime() / 1000);
+  const dayVal = parseInt(document.getElementById('tabSavingsDate').value);
+  if(!dayVal || dayVal < 1 || dayVal > 28) return setStatus('setTabDateStatus','❌ Pilih tanggal 1-28','err');
   const btn = document.getElementById('btnSetTabDate');
   btn.disabled = true; btn.textContent = '⏳ MENYIMPAN...';
   setStatus('setTabDateStatus','⏳ Mengirim transaksi...','info');
   try{
-    const tx = await merchantContractWrite.setSavingsDate(ts);
+    const tx = await merchantContractWrite.setWithdrawDay(dayVal);
     await tx.wait();
     setStatus('setTabDateStatus','✅ Tanggal berhasil disimpan!','ok');
     setTimeout(()=>loadTabunganInfo(), 2000);
@@ -1044,17 +1183,8 @@ async function withdrawAllSavings(){
   btn.disabled = true; btn.textContent = '⏳ MEMPROSES...';
   setStatus('withdrawAllStatus','⏳ Mengirim transaksi...','info');
   try{
-    // Cek apakah ada buyer savings
-    const info = await merchantContract.getUserSavingsInfo(userAddress);
-    if(info.buyerBal.gt(0)){
-      const tx1 = await merchantContractWrite.withdrawBuyerSavings();
-      await tx1.wait();
-    }
-    // Cek apakah ada merchant savings
-    if(info.merchantBal.gt(0) && isMerchant){
-      const tx2 = await merchantContractWrite.withdrawMerchantSavings();
-      await tx2.wait();
-    }
+    const tx = await merchantContractWrite.withdrawSavings();
+    await tx.wait();
     setStatus('withdrawAllStatus','✅ Tabungan Rezeki berhasil dicairkan! 🎉','ok');
     setTimeout(()=>loadTabunganInfo(), 2000);
   } catch(e){
