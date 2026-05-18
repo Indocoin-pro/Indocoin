@@ -223,7 +223,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">DARI</div>
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <button onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
+            <button id="swapBtnFrom" onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
               <span id="swapFromLogo" style="font-size:18px;">💰</span>
               <span id="swapFromSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
@@ -246,7 +246,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">KE</div>
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <button onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
+            <button id="swapBtnTo" onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
               <span id="swapToLogo" style="font-size:18px;">💰</span>
               <span id="swapToSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
@@ -277,16 +277,13 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
 
       <!-- Token Picker Modal -->
-      <div id="swapPickerOverlay" onclick="if(event.target===this)swapClosePicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);">
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:75vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease;">
-          <div style="padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);">
-            <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold2);letter-spacing:2px;">PILIH TOKEN</span>
-            <button onclick="swapClosePicker()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;">×</button>
+      <!-- Token Picker — dropdown kecil di bawah tombol -->
+      <div id="swapPickerOverlay" onclick="if(event.target===this)swapClosePicker()" style="display:none;position:fixed;inset:0;z-index:600;">
+        <div id="swapPickerBox" style="position:absolute;background:var(--bg2);border:1px solid var(--border);border-radius:10px;width:230px;max-height:300px;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.7);overflow:hidden;">
+          <div style="padding:7px 10px;border-bottom:1px solid var(--border2);">
+            <input id="swapPickerSearch" oninput="swapFilterTokens(this.value)" placeholder="Cari token..." style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;">
           </div>
-          <div style="padding:10px 18px;border-bottom:1px solid var(--border2);">
-            <input id="swapPickerSearch" oninput="swapFilterTokens(this.value)" placeholder="Cari nama atau address token..." style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);outline:none;">
-          </div>
-          <div id="swapPickerList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
+          <div id="swapPickerList" style="overflow-y:auto;flex:1;"></div>
         </div>
       </div>
 
@@ -2178,43 +2175,27 @@ async function swapLoadTokens() {
   if(!userAddress) return;
   try {
     const tokens = [];
-
-    // BNB native — ambil dari provider langsung
+    // BNB
     const bnbRaw = await provider.getBalance(userAddress);
-    tokens.push({
-      address:'BNB', symbol:'BNB', name:'BNB', decimals:18,
-      balFmt: parseFloat(ethers.formatEther(bnbRaw)).toFixed(4)
-    });
-
-    // Semua ERC20 di wallet via Moralis — sama persis dengan cara wallet utama
-    const res = await fetch(
-      `${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
-      { headers: { 'X-API-Key': MORALIS_KEY } }
-    );
+    tokens.push({address:'BNB',symbol:'BNB',name:'BNB',decimals:18,balFmt:parseFloat(ethers.formatEther(bnbRaw)).toFixed(4)});
+    // Semua ERC20 via Moralis — sama seperti wallet utama
+    const res = await fetch(`${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
+      {headers:{'X-API-Key':MORALIS_KEY}});
     const data = await res.json();
-    if(Array.isArray(data)) {
-      for(const tk of data) {
-        const dec = parseInt(tk.decimals) || 18;
-        const bal = parseFloat(ethers.formatUnits(tk.balance || '0', dec));
-        if(bal <= 0) continue; // hanya token yang ada isinya
-        const isINDC = (tk.token_address||'').toLowerCase() ===
-          '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
-        tokens.push({
-          address:   tk.token_address,
-          symbol:    tk.symbol || '???',
-          name:      tk.name   || tk.symbol || '???',
-          decimals:  dec,
-          balFmt:    bal.toFixed(4),
-          notListed: isINDC || undefined,
-        });
+    if(Array.isArray(data)){
+      for(const tk of data){
+        const dec=parseInt(tk.decimals)||18;
+        const bal=parseFloat(ethers.formatUnits(tk.balance||'0',dec));
+        if(bal<=0) continue;
+        const isINDC=(tk.token_address||'').toLowerCase()==='0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
+        tokens.push({address:tk.token_address,symbol:tk.symbol||'???',name:tk.name||tk.symbol||'???',decimals:dec,balFmt:bal.toFixed(4),notListed:isINDC||undefined});
       }
     }
-
-    swapTokens = tokens;
-    if(!swapFromToken){ swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0]; swapSetTokenUI('from'); }
-    if(!swapToToken){   swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];  swapSetTokenUI('to'); }
+    swapTokens=tokens;
+    if(!swapFromToken){swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0];swapSetTokenUI('from');}
+    if(!swapToToken){swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];swapSetTokenUI('to');}
     swapUpdateBals();
-  } catch(e){ console.log('swapLoadTokens err:', e); }
+  }catch(e){console.log('swapLoadTokens:',e);}
 }
 function swapSetTokenUI(side){
   const tk=side==='from'?swapFromToken:swapToToken; if(!tk)return;
@@ -2224,13 +2205,12 @@ function swapSetTokenUI(side){
   document.getElementById('swap'+s+'Sym').textContent=tk.symbol;
 }
 async function swapUpdateBals(){
-  if(!window.userAddress||!swapFromToken||!swapToToken) return;
-  try{
-    const p=new ethers.BrowserProvider(window.ethereum);
-    const getBal=async(tk)=>{ if(tk.address==='BNB'){const b=await p.getBalance(window.userAddress);return parseFloat(ethers.formatEther(b)).toFixed(4);} const c=new ethers.Contract(tk.address,ERC20_SWAP,p);const b=await c.balanceOf(window.userAddress);return parseFloat(ethers.formatUnits(b,tk.decimals)).toFixed(4); };
-    document.getElementById('swapFromBal').textContent=(await getBal(swapFromToken))+' '+swapFromToken.symbol;
-    document.getElementById('swapToBal').textContent=(await getBal(swapToToken))+' '+swapToToken.symbol;
-  }catch(e){}
+  if(!swapFromToken||!swapToToken) return;
+  // Pakai balFmt dari token data yang sudah ada — tidak perlu call blockchain lagi
+  const fromBal = swapFromToken.balFmt || '0';
+  const toBal   = swapToToken.balFmt   || '0';
+  document.getElementById('swapFromBal').textContent = fromBal + ' ' + swapFromToken.symbol;
+  document.getElementById('swapToBal').textContent   = toBal   + ' ' + swapToToken.symbol;
 }
 async function swapUpdateEst(){
   clearTimeout(swapEstTimer);
@@ -2278,14 +2258,19 @@ function swapFlip(){
 function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
-  document.getElementById('swapPickerOverlay').style.display='flex';
-  if(swapTokens.length > 0){
-    swapRenderTokenList(swapTokens);
-  } else {
-    // Show loading state
-    document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN...</div>';
-    swapLoadTokens().then(()=>swapRenderTokenList(swapTokens));
+  const ov=document.getElementById('swapPickerOverlay');
+  const box=document.getElementById('swapPickerBox');
+  ov.style.display='block';
+  // Posisi dropdown di bawah tombol yang diklik
+  const btn=document.getElementById(side==='from'?'swapBtnFrom':'swapBtnTo');
+  if(btn&&box){
+    const r=btn.getBoundingClientRect();
+    let top=r.bottom+4, left=r.left;
+    if(left+234>window.innerWidth) left=window.innerWidth-238;
+    box.style.top=top+'px';
+    box.style.left=left+'px';
   }
+  swapRenderTokenList(swapTokens);
 }
 function swapClosePicker(){document.getElementById('swapPickerOverlay').style.display='none';}
 function swapFilterTokens(q){
@@ -2293,14 +2278,17 @@ function swapFilterTokens(q){
   swapRenderTokenList(swapTokens.filter(t=>t.symbol.toLowerCase().includes(lq)||t.name.toLowerCase().includes(lq)||(t.address!=='BNB'&&t.address.toLowerCase().includes(lq))));
 }
 function swapRenderTokenList(list){
+  if(!list||list.length===0){
+    document.getElementById('swapPickerList').innerHTML='<div style="padding:16px 12px;font-size:9px;color:var(--muted);">Tidak ada token</div>';
+    return;
+  }
   document.getElementById('swapPickerList').innerHTML=list.map(tk=>`
-    <div onclick="swapSelectToken('${tk.symbol}')" style="display:flex;align-items:center;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border2);" onmouseover="this.style.background='rgba(200,146,42,0.05)'" onmouseout="this.style.background='transparent'">
-      <span style="font-size:22px;width:30px;text-align:center;">${tk.logo||'🪙'}</span>
-      <div style="flex:1;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:8px;color:var(--muted);margin-left:6px;">(segera)</span>':''}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:2px;">${tk.name}</div>
+    <div onclick="swapSelectToken('${tk.symbol}')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border2);" onmouseover="this.style.background='rgba(200,146,42,0.07)'" onmouseout="this.style.background='transparent'">
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:7px;color:var(--muted);margin-left:4px;">(segera)</span>':''}</div>
+        <div style="font-size:8px;color:var(--muted);">${tk.name}</div>
       </div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold2);">${tk.balFmt||'—'}</div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold2);">${tk.balFmt||'—'}</span>
     </div>`).join('');
 }
 function swapSelectToken(sym){
@@ -2458,6 +2446,7 @@ async function doBridge() {
 // ── Auto-connect hook — cek wallet tiap 800ms, load balance begitu connect ──
 const _sbWatchWallet = setInterval(()=>{
   if(window.userAddress){
+    swapLoadTokens();
     const panelBridge = document.getElementById('panelBridge');
     if(panelBridge && panelBridge.style.display !== 'none') sbLoadBridgeBal();
     clearInterval(_sbWatchWallet);
