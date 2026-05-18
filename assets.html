@@ -227,10 +227,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <!-- From -->
         <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">DARI</div>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <select id="swapFromToken" onchange="sbUpdateSwapEst()" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);flex:1;outline:none;">
-            <option value="USDT">USDT</option>
-            <option value="BNB">BNB</option>
-            <option value="INDC" disabled title="Belum listing">INDC (segera)</option>
+          <select id="swapFromToken" onchange="sbUpdateSwapEst()" style="background:#1e1e1e;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);flex:1;outline:none;">
+            <option value="USDT" style="background:#1e1e1e;color:#f0ebe3;">USDT</option>
+            <option value="BNB" style="background:#1e1e1e;color:#f0ebe3;">BNB</option>
+            <option value="INDC" disabled style="background:#1e1e1e;color:#7a6a58;">INDC (segera)</option>
           </select>
           <input id="swapFromAmt" type="number" placeholder="0.00" oninput="sbUpdateSwapEst()"
             style="flex:2;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text);outline:none;">
@@ -244,10 +244,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <!-- To -->
         <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">KE</div>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <select id="swapToToken" onchange="sbUpdateSwapEst()" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);flex:1;outline:none;">
-            <option value="BNB">BNB</option>
-            <option value="USDT">USDT</option>
-            <option value="INDC" disabled title="Belum listing">INDC (segera)</option>
+          <select id="swapToToken" onchange="sbUpdateSwapEst()" style="background:#1e1e1e;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);flex:1;outline:none;">
+            <option value="BNB" style="background:#1e1e1e;color:#f0ebe3;">BNB</option>
+            <option value="USDT" style="background:#1e1e1e;color:#f0ebe3;">USDT</option>
+            <option value="INDC" disabled style="background:#1e1e1e;color:#7a6a58;">INDC (segera)</option>
           </select>
           <div id="swapToAmt" style="flex:2;background:rgba(200,146,42,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--gold2);">—</div>
         </div>
@@ -258,7 +258,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         </div>
 
         <button id="btnSwap" onclick="doSwap()" style="width:100%;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;padding:13px;cursor:pointer;">
-          SWAP VIA PANCAKESWAP
+          SWAP
         </button>
         <div id="swapStatus" style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px;min-height:14px;"></div>
       </div>
@@ -310,11 +310,16 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
       <!-- ── CROSS-CHAIN PANEL ── -->
       <div id="panelCrossChain" style="display:none;">
-        <div style="padding:12px 16px 8px;font-size:9px;color:var(--muted);letter-spacing:1px;">POWERED BY LI.FI · JUMPER.EXCHANGE</div>
+        <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px;">POWERED BY LI.FI</span>
+          <a href="https://jumper.exchange" target="_blank" style="font-size:8px;color:var(--gold);text-decoration:none;font-family:'Orbitron',sans-serif;letter-spacing:1px;">BUKA ↗</a>
+        </div>
         <iframe
-          src="https://jumper.exchange/?fromChain=56&toChain=137&theme=dark"
+          id="crossChainFrame"
+          src="https://widget.li.fi/own-chain?theme=dark&fromChain=56&toChain=137&bg=0d0d0d&accentColor=c8922a"
           style="width:100%;height:520px;border:none;border-radius:0 0 12px 12px;"
-          allow="clipboard-read; clipboard-write">
+          allow="clipboard-read; clipboard-write; web3"
+          loading="lazy">
         </iframe>
       </div>
 
@@ -2111,8 +2116,9 @@ function sbTab(tab) {
     panel.style.display    = active ? 'block' : 'none';
     if(tab === 'crosschain') panel.style.display = active ? 'block' : 'none';
   });
-  if(tab === 'bridge') sbLoadBridgeBal();
-  if(tab === 'swap')   sbLoadSwapBal();
+  if(tab === 'bridge')     sbLoadBridgeBal();
+  if(tab === 'swap')       sbLoadSwapBal();
+  if(tab === 'crosschain') setTimeout(sbCrossChainFallback, 100);
 }
 
 // ── Swap ──
@@ -2261,32 +2267,54 @@ async function doBridge() {
   } finally { btn.disabled=false; btn.textContent = sbBridgeDir_==='toInd'?'BRIDGE KE INDCHAIN':'BRIDGE KE BSC'; }
 }
 
-// ── Auto-connect hook ──
+// ── Auto-connect hook — cek wallet tiap 800ms, load balance begitu connect ──
 const _sbWatchWallet = setInterval(()=>{
   if(window.userAddress){
-    sbLoadBridgeBal();
+    // Load bridge balance jika tab bridge sedang aktif
+    const panelBridge = document.getElementById('panelBridge');
+    if(panelBridge && panelBridge.style.display !== 'none') sbLoadBridgeBal();
     clearInterval(_sbWatchWallet);
   }
 },800);
+
+// Juga hook ke event wallet connect jika ada
+document.addEventListener('walletConnected', ()=>{ sbLoadBridgeBal(); });
+
+// Cross-chain iframe fallback jika li.fi widget tidak load
+function sbCrossChainFallback() {
+  const frame = document.getElementById('crossChainFrame');
+  if(!frame) return;
+  frame.onerror = () => {
+    frame.src = 'https://jumper.exchange/?fromChain=56&toChain=137';
+  };
+  // Coba jumper jika widget li.fi gagal setelah 5 detik
+  setTimeout(()=>{
+    try {
+      const h = frame.contentWindow.document.body;
+      if(!h || !h.innerHTML) throw new Error('empty');
+    } catch(e) {
+      // iframe blocked by CSP, tampilkan tombol redirect
+      const parent = frame.parentElement;
+      if(parent && !document.getElementById('ccFallbackBtn')) {
+        const btn = document.createElement('div');
+        btn.id = 'ccFallbackBtn';
+        btn.style.cssText = 'padding:40px 20px;text-align:center;';
+        btn.innerHTML = `
+          <div style="font-size:32px;margin-bottom:16px;">🌐</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold2);margin-bottom:8px;letter-spacing:2px;">CROSS-CHAIN SWAP</div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:20px;line-height:1.7;">Tukar aset lintas jaringan via<br>platform terpercaya Li.Fi</div>
+          <a href="https://jumper.exchange/?fromChain=56&toChain=137" target="_blank"
+            style="display:inline-block;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,#c8922a,#e8a830);border-radius:10px;padding:13px 24px;text-decoration:none;">
+            BUKA JUMPER.EXCHANGE ↗
+          </a>
+          <div style="margin-top:12px;font-size:8px;color:var(--muted);">Powered by Li.Fi Protocol</div>`;
+        frame.style.display = 'none';
+        parent.appendChild(btn);
+      }
+    }
+  }, 5000);
+}
 </script>
-
-<!-- POPUP BELI CRYPTO -->
-
-const VAULT_ABI = [
-  'function lockToken(address token,uint256 amount,uint256 targetChainId,address targetAddress) external',
-  'function minBridge(address) view returns(uint256)',
-  'function maxBridge(address) view returns(uint256)',
-];
-const ERC20_ABI = [
-  'function approve(address spender,uint256 amount) external returns(bool)',
-  'function allowance(address owner,address spender) view returns(uint256)',
-  'function balanceOf(address account) view returns(uint256)',
-  'function decimals() view returns(uint8)',
-];
-const MINT_ABI = [
-  'function burnToken(address indcToken,uint256 amount,uint256 targetChainId,address targetAddress) external',
-];
-
 
 <!-- POPUP BELI CRYPTO -->
 <div id="transakComingSoon" onclick="if(event.target===this)this.style.display='none'"
