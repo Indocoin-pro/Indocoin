@@ -224,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              <span id="swapFromLogo" style="font-size:18px;">💰</span>
+              
               <span id="swapFromSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -247,7 +247,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              <span id="swapToLogo" style="font-size:18px;">💰</span>
+              
               <span id="swapToSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -626,6 +626,7 @@ async function connectWallet() {
     signer      = await provider.getSigner();
     userAddress = await signer.getAddress();
     await loadWalletData();
+    swapLoadTokens();
     showConnected();
     setTimeout(aapInit, 500);
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
@@ -2174,39 +2175,59 @@ const KNOWN_TOKENS = {
 };
 let swapTokens=[], swapFromToken=null, swapToToken=null, swapPickerFor='from', swapEstTimer=null;
 
+let swapFromTokens=[], swapAllTokens=[];
+
+function isSpamToken(tk) {
+  const bal=parseFloat(tk.balFmt||'0');
+  const sym=(tk.symbol||'').toUpperCase();
+  if([500,1000,5000,10000,100000].includes(Math.round(bal))) return true;
+  if(sym.split('').some(c=>c.charCodeAt(0)>127)) return true;
+  if(sym.length>10) return true;
+  return false;
+}
+
 async function swapLoadTokens() {
-  if(!window.userAddress) return;
+  if(!userAddress||!provider) return;
   try {
-    const p = new ethers.BrowserProvider(window.ethereum);
-    const net = await p.getNetwork();
-    if(Number(net.chainId)!==56) return;
-    const tokens=[];
-    const bnbBal=await p.getBalance(window.userAddress);
-    tokens.push({...KNOWN_TOKENS.BNB,balance:bnbBal,balFmt:parseFloat(ethers.formatEther(bnbBal)).toFixed(4)});
-    for(const [sym,tk] of Object.entries(KNOWN_TOKENS)){
-      if(sym==='BNB') continue;
-      try{ const c=new ethers.Contract(tk.address,ERC20_SWAP,p); const b=await c.balanceOf(window.userAddress); tokens.push({...tk,balance:b,balFmt:parseFloat(ethers.formatUnits(b,tk.decimals)).toFixed(4)}); }catch(e){}
+    const fromList=[], allList=[];
+    const bnbRaw=await provider.getBalance(userAddress);
+    const bnbBal=parseFloat(ethers.formatEther(bnbRaw)).toFixed(4);
+    const bnbTk={address:'BNB',symbol:'BNB',name:'BNB',decimals:18,balFmt:bnbBal};
+    if(parseFloat(bnbBal)>0) fromList.push(bnbTk);
+    allList.push(bnbTk);
+    const res=await fetch(`${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
+      {headers:{'X-API-Key':MORALIS_KEY}});
+    const data=await res.json();
+    if(Array.isArray(data)){
+      for(const tk of data){
+        const dec=parseInt(tk.decimals)||18;
+        const bal=parseFloat(ethers.formatUnits(tk.balance||'0',dec));
+        const sym=(tk.symbol||'').toUpperCase();
+        if(sym.length>10||sym.split('').some(c=>c.charCodeAt(0)>127)) continue;
+        const isINDC=(tk.token_address||'').toLowerCase()==='0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
+        const item={address:tk.token_address,symbol:sym,name:tk.name||sym,
+          decimals:dec,balFmt:bal>0?bal.toFixed(4):'0',notListed:isINDC||undefined};
+        if(bal>0&&!isSpamToken(item)) fromList.push(item);
+        if(!isSpamToken(item)) allList.push(item);
+      }
     }
-    swapTokens=tokens;
-    if(!swapFromToken){swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0];swapSetTokenUI('from');}
-    if(!swapToToken){swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];swapSetTokenUI('to');}
+    swapFromTokens=fromList; swapAllTokens=allList; swapTokens=fromList;
+    if(!swapFromToken){swapFromToken=fromList.find(t=>t.symbol==='BNB')||fromList[0];swapSetTokenUI('from');}
+    if(!swapToToken){swapToToken=fromList.find(t=>t.symbol==='USDT')||fromList[1];swapSetTokenUI('to');}
     swapUpdateBals();
-  }catch(e){}
+  }catch(e){console.log('swapLoadTokens:',e);}
 }
 function swapSetTokenUI(side){
   const tk=side==='from'?swapFromToken:swapToToken; if(!tk)return;
   const s=side.charAt(0).toUpperCase()+side.slice(1);
-  document.getElementById('swap'+s+'Logo').textContent=tk.logo||'🪙';
+  const logoEl=document.getElementById('swap'+s+'Logo');
+  if(logoEl) logoEl.textContent='';
   document.getElementById('swap'+s+'Sym').textContent=tk.symbol;
 }
-async function swapUpdateBals(){
-  if(!window.userAddress||!swapFromToken||!swapToToken) return;
-  try{
-    const p=new ethers.BrowserProvider(window.ethereum);
-    const getBal=async(tk)=>{ if(tk.address==='BNB'){const b=await p.getBalance(window.userAddress);return parseFloat(ethers.formatEther(b)).toFixed(4);} const c=new ethers.Contract(tk.address,ERC20_SWAP,p);const b=await c.balanceOf(window.userAddress);return parseFloat(ethers.formatUnits(b,tk.decimals)).toFixed(4); };
-    document.getElementById('swapFromBal').textContent=(await getBal(swapFromToken))+' '+swapFromToken.symbol;
-    document.getElementById('swapToBal').textContent=(await getBal(swapToToken))+' '+swapToToken.symbol;
-  }catch(e){}
+function swapUpdateBals(){
+  if(!swapFromToken||!swapToToken) return;
+  document.getElementById('swapFromBal').textContent=(swapFromToken.balFmt||'0')+' '+swapFromToken.symbol;
+  document.getElementById('swapToBal').textContent=(swapToToken.balFmt||'0')+' '+swapToToken.symbol;
 }
 async function swapUpdateEst(){
   clearTimeout(swapEstTimer);
@@ -2255,34 +2276,36 @@ function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
   document.getElementById('swapPickerOverlay').style.display='flex';
-  if(swapTokens.length > 0){
-    swapRenderTokenList(swapTokens);
-  } else {
-    // Show loading state
-    document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN...</div>';
-    swapLoadTokens().then(()=>swapRenderTokenList(swapTokens));
-  }
+  const list=side==='from'?(swapFromTokens.length>0?swapFromTokens:swapTokens):(swapAllTokens.length>0?swapAllTokens:swapTokens);
+  swapRenderTokenList(list);
 }
 function swapClosePicker(){document.getElementById('swapPickerOverlay').style.display='none';}
 function swapFilterTokens(q){
   const lq=q.toLowerCase();
-  swapRenderTokenList(swapTokens.filter(t=>t.symbol.toLowerCase().includes(lq)||t.name.toLowerCase().includes(lq)||(t.address!=='BNB'&&t.address.toLowerCase().includes(lq))));
+  const base=swapPickerFor==='from'?(swapFromTokens.length>0?swapFromTokens:swapTokens):(swapAllTokens.length>0?swapAllTokens:swapTokens);
+  swapRenderTokenList(base.filter(t=>t.symbol.toLowerCase().includes(lq)||t.name.toLowerCase().includes(lq)||(t.address!=='BNB'&&t.address.toLowerCase().includes(lq))));
 }
 function swapRenderTokenList(list){
-  document.getElementById('swapPickerList').innerHTML=list.map(tk=>`
-    <div onclick="swapSelectToken('${tk.symbol}')" style="display:flex;align-items:center;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border2);" onmouseover="this.style.background='rgba(200,146,42,0.05)'" onmouseout="this.style.background='transparent'">
-      <span style="font-size:22px;width:30px;text-align:center;">${tk.logo||'🪙'}</span>
-      <div style="flex:1;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:8px;color:var(--muted);margin-left:6px;">(segera)</span>':''}</div>
-        <div style="font-size:9px;color:var(--muted);margin-top:2px;">${tk.name}</div>
+  const el=document.getElementById('swapPickerList');
+  if(!list||list.length===0){el.innerHTML='<div style="padding:16px 14px;font-size:9px;color:var(--muted);">Tidak ada token</div>';return;}
+  el.innerHTML=list.map((tk,i)=>`
+    <div data-idx="${i}" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--border2);">
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:7px;color:var(--muted);margin-left:4px;">(segera)</span>':''}</div>
+        <div style="font-size:9px;color:var(--muted);">${tk.name}</div>
       </div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold2);">${tk.balFmt||'—'}</div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold2);">${parseFloat(tk.balFmt||0)>0?tk.balFmt:'—'}</span>
     </div>`).join('');
+  const _list=list;
+  el.querySelectorAll('[data-idx]').forEach(row=>{
+    row.addEventListener('touchend',e=>{e.preventDefault();swapSelectToken(_list[+row.dataset.idx]);});
+    row.addEventListener('click',()=>swapSelectToken(_list[+row.dataset.idx]));
+  });
 }
-function swapSelectToken(sym){
-  const tk=swapTokens.find(t=>t.symbol===sym);if(!tk)return;
-  if(swapPickerFor==='from'){if(swapToToken?.symbol===sym)swapToToken=swapFromToken;swapFromToken=tk;}
-  else{if(swapFromToken?.symbol===sym)swapFromToken=swapToToken;swapToToken=tk;}
+function swapSelectToken(tk){
+  if(!tk) return;
+  if(swapPickerFor==='from'){if(swapToToken?.symbol===tk.symbol)swapToToken=swapFromToken;swapFromToken=tk;}
+  else{if(swapFromToken?.symbol===tk.symbol)swapFromToken=swapToToken;swapToToken=tk;}
   swapSetTokenUI('from');swapSetTokenUI('to');
   swapClosePicker();swapUpdateBals();swapUpdateEst();
 }
