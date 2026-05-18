@@ -224,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              
+              <span id="swapFromLogo" style="font-size:18px;">💰</span>
               <span id="swapFromSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -247,7 +247,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              
+              <span id="swapToLogo" style="font-size:18px;">💰</span>
               <span id="swapToSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -626,7 +626,6 @@ async function connectWallet() {
     signer      = await provider.getSigner();
     userAddress = await signer.getAddress();
     await loadWalletData();
-    swapLoadTokens(); // jalan di background, provider sudah siap
     showConnected();
     setTimeout(aapInit, 500);
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
@@ -2176,41 +2175,23 @@ const KNOWN_TOKENS = {
 let swapTokens=[], swapFromToken=null, swapToToken=null, swapPickerFor='from', swapEstTimer=null;
 
 async function swapLoadTokens() {
-  if(!userAddress || !provider) return;
+  if(!window.userAddress) return;
   try {
-    const tokens = [];
-    // BNB
-    const bnbRaw = await provider.getBalance(userAddress);
-    tokens.push({address:'BNB', symbol:'BNB', name:'BNB', decimals:18,
-      balFmt: parseFloat(ethers.formatEther(bnbRaw)).toFixed(4)});
-    // Semua ERC20 via Moralis
-    const res = await fetch(`${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
-      {headers:{'X-API-Key': MORALIS_KEY}});
-    const data = await res.json();
-    if(Array.isArray(data)) {
-      for(const tk of data) {
-        const sym = (tk.symbol||'').toUpperCase();
-        // Filter token spam — skip symbol yang aneh atau terlalu panjang
-        if(sym.length > 10 || sym.includes(' ') || sym.includes('.')) continue;
-        const dec = parseInt(tk.decimals)||18;
-        const bal = parseFloat(ethers.formatUnits(tk.balance||'0', dec));
-        if(bal <= 0) continue;
-        const isINDC = (tk.token_address||'').toLowerCase() === '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
-        tokens.push({
-          address: tk.token_address,
-          symbol: sym,
-          name: tk.name || sym,
-          decimals: dec,
-          balFmt: bal.toFixed(4),
-          notListed: isINDC || undefined
-        });
-      }
+    const p = new ethers.BrowserProvider(window.ethereum);
+    const net = await p.getNetwork();
+    if(Number(net.chainId)!==56) return;
+    const tokens=[];
+    const bnbBal=await p.getBalance(window.userAddress);
+    tokens.push({...KNOWN_TOKENS.BNB,balance:bnbBal,balFmt:parseFloat(ethers.formatEther(bnbBal)).toFixed(4)});
+    for(const [sym,tk] of Object.entries(KNOWN_TOKENS)){
+      if(sym==='BNB') continue;
+      try{ const c=new ethers.Contract(tk.address,ERC20_SWAP,p); const b=await c.balanceOf(window.userAddress); tokens.push({...tk,balance:b,balFmt:parseFloat(ethers.formatUnits(b,tk.decimals)).toFixed(4)}); }catch(e){}
     }
-    swapTokens = tokens;
-    if(!swapFromToken){ swapFromToken = tokens.find(t=>t.symbol==='BNB') || tokens[0]; swapSetTokenUI('from'); }
-    if(!swapToToken)  { swapToToken   = tokens.find(t=>t.symbol==='USDT') || tokens[1]; swapSetTokenUI('to'); }
+    swapTokens=tokens;
+    if(!swapFromToken){swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0];swapSetTokenUI('from');}
+    if(!swapToToken){swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];swapSetTokenUI('to');}
     swapUpdateBals();
-  } catch(e){ console.log('swapLoadTokens:', e); }
+  }catch(e){}
 }
 function swapSetTokenUI(side){
   const tk=side==='from'?swapFromToken:swapToToken; if(!tk)return;
