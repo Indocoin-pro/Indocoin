@@ -336,21 +336,58 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
 
       <!-- ── CROSS-CHAIN PANEL ── -->
-      <div id="panelCrossChain" style="display:none;">
-        <!-- iframe wrapper dengan overlay sembunyikan branding -->
-        <div style="position:relative;width:100%;height:580px;overflow:hidden;border-radius:0 0 12px 12px;">
-          <iframe
-            id="ccIframe"
-            style="width:100%;height:640px;border:none;margin-top:-0px;"
-            allow="clipboard-read; clipboard-write; web3">
-          </iframe>
-          <!-- Overlay kiri sembunyikan sidebar/logo -->
-          <div style="position:absolute;top:0;left:0;width:60px;height:100%;background:var(--bg2);z-index:2;"></div>
-          <!-- Overlay top sembunyikan header/navbar -->
-          <div id="ccTopOverlay" style="position:absolute;top:0;left:0;right:0;height:52px;background:var(--bg2);z-index:2;"></div>
-          <!-- Overlay bottom sembunyikan footer -->
-          <div style="position:absolute;bottom:0;left:0;right:0;height:36px;background:var(--bg2);z-index:2;"></div>
+      <div id="panelCrossChain" style="display:none;padding:16px;">
+
+        <!-- FROM -->
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">DARI JARINGAN</div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#1a1a1a;border:1px solid rgba(200,146,42,0.3);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold2);">BSC (BEP-20)</div>
+            <select id="ccFromToken" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;">
+              <option value="USDT">USDT</option>
+              <option value="USDC">USDC</option>
+              <option value="ETH">ETH</option>
+              <option value="BNB">BNB</option>
+              <option value="MATIC">MATIC</option>
+            </select>
+          </div>
         </div>
+
+        <div style="text-align:center;margin-bottom:12px;font-size:18px;color:var(--gold2);">↓</div>
+
+        <!-- TO -->
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">KE JARINGAN</div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+          <div style="display:flex;gap:8px;">
+            <select id="ccToChain" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;">
+              <option value="137">Polygon</option>
+              <option value="56">BSC</option>
+              <option value="1">Ethereum</option>
+              <option value="42161">Arbitrum</option>
+              <option value="10">Optimism</option>
+              <option value="43114">Avalanche</option>
+              <option value="8453">Base</option>
+            </select>
+            <select id="ccToToken" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;">
+              <option value="USDT">USDT</option>
+              <option value="USDC">USDC</option>
+              <option value="ETH">ETH</option>
+              <option value="MATIC">MATIC</option>
+              <option value="BNB">BNB</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Amount -->
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">JUMLAH</div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:16px;">
+          <input id="ccAmount" type="number" placeholder="0.00" style="width:100%;background:transparent;border:none;font-family:'Share Tech Mono',monospace;font-size:18px;color:var(--text);outline:none;">
+        </div>
+
+        <button onclick="ccLanjutkan()" style="width:100%;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;padding:13px;cursor:pointer;">
+          LANJUTKAN SWAP ↗
+        </button>
+        <div style="font-size:8px;color:var(--muted);text-align:center;margin-top:8px;">Transaksi diproses di jaringan blockchain secara langsung</div>
       </div>
 
     </div>
@@ -2491,19 +2528,18 @@ const _sbWatchWallet = setInterval(()=>{
 // Juga hook ke event wallet connect jika ada
 document.addEventListener('walletConnected', ()=>{ sbLoadBridgeBal(); });
 
-// ══ CROSS-CHAIN — iframe dengan overlay branding ══════════════
-// Daftar sumber cross-chain yang bisa diembed
-const CC_SOURCES = [
-  'https://app.uniswap.org/#/swap',
-  'https://bridge.arbitrum.io/?destinationChain=arbitrum-one&sourceChain=ethereum',
-  'https://jumper.exchange/?fromChain=56&toChain=137',
-];
+// ══ CROSS-CHAIN ══
+function ccInit() {} // panel sudah siap, tidak perlu load API
 
-function ccInit() {
-  const iframe = document.getElementById('ccIframe');
-  if(!iframe) return;
-  // Pakai jumper.exchange dengan dark theme
-  iframe.src = 'https://jumper.exchange/?fromChain=56&toChain=137&theme=dark';
+function ccLanjutkan() {
+  const fromChain = '56'; // selalu BSC
+  const toChain   = document.getElementById('ccToChain').value;
+  const fromToken = document.getElementById('ccFromToken').value;
+  const toToken   = document.getElementById('ccToToken').value;
+  const amount    = document.getElementById('ccAmount').value || '';
+  // Buka dengan parameter yang sudah diisi user
+  const url = 'https://jumper.exchange/?fromChain='+fromChain+'&toChain='+toChain+'&fromToken='+fromToken+'&toToken='+toToken+(amount?'&fromAmount='+amount:'');
+  window.open(url, '_blank');
 }
 
 function sbCrossChainFallback(){} // deprecated
