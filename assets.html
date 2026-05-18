@@ -224,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              
+              <span id="swapFromLogo" style="font-size:18px;">💰</span>
               <span id="swapFromSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -247,7 +247,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              
+              <span id="swapToLogo" style="font-size:18px;">💰</span>
               <span id="swapToSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -625,10 +625,9 @@ async function connectWallet() {
     provider    = new ethers.BrowserProvider(window.ethereum);
     signer      = await provider.getSigner();
     userAddress = await signer.getAddress();
-    await loadWalletData();
+    await Promise.all([loadWalletData(), swapLoadTokens()]);
     showConnected();
     setTimeout(aapInit, 500);
-    setTimeout(swapLoadTokens, 800); // load token swap setelah wallet connect
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -2165,50 +2164,53 @@ const ERC20_SWAP = [
   'function symbol() view returns(string)',
   'function name() view returns(string)',
 ];
-// INDC tidak listed, hanya bisa bridge/transfer
-const INDC_SWAP = { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin', decimals:9, notListed:true };
-
+const KNOWN_TOKENS = {
+  BNB:  { address:'BNB',  symbol:'BNB',  name:'BNB',        decimals:18, logo:'🟡' },
+  USDT: { address:'0x55d398326f99059fF775485246999027B3197955', symbol:'USDT', name:'Tether USD', decimals:18, logo:'💵' },
+  USDC: { address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', symbol:'USDC', name:'USD Coin',    decimals:18, logo:'💲' },
+  BUSD: { address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', symbol:'BUSD', name:'BUSD',        decimals:18, logo:'🟢' },
+  ETH:  { address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8', symbol:'ETH',  name:'Ethereum',   decimals:18, logo:'💎' },
+  INDC: { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin',   decimals:9,  logo:'🪙', notListed:true },
+};
 let swapTokens=[], swapFromToken=null, swapToToken=null, swapPickerFor='from', swapEstTimer=null;
 
 async function swapLoadTokens() {
-  if(!window.userAddress) return;
+  if(!userAddress) return;
   try {
-    // Pakai provider yang sudah ada dari wallet connect
-    const p = provider || new ethers.BrowserProvider(window.ethereum);
     const tokens = [];
 
-    // 1. BNB native
-    const bnbRaw = await p.getBalance(window.userAddress);
-    const bnbFmt = parseFloat(ethers.formatEther(bnbRaw)).toFixed(4);
-    tokens.push({ address:'BNB', symbol:'BNB', name:'BNB', decimals:18, balFmt:bnbFmt });
+    // BNB native — ambil dari provider langsung
+    const bnbRaw = await provider.getBalance(userAddress);
+    tokens.push({
+      address:'BNB', symbol:'BNB', name:'BNB', decimals:18,
+      balFmt: parseFloat(ethers.formatEther(bnbRaw)).toFixed(4)
+    });
 
-    // 2. Semua ERC20 token di wallet via Moralis (sama seperti WALLET UTAMA)
-    try {
-      const res = await fetch(
-        `${MORALIS_API}/${window.userAddress}/erc20?chain=${CHAIN_ID}`,
-        { headers:{ 'X-API-Key': MORALIS_KEY } }
-      );
-      const data = await res.json();
-      if(Array.isArray(data)) {
-        for(const tk of data) {
-          const dec = parseInt(tk.decimals)||18;
-          const bal = parseFloat(ethers.formatUnits(tk.balance||'0', dec));
-          if(bal <= 0) continue; // hanya tampilkan token yang ada isinya
-          const isINDC = tk.token_address?.toLowerCase() === INDC_SWAP.address.toLowerCase();
-          tokens.push({
-            address: tk.token_address,
-            symbol:  tk.symbol || '???',
-            name:    tk.name || tk.symbol || '???',
-            decimals: dec,
-            balFmt:  bal.toFixed(4),
-            notListed: isINDC ? true : undefined,
-          });
-        }
+    // Semua ERC20 di wallet via Moralis — sama persis dengan cara wallet utama
+    const res = await fetch(
+      `${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
+      { headers: { 'X-API-Key': MORALIS_KEY } }
+    );
+    const data = await res.json();
+    if(Array.isArray(data)) {
+      for(const tk of data) {
+        const dec = parseInt(tk.decimals) || 18;
+        const bal = parseFloat(ethers.formatUnits(tk.balance || '0', dec));
+        if(bal <= 0) continue; // hanya token yang ada isinya
+        const isINDC = (tk.token_address||'').toLowerCase() ===
+          '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
+        tokens.push({
+          address:   tk.token_address,
+          symbol:    tk.symbol || '???',
+          name:      tk.name   || tk.symbol || '???',
+          decimals:  dec,
+          balFmt:    bal.toFixed(4),
+          notListed: isINDC || undefined,
+        });
       }
-    } catch(e){ console.log('Moralis erc20 err:', e); }
+    }
 
     swapTokens = tokens;
-    // Auto-select BNB dan USDT jika belum dipilih
     if(!swapFromToken){ swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0]; swapSetTokenUI('from'); }
     if(!swapToToken){   swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];  swapSetTokenUI('to'); }
     swapUpdateBals();
@@ -2277,17 +2279,12 @@ function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
   document.getElementById('swapPickerOverlay').style.display='flex';
-  // Tampilkan token yang sudah di-load, atau loading state
-  if(swapTokens.length > 0) swapRenderTokenList(swapTokens);
-  else document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN WALLET...</div>';
-  // Load balance asli di background, update list setelah selesai
-  if(window.userAddress){
-    swapLoadTokens().then(()=>{
-      if(document.getElementById('swapPickerOverlay').style.display!=='none'){
-        const q=document.getElementById('swapPickerSearch').value;
-        if(q) swapFilterTokens(q); else swapRenderTokenList(swapTokens);
-      }
-    });
+  if(swapTokens.length > 0){
+    swapRenderTokenList(swapTokens);
+  } else {
+    // Show loading state
+    document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN...</div>';
+    swapLoadTokens().then(()=>swapRenderTokenList(swapTokens));
   }
 }
 function swapClosePicker(){document.getElementById('swapPickerOverlay').style.display='none';}
@@ -2298,7 +2295,7 @@ function swapFilterTokens(q){
 function swapRenderTokenList(list){
   document.getElementById('swapPickerList').innerHTML=list.map(tk=>`
     <div onclick="swapSelectToken('${tk.symbol}')" style="display:flex;align-items:center;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border2);" onmouseover="this.style.background='rgba(200,146,42,0.05)'" onmouseout="this.style.background='transparent'">
-  
+      <span style="font-size:22px;width:30px;text-align:center;">${tk.logo||'🪙'}</span>
       <div style="flex:1;">
         <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:8px;color:var(--muted);margin-left:6px;">(segera)</span>':''}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:2px;">${tk.name}</div>
@@ -2461,7 +2458,6 @@ async function doBridge() {
 // ── Auto-connect hook — cek wallet tiap 800ms, load balance begitu connect ──
 const _sbWatchWallet = setInterval(()=>{
   if(window.userAddress){
-    swapLoadTokens();
     const panelBridge = document.getElementById('panelBridge');
     if(panelBridge && panelBridge.style.display !== 'none') sbLoadBridgeBal();
     clearInterval(_sbWatchWallet);
