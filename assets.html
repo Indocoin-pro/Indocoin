@@ -628,6 +628,7 @@ async function connectWallet() {
     await loadWalletData();
     showConnected();
     setTimeout(aapInit, 500);
+    setTimeout(swapLoadTokens, 800); // load token swap setelah wallet connect
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -2164,34 +2165,54 @@ const ERC20_SWAP = [
   'function symbol() view returns(string)',
   'function name() view returns(string)',
 ];
-const KNOWN_TOKENS = {
-  BNB:  { address:'BNB',  symbol:'BNB',  name:'BNB',        decimals:18 },
-  USDT: { address:'0x55d398326f99059fF775485246999027B3197955', symbol:'USDT', name:'Tether USD', decimals:18 },
-  USDC: { address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', symbol:'USDC', name:'USD Coin',    decimals:18 },
-  BUSD: { address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', symbol:'BUSD', name:'BUSD',        decimals:18 },
-  ETH:  { address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8', symbol:'ETH',  name:'Ethereum',   decimals:18 },
-  INDC: { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin',   decimals:9,  notListed:true },
-};
+// INDC tidak listed, hanya bisa bridge/transfer
+const INDC_SWAP = { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin', decimals:9, notListed:true };
+
 let swapTokens=[], swapFromToken=null, swapToToken=null, swapPickerFor='from', swapEstTimer=null;
 
 async function swapLoadTokens() {
   if(!window.userAddress) return;
   try {
-    const p = new ethers.BrowserProvider(window.ethereum);
-    const net = await p.getNetwork();
-    if(Number(net.chainId)!==56) return;
-    const tokens=[];
-    const bnbBal=await p.getBalance(window.userAddress);
-    tokens.push({...KNOWN_TOKENS.BNB,balance:bnbBal,balFmt:parseFloat(ethers.formatEther(bnbBal)).toFixed(4)});
-    for(const [sym,tk] of Object.entries(KNOWN_TOKENS)){
-      if(sym==='BNB') continue;
-      try{ const c=new ethers.Contract(tk.address,ERC20_SWAP,p); const b=await c.balanceOf(window.userAddress); tokens.push({...tk,balance:b,balFmt:parseFloat(ethers.formatUnits(b,tk.decimals)).toFixed(4)}); }catch(e){}
-    }
-    swapTokens=tokens;
-    if(!swapFromToken){swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0];swapSetTokenUI('from');}
-    if(!swapToToken){swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];swapSetTokenUI('to');}
+    // Pakai provider yang sudah ada dari wallet connect
+    const p = provider || new ethers.BrowserProvider(window.ethereum);
+    const tokens = [];
+
+    // 1. BNB native
+    const bnbRaw = await p.getBalance(window.userAddress);
+    const bnbFmt = parseFloat(ethers.formatEther(bnbRaw)).toFixed(4);
+    tokens.push({ address:'BNB', symbol:'BNB', name:'BNB', decimals:18, balFmt:bnbFmt });
+
+    // 2. Semua ERC20 token di wallet via Moralis (sama seperti WALLET UTAMA)
+    try {
+      const res = await fetch(
+        `${MORALIS_API}/${window.userAddress}/erc20?chain=${CHAIN_ID}`,
+        { headers:{ 'X-API-Key': MORALIS_KEY } }
+      );
+      const data = await res.json();
+      if(Array.isArray(data)) {
+        for(const tk of data) {
+          const dec = parseInt(tk.decimals)||18;
+          const bal = parseFloat(ethers.formatUnits(tk.balance||'0', dec));
+          if(bal <= 0) continue; // hanya tampilkan token yang ada isinya
+          const isINDC = tk.token_address?.toLowerCase() === INDC_SWAP.address.toLowerCase();
+          tokens.push({
+            address: tk.token_address,
+            symbol:  tk.symbol || '???',
+            name:    tk.name || tk.symbol || '???',
+            decimals: dec,
+            balFmt:  bal.toFixed(4),
+            notListed: isINDC ? true : undefined,
+          });
+        }
+      }
+    } catch(e){ console.log('Moralis erc20 err:', e); }
+
+    swapTokens = tokens;
+    // Auto-select BNB dan USDT jika belum dipilih
+    if(!swapFromToken){ swapFromToken=tokens.find(t=>t.symbol==='BNB')||tokens[0]; swapSetTokenUI('from'); }
+    if(!swapToToken){   swapToToken=tokens.find(t=>t.symbol==='USDT')||tokens[1];  swapSetTokenUI('to'); }
     swapUpdateBals();
-  }catch(e){}
+  } catch(e){ console.log('swapLoadTokens err:', e); }
 }
 function swapSetTokenUI(side){
   const tk=side==='from'?swapFromToken:swapToToken; if(!tk)return;
@@ -2256,12 +2277,9 @@ function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
   document.getElementById('swapPickerOverlay').style.display='flex';
-  // Tampilkan KNOWN_TOKENS dulu agar langsung ada isinya
-  const quickList = Object.values(KNOWN_TOKENS).map(tk=>({
-    ...tk,
-    balFmt: swapTokens.find(t=>t.symbol===tk.symbol)?.balFmt || '—'
-  }));
-  swapRenderTokenList(quickList);
+  // Tampilkan token yang sudah di-load, atau loading state
+  if(swapTokens.length > 0) swapRenderTokenList(swapTokens);
+  else document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN WALLET...</div>';
   // Load balance asli di background, update list setelah selesai
   if(window.userAddress){
     swapLoadTokens().then(()=>{
