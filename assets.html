@@ -2579,10 +2579,50 @@ function ccClosePicker() {
   document.getElementById('ccPickerOverlay').style.display='none';
 }
 
+var ccJumperUrl = '';
+
 function ccLanjutkan() {
   const amount = document.getElementById('ccAmount').value || '';
-  const url = 'https://jumper.exchange/?fromChain=56&toChain='+ccToChain+'&fromToken='+ccFromToken+'&toToken='+ccToToken+(amount?'&fromAmount='+amount:'');
-  window.open(url, '_blank');
+  ccJumperUrl = 'https://jumper.exchange/?fromChain=56&toChain='+ccToChain+'&fromToken='+ccFromToken+'&toToken='+ccToToken+(amount?'&fromAmount='+amount:'');
+  
+  // Tampilkan fullscreen overlay
+  const fs = document.getElementById('ccFullscreen');
+  fs.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  
+  // Load iframe
+  const iframe = document.getElementById('ccFullIframe');
+  const fallback = document.getElementById('ccIframeFallback');
+  iframe.style.display = 'block';
+  fallback.style.display = 'none';
+  iframe.src = ccJumperUrl;
+  
+  // Deteksi jika iframe kosong setelah 4 detik → fallback
+  setTimeout(()=>{
+    try {
+      const loaded = iframe.contentDocument || iframe.contentWindow.document;
+      if(!loaded || !loaded.body || loaded.body.innerHTML.length < 100) {
+        throw new Error('empty');
+      }
+    } catch(e) {
+      // iframe diblokir — tampilkan fallback
+      iframe.style.display = 'none';
+      fallback.style.display = 'flex';
+    }
+  }, 4000);
+}
+
+function ccBukaTabBaru() {
+  window.open(ccJumperUrl, '_blank');
+}
+
+function ccTutupFullscreen() {
+  const fs = document.getElementById('ccFullscreen');
+  fs.style.display = 'none';
+  document.body.style.overflow = '';
+  document.getElementById('ccFullIframe').src = '';
+  document.getElementById('ccIframeFallback').style.display = 'none';
+  document.getElementById('ccFullIframe').style.display = 'block';
 }
 
 function sbCrossChainFallback(){} // deprecated
@@ -2601,6 +2641,37 @@ function sbCrossChainFallback(){} // deprecated
       style="background:linear-gradient(135deg,#0d2250,#1a3a8f);color:#fff;border:1px solid rgba(41,98,255,0.4);border-radius:8px;padding:11px 28px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
       OKE, MENGERTI
     </button>
+  </div>
+</div>
+
+<!-- CC FULLSCREEN OVERLAY -->
+<div id="ccFullscreen" style="display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;">
+  <!-- Bar INDOCOIN atas -->
+  <div style="display:flex;align-items:center;padding:0 16px;height:52px;background:linear-gradient(135deg,#1a1200,#2a1f00);border-bottom:2px solid var(--gold);flex-shrink:0;">
+    <button onclick="ccTutupFullscreen()" style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:8px 0;">
+      <span style="font-size:20px;color:var(--gold2);">←</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:1px;">KEMBALI</span>
+    </button>
+    <div style="flex:1;text-align:center;">
+      <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;">INDOCOIN</span>
+    </div>
+    <div style="width:80px;text-align:right;">
+      <span style="font-size:8px;color:var(--muted);letter-spacing:1px;">CROSS-CHAIN</span>
+    </div>
+  </div>
+  <!-- Iframe Jumper -->
+  <iframe id="ccFullIframe" style="flex:1;border:none;width:100%;" allow="clipboard-read; clipboard-write; web3"></iframe>
+  <!-- Fallback jika iframe kosong -->
+  <div id="ccIframeFallback" style="display:none;flex:1;align-items:center;justify-content:center;background:#0d0d0d;flex-direction:column;gap:16px;padding:30px;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold2);letter-spacing:2px;">LAYANAN LINTAS JARINGAN</div>
+    <div style="font-size:10px;color:var(--muted);line-height:1.8;">Kami bekerja sama dengan penyedia bridge<br>terpercaya untuk memproses transaksi<br>lintas jaringan Anda.</div>
+    <div style="font-size:9px;color:var(--muted);line-height:1.7;border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+      INDOCOIN tidak memungut biaya tambahan.<br>Biaya yang berlaku adalah biaya jaringan<br>blockchain standar.
+    </div>
+    <button id="ccFallbackBtn" onclick="ccBukaTabBaru()" style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;padding:14px 24px;cursor:pointer;">
+      LANJUTKAN ↗
+    </button>
+    <div style="font-size:8px;color:var(--muted);">Akan dibuka di tab baru. Gunakan tombol kembali browser untuk kembali ke INDOCOIN.</div>
   </div>
 </div>
 </body>
