@@ -224,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('from')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              <span id="swapFromLogo" style="font-size:18px;">💰</span>
+              
               <span id="swapFromSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -247,7 +247,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button onclick="swapOpenPicker('to')" style="display:flex;align-items:center;gap:8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.3);border-radius:8px;padding:8px 12px;cursor:pointer;min-width:120px;">
-              <span id="swapToLogo" style="font-size:18px;">💰</span>
+              
               <span id="swapToSym" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">Pilih</span>
               <span style="margin-left:auto;color:var(--muted);font-size:12px;">▾</span>
             </button>
@@ -2165,12 +2165,12 @@ const ERC20_SWAP = [
   'function name() view returns(string)',
 ];
 const KNOWN_TOKENS = {
-  BNB:  { address:'BNB',  symbol:'BNB',  name:'BNB',        decimals:18, logo:'🟡' },
-  USDT: { address:'0x55d398326f99059fF775485246999027B3197955', symbol:'USDT', name:'Tether USD', decimals:18, logo:'💵' },
-  USDC: { address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', symbol:'USDC', name:'USD Coin',    decimals:18, logo:'💲' },
-  BUSD: { address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', symbol:'BUSD', name:'BUSD',        decimals:18, logo:'🟢' },
-  ETH:  { address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8', symbol:'ETH',  name:'Ethereum',   decimals:18, logo:'💎' },
-  INDC: { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin',   decimals:9,  logo:'🪙', notListed:true },
+  BNB:  { address:'BNB',  symbol:'BNB',  name:'BNB',        decimals:18 },
+  USDT: { address:'0x55d398326f99059fF775485246999027B3197955', symbol:'USDT', name:'Tether USD', decimals:18 },
+  USDC: { address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', symbol:'USDC', name:'USD Coin',    decimals:18 },
+  BUSD: { address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', symbol:'BUSD', name:'BUSD',        decimals:18 },
+  ETH:  { address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8', symbol:'ETH',  name:'Ethereum',   decimals:18 },
+  INDC: { address:'0xD772c96e1beFd2ea9C9a83182c71f4d32f306571', symbol:'INDC', name:'Indocoin',   decimals:9,  notListed:true },
 };
 let swapTokens=[], swapFromToken=null, swapToToken=null, swapPickerFor='from', swapEstTimer=null;
 
@@ -2196,7 +2196,8 @@ async function swapLoadTokens() {
 function swapSetTokenUI(side){
   const tk=side==='from'?swapFromToken:swapToToken; if(!tk)return;
   const s=side.charAt(0).toUpperCase()+side.slice(1);
-  document.getElementById('swap'+s+'Logo').textContent=tk.logo||'🪙';
+  const logoEl=document.getElementById('swap'+s+'Logo');
+  if(logoEl) logoEl.textContent='';
   document.getElementById('swap'+s+'Sym').textContent=tk.symbol;
 }
 async function swapUpdateBals(){
@@ -2255,12 +2256,20 @@ function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
   document.getElementById('swapPickerOverlay').style.display='flex';
-  if(swapTokens.length > 0){
-    swapRenderTokenList(swapTokens);
-  } else {
-    // Show loading state
-    document.getElementById('swapPickerList').innerHTML='<div style="padding:30px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT TOKEN...</div>';
-    swapLoadTokens().then(()=>swapRenderTokenList(swapTokens));
+  // Tampilkan KNOWN_TOKENS dulu agar langsung ada isinya
+  const quickList = Object.values(KNOWN_TOKENS).map(tk=>({
+    ...tk,
+    balFmt: swapTokens.find(t=>t.symbol===tk.symbol)?.balFmt || '—'
+  }));
+  swapRenderTokenList(quickList);
+  // Load balance asli di background, update list setelah selesai
+  if(window.userAddress){
+    swapLoadTokens().then(()=>{
+      if(document.getElementById('swapPickerOverlay').style.display!=='none'){
+        const q=document.getElementById('swapPickerSearch').value;
+        if(q) swapFilterTokens(q); else swapRenderTokenList(swapTokens);
+      }
+    });
   }
 }
 function swapClosePicker(){document.getElementById('swapPickerOverlay').style.display='none';}
@@ -2271,7 +2280,7 @@ function swapFilterTokens(q){
 function swapRenderTokenList(list){
   document.getElementById('swapPickerList').innerHTML=list.map(tk=>`
     <div onclick="swapSelectToken('${tk.symbol}')" style="display:flex;align-items:center;gap:12px;padding:12px 18px;cursor:pointer;border-bottom:1px solid var(--border2);" onmouseover="this.style.background='rgba(200,146,42,0.05)'" onmouseout="this.style.background='transparent'">
-      <span style="font-size:22px;width:30px;text-align:center;">${tk.logo||'🪙'}</span>
+  
       <div style="flex:1;">
         <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);">${tk.symbol}${tk.notListed?'<span style="font-size:8px;color:var(--muted);margin-left:6px;">(segera)</span>':''}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:2px;">${tk.name}</div>
