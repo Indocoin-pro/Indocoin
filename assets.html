@@ -2307,8 +2307,8 @@ async function swapSetMax(){
   if(!swapFromToken||!userAddress)return;
   try{
     const p=new ethers.BrowserProvider(window.ethereum);
-    if(swapFromToken.address==='BNB'){const b=await p.getBalance(window.userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
-    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(window.userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
+    if(swapFromToken.address==='BNB'){const b=await p.getBalance(userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
+    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
     swapUpdateEst();
   }catch(e){}
 }
@@ -2391,9 +2391,9 @@ async function doSwap(){
     const amounts=await router.getAmountsOut(amtIn,path);
     const minOut=amounts[amounts.length-1]*99n/100n;
     let tx;
-    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,window.userAddress,deadline,{value:amtIn});}
-    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,window.userAddress,deadline);}
-    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,window.userAddress,deadline);}
+    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,userAddress,deadline,{value:amtIn});}
+    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,userAddress,deadline);}
+    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,userAddress,deadline);}
     st.textContent='Menunggu konfirmasi...';await tx.wait();
     st.style.color='var(--green)';st.textContent='✅ Swap berhasil!';
     document.getElementById('swapFromAmt').value='';document.getElementById('swapToAmt').textContent='—';
@@ -2426,20 +2426,20 @@ function sbBridgeDir(dir) {
 }
 async function sbLoadBridgeBal() {
   const el = document.getElementById('bridgeBal');
-  if(!window.userAddress){ el.textContent='—'; return; }
+  if(!userAddress){ el.textContent='—'; return; }
   try {
     if(sbBridgeDir_==='toInd') {
       const p = new ethers.BrowserProvider(window.ethereum);
       const net = await p.getNetwork();
       if(Number(net.chainId)!==SB.BSC_ID){ el.textContent='(Switch ke BSC)'; return; }
       const c = new ethers.Contract(SB.USDT_BSC, ERC20, p);
-      const b = await c.balanceOf(window.userAddress);
+      const b = await c.balanceOf(userAddress);
       const d = await c.decimals();
       el.textContent = parseFloat(ethers.formatUnits(b,d)).toFixed(4)+' USDT';
     } else {
       const p = new ethers.JsonRpcProvider(SB.IND_RPC);
       const c = new ethers.Contract(SB.USDT_IND, ERC20, p);
-      const b = await c.balanceOf(window.userAddress);
+      const b = await c.balanceOf(userAddress);
       const d = await c.decimals();
       el.textContent = parseFloat(ethers.formatUnits(b,d)).toFixed(4)+' USDT';
     }
@@ -2463,7 +2463,7 @@ async function doBridge() {
   const st = document.getElementById('bridgeStatus');
   const btn = document.getElementById('btnBridge');
   try {
-    if(!window.userAddress){ st.textContent='Connect wallet dulu!'; return; }
+    if(!userAddress){ st.textContent='Connect wallet dulu!'; return; }
     const amt = parseFloat(document.getElementById('bridgeAmt').value);
     if(!amt||amt<=0){ st.textContent='Masukkan jumlah valid'; return; }
 
@@ -2484,10 +2484,10 @@ async function doBridge() {
       const vault = new ethers.Contract(SB.VAULT, VAULT_ABI, signer);
       const dec = await usdt.decimals();
       const amtWei = ethers.parseUnits(amt.toString(), dec);
-      const allow = await usdt.allowance(window.userAddress, SB.VAULT);
+      const allow = await usdt.allowance(userAddress, SB.VAULT);
       if(allow < amtWei){ st.textContent='Approve USDT...'; await (await usdt.approve(SB.VAULT, amtWei)).wait(); }
       st.textContent='Mengunci USDT di BSC...';
-      await (await vault.lockToken(SB.USDT_BSC, amtWei, SB.IND_ID, window.userAddress)).wait(3);
+      await (await vault.lockToken(SB.USDT_BSC, amtWei, SB.IND_ID, userAddress)).wait(3);
       st.style.color='var(--green)'; st.textContent='✅ Lock berhasil! Relayer akan mint di INDChain ~60 detik';
     } else {
       if(Number(net.chainId)!==SB.IND_ID){
@@ -2505,7 +2505,7 @@ async function doBridge() {
       const dec = await usdt.decimals();
       const amtWei = ethers.parseUnits(amt.toString(), dec);
       st.textContent='Burn USDT di INDChain...';
-      await (await mintC.burnToken(SB.USDT_IND, amtWei, SB.BSC_ID, window.userAddress)).wait(1);
+      await (await mintC.burnToken(SB.USDT_IND, amtWei, SB.BSC_ID, userAddress)).wait(1);
       st.style.color='var(--green)'; st.textContent='✅ Burn berhasil! Relayer akan release di BSC ~60 detik';
     }
     sbLoadBridgeBal();
@@ -2516,7 +2516,7 @@ async function doBridge() {
 
 // ── Auto-connect hook — cek wallet tiap 800ms, load balance begitu connect ──
 const _sbWatchWallet = setInterval(()=>{
-  if(window.userAddress){
+  if(userAddress){
     swapLoadTokens();
     const panelBridge = document.getElementById('panelBridge');
     if(panelBridge && panelBridge.style.display !== 'none') sbLoadBridgeBal();
@@ -2647,9 +2647,17 @@ function sbCrossChainFallback(){} // deprecated
 <!-- CC FULLSCREEN OVERLAY -->
 <div id="ccFullscreen" style="display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;">
   <!-- Bar INDOCOIN atas -->
-  <div style="display:flex;align-items:center;justify-content:center;padding:0 16px;height:48px;background:linear-gradient(135deg,#1a1200,#2a1f00);border-bottom:2px solid var(--gold);flex-shrink:0;">
-    <span style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:3px;">INDOCOIN</span>
-    <span style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--muted);letter-spacing:2px;margin-left:10px;">CROSS-CHAIN</span>
+  <div style="display:flex;align-items:center;padding:0 16px;height:52px;background:linear-gradient(135deg,#1a1200,#2a1f00);border-bottom:2px solid var(--gold);flex-shrink:0;">
+    <button onclick="ccTutupFullscreen()" style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:8px 0;">
+      <span style="font-size:20px;color:var(--gold2);">←</span>
+      <span style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:1px;">KEMBALI</span>
+    </button>
+    <div style="flex:1;text-align:center;">
+      <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;">INDOCOIN</span>
+    </div>
+    <div style="width:80px;text-align:right;">
+      <span style="font-size:8px;color:var(--muted);letter-spacing:1px;">CROSS-CHAIN</span>
+    </div>
   </div>
   <!-- Iframe Jumper -->
   <iframe id="ccFullIframe" style="flex:1;border:none;width:100%;" allow="clipboard-read; clipboard-write; web3"></iframe>
