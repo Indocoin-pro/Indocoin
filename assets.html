@@ -1149,6 +1149,7 @@ window.addEventListener("load", async () => {
         signer      = await provider.getSigner();
         userAddress = await signer.getAddress();
         await loadWalletData();
+        swapLoadTokens();
         showConnected();
         return;
       }
@@ -2276,8 +2277,20 @@ function swapOpenPicker(side){
   swapPickerFor=side;
   document.getElementById('swapPickerSearch').value='';
   document.getElementById('swapPickerOverlay').style.display='flex';
-  const list=side==='from'?(swapFromTokens.length>0?swapFromTokens:swapTokens):(swapAllTokens.length>0?swapAllTokens:swapTokens);
-  swapRenderTokenList(list);
+  const fromReady = swapFromTokens.length>0;
+  const allReady  = swapAllTokens.length>0;
+  const list = side==='from' ? (fromReady?swapFromTokens:swapTokens) : (allReady?swapAllTokens:swapTokens);
+  if(list.length > 0){
+    swapRenderTokenList(list);
+  } else {
+    // Belum ada data — tampil loading lalu load
+    document.getElementById('swapPickerList').innerHTML =
+      '<div style="padding:20px;text-align:center;font-size:9px;color:var(--muted);letter-spacing:1px;">MEMUAT...</div>';
+    swapLoadTokens().then(()=>{
+      const fresh = side==='from'?(swapFromTokens.length>0?swapFromTokens:swapTokens):(swapAllTokens.length>0?swapAllTokens:swapTokens);
+      swapRenderTokenList(fresh);
+    });
+  }
 }
 function swapClosePicker(){document.getElementById('swapPickerOverlay').style.display='none';}
 function swapFilterTokens(q){
