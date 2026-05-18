@@ -2260,8 +2260,8 @@ async function swapSetMax(){
   if(!swapFromToken||!userAddress)return;
   try{
     const p=new ethers.BrowserProvider(window.ethereum);
-    if(swapFromToken.address==='BNB'){const b=await p.getBalance(window.userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
-    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(window.userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
+    if(swapFromToken.address==='BNB'){const b=await p.getBalance(userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
+    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
     swapUpdateEst();
   }catch(e){}
 }
@@ -2344,9 +2344,9 @@ async function doSwap(){
     const amounts=await router.getAmountsOut(amtIn,path);
     const minOut=amounts[amounts.length-1]*99n/100n;
     let tx;
-    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,window.userAddress,deadline,{value:amtIn});}
-    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,window.userAddress,deadline);}
-    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,window.userAddress,deadline);}
+    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,userAddress,deadline,{value:amtIn});}
+    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,userAddress,deadline);}
+    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,userAddress,deadline);}
     st.textContent='Menunggu konfirmasi...';await tx.wait();
     st.style.color='var(--green)';st.textContent='✅ Swap berhasil!';
     document.getElementById('swapFromAmt').value='';document.getElementById('swapToAmt').textContent='—';
