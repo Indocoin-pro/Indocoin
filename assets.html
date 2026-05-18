@@ -336,18 +336,66 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
 
       <!-- ── CROSS-CHAIN PANEL ── -->
-      <div id="panelCrossChain" style="display:none;">
-        <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px;">POWERED BY LI.FI</span>
-          <a href="https://jumper.exchange" target="_blank" style="font-size:8px;color:var(--gold);text-decoration:none;font-family:'Orbitron',sans-serif;letter-spacing:1px;">BUKA ↗</a>
+      <div id="panelCrossChain" style="display:none;padding:16px;">
+
+        <!-- FROM chain & token -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">DARI JARINGAN</div>
+            <select id="ccFromChain" onchange="ccLoadFromTokens()" style="width:100%;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:9px 8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">KE JARINGAN</div>
+            <select id="ccToChain" onchange="ccLoadToTokens()" style="width:100%;background:#1a1a1a;border:1px solid var(--border);border-radius:8px;padding:9px 8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
+          </div>
         </div>
-        <iframe
-          id="crossChainFrame"
-          src="https://widget.li.fi/own-chain?theme=dark&fromChain=56&toChain=137&bg=0d0d0d&accentColor=c8922a"
-          style="width:100%;height:520px;border:none;border-radius:0 0 12px 12px;"
-          allow="clipboard-read; clipboard-write; web3"
-          loading="lazy">
-        </iframe>
+
+        <!-- FROM token & amount -->
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">TOKEN KIRIM</div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="ccFromToken" onchange="ccGetQuote()" style="background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:7px 8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;flex:1;"></select>
+            <input id="ccFromAmt" type="number" placeholder="0.00" oninput="ccGetQuote()"
+              style="flex:1.2;background:transparent;border:none;font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--text);outline:none;text-align:right;">
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:5px;">Saldo: <span id="ccFromBal" style="color:var(--gold2);">—</span></div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="text-align:center;margin-bottom:12px;">
+          <span style="font-size:20px;color:var(--gold2);">↓</span>
+        </div>
+
+        <!-- TO token -->
+        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">TOKEN TERIMA</div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="ccToToken" onchange="ccGetQuote()" style="background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:7px 8px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;flex:1;"></select>
+            <div id="ccToAmt" style="flex:1.2;font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--gold2);text-align:right;">—</div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:5px;">Saldo: <span id="ccToBal" style="color:var(--gold2);">—</span></div>
+        </div>
+
+        <!-- Route info -->
+        <div id="ccRouteInfo" style="display:none;background:rgba(200,146,42,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:9px;color:var(--muted);">Estimasi terima</span>
+            <span id="ccEstOut" style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:9px;color:var(--muted);">Durasi</span>
+            <span id="ccDuration" style="font-size:9px;color:var(--text);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:9px;color:var(--muted);">Fee gas</span>
+            <span id="ccFee" style="font-size:9px;color:var(--text);">—</span>
+          </div>
+        </div>
+
+        <button id="btnCrossChain" onclick="doCrossChain()" style="width:100%;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;padding:13px;cursor:pointer;">
+          CROSS-CHAIN SWAP
+        </button>
+        <div id="ccStatus" style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px;min-height:14px;"></div>
       </div>
 
     </div>
@@ -2146,7 +2194,7 @@ function sbTab(tab) {
   });
   if(tab === 'bridge')     sbLoadBridgeBal();
   if(tab === 'swap')       sbLoadSwapBal();
-  if(tab === 'crosschain') setTimeout(sbCrossChainFallback, 100);
+  if(tab === 'crosschain' && ccChains.length===0) ccInit();
 }
 
 // ── SWAP — On-chain BSC via PancakeSwap Router (no redirect) ──
@@ -2260,8 +2308,8 @@ async function swapSetMax(){
   if(!swapFromToken||!userAddress)return;
   try{
     const p=new ethers.BrowserProvider(window.ethereum);
-    if(swapFromToken.address==='BNB'){const b=await p.getBalance(userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
-    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
+    if(swapFromToken.address==='BNB'){const b=await p.getBalance(window.userAddress);const f=parseFloat(ethers.formatEther(b));document.getElementById('swapFromAmt').value=(f>0.002?f-0.002:0).toFixed(4);}
+    else{const c=new ethers.Contract(swapFromToken.address,ERC20_SWAP,p);const b=await c.balanceOf(window.userAddress);document.getElementById('swapFromAmt').value=parseFloat(ethers.formatUnits(b,swapFromToken.decimals)).toFixed(4);}
     swapUpdateEst();
   }catch(e){}
 }
@@ -2344,9 +2392,9 @@ async function doSwap(){
     const amounts=await router.getAmountsOut(amtIn,path);
     const minOut=amounts[amounts.length-1]*99n/100n;
     let tx;
-    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,userAddress,deadline,{value:amtIn});}
-    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,userAddress,deadline);}
-    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,userAddress,deadline);}
+    if(swapFromToken.address==='BNB'){st.textContent='Konfirmasi di wallet...';tx=await router.swapExactETHForTokens(minOut,path,window.userAddress,deadline,{value:amtIn});}
+    else if(swapToToken.address==='BNB'){st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForETH(amtIn,minOut,path,window.userAddress,deadline);}
+    else{st.textContent='Approve...';const c=new ethers.Contract(fA,ERC20_SWAP,signer);if(await c.allowance(window.userAddress,PCAKE_ROUTER)<amtIn)await(await c.approve(PCAKE_ROUTER,amtIn)).wait();st.textContent='Konfirmasi di wallet...';tx=await router.swapExactTokensForTokens(amtIn,minOut,path,window.userAddress,deadline);}
     st.textContent='Menunggu konfirmasi...';await tx.wait();
     st.style.color='var(--green)';st.textContent='✅ Swap berhasil!';
     document.getElementById('swapFromAmt').value='';document.getElementById('swapToAmt').textContent='—';
@@ -2481,38 +2529,171 @@ const _sbWatchWallet = setInterval(()=>{
 document.addEventListener('walletConnected', ()=>{ sbLoadBridgeBal(); });
 
 // Cross-chain iframe fallback jika li.fi widget tidak load
-function sbCrossChainFallback() {
-  const frame = document.getElementById('crossChainFrame');
-  if(!frame) return;
-  frame.onerror = () => {
-    frame.src = 'https://jumper.exchange/?fromChain=56&toChain=137';
-  };
-  // Coba jumper jika widget li.fi gagal setelah 5 detik
-  setTimeout(()=>{
-    try {
-      const h = frame.contentWindow.document.body;
-      if(!h || !h.innerHTML) throw new Error('empty');
-    } catch(e) {
-      // iframe blocked by CSP, tampilkan tombol redirect
-      const parent = frame.parentElement;
-      if(parent && !document.getElementById('ccFallbackBtn')) {
-        const btn = document.createElement('div');
-        btn.id = 'ccFallbackBtn';
-        btn.style.cssText = 'padding:40px 20px;text-align:center;';
-        btn.innerHTML = `
-          <div style="font-size:32px;margin-bottom:16px;">🌐</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold2);margin-bottom:8px;letter-spacing:2px;">CROSS-CHAIN SWAP</div>
-          <div style="font-size:9px;color:var(--muted);margin-bottom:20px;line-height:1.7;">Tukar aset lintas jaringan via<br>platform terpercaya Li.Fi</div>
-          <a href="https://jumper.exchange/?fromChain=56&toChain=137" target="_blank"
-            style="display:inline-block;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,#c8922a,#e8a830);border-radius:10px;padding:13px 24px;text-decoration:none;">
-            BUKA JUMPER.EXCHANGE ↗
-          </a>
-          <div style="margin-top:12px;font-size:8px;color:var(--muted);">Powered by Li.Fi Protocol</div>`;
-        frame.style.display = 'none';
-        parent.appendChild(btn);
-      }
+// ══ CROSS-CHAIN via Li.Fi API ══════════════════════════════
+const LIFI = 'https://li.quest/v1';
+const INDC_ADDR = '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
+
+let ccChains=[], ccFromTokenList=[], ccToTokenList=[], ccQuoteData=null, ccQuoteTimer=null;
+
+async function ccInit() {
+  try {
+    // Load chains
+    const res = await fetch(`${LIFI}/chains`);
+    const data = await res.json();
+    ccChains = data.chains || [];
+
+    const fromSel = document.getElementById('ccFromChain');
+    const toSel   = document.getElementById('ccToChain');
+    fromSel.innerHTML = ccChains.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    toSel.innerHTML   = ccChains.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+    // Default: BSC → Polygon
+    fromSel.value = '56';
+    toSel.value   = '137';
+
+    await Promise.all([ccLoadFromTokens(), ccLoadToTokens()]);
+  } catch(e){ console.log('ccInit:',e); }
+}
+
+async function ccLoadFromTokens() {
+  const chainId = document.getElementById('ccFromChain').value;
+  const sel = document.getElementById('ccFromToken');
+  sel.innerHTML = '<option>Memuat...</option>';
+  try {
+    const res = await fetch(`${LIFI}/tokens?chains=${chainId}`);
+    const data = await res.json();
+    let tokens = (data.tokens?.[chainId] || []);
+    // Cek apakah INDC sudah listing (auto-detect)
+    const indcListed = tokens.some(t=>t.address.toLowerCase()===INDC_ADDR);
+    if(!indcListed && chainId==='56') {
+      // INDC belum listing, skip
     }
-  }, 5000);
+    // Filter top tokens by popularity
+    tokens = tokens.slice(0,50);
+    ccFromTokenList = tokens;
+    sel.innerHTML = tokens.map(t=>`<option value="${t.address}">${t.symbol}</option>`).join('');
+    // Default USDT
+    const usdt = tokens.find(t=>t.symbol==='USDT'||t.symbol==='BUSD');
+    if(usdt) sel.value = usdt.address;
+    ccUpdateFromBal();
+  } catch(e){ sel.innerHTML='<option>Error</option>'; }
+}
+
+async function ccLoadToTokens() {
+  const chainId = document.getElementById('ccToChain').value;
+  const sel = document.getElementById('ccToToken');
+  sel.innerHTML = '<option>Memuat...</option>';
+  try {
+    const res = await fetch(`${LIFI}/tokens?chains=${chainId}`);
+    const data = await res.json();
+    let tokens = (data.tokens?.[chainId] || []).slice(0,50);
+    ccToTokenList = tokens;
+    sel.innerHTML = tokens.map(t=>`<option value="${t.address}">${t.symbol}</option>`).join('');
+    const usdt = tokens.find(t=>t.symbol==='USDT'||t.symbol==='BUSD');
+    if(usdt) sel.value = usdt.address;
+  } catch(e){ sel.innerHTML='<option>Error</option>'; }
+}
+
+async function ccUpdateFromBal() {
+  if(!userAddress) return;
+  try {
+    const chainId = document.getElementById('ccFromChain').value;
+    const tokenAddr = document.getElementById('ccFromToken').value;
+    const el = document.getElementById('ccFromBal');
+    if(tokenAddr==='0x0000000000000000000000000000000000000000'||tokenAddr==='BNB'||tokenAddr==='ETH'){
+      const p = new ethers.BrowserProvider(window.ethereum);
+      const b = await p.getBalance(userAddress);
+      el.textContent = parseFloat(ethers.formatEther(b)).toFixed(4);
+    } else {
+      const p = new ethers.JsonRpcProvider(
+        chainId==='56' ? 'https://bsc-dataseed.binance.org' : `https://rpc.ankr.com/eth`
+      );
+      const c = new ethers.Contract(tokenAddr,['function balanceOf(address) view returns(uint256)','function decimals() view returns(uint8)'],p);
+      const [b,d] = await Promise.all([c.balanceOf(userAddress),c.decimals()]);
+      el.textContent = parseFloat(ethers.formatUnits(b,d)).toFixed(4);
+    }
+  } catch(e){}
+}
+
+async function ccGetQuote() {
+  clearTimeout(ccQuoteTimer);
+  ccQuoteTimer = setTimeout(async()=>{
+    const fromChain = document.getElementById('ccFromChain').value;
+    const toChain   = document.getElementById('ccToChain').value;
+    const fromToken = document.getElementById('ccFromToken').value;
+    const toToken   = document.getElementById('ccToToken').value;
+    const amt       = parseFloat(document.getElementById('ccFromAmt').value)||0;
+    const ri        = document.getElementById('ccRouteInfo');
+    if(!amt||amt<=0||!fromToken||!toToken){ ri.style.display='none'; document.getElementById('ccToAmt').textContent='—'; return; }
+    if(!userAddress){ document.getElementById('ccStatus').textContent='Connect wallet dulu'; return; }
+    document.getElementById('ccStatus').textContent='Mencari route...';
+    try {
+      const fromTk = ccFromTokenList.find(t=>t.address===fromToken);
+      const dec = fromTk?.decimals||18;
+      const amtWei = Math.floor(amt * Math.pow(10,dec)).toString();
+      const url = `${LIFI}/quote?fromChain=${fromChain}&toChain=${toChain}&fromToken=${fromToken}&toToken=${toToken}&fromAmount=${amtWei}&fromAddress=${userAddress}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.errors||!data.estimate){ ri.style.display='none'; document.getElementById('ccStatus').textContent='Route tidak ditemukan'; return; }
+      ccQuoteData = data;
+      const toTk = ccToTokenList.find(t=>t.address===toToken);
+      const toDec = toTk?.decimals||18;
+      const toAmt = parseFloat(ethers.formatUnits(data.estimate.toAmount||'0', toDec)).toFixed(6);
+      document.getElementById('ccToAmt').textContent = toAmt;
+      document.getElementById('ccEstOut').textContent = toAmt+' '+(toTk?.symbol||'');
+      document.getElementById('ccDuration').textContent = Math.round((data.estimate.executionDuration||0)/60)+' menit';
+      const feeCosts = data.estimate.feeCosts||[];
+      const feeTotal = feeCosts.reduce((a,f)=>a+parseFloat(f.amountUSD||0),0);
+      document.getElementById('ccFee').textContent = feeTotal>0?'~$'+feeTotal.toFixed(2):'—';
+      ri.style.display='block';
+      document.getElementById('ccStatus').textContent='';
+    } catch(e){ document.getElementById('ccStatus').textContent='Error: '+e.message; }
+  }, 700);
+}
+
+async function doCrossChain() {
+  const st=document.getElementById('ccStatus'), btn=document.getElementById('btnCrossChain');
+  try {
+    if(!userAddress){ st.textContent='Connect wallet dulu!'; return; }
+    if(!ccQuoteData){ st.textContent='Dapatkan quote dulu'; return; }
+    const fromChain = parseInt(document.getElementById('ccFromChain').value);
+    const p = new ethers.BrowserProvider(window.ethereum);
+    const net = await p.getNetwork();
+    if(Number(net.chainId)!==fromChain){
+      st.textContent='Switch jaringan dulu!';
+      try{ await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x'+fromChain.toString(16)}]}); }catch(e){}
+      return;
+    }
+    btn.disabled=true; btn.textContent='MEMPROSES...'; st.style.color='var(--muted)';
+    const signer = await p.getSigner();
+    const tx = ccQuoteData.transactionRequest;
+    // Approve jika perlu
+    if(tx.approvalAddress && ccQuoteData.action?.fromToken?.address !== '0x0000000000000000000000000000000000000000'){
+      st.textContent='Approve token...';
+      const erc20 = new ethers.Contract(ccQuoteData.action.fromToken.address,
+        ['function approve(address,uint256) external returns(bool)','function allowance(address,address) view returns(uint256)'],signer);
+      const needed = BigInt(ccQuoteData.action.fromAmount||'0');
+      const allowed = await erc20.allowance(userAddress, tx.approvalAddress);
+      if(BigInt(allowed) < needed) await (await erc20.approve(tx.approvalAddress, needed)).wait();
+    }
+    st.textContent='Konfirmasi di wallet...';
+    const txSent = await signer.sendTransaction({
+      to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : 0n,
+      gasLimit: tx.gasLimit ? BigInt(tx.gasLimit) : undefined,
+    });
+    st.textContent='Menunggu konfirmasi...';
+    await txSent.wait();
+    st.style.color='var(--green)';
+    st.textContent='✅ Berhasil! Proses bridge berjalan ~'+Math.round((ccQuoteData.estimate?.executionDuration||120)/60)+' menit';
+    ccQuoteData=null; document.getElementById('ccRouteInfo').style.display='none';
+  } catch(e){
+    st.style.color='var(--red)';
+    st.textContent='❌ '+(e.reason||e.shortMessage||e.message||'Error').substring(0,60);
+  } finally { btn.disabled=false; btn.textContent='CROSS-CHAIN SWAP'; }
+}
+
+function sbCrossChainFallback(){
+  // Deprecated — diganti ccInit
 }
 </script>
 
