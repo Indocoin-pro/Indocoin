@@ -336,58 +336,21 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
 
       <!-- ── CROSS-CHAIN PANEL ── -->
-      <div id="panelCrossChain" style="display:none;padding:16px;">
-
-        <!-- FROM -->
-        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">DARI</div>
-        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:4px;">
-          <div style="display:flex;gap:8px;">
-            <select id="ccFromChain" onchange="ccOnChainChange('from')" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
-            <select id="ccFromToken" onchange="ccGetQuote()" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-            <span style="font-size:9px;color:var(--muted);">Saldo: <span id="ccFromBal" style="color:var(--gold2);">—</span></span>
-            <input id="ccFromAmt" type="number" placeholder="0.00" oninput="ccGetQuote()"
-              style="width:45%;background:transparent;border:none;font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--text);outline:none;text-align:right;">
-          </div>
+      <div id="panelCrossChain" style="display:none;">
+        <!-- iframe wrapper dengan overlay sembunyikan branding -->
+        <div style="position:relative;width:100%;height:580px;overflow:hidden;border-radius:0 0 12px 12px;">
+          <iframe
+            id="ccIframe"
+            style="width:100%;height:640px;border:none;margin-top:-0px;"
+            allow="clipboard-read; clipboard-write; web3">
+          </iframe>
+          <!-- Overlay kiri sembunyikan sidebar/logo -->
+          <div style="position:absolute;top:0;left:0;width:60px;height:100%;background:var(--bg2);z-index:2;"></div>
+          <!-- Overlay top sembunyikan header/navbar -->
+          <div id="ccTopOverlay" style="position:absolute;top:0;left:0;right:0;height:52px;background:var(--bg2);z-index:2;"></div>
+          <!-- Overlay bottom sembunyikan footer -->
+          <div style="position:absolute;bottom:0;left:0;right:0;height:36px;background:var(--bg2);z-index:2;"></div>
         </div>
-
-        <!-- Arrow -->
-        <div style="text-align:center;margin:8px 0;font-size:18px;color:var(--gold2);">↓</div>
-
-        <!-- TO -->
-        <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">KE</div>
-        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
-          <div style="display:flex;gap:8px;">
-            <select id="ccToChain" onchange="ccOnChainChange('to')" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
-            <select id="ccToToken" onchange="ccGetQuote()" style="flex:1;background:#1a1a1a;border:1px solid var(--border);border-radius:7px;padding:8px 6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text);outline:none;"></select>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-            <span style="font-size:9px;color:var(--muted);">Estimasi terima</span>
-            <div id="ccToAmt" style="font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--gold2);">—</div>
-          </div>
-        </div>
-
-        <!-- Info -->
-        <div id="ccRouteInfo" style="display:none;background:rgba(200,146,42,0.04);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:9px;color:var(--muted);">Estimasi terima</span>
-            <span id="ccEstOut" style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold2);">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:9px;color:var(--muted);">Durasi</span>
-            <span id="ccDuration" style="font-size:9px;color:var(--text);">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;">
-            <span style="font-size:9px;color:var(--muted);">Fee</span>
-            <span id="ccFee" style="font-size:9px;color:var(--text);">—</span>
-          </div>
-        </div>
-
-        <button id="btnCrossChain" onclick="doCrossChain()" style="width:100%;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#0a0a0a;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;padding:13px;cursor:pointer;">
-          CROSS-CHAIN SWAP
-        </button>
-        <div id="ccStatus" style="font-size:9px;text-align:center;margin-top:8px;min-height:14px;color:var(--muted);"></div>
       </div>
 
     </div>
@@ -2528,177 +2491,19 @@ const _sbWatchWallet = setInterval(()=>{
 // Juga hook ke event wallet connect jika ada
 document.addEventListener('walletConnected', ()=>{ sbLoadBridgeBal(); });
 
-// ══ CROSS-CHAIN SWAP — Rango Exchange API ══════════════════
-const RANGO_KEY = 'c6381a79-2817-4602-83bf-6a641a409e32';
-const RANGO_API = 'https://api.rango.exchange';
-const INDC_ADDR = '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
-var ccMeta=null, ccQuoteData=null, ccQuoteTimer=null;
-var ccChains=[];
+// ══ CROSS-CHAIN — iframe dengan overlay branding ══════════════
+// Daftar sumber cross-chain yang bisa diembed
+const CC_SOURCES = [
+  'https://app.uniswap.org/#/swap',
+  'https://bridge.arbitrum.io/?destinationChain=arbitrum-one&sourceChain=ethereum',
+  'https://jumper.exchange/?fromChain=56&toChain=137',
+];
 
-async function ccInit() {
-  const st = document.getElementById('ccStatus');
-  try {
-    if(st){ st.style.color='var(--muted)'; st.textContent='Memuat data...'; }
-    const res = await fetch(`${RANGO_API}/basic/meta?apiKey=${RANGO_KEY}`);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    ccMeta = await res.json();
-
-    // Build chain list dari blockchains
-    const chains = ccMeta.blockchains || [];
-    ccChains = chains;
-    const fromSel = document.getElementById('ccFromChain');
-    const toSel   = document.getElementById('ccToChain');
-    fromSel.innerHTML = chains.map(c=>`<option value="${c.name}">${c.displayName||c.name}</option>`).join('');
-    toSel.innerHTML   = chains.map(c=>`<option value="${c.name}">${c.displayName||c.name}</option>`).join('');
-
-    // Default BSC → Polygon
-    const bsc = chains.find(c=>c.name==='BSC'||c.name==='BNB Chain');
-    const pol = chains.find(c=>c.name==='POLYGON'||c.name==='Polygon');
-    if(bsc) fromSel.value = bsc.name;
-    if(pol) toSel.value = pol.name;
-
-    ccFillTokens('from');
-    ccFillTokens('to');
-    if(st) st.textContent='';
-  } catch(e){
-    console.log('ccInit err:',e);
-    if(st){ st.style.color='var(--red)'; st.textContent='❌ Gagal load: '+e.message; }
-  }
-}
-
-function ccFillTokens(side) {
-  const chainSel = document.getElementById(side==='from'?'ccFromChain':'ccToChain');
-  const tokSel   = document.getElementById(side==='from'?'ccFromToken':'ccToToken');
-  const chainName = chainSel.value;
-  if(!ccMeta) return;
-  const tokens = (ccMeta.tokens||[]).filter(t=>t.blockchain===chainName);
-  // Cek INDC auto-detect
-  const indcListed = tokens.some(t=>(t.address||'').toLowerCase()===INDC_ADDR);
-  tokSel.innerHTML = tokens.slice(0,80).map(t=>`<option value="${t.blockchain}--${t.symbol}--${t.address||''}">${t.symbol}</option>`).join('');
-  // Default USDT
-  const usdt = tokens.find(t=>t.symbol==='USDT');
-  if(usdt) tokSel.value = `${usdt.blockchain}--${usdt.symbol}--${usdt.address||''}`;
-  if(side==='from') ccUpdateFromBal();
-}
-
-function ccOnChainChange(side) {
-  ccFillTokens(side);
-  ccGetQuote();
-}
-
-async function ccUpdateFromBal() {
-  if(!userAddress) return;
-  const el = document.getElementById('ccFromBal');
-  try {
-    const tokVal = document.getElementById('ccFromToken').value;
-    const parts = tokVal.split('--');
-    const addr = parts[2]||'';
-    if(!addr || addr==='null'){
-      const p=new ethers.BrowserProvider(window.ethereum);
-      const b=await p.getBalance(userAddress);
-      el.textContent=parseFloat(ethers.formatEther(b)).toFixed(4);
-    } else {
-      const chainName = document.getElementById('ccFromChain').value;
-      if(chainName==='BSC'||chainName==='BNB Chain'){
-        const p=new ethers.BrowserProvider(window.ethereum);
-        const c=new ethers.Contract(addr,['function balanceOf(address) view returns(uint256)','function decimals() view returns(uint8)'],p);
-        const [b,d]=await Promise.all([c.balanceOf(userAddress),c.decimals()]);
-        el.textContent=parseFloat(ethers.formatUnits(b,d)).toFixed(4);
-      } else { el.textContent='—'; }
-    }
-  } catch(e){ el.textContent='—'; }
-}
-
-async function ccGetQuote() {
-  clearTimeout(ccQuoteTimer);
-  ccQuoteTimer = setTimeout(async()=>{
-    const amt = parseFloat(document.getElementById('ccFromAmt').value)||0;
-    const fromVal = document.getElementById('ccFromToken').value;
-    const toVal   = document.getElementById('ccToToken').value;
-    const ri = document.getElementById('ccRouteInfo');
-    if(!amt||!fromVal||!toVal||fromVal===toVal){ ri.style.display='none'; document.getElementById('ccToAmt').textContent='—'; return; }
-    const st = document.getElementById('ccStatus');
-    st.style.color='var(--muted)'; st.textContent='Mencari route...';
-    try {
-      const [fChain,fSym,fAddr] = fromVal.split('--');
-      const [tChain,tSym,tAddr] = toVal.split('--');
-      const fromTk = (ccMeta?.tokens||[]).find(t=>t.blockchain===fChain&&t.symbol===fSym);
-      const dec = fromTk?.decimals||18;
-      const amtStr = (amt * Math.pow(10,dec)).toFixed(0);
-      const url = `${RANGO_API}/basic/quote?apiKey=${RANGO_KEY}&from=${fChain}.${fSym}${fAddr?'.'+fAddr:''}&to=${tChain}.${tSym}${tAddr?'.'+tAddr:''}&amount=${amtStr}`;
-      const res = await fetch(url);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
-      ccQuoteData = data;
-      const best = data.route;
-      if(!best){ ri.style.display='none'; st.textContent='Route tidak ditemukan'; return; }
-      const toTk = (ccMeta?.tokens||[]).find(t=>t.blockchain===tChain&&t.symbol===tSym);
-      const tDec = toTk?.decimals||18;
-      const toAmt = parseFloat(best.outputAmount||'0') / Math.pow(10,tDec);
-      document.getElementById('ccToAmt').textContent = toAmt.toFixed(6);
-      document.getElementById('ccEstOut').textContent = toAmt.toFixed(6)+' '+tSym;
-      document.getElementById('ccDuration').textContent = (best.estimatedTimeInSeconds||60)+'s';
-      document.getElementById('ccFee').textContent = best.fee?best.fee.map(f=>f.expenseType+': '+f.amount).join(', '):'—';
-      ri.style.display='block'; st.textContent='';
-    } catch(e){ st.style.color='var(--red)'; st.textContent='❌ '+e.message; }
-  }, 700);
-}
-
-async function doCrossChain() {
-  const st=document.getElementById('ccStatus'), btn=document.getElementById('btnCrossChain');
-  if(!userAddress){ st.textContent='Connect wallet dulu!'; return; }
-  if(!ccQuoteData?.route){ st.textContent='Dapatkan quote dulu'; return; }
-  try {
-    btn.disabled=true; btn.textContent='MEMPROSES...';
-    st.style.color='var(--muted)'; st.textContent='Membuat transaksi...';
-    const fromVal = document.getElementById('ccFromToken').value;
-    const [fChain,fSym,fAddr] = fromVal.split('--');
-    const toVal = document.getElementById('ccToToken').value;
-    const [tChain,tSym,tAddr] = toVal.split('--');
-    const amt = parseFloat(document.getElementById('ccFromAmt').value)||0;
-    const fromTk = (ccMeta?.tokens||[]).find(t=>t.blockchain===fChain&&t.symbol===fSym);
-    const dec = fromTk?.decimals||18;
-    const amtStr = (amt * Math.pow(10,dec)).toFixed(0);
-    // Ambil tx dari Rango
-    const swapRes = await fetch(`${RANGO_API}/basic/swap?apiKey=${RANGO_KEY}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        from:`${fChain}.${fSym}${fAddr?'.'+fAddr:''}`,
-        to:`${tChain}.${tSym}${tAddr?'.'+tAddr:''}`,
-        amount:amtStr, fromAddress:userAddress, toAddress:userAddress,
-        disableEstimate:false, slippage:'1.0'
-      })
-    });
-    if(!swapRes.ok) throw new Error('Swap API error: '+swapRes.status);
-    const swapData = await swapRes.json();
-    const tx = swapData.tx;
-    if(!tx) throw new Error('Tidak ada data transaksi');
-    const p = new ethers.BrowserProvider(window.ethereum);
-    const signer = await p.getSigner();
-    // Approve jika perlu
-    if(tx.approveData && fAddr && fAddr!=='null'){
-      st.textContent='Approve token...';
-      const erc20=new ethers.Contract(fAddr,['function approve(address,uint256) external returns(bool)','function allowance(address,address) view returns(uint256)'],signer);
-      const spender=tx.approveData.spenderAddress||tx.txTo;
-      const needed=BigInt(amtStr);
-      const allowed=await erc20.allowance(userAddress,spender);
-      if(BigInt(allowed)<needed) await(await erc20.approve(spender,needed)).wait();
-    }
-    st.textContent='Konfirmasi di wallet...';
-    const txSent = await signer.sendTransaction({
-      to:tx.txTo, data:tx.txData,
-      value:tx.value?BigInt(tx.value):0n,
-      gasLimit:tx.gasLimit?BigInt(tx.gasLimit):undefined,
-    });
-    st.textContent='Menunggu konfirmasi...';
-    await txSent.wait();
-    st.style.color='var(--green)';
-    st.textContent='✅ Berhasil! Proses bridge berjalan ~'+(ccQuoteData.route?.estimatedTimeInSeconds||60)+'s';
-    ccQuoteData=null; document.getElementById('ccRouteInfo').style.display='none';
-  } catch(e){
-    st.style.color='var(--red)';
-    st.textContent='❌ '+(e.reason||e.shortMessage||e.message||'Error').substring(0,60);
-  } finally{ btn.disabled=false; btn.textContent='CROSS-CHAIN SWAP'; }
+function ccInit() {
+  const iframe = document.getElementById('ccIframe');
+  if(!iframe) return;
+  // Pakai jumper.exchange dengan dark theme
+  iframe.src = 'https://jumper.exchange/?fromChain=56&toChain=137&theme=dark';
 }
 
 function sbCrossChainFallback(){} // deprecated
