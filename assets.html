@@ -2538,16 +2538,20 @@ document.addEventListener('walletConnected', ()=>{ sbLoadBridgeBal(); });
 
 // Cross-chain iframe fallback jika li.fi widget tidak load
 // ══ CROSS-CHAIN via Li.Fi API ══════════════════════════════
-const LIFI = 'https://li.quest/v1';
+const LIFI = 'https://api.li.fi/v1';
 const INDC_ADDR = '0xd772c96e1befd2ea9c9a83182c71f4d32f306571';
 var ccChains=[], ccFromTokenList=[], ccToTokenList=[], ccQuoteData=null, ccQuoteTimer=null;
 
 async function ccInit() {
+  const st = document.getElementById('ccStatus');
   try {
+    if(st) { st.style.color='var(--muted)'; st.textContent='Memuat data jaringan...'; }
     // Load chains
     const res = await fetch(`${LIFI}/chains`);
+    if(!res.ok) throw new Error('API error: '+res.status);
     const data = await res.json();
     ccChains = data.chains || [];
+    if(st) st.textContent='';
 
     const fromSel = document.getElementById('ccFromChain');
     const toSel   = document.getElementById('ccToChain');
@@ -2559,7 +2563,11 @@ async function ccInit() {
     toSel.value   = '137';
 
     await Promise.all([ccLoadFromTokens(), ccLoadToTokens()]);
-  } catch(e){ console.log('ccInit:',e); }
+  } catch(e){
+    console.log('ccInit:',e);
+    const st=document.getElementById('ccStatus');
+    if(st){ st.style.color='var(--red)'; st.textContent='❌ Gagal load: '+e.message; }
+  }
 }
 
 async function ccLoadFromTokens() {
