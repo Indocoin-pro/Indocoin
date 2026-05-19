@@ -449,6 +449,41 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
     </div>
 
+        <!-- REWARD SECTION -->
+    <div class="sec-hd">KOMISI REFERRAL</div>
+    <div class="card" id="rewardCard" style="background:#141414;border-radius:12px;">
+
+      <!-- Summary total -->
+      <div style="display:flex;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1e1e1e;">
+        <div>
+          <div style="font-size:7px;color:#555;letter-spacing:2px;margin-bottom:4px;">TOTAL USDT</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="rewardTotalUsdt">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:7px;color:#555;letter-spacing:2px;margin-bottom:4px;">TOTAL INDC</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="rewardTotalIndc">—</div>
+        </div>
+      </div>
+
+      <!-- Toggle list -->
+      <button onclick="toggleRewardList()" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:transparent;border:none;padding:12px 16px;cursor:pointer;border-bottom:1px solid #1e1e1e;">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:2px;">DETAIL REWARD</span>
+        <span id="arrowReward" style="color:var(--gold2);font-size:14px;transition:transform 0.2s;">▼</span>
+      </button>
+
+      <!-- List reward -->
+      <div id="rewardListPanel" style="display:none;">
+        <!-- Header kolom -->
+        <div style="display:flex;padding:8px 14px;background:rgba(0,0,0,0.3);">
+          <div style="flex:1.5;font-size:7px;color:#555;letter-spacing:1px;">PROGRAM</div>
+          <div style="flex:1;text-align:center;font-size:7px;color:#555;letter-spacing:1px;">REWARD</div>
+          <div style="flex:0.9;text-align:right;font-size:7px;color:#555;letter-spacing:1px;">AKSI</div>
+        </div>
+        <div id="rewardRows"></div>
+      </div>
+    </div>
+
+
         <!-- TOKEN TERKUNCI & RIWAYAT TRANSAKSI -->
     <div style="display:flex;gap:10px;margin-bottom:6px;margin-top:40px;">
       <button onclick="toggleSection('lockedSection','arrowLocked')" style="flex:1;display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 14px;cursor:pointer;">
@@ -1107,6 +1142,7 @@ async function renderTX() {
 /* ═══ SHOW CONNECTED ═══ */
 function showConnected() {
   setTimeout(updateTerkumpul, 500);
+  setTimeout(loadAllRewards, 1500);
   document.getElementById("notConnected").classList.remove("show");
   document.getElementById("connectedContent").style.display = "block";
 }
@@ -2534,6 +2570,162 @@ function ccLanjutkan() {
 }
 
 function sbCrossChainFallback(){} // deprecated
+
+// ══ REWARD AGGREGATOR ══════════════════════════════════════════
+const REWARD_PROGRAMS = [
+  // ── PROGRAM LAINNYA ──
+  { id:'presale',       name:'Presale',               unit:'USDT', status:'live',   contract:'0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d', fn:'pendingKomisi',  group:'lain' },
+  { id:'membervip',     name:'Member VIP',            unit:'INDC', status:'live',   contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'pendingReward',  group:'lain' },
+  { id:'merchant',      name:'Merchant',              unit:'INDC', status:'live',   contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'pendingReward',  group:'lain' },
+  { id:'stairway',      name:'Stairway to Heaven',    unit:'INDC', status:'live',   contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'pendingBonus',   group:'lain' },
+  { id:'indcstaking',   name:'INDC Staking',          unit:'INDC', status:'live',   contract:'0x2C00473e14865995f0AcC83dA407d819647Af819', fn:'pendingReward',  group:'lain' },
+  // ── STAKING ──
+  { id:'growthlock',    name:'Growth Lock',           unit:'INDC', status:'live',   contract:'0xcb9261633af02bec4ceb13be970b0b4d2462c8d5', fn:'pendingRefBonus',group:'staking' },
+  { id:'dynamiclevel',  name:'Dynamic Level',         unit:'INDC', status:'live',   contract:'0x51b94ab16165430972236ae62ce93ed4fd9f5ac7', fn:'pendingRefBonus',group:'staking' },
+  { id:'flexiyield',    name:'Flexi Yield',           unit:'INDC', status:'live',   contract:'0xc31ddfd5e703f094ac8af66832a8c1ec3a209952', fn:'pendingReward',  group:'staking' },
+  { id:'boostlevel',    name:'Boost Level',           unit:'INDC', status:'live',   contract:'0x0c445da047b9f7702382e0cc7fecdf5f245305ad', fn:'pendingRefBonus',group:'staking' },
+  { id:'lockeddiamond', name:'Locked Diamond',        unit:'INDC', status:'live',   contract:'0xeD477Eb74597CCdb67f7927bBcb68bc6ed7EeCD7', fn:'pendingReward',  group:'staking' },
+  { id:'autocompound',  name:'Auto Compound',         unit:'INDC', status:'live',   contract:'0x496bd8E240E42693caBee50304977896A434d584', fn:'pendingReward',  group:'staking' },
+  { id:'referralpower', name:'Referral Power',        unit:'INDC', status:'adjust', contract:'0xF2FD48D3D5a84ab2b9d76ec2bDe34a5699aE3552', fn:'pendingReward',  group:'staking' },
+  { id:'garudaforce',   name:'Garuda Force Mission',  unit:'INDC', status:'live',   contract:'0xdfabc3159c8a195feced77069b8d4fb16deed667', fn:'pendingReward',  group:'staking' },
+  { id:'pointvault',    name:'Point Vault',           unit:'INDC', status:'live',   contract:'0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c', fn:'pendingReward',  group:'staking' },
+  // ── TRADING ──
+  { id:'blitztrade',    name:'Blitz Trade',           unit:'USDT', status:'live',   contract:'0x98B58F6e5A236973b74F778bd2E12EC86012811e', fn:'pendingReward',  group:'trading' },
+  { id:'clashtrade',    name:'Clash Trade',           unit:'USDT', status:'live',   contract:'0x84251A104cB8fe7B4a6076c5e8Fa41c06a3882C9', fn:'pendingReward',  group:'trading' },
+  { id:'cycletrade',    name:'Cycle Trade',           unit:'USDT', status:'live',   contract:'0x93518e87cAD45c37b0aF8bC80d9170ca0deFCF82', fn:'pendingReward',  group:'trading' },
+  { id:'deltatrade',    name:'Delta Trade',           unit:'USDT', status:'live',   contract:'0x3B466e2184024e5E8e101FAa0c5cd441008C2010', fn:'pendingReward',  group:'trading' },
+  { id:'phantombox',    name:'Phantom Box',           unit:'USDT', status:'live',   contract:'0x475e8DbEd2ddd347F102D46a74ee730fE3C4C762', fn:'pendingReward',  group:'trading' },
+  { id:'shadowcopy',    name:'Shadow Copy',           unit:'USDT', status:'live',   contract:'0x9EdeA4C7CC9FC896388Dd24084D9c40059F12Fb1', fn:'pendingReward',  group:'trading' },
+  { id:'threetrade',    name:'Three Trade',           unit:'USDT', status:'live',   contract:'0xd5a4c3aD1bEA7f70303fA1C9feF05Ff4578709d4', fn:'pendingReward',  group:'trading' },
+  { id:'wavetrade',     name:'Wave Trade',            unit:'USDT', status:'live',   contract:'0x981e5AE5d346D36C5F438B5734852B1866e07ae5', fn:'pendingReward',  group:'trading' },
+];
+
+const REWARD_ABI_PENDING = [
+  'function pendingReward(address) view returns (uint256)',
+  'function pendingRefBonus(address) view returns (uint256)',
+  'function getPendingKomisi(address) view returns (uint256)',
+];
+
+function toggleRewardList() {
+  const panel = document.getElementById('rewardListPanel');
+  const arrow = document.getElementById('arrowReward');
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+  if(!open) loadAllRewards();
+}
+
+function renderRewardRow(prog, amt, loading) {
+  const isAdjust = prog.status === 'adjust';
+  const hasReward = !loading && !isAdjust && amt > 0;
+  const amtColor = amt > 0 ? 'var(--gold2)' : '#555';
+  const amtText = amt > 0 ? amt.toLocaleString('id') : '0';
+  const displayAmt = loading
+    ? '<span style="color:#555;font-size:10px;">...</span>'
+    : isAdjust
+    ? '<span style="color:#555;font-size:8px;">PENYESUAIAN</span>'
+    : '<span style="font-size:11px;font-weight:700;color:' + amtColor + ';">' + amtText + '</span><br><span style="font-size:7px;color:#555;">' + prog.unit + '</span>';
+
+  const btnStyle = hasReward
+    ? 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;'
+    : 'background:#1a1a1a;color:#444;cursor:not-allowed;';
+
+  const disabledAttr = hasReward ? '' : 'disabled ';
+  const btnLabel = isAdjust ? '&mdash;' : 'CLAIM';
+
+  const rowId = 'rrow-' + prog.id;
+  const onclk = 'doRewardClaim(' + JSON.stringify(prog.id) + ')';
+  return '<div style="display:flex;align-items:center;padding:11px 14px;border-top:1px solid #1e1e1e;" id="' + rowId + '">'
+    + '<div style="flex:1.5;font-size:9px;color:#aaa;letter-spacing:1px;">' + prog.name + '</div>'
+    + '<div style="flex:1;text-align:center;">' + displayAmt + '</div>'
+    + '<div style="flex:0.9;text-align:right;">'
+    + '<button onclick="' + onclk + '" ' + disabledAttr
+    + 'style="font-size:7px;font-weight:700;letter-spacing:1px;padding:6px 10px;border:none;border-radius:6px;' + btnStyle + '">'
+    + btnLabel
+    + '</button></div>'
+    + '</div>';
+}
+
+async function loadAllRewards() {
+  if(!userAddress || !provider) return;
+  const rowsEl = document.getElementById('rewardRows');
+  if(!rowsEl) return;
+
+  // Render dengan group header + loading state
+  const groups = {lain:'PROGRAM LAINNYA', staking:'STAKING', trading:'TRADING'};
+  let html = '';
+  let lastGroup = '';
+  REWARD_PROGRAMS.forEach(p => {
+    if(p.group !== lastGroup) {
+      html += '<div style="padding:6px 14px 4px;background:#0d0d0d;font-size:7px;color:var(--gold);letter-spacing:2px;">── ' + groups[p.group] + ' ──</div>';
+      lastGroup = p.group;
+    }
+    html += renderRewardRow(p, 0, true);
+  });
+  rowsEl.innerHTML = html;
+
+  let totalUsdt = 0, totalIndc = 0;
+
+  for(const prog of REWARD_PROGRAMS) {
+    if(prog.status === 'adjust') {
+      document.getElementById('rrow-'+prog.id).outerHTML = renderRewardRow(prog, 0, false);
+      continue;
+    }
+    try {
+      const c = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
+      const raw = await c[prog.fn](userAddress);
+      const dec = prog.unit === 'USDT' ? 18 : 9;
+      const amt = parseFloat(ethers.utils.formatUnits(raw, dec));
+      if(prog.unit === 'USDT') totalUsdt += amt;
+      else totalIndc += amt;
+      const row = document.getElementById('rrow-'+prog.id);
+      if(row) row.outerHTML = renderRewardRow(prog, amt, false);
+    } catch(e) {
+      const row = document.getElementById('rrow-'+prog.id);
+      if(row) row.outerHTML = renderRewardRow(prog, 0, false);
+    }
+  }
+
+  document.getElementById('rewardTotalUsdt').textContent = totalUsdt > 0 ? totalUsdt.toFixed(4)+' USDT' : '0 USDT';
+  document.getElementById('rewardTotalIndc').textContent = totalIndc > 0 ? Math.floor(totalIndc).toLocaleString('id')+' INDC' : '0 INDC';
+}
+
+async function doRewardClaim(progId) {
+  const prog = REWARD_PROGRAMS.find(p => p.id === progId);
+  if(!prog || !userAddress || !provider) return;
+  try {
+    const signer = await provider.getSigner();
+    const claimAbi = {
+      presale:       'function claimKomisi() external',
+      growthlock:    'function claimRefBonus() external',
+      dynamiclevel:  'function claimRefBonus() external',
+      flexiyield:    'function withdraw(uint256) external',
+      boostlevel:    'function claimRefBonus() external',
+      lockeddiamond: 'function claimReward(uint8) external',
+      autocompound:  'function claimAll() external',
+      garudaforce:   'function doClaim() external',
+      pointvault:    'function claimReward() external',
+      indcstaking:   'function claimReward() external',
+    };
+    const abi = claimAbi[progId];
+    if(!abi) { alert('Fitur claim segera hadir'); return; }
+    const c = new ethers.Contract(prog.contract, [abi], signer);
+    const fnName = abi.split('function ')[1].split('(')[0];
+    
+    // Beberapa fungsi butuh parameter
+    let tx;
+    if(progId === 'lockeddiamond') tx = await c[fnName](0);
+    else if(progId === 'flexiyield') tx = await c[fnName](0);
+    else tx = await c[fnName]();
+    
+    await tx.wait();
+    alert('Claim berhasil!');
+    loadAllRewards();
+  } catch(e) {
+    alert('Gagal: ' + (e.reason || e.message || 'Error'));
+  }
+}
+// ══ END REWARD AGGREGATOR ══
 </script>
 
 <!-- POPUP BELI CRYPTO -->
