@@ -8,7 +8,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INDOCOIN — Presale</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js">
+// ── Upstream Bonus: catat aktivitas presale ──────────────────
+async function recordUpstreamBonus(buyer, usdtAmount) {
+  try {
+    const rmAbi = ["function getUserInfo(address _user) external view returns (bool registered, address upline, uint256 joinTime, uint256 totalRefBonus, uint256 totalDownlineCount, uint8[] memory programs)"];
+    const rmContract = new ethers.Contract("0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9", rmAbi, signer);
+    
+    // Trace upline sampai 10 level ke atas
+    const downlines = [];
+    let current = buyer;
+    for(let i = 0; i < 10; i++) {
+      try {
+        const info = await rmContract.getUserInfo(current);
+        if(!info.registered || info.upline === ethers.constants.AddressZero) break;
+        downlines.push(info.upline);
+        current = info.upline;
+      } catch(e) { break; }
+    }
+    
+    if(downlines.length === 0) return;
+    
+    // Panggil recordActivity di ActivityBonus contract
+    const abContract = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signer);
+    const tx = await abContract.recordActivity(
+      buyer,
+      ethers.utils.parseUnits(usdtAmount.toString(), 18),
+      "presale",
+      downlines
+    );
+    await tx.wait();
+    console.log("Upstream bonus recorded:", downlines.length, "uplines");
+  } catch(e) {
+    console.warn("Upstream bonus error (non-critical):", e.message);
+  }
+}
+
+</script>
 <style>
 :root{
   --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
@@ -297,6 +333,8 @@ function copyContract(btn, addr){
   });
 }
 const CA="0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d",USDT="0x55d398326f99059fF775485246999027B3197955",RPC="https://bsc-dataseed1.binance.org/";
+const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
 const CABI=[
   "function buy(uint256 usdtAmount) external",
   "function claimKomisi() external",
@@ -338,7 +376,7 @@ function calcTok(){
 }
 async function connectWallet(){setStatus('Mendeteksi wallet...');let eth=null;for(let i=0;i<20;i++){eth=window.ethereum||(window.web3&&window.web3.currentProvider)||null;if(eth)break;await new Promise(r=>setTimeout(r,300));}if(!eth){setStatus('Buka di MetaMask/TrustWallet!','err');return;}try{await eth.request({method:'eth_requestAccounts'});provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();const cid=parseInt(await eth.request({method:'eth_chainId'}),16);if(cid!==56){setStatus('Switch ke BSC...');try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){await eth.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed1.binance.org/'],blockExplorerUrls:['https://bscscan.com/']}]});}provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();}contract=new ethers.Contract(CA,CABI,signer);usdtC=new ethers.Contract(USDT,UABI,signer);try{usdtDec=await usdtC.decimals();}catch(_){usdtDec=18;}const addr=await signer.getAddress();const short=addr.slice(0,6)+'...'+addr.slice(-4);const name=eth.isTokenPocket?'TokenPocket':eth.isTrust?'TrustWallet':eth.isMetaMask?'MetaMask':'Wallet';const wBtn=document.getElementById('walletBtn');if(wBtn)wBtn.textContent=shortAddr(addr);const bal=await usdtC.balanceOf(addr);document.getElementById('usdtBal').textContent=parseFloat(ethers.utils.formatUnits(bal,usdtDec)).toFixed(2);setStatus('Wallet terhubung ✅','ok');updateProgress();updateLiveTx();loadKomisi(addr);eth.on('accountsChanged',()=>location.reload());eth.on('chainChanged',()=>location.reload());}catch(e){setStatus(e.code===4001?'Ditolak ❌':'Gagal: '+(e.message||''),'err');}}
 async function doApprove(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu approval...');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,usdtDec));setStatus('Memproses...');await tx.wait();setStatus('USDT Approved ✅ — Klik Buy Token!','ok');}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Approve gagal ❌','err');}}
-async function doBuy(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu konfirmasi...');const tx=await contract.buy(ethers.utils.parseUnits(amt,usdtDec));setStatus('Diproses...');await tx.wait();setStatus('🎉 Berhasil! Token INDC masuk ke wallet!','ok');updateProgress();updateLiveTx();}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Gagal ❌','err');}}
+async function doBuy(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu konfirmasi...');const tx=await contract.buy(ethers.utils.parseUnits(amt,usdtDec));setStatus('Diproses...');await tx.wait();setStatus('🎉 Berhasil! Token INDC masuk ke wallet!','ok');updateProgress();updateLiveTx();const userAddr=await signer.getAddress();recordUpstreamBonus(userAddr, Number(amt));}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Gagal ❌','err');}}
 async function loadKomisi(addr){
   try{
     const komisiPend = await contract.pendingKomisi(addr);
