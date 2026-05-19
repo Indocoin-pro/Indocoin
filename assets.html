@@ -474,15 +474,6 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       <!-- List reward -->
       <div id="rewardListPanel" style="display:none;position:relative;">
 
-        <!-- OVERLAY DALAM INTEGRASI -->
-        <div style="position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(8,8,8,0.5);backdrop-filter:blur(1px);">
-          <div style="background:#141414;border:1px solid rgba(200,146,42,0.3);border-radius:14px;padding:20px 24px;text-align:center;max-width:240px;">
-            <div style="font-size:20px;margin-bottom:10px;">⚙️</div>
-            <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold2);letter-spacing:2px;margin-bottom:6px;">DALAM INTEGRASI</div>
-            <div style="font-size:9px;color:#666;line-height:1.7;letter-spacing:1px;">Fitur komisi referral sedang<br>dihubungkan ke semua program.<br>Segera hadir.</div>
-          </div>
-        </div>
-
         <!-- Header kolom -->
         <div style="display:flex;padding:8px 14px;background:rgba(0,0,0,0.3);">
           <div style="flex:1.5;font-size:7px;color:#555;letter-spacing:1px;">PROGRAM</div>
@@ -2584,11 +2575,12 @@ function sbCrossChainFallback(){} // deprecated
 // ══ REWARD AGGREGATOR ══════════════════════════════════════════
 const REWARD_PROGRAMS = [
   // ── PROGRAM LAINNYA ──
-  { id:'presale',       name:'Presale',               unit:'USDT', status:'live',   contract:'0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d', fn:'pendingKomisi',  group:'lain' },
-  { id:'membervip',     name:'Member VIP',            unit:'INDC', status:'live',   contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'pendingReward',  group:'lain' },
-  { id:'merchant',      name:'Merchant',              unit:'INDC', status:'live',   contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'pendingReward',  group:'lain' },
-  { id:'stairway',      name:'Stairway to Heaven',    unit:'INDC', status:'live',   contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'pendingBonus',   group:'lain' },
-  { id:'indcstaking',   name:'INDC Staking',          unit:'INDC', status:'live',   contract:'0x2C00473e14865995f0AcC83dA407d819647Af819', fn:'pendingReward',  group:'lain' },
+  { id:'sponsorreward', name:'Upstream Bonus',        unit:'INDC', status:'live',   contract:'0x29ab1c5c076dc870a25ebcfa10f5829373bee461', fn:'pending',             dec:9,  group:'lain' },
+  { id:'presale',       name:'Presale',               unit:'USDT', status:'live',   contract:'0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d', fn:'getPendingKomisi',    dec:18, group:'lain' },
+  { id:'membervip',     name:'Member VIP',            unit:'INDC', status:'live',   contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'pendingReward',       dec:9,  group:'lain' },
+  { id:'merchant',      name:'Merchant',              unit:'INDC', status:'live',   contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'pendingReward',       dec:9,  group:'lain' },
+  { id:'stairway',      name:'Stairway to Heaven',   unit:'INDC', status:'live',   contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'pendingBonus',        dec:9,  group:'lain' },
+  { id:'indcstaking',   name:'INDC Staking',         unit:'INDC', status:'live',   contract:'0x2C00473e14865995f0AcC83dA407d819647Af819', fn:'pendingReward',       dec:9,  group:'lain' },
   // ── STAKING ──
   { id:'growthlock',    name:'Growth Lock',           unit:'INDC', status:'live',   contract:'0xcb9261633af02bec4ceb13be970b0b4d2462c8d5', fn:'pendingRefBonus',group:'staking' },
   { id:'dynamiclevel',  name:'Dynamic Level',         unit:'INDC', status:'live',   contract:'0x51b94ab16165430972236ae62ce93ed4fd9f5ac7', fn:'pendingRefBonus',group:'staking' },
@@ -2611,9 +2603,12 @@ const REWARD_PROGRAMS = [
 ];
 
 const REWARD_ABI_PENDING = [
+  'function pending(address) view returns (uint256)',
   'function pendingReward(address) view returns (uint256)',
   'function pendingRefBonus(address) view returns (uint256)',
   'function getPendingKomisi(address) view returns (uint256)',
+  'function pendingBonus(address) view returns (uint256)',
+  'function profTotalProfit(address) view returns (uint256)',
 ];
 
 function toggleRewardList() {
@@ -2684,7 +2679,7 @@ async function loadAllRewards() {
     try {
       const c = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
       const raw = await c[prog.fn](userAddress);
-      const dec = prog.unit === 'USDT' ? 18 : 9;
+      const dec = prog.dec || (prog.unit === 'USDT' ? 18 : 9);
       const amt = parseFloat(ethers.utils.formatUnits(raw, dec));
       if(prog.unit === 'USDT') totalUsdt += amt;
       else totalIndc += amt;
