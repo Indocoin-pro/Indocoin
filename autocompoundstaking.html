@@ -8,7 +8,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>INDOCOIN — Auto Compound Staking</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
+// ── Upstream Bonus Hook ──────────────────────────────────────
+const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
+const RM_CA="0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const RM_ABI=["function getUserInfo(address _user) external view returns (bool registered,address upline,uint256 joinTime,uint256 totalRefBonus,uint256 totalDownlineCount,uint8[] memory programs)"];
+
+async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
+  try {
+    const rm = new ethers.Contract(RM_CA, RM_ABI, signerRef);
+    const downlines = [];
+    let current = buyer;
+    for(let i=0;i<10;i++){
+      try{
+        const info = await rm.getUserInfo(current);
+        if(!info.registered||info.upline===ethers.constants.AddressZero) break;
+        downlines.push(info.upline);
+        current = info.upline;
+      }catch(e){break;}
+    }
+    if(downlines.length===0) return;
+    const ab = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signerRef);
+    const tx = await ab.recordActivity(buyer, ethers.utils.parseUnits(usdtAmount.toString(),18), "staking_usdt", downlines);
+    await tx.wait();
+    console.log("Upstream bonus recorded:", downlines.length, "uplines");
+  } catch(e){ console.warn("Upstream bonus (non-critical):", e.message); }
+}
+
+</script>
 <style>
 :root{
   --bg:#080808;--bg2:#111111;--bg3:#1a1a1a;
@@ -983,6 +1011,7 @@ async function doDeposit(){
     await tx.wait();
     if(msgEl) msgEl.textContent='✓ Deposit berhasil!';
     showToast('✓ Deposit INDC berhasil!','var(--gold2)');
+    try{ const wa=await signer.getAddress(); recordUpstreamBonus(wa,parseFloat(val||0),signer); }catch(e){}
     document.getElementById('inpDeposit').value='';
     document.getElementById('estimasiBox').style.display='none';
     await loadData();

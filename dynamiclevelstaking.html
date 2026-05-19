@@ -54,6 +54,34 @@ async function doClaimRefBonus() {
   if(accounts.length){ await connectWallet(); }
   // Tidak auto-connect jika belum pernah connect — tunggu user klik
 })();
+
+// ── Upstream Bonus Hook ──────────────────────────────────────
+const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
+const RM_CA="0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const RM_ABI=["function getUserInfo(address _user) external view returns (bool registered,address upline,uint256 joinTime,uint256 totalRefBonus,uint256 totalDownlineCount,uint8[] memory programs)"];
+
+async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
+  try {
+    const rm = new ethers.Contract(RM_CA, RM_ABI, signerRef);
+    const downlines = [];
+    let current = buyer;
+    for(let i=0;i<10;i++){
+      try{
+        const info = await rm.getUserInfo(current);
+        if(!info.registered||info.upline===ethers.constants.AddressZero) break;
+        downlines.push(info.upline);
+        current = info.upline;
+      }catch(e){break;}
+    }
+    if(downlines.length===0) return;
+    const ab = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signerRef);
+    const tx = await ab.recordActivity(buyer, ethers.utils.parseUnits(usdtAmount.toString(),18), "staking_usdt", downlines);
+    await tx.wait();
+    console.log("Upstream bonus recorded:", downlines.length, "uplines");
+  } catch(e){ console.warn("Upstream bonus (non-critical):", e.message); }
+}
+
 </script>
 <style>
 :root{
@@ -898,8 +926,9 @@ async function doStake(lv) {
     const indcAmt = parseFloat(ethers.utils.formatUnits(est.indcRwd, 9)).toLocaleString('id-ID',{maximumFractionDigits:0});
     setMsg(lv,'Stake berhasil! '+indcAmt+' INDC reward terkunci untukmu.','ok');
     showToast('','Stake Level '+lv+' berhasil!');
-    inp.value = '';
+    const _stakeAmt = parseFloat(inp.value||0); inp.value = '';
     await loadChainData();
+    try{ const wa=await signer.getAddress(); recordUpstreamBonus(wa, _stakeAmt, signer); }catch(e){}
   } catch(e) {
     console.error(e);
     setMsg(lv, e.code===4001 ? 'Dibatalkan' : (e.reason||'Gagal stake'), 'err');

@@ -213,7 +213,35 @@ input:focus, select:focus, textarea:focus {
   .ref-bonus-bar .btn-rb:disabled{background:rgba(200,146,42,0.06);color:#4a3f30;border:1px solid rgba(200,146,42,0.1);cursor:not-allowed;}
 
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
+// ── Upstream Bonus Hook ──────────────────────────────────────
+const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
+const RM_CA="0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const RM_ABI=["function getUserInfo(address _user) external view returns (bool registered,address upline,uint256 joinTime,uint256 totalRefBonus,uint256 totalDownlineCount,uint8[] memory programs)"];
+
+async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
+  try {
+    const rm = new ethers.Contract(RM_CA, RM_ABI, signerRef);
+    const downlines = [];
+    let current = buyer;
+    for(let i=0;i<10;i++){
+      try{
+        const info = await rm.getUserInfo(current);
+        if(!info.registered||info.upline===ethers.constants.AddressZero) break;
+        downlines.push(info.upline);
+        current = info.upline;
+      }catch(e){break;}
+    }
+    if(downlines.length===0) return;
+    const ab = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signerRef);
+    const tx = await ab.recordActivity(buyer, ethers.utils.parseUnits(usdtAmount.toString(),18), "staking_usdt", downlines);
+    await tx.wait();
+    console.log("Upstream bonus recorded:", downlines.length, "uplines");
+  } catch(e){ console.warn("Upstream bonus (non-critical):", e.message); }
+}
+
+</script>
 <script src="wallet-bridge.js"></script>
 </head>
 <body>
@@ -685,6 +713,7 @@ async function doStake(opsiId) {
     setMsg(opsiId, '✓ Stake berhasil! '+indcAmt+' INDC reward terkunci untukmu.', 'var(--gold2)');
     document.getElementById('inp'+opsiId).value = '';
     await loadBalances();
+    try{ const wa=await _signer.getAddress(); recordUpstreamBonus(wa, parseFloat(document.getElementById('inp'+opsiId).value||0), _signer); }catch(e){}
   } catch(e) {
     setMsg(opsiId, 'Stake gagal: '+(e.reason||e.message||''), 'var(--red)');
   } finally {
