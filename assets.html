@@ -2595,8 +2595,12 @@ const REWARD_PROGRAMS = [
 
 
   // pendingRewardA() = standalone uint256 di INDCStaking
-  { id:'indcstaking',   name:'INDC Staking',        unit:'INDC', status:'live', type:'pending',
-    contract:'0x2C00473e14865995f0AcC83dA407d819647Af819', fn:'pendingRewardA', dec:9 },
+  // Matching bonus dari downline → baca Firebase matching_a/{wallet}.total
+  // Bukan staking reward pribadi — khusus bonus dari aktivitas downline
+  { id:'indcstaking', name:'INDC Staking', unit:'INDC', status:'live', type:'pending',
+    contract:'', fn:'', fnType:'firebase',
+    fbUrl:'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/matching_a/',
+    fbField:'total', dec:9, claimLink:'indc-staking.html' },
 
   // ── STAKING — semua pakai getRefBonusInfo(address) returns (pending, totalEarned) → index 0
   { id:'growthlock',    name:'Growth Lock',          unit:'INDC', status:'live', type:'pending',
@@ -2678,6 +2682,7 @@ function toggleRewardList() {
 // Render baris untuk Group 1 (PENDING CLAIM)
 function renderPendingRow(prog, amt, loading) {
   const isAdjust = prog.status === 'adjust';
+  const isLink   = !!prog.claimLink;
   const hasReward = !loading && !isAdjust && amt > 0;
 
   const amtColor  = amt > 0 ? 'var(--gold2)' : '#555';
@@ -2689,11 +2694,20 @@ function renderPendingRow(prog, amt, loading) {
     : '<span style="font-size:11px;font-weight:700;color:' + amtColor + ';">' + amtText + '</span>'
       + '<br><span style="font-size:7px;color:#555;">' + prog.unit + '</span>';
 
-  const btnStyle    = hasReward
-    ? 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;'
-    : 'background:#1a1a1a;color:#444;cursor:not-allowed;';
-  const disabledAttr = hasReward ? '' : 'disabled ';
-  const btnLabel     = isAdjust ? '&mdash;' : 'CLAIM';
+  let btnStyle, disabledAttr, btnLabel;
+  if(isAdjust) {
+    btnStyle = 'background:#1a1a1a;color:#444;cursor:not-allowed;';
+    disabledAttr = 'disabled '; btnLabel = '&mdash;';
+  } else if(isLink) {
+    btnStyle = 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;';
+    disabledAttr = ''; btnLabel = 'BUKA';
+  } else if(hasReward) {
+    btnStyle = 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;';
+    disabledAttr = ''; btnLabel = 'CLAIM';
+  } else {
+    btnStyle = 'background:#1a1a1a;color:#444;cursor:not-allowed;';
+    disabledAttr = 'disabled '; btnLabel = 'CLAIM';
+  }
 
   const rowId = 'rrow-' + prog.id;
   const onclk = 'doRewardClaim(' + JSON.stringify(prog.id) + ')';
@@ -2773,7 +2787,14 @@ async function loadAllRewards() {
       const dec = prog.dec || (prog.unit === 'USDT' ? 18 : 9);
       let amt   = 0;
 
-      if(prog.fnType === 'tuple') {
+      if(prog.fnType === 'firebase') {
+        // Baca dari Firebase REST API — tidak perlu SDK
+        const wallet = userAddress.toLowerCase().replace(/0x/i, '');
+        const res    = await fetch(prog.fbUrl + wallet + '.json');
+        const data   = await res.json();
+        amt = data ? parseFloat(data[prog.fbField] || 0) : 0;
+
+      } else if(prog.fnType === 'tuple') {
         const res = await c[prog.fn](userAddress);
         amt = parseFloat(ethers.formatUnits(res[prog.fnIdx], dec));
       } else if(prog.fnType === 'sumArr') {
@@ -2819,6 +2840,12 @@ async function loadAllRewards() {
 async function doRewardClaim(progId) {
   const prog = REWARD_PROGRAMS.find(p => p.id === progId);
   if(!prog || !userAddress || !provider) return;
+
+  // Program dengan claimLink → redirect ke halaman program
+  if(prog.claimLink) {
+    window.location.href = prog.claimLink;
+    return;
+  }
 
   try {
     const signer = await provider.getSigner();
