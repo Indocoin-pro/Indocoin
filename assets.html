@@ -2592,6 +2592,10 @@ const REWARD_PROGRAMS = [
   { id:'membervip',     name:'Member VIP',           unit:'INDC', status:'live', type:'pending',
     contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'getMember', fnType:'tuple', fnIdx:2, dec:9 },
 
+  // getSavingsInfo()[0] = savings balance INDC (komisi referral masuk tabungan, WD bulanan)
+  { id:'merchant',      name:'Merchant',             unit:'INDC', status:'live', type:'pending',
+    contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'getSavingsInfo', fnType:'tuple', fnIdx:0, dec:9 },
+
   // getUnclaimedBonuses() returns (uint8[],uint256[]) → sum index 1; claim loop per level
   { id:'stairway',      name:'Stairway to Heaven',  unit:'INDC', status:'live', type:'pending',
     contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'getUnclaimedBonuses', fnType:'sumArr', fnIdx:1, dec:9 },
@@ -2621,9 +2625,6 @@ const REWARD_PROGRAMS = [
   // GROUP 2 — TOTAL DITERIMA (no claim button)
   // ══════════════════════════════════════════
 
-  // Merchant dan Referral Power belum ada referral pending fn
-  { id:'merchant',      name:'Merchant',             unit:'INDC', status:'adjust', type:'earned',
-    contract:'', totalFn:'', dec:9 },
   { id:'referralpower', name:'Referral Power',       unit:'INDC', status:'adjust', type:'earned',
     contract:'', totalFn:'', dec:9 },
 
@@ -2657,6 +2658,7 @@ const REWARD_ABI_PENDING = [
   'function getRefBonusInfo(address) view returns (uint256, uint256)',
   'function getMember(address) view returns (tuple(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint8,uint256,address))',
   'function getUnclaimedBonuses(address) view returns (uint8[], uint256[])',
+  'function getSavingsInfo(address) view returns (uint256, uint256, bool, uint256, uint256)',
 ];
 
 // ABI untuk total earned read (Group 2)
@@ -2848,6 +2850,7 @@ async function doRewardClaim(progId) {
     const claimAbi = {
       sponsorreward: 'function claim() external',            // ActivityBonus — verified BSCScan
       presale:       'function claimKomisi() external',
+      merchant:      'function withdrawSavings() external',  // WD bulanan, contract reject kalau belum waktunya
       membervip:     'function claimUnlock() external',
       indcstaking:   'function claimPaketA() external',
       growthlock:    'function claimRefBonus() external',
