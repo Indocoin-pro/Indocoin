@@ -2588,17 +2588,11 @@ const REWARD_PROGRAMS = [
   { id:'presale',       name:'Presale',              unit:'USDT', status:'live', type:'pending',
     contract:'0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d', fn:'pendingKomisi', dec:18 },
 
-  // getMember() returns tuple → bonusAmount ada di index 2
-  { id:'membervip',     name:'Member VIP',           unit:'INDC', status:'live', type:'pending',
-    contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'getMember', fnType:'tuple', fnIdx:2, dec:9 },
 
   // getSavingsInfo()[0] = savings balance INDC (komisi referral masuk tabungan, WD bulanan)
   { id:'merchant',      name:'Merchant',             unit:'INDC', status:'live', type:'pending',
     contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'getSavingsInfo', fnType:'tuple', fnIdx:0, dec:9 },
 
-  // getUnclaimedBonuses() returns (uint8[],uint256[]) → sum index 1; claim loop per level
-  { id:'stairway',      name:'Stairway to Heaven',  unit:'INDC', status:'live', type:'pending',
-    contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'getUnclaimedBonuses', fnType:'sumArr', fnIdx:1, dec:9 },
 
   // pendingRewardA() = standalone uint256 di INDCStaking
   { id:'indcstaking',   name:'INDC Staking',        unit:'INDC', status:'live', type:'pending',
@@ -2829,29 +2823,11 @@ async function doRewardClaim(progId) {
   try {
     const signer = await provider.getSigner();
 
-    // ── Stairway: multi-level claim, loop per level ──
-    if(progId === 'stairway') {
-      const sc  = new ethers.Contract(prog.contract, STAIRWAY_CLAIM_ABI, signer);
-      const res = await sc.getUnclaimedBonuses(userAddress);
-      const levels = res[0];
-      if(!levels || levels.length === 0) {
-        alert('Tidak ada bonus Stairway yang perlu diklaim.'); return;
-      }
-      for(let i = 0; i < levels.length; i++) {
-        const tx = await sc.claimLevelBonus(levels[i]);
-        await tx.wait();
-      }
-      alert('Semua level Stairway berhasil diklaim!');
-      loadAllRewards();
-      return;
-    }
-
     // ── Semua program lain: single-tx claim ──
     const claimAbi = {
       sponsorreward: 'function claim() external',            // ActivityBonus — verified BSCScan
       presale:       'function claimKomisi() external',
       merchant:      'function withdrawSavings() external',  // WD bulanan, contract reject kalau belum waktunya
-      membervip:     'function claimUnlock() external',
       indcstaking:   'function claimPaketA() external',
       growthlock:    'function claimRefBonus() external',
       dynamiclevel:  'function claimRefBonus() external',
