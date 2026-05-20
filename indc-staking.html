@@ -355,12 +355,9 @@ function renderOpsi(){
           <div><span class="rr-lbl">REWARD PRIBADI</span><span class="rr-val" id="pendingB">0 INDC</span><span class="rr-sub">≈ $<span id="pendingBusd">0.00</span> USDT</span></div>
           <div style="text-align:right"><span class="rr-lbl">SUDAH REQUEST</span><span style="font-family:'Orbitron',sans-serif;font-size:13px;color:var(--muted);display:block;margin-top:2px" id="requestedB">0 INDC</span></div>
         </div>
-        <div class="reward-row" style="background:rgba(124,58,237,0.06);border-color:rgba(124,58,237,0.2)">
-          <div><span class="rr-lbl" style="color:#ffffff">MATCHING PROFIT DOWNLINE</span><span class="rr-val" id="matchingB" style="color:#ffffff">0 INDC</span><span class="rr-sub">≈ $<span id="matchingBusd">0.00</span> USDT</span></div>
-          <div style="text-align:right"><span class="rr-lbl">TOTAL REQUEST</span><span style="font-family:'Orbitron',sans-serif;font-size:14px;color:var(--gold);display:block;margin-top:2px" id="totalRequestB">0 INDC</span></div>
-        </div>
+
         <div class="req-rate-row"><span class="req-rate-lbl">KONVERSI HARGA</span><span class="req-rate-val">1 INDC = $0.003 USDT</span></div>
-        <div class="input-row"><div class="input-wrap"><input type="number" id="inpReq" placeholder="Jumlah INDC reward (Min ~334)" oninput="calcRequest();updateMatchingPreview()"><span class="input-suffix">INDC</span></div></div>
+        <div class="input-row"><div class="input-wrap"><input type="number" id="inpReq" placeholder="Jumlah INDC reward (Min ~334)" oninput="calcRequest()"><span class="input-suffix">INDC</span></div></div>
         <div class="req-preview"><span class="req-preview-lbl">KAMU TERIMA</span><span class="req-preview-val" id="usdtPreview">$0.00 USDT</span></div>
         <button class="btn-request" id="btnReq" onclick="doRequest()">REQUEST USDT KE WALLET</button>
         
@@ -535,17 +532,7 @@ async function loadStakeData(){
       </div>`;
       const pEl=document.getElementById('pendingB');if(pEl)pEl.textContent=fmtN(pending)+' INDC';
       const uEl=document.getElementById('pendingBusd');if(uEl)uEl.textContent=(pending*INDC_PRICE).toFixed(2);
-      // Hitung matching profit dari downline
-      if(_master && pending > 0){
-        hitungMatchingProfit(pending).then(({total})=>{
-          const elM=document.getElementById('matchingB');
-          const elMU=document.getElementById('matchingBusd');
-          const elT=document.getElementById('totalRequestB');
-          if(elM) elM.textContent=total.toFixed(2)+' INDC';
-          if(elMU) elMU.textContent=(total*INDC_PRICE).toFixed(2);
-          if(elT) elT.textContent=(pending+total).toFixed(2)+' INDC';
-        });
-      }
+
     }
     const reqs=await _staking.getRequests(_wallet);
     if(reqs.length>0){
@@ -599,44 +586,6 @@ async function unstakeB(){
   try{const tx=await _staking.unstakePaketB();await tx.wait();setMsg(2,'✓ Unstake berhasil! Modal INDC kembali ke wallet.','var(--gold2)');await loadBalances();await loadStakeData();}
   catch(e){btn.textContent='UNSTAKE MODAL';btn.disabled=false;setMsg(2,'Unstake gagal: '+(e.reason||e.message||''),'var(--red)');}
 }
-// ═══ HITUNG MATCHING PROFIT DOWNLINE ═══
-async function hitungMatchingProfit(rewardINDC) {
-  if (!_master || !_wallet) return { total: 0, uplines: [] };
-  try {
-    const PCT = [3, 2, 1, 1, 1, 1, 1, 1, 1, 1]; // level 1-10
-    const uplines = [];
-    let current = _wallet;
-
-    for (let i = 0; i < 10; i++) {
-      const info = await _master.getUserInfo(current);
-      const upline = info.upline;
-      if (!upline || upline === '0x0000000000000000000000000000000000000000') break;
-      const bonus = (rewardINDC * PCT[i]) / 100;
-      uplines.push({ wallet: upline, level: i + 1, pct: PCT[i], bonus });
-      current = upline;
-    }
-
-    const total = uplines.reduce((s, u) => s + u.bonus, 0);
-    return { total, uplines };
-  } catch(e) {
-    console.warn('Hitung matching:', e);
-    return { total: 0, uplines: [] };
-  }
-}
-
-// Update tampilan matching profit saat input berubah
-async function updateMatchingPreview() {
-  const val = parseFloat(document.getElementById('inpReq').value) || 0;
-  if (val <= 0 || !_wallet) return;
-  const { total } = await hitungMatchingProfit(val);
-  const elM = document.getElementById('matchingB');
-  const elMU = document.getElementById('matchingBusd');
-  const elT = document.getElementById('totalRequestB');
-  if (elM) elM.textContent = total.toFixed(2) + ' INDC';
-  if (elMU) elMU.textContent = (total * INDC_PRICE).toFixed(2);
-  const pending = parseFloat(document.getElementById('pendingB')?.textContent) || 0;
-  if (elT) elT.textContent = (pending + total).toFixed(2) + ' INDC';
-}
 
 async function doRequest(){
   if(!_wallet){await connectWallet();return;}
@@ -646,22 +595,15 @@ async function doRequest(){
   setMsg('Req','Menghitung matching profit downline...','var(--gold)');
 
   try{
-    // Hitung matching profit dulu
-    const { total: matchingTotal, uplines } = await hitungMatchingProfit(val);
-
     setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
     const tx=await _staking.requestUSDT(toINDC(val));
     setMsg('Req','Transaksi dikirim...','var(--gold)');
     await tx.wait();
 
-    // Simpan ke Firebase dengan data matching profit
-    // Coba via window._fbSaveRequest (dari module), atau langsung via Firebase SDK
     const fbData = {
       user: _wallet,
       indcAmount: val,
       usdtAmount: val * INDC_PRICE,
-      matchingTotal,
-      uplines,
       ts: Date.now(),
       status: 'pending'
     };
@@ -694,10 +636,7 @@ async function doRequest(){
     setMsg('Req','✓ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--gold2)');
     document.getElementById('inpReq').value='';
     const _pv2=document.getElementById('usdtPreview');if(_pv2)_pv2.textContent='$0.00 USDT';
-    const elM = document.getElementById('matchingB');
-    const elT = document.getElementById('totalRequestB');
-    if(elM) elM.textContent = '0 INDC';
-    if(elT) elT.textContent = '0 INDC';
+
     await loadStakeData();
   }catch(e){setMsg('Req','Request gagal: '+(e.reason||e.message||''),'var(--red)');}
   finally{btn.textContent='REQUEST USDT KE WALLET';btn.disabled=false;}

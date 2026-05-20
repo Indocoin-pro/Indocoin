@@ -2588,19 +2588,18 @@ const REWARD_PROGRAMS = [
   { id:'presale',       name:'Presale',              unit:'USDT', status:'live', type:'pending',
     contract:'0xa57fe3527aecfc917f7179f0edeb7ea0f5b4997d', fn:'pendingKomisi', dec:18 },
 
+  // getMember() returns tuple → bonusAmount ada di index 2
+  { id:'membervip',     name:'Member VIP',           unit:'INDC', status:'live', type:'pending',
+    contract:'0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf', fn:'getMember', fnType:'tuple', fnIdx:2, dec:9 },
 
   // getSavingsInfo()[0] = savings balance INDC (komisi referral masuk tabungan, WD bulanan)
   { id:'merchant',      name:'Merchant',             unit:'INDC', status:'live', type:'pending',
     contract:'0x1b108be31f8e3a88a30677aba56240c8d3e381b5', fn:'getSavingsInfo', fnType:'tuple', fnIdx:0, dec:9 },
 
+  // getUnclaimedBonuses() returns (uint8[],uint256[]) → sum index 1; claim loop per level
+  { id:'stairway',      name:'Stairway to Heaven',  unit:'INDC', status:'live', type:'pending',
+    contract:'0x2EF9DA3e2A85dea216CBEaF9E1943213FaF55E6a', fn:'getUnclaimedBonuses', fnType:'sumArr', fnIdx:1, dec:9 },
 
-  // pendingRewardA() = standalone uint256 di INDCStaking
-  // Matching bonus dari downline → baca Firebase matching_a/{wallet}.total
-  // Bukan staking reward pribadi — khusus bonus dari aktivitas downline
-  { id:'indcstaking', name:'INDC Staking', unit:'INDC', status:'live', type:'pending',
-    contract:'', fn:'', fnType:'firebase',
-    fbUrl:'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/matching_a/',
-    fbField:'total', dec:9, claimLink:'indc-staking.html' },
 
   // ── STAKING — semua pakai getRefBonusInfo(address) returns (pending, totalEarned) → index 0
   { id:'growthlock',    name:'Growth Lock',          unit:'INDC', status:'live', type:'pending',
@@ -2682,7 +2681,6 @@ function toggleRewardList() {
 // Render baris untuk Group 1 (PENDING CLAIM)
 function renderPendingRow(prog, amt, loading) {
   const isAdjust = prog.status === 'adjust';
-  const isLink   = !!prog.claimLink;
   const hasReward = !loading && !isAdjust && amt > 0;
 
   const amtColor  = amt > 0 ? 'var(--gold2)' : '#555';
@@ -2694,20 +2692,11 @@ function renderPendingRow(prog, amt, loading) {
     : '<span style="font-size:11px;font-weight:700;color:' + amtColor + ';">' + amtText + '</span>'
       + '<br><span style="font-size:7px;color:#555;">' + prog.unit + '</span>';
 
-  let btnStyle, disabledAttr, btnLabel;
-  if(isAdjust) {
-    btnStyle = 'background:#1a1a1a;color:#444;cursor:not-allowed;';
-    disabledAttr = 'disabled '; btnLabel = '&mdash;';
-  } else if(isLink) {
-    btnStyle = 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;';
-    disabledAttr = ''; btnLabel = 'BUKA';
-  } else if(hasReward) {
-    btnStyle = 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;';
-    disabledAttr = ''; btnLabel = 'CLAIM';
-  } else {
-    btnStyle = 'background:#1a1a1a;color:#444;cursor:not-allowed;';
-    disabledAttr = 'disabled '; btnLabel = 'CLAIM';
-  }
+  const btnStyle    = hasReward
+    ? 'background:linear-gradient(135deg,var(--gold),var(--gold2));color:#080808;cursor:pointer;'
+    : 'background:#1a1a1a;color:#444;cursor:not-allowed;';
+  const disabledAttr = hasReward ? '' : 'disabled ';
+  const btnLabel     = isAdjust ? '&mdash;' : 'CLAIM';
 
   const rowId = 'rrow-' + prog.id;
   const onclk = 'doRewardClaim(' + JSON.stringify(prog.id) + ')';
@@ -2787,14 +2776,7 @@ async function loadAllRewards() {
       const dec = prog.dec || (prog.unit === 'USDT' ? 18 : 9);
       let amt   = 0;
 
-      if(prog.fnType === 'firebase') {
-        // Baca dari Firebase REST API — tidak perlu SDK
-        const wallet = userAddress.toLowerCase().replace(/0x/i, '');
-        const res    = await fetch(prog.fbUrl + wallet + '.json');
-        const data   = await res.json();
-        amt = data ? parseFloat(data[prog.fbField] || 0) : 0;
-
-      } else if(prog.fnType === 'tuple') {
+      if(prog.fnType === 'tuple') {
         const res = await c[prog.fn](userAddress);
         amt = parseFloat(ethers.formatUnits(res[prog.fnIdx], dec));
       } else if(prog.fnType === 'sumArr') {
@@ -2841,21 +2823,32 @@ async function doRewardClaim(progId) {
   const prog = REWARD_PROGRAMS.find(p => p.id === progId);
   if(!prog || !userAddress || !provider) return;
 
-  // Program dengan claimLink → redirect ke halaman program
-  if(prog.claimLink) {
-    window.location.href = prog.claimLink;
-    return;
-  }
-
   try {
     const signer = await provider.getSigner();
+
+    // ── Stairway: multi-level claim, loop per level ──
+    if(progId === 'stairway') {
+      const sc  = new ethers.Contract(prog.contract, STAIRWAY_CLAIM_ABI, signer);
+      const res = await sc.getUnclaimedBonuses(userAddress);
+      const levels = res[0];
+      if(!levels || levels.length === 0) {
+        alert('Tidak ada bonus Stairway yang perlu diklaim.'); return;
+      }
+      for(let i = 0; i < levels.length; i++) {
+        const tx = await sc.claimLevelBonus(levels[i]);
+        await tx.wait();
+      }
+      alert('Semua level Stairway berhasil diklaim!');
+      loadAllRewards();
+      return;
+    }
 
     // ── Semua program lain: single-tx claim ──
     const claimAbi = {
       sponsorreward: 'function claim() external',            // ActivityBonus — verified BSCScan
       presale:       'function claimKomisi() external',
       merchant:      'function withdrawSavings() external',  // WD bulanan, contract reject kalau belum waktunya
-      indcstaking:   'function claimPaketA() external',
+      membervip:     'function claimUnlock() external',
       growthlock:    'function claimRefBonus() external',
       dynamiclevel:  'function claimRefBonus() external',
       flexiyield:    'function claimRefBonus() external',
