@@ -459,14 +459,11 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
           <div style="font-size:7px;color:#555;letter-spacing:2px;margin-bottom:4px;">TOTAL USDT</div>
           <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="rewardTotalUsdt">—</div>
         </div>
-        <div style="text-align:center;">
+        <div style="text-align:right;">
           <div style="font-size:7px;color:#555;letter-spacing:2px;margin-bottom:4px;">TOTAL INDC</div>
           <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="rewardTotalIndc">—</div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:7px;color:#555;letter-spacing:2px;margin-bottom:4px;">TOTAL POINT</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);" id="rewardTotalPt">—</div>
-        </div>
+
       </div>
 
       <!-- Toggle list -->
@@ -2619,9 +2616,6 @@ const REWARD_PROGRAMS = [
   { id:'garudaforce',   name:'Garuda Force Mission', unit:'INDC', status:'live', type:'pending',
     contract:'0xdfabc3159c8a195feced77069b8d4fb16deed667', fn:'getRefBonusInfo', fnType:'tuple', fnIdx:0, dec:9 },
 
-  // getUserStake(address)[3] = pendingPointNow, dec:0 — sama persis dengan yang dipakai pointvaultstaking.html
-  { id:'pointvault',    name:'Point Vault',          unit:'POINT', status:'live', type:'pending',
-    contract:'0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c', fn:'getUserStake', fnType:'tuple', fnIdx:3, dec:0 },
 
   // ══════════════════════════════════════════
   // GROUP 2 — TOTAL DITERIMA (no claim button)
@@ -2769,7 +2763,7 @@ async function loadAllRewards() {
 
   rowsEl.innerHTML = html;
 
-  let totalUsdt = 0, totalIndc = 0, totalPt = 0;
+  let totalUsdt = 0, totalIndc = 0;
 
   // ── Load Group 1: pending amounts ──
   for(const prog of pendingList) {
@@ -2798,7 +2792,6 @@ async function loadAllRewards() {
       }
 
       if(prog.unit === 'USDT') totalUsdt += amt;
-      else if(prog.unit === 'POINT') totalPt += amt;
       else totalIndc += amt;
       const row = document.getElementById('rrow-' + prog.id);
       if(row) row.outerHTML = renderPendingRow(prog, amt, false);
@@ -2825,7 +2818,6 @@ async function loadAllRewards() {
 
   document.getElementById('rewardTotalUsdt').textContent = totalUsdt > 0 ? totalUsdt.toFixed(4)+' USDT' : '0 USDT';
   document.getElementById('rewardTotalIndc').textContent = totalIndc > 0 ? Math.floor(totalIndc).toLocaleString('id')+' INDC' : '0 INDC';
-  document.getElementById('rewardTotalPt').textContent   = totalPt   > 0 ? Math.floor(totalPt).toLocaleString('id')+' POINT'   : '0 POINT';
 }
 
 async function doRewardClaim(progId) {
@@ -2865,7 +2857,6 @@ async function doRewardClaim(progId) {
       lockeddiamond: 'function claimRefBonus() external',
       autocompound:  'function claimRefBonus() external',
       garudaforce:   'function claimRefBonus() external',
-      pointvault:    'function claimPoint() external',
     };
     const abi = claimAbi[progId];
     if(!abi) { alert('Fungsi claim belum tersedia untuk program ini.'); return; }
