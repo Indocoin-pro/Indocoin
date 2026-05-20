@@ -2780,16 +2780,16 @@ async function loadAllRewards() {
 
       if(prog.fnType === 'tuple') {
         const res = await c[prog.fn](userAddress);
-        amt = parseFloat(ethers.utils.formatUnits(res[prog.fnIdx], dec));
+        amt = parseFloat(ethers.formatUnits(res[prog.fnIdx], dec));
       } else if(prog.fnType === 'sumArr') {
-        const res  = await c[prog.fn](userAddress);
-        const arr  = res[prog.fnIdx];
-        let total  = ethers.BigNumber.from(0);
-        for(let i = 0; i < arr.length; i++) total = total.add(arr[i]);
-        amt = parseFloat(ethers.utils.formatUnits(total, dec));
+        const res = await c[prog.fn](userAddress);
+        const arr = res[prog.fnIdx];
+        let total = BigInt(0);
+        for(let i = 0; i < arr.length; i++) total = total + BigInt(arr[i]);
+        amt = parseFloat(ethers.formatUnits(total, dec));
       } else {
         const raw = await c[prog.fn](userAddress);
-        amt = parseFloat(ethers.utils.formatUnits(raw, dec));
+        amt = parseFloat(ethers.formatUnits(raw, dec));
       }
 
       if(prog.unit === 'USDT') totalUsdt += amt;
@@ -2809,7 +2809,7 @@ async function loadAllRewards() {
       const c   = new ethers.Contract(prog.contract, REWARD_ABI_EARNED, provider);
       const dec = prog.dec || (prog.unit === 'USDT' ? 18 : 9);
       const raw = await c[prog.totalFn](userAddress);
-      const amt = parseFloat(ethers.utils.formatUnits(raw, dec));
+      const amt = parseFloat(ethers.formatUnits(raw, dec));
       const row = document.getElementById('rrow-' + prog.id);
       if(row) row.outerHTML = renderEarnedRow(prog, amt, false);
     } catch(e) {
