@@ -309,6 +309,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="panel-tab" id="tabAds" onclick="switchTab('ads')" style="background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.2);">📢 ADS</div>
       <div class="panel-tab" id="tabGaruda" onclick="switchTab('garuda')" style="background:rgba(249,115,22,0.06);border-color:rgba(249,115,22,0.2);color:var(--orange);">⚔ GARUDA</div>
       <div class="panel-tab" id="tabPoint" onclick="switchTab('point')" style="background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.2);color:var(--green);">📌 POINT</div>
+      <div class="panel-tab" id="tabIndcAds" onclick="switchTab('indcads')" style="background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.3);color:var(--gold);">📣 INDC ADS</div>
     </div>
 
     <!-- TOOLBAR -->
@@ -601,6 +602,180 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       </div>
       <div class="status-msg" id="pvStatusMsg"></div>
     </div><!-- /pointSection -->
+
+    <!-- ═══════════════════════════════════
+         INDOCOIN ADS v2 — ADMIN SECTION
+    ═══════════════════════════════════ -->
+    <div id="indcAdsSection" style="display:none;">
+
+      <!-- STATS -->
+      <div class="sec-div" style="margin-top:0;">📣 INDOCOIN ADS v2</div>
+      <div class="stats-grid">
+        <div class="stat-card gold">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-val" id="iadsPending">—</div>
+          <div class="stat-lbl">Menunggu Review</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-val" id="iadsActive">—</div>
+          <div class="stat-lbl">Iklan Aktif</div>
+        </div>
+        <div class="stat-card cyan">
+          <div class="stat-icon">💰</div>
+          <div class="stat-val" id="iadsRevenue">—</div>
+          <div class="stat-lbl">Total Revenue</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-val" id="iadsBurned">—</div>
+          <div class="stat-lbl">INDC Burned</div>
+        </div>
+      </div>
+
+      <!-- TABS INNER -->
+      <div class="admin-tabs-inner" style="margin-bottom:14px;">
+        <div class="atab-btn active" onclick="switchIadsTab('pending',this)">⏳ PENDING</div>
+        <div class="atab-btn" onclick="switchIadsTab('active',this)">✅ AKTIF</div>
+        <div class="atab-btn" onclick="switchIadsTab('history',this)">📋 RIWAYAT</div>
+        <div class="atab-btn" onclick="switchIadsTab('config',this)">⚙️ CONFIG</div>
+        <div class="atab-btn" onclick="switchIadsTab('house',this)">🏠 HOUSE ADS</div>
+        <div class="atab-btn" onclick="switchIadsTab('reviews',this)">⭐ REVIEW</div>
+      </div>
+
+      <!-- TAB: PENDING -->
+      <div class="atab-content active" id="iadsC-pending">
+        <div id="iadsPendingList">
+          <div class="loading"><div class="spinner"></div><div>Memuat...</div></div>
+        </div>
+      </div>
+
+      <!-- TAB: AKTIF -->
+      <div class="atab-content" id="iadsC-active">
+        <div id="iadsActiveList">
+          <div class="loading"><div class="spinner"></div><div>Memuat...</div></div>
+        </div>
+      </div>
+
+      <!-- TAB: RIWAYAT -->
+      <div class="atab-content" id="iadsC-history">
+        <div id="iadsHistoryList">
+          <div class="loading"><div class="spinner"></div><div>Memuat...</div></div>
+        </div>
+      </div>
+
+      <!-- TAB: CONFIG -->
+      <div class="atab-content" id="iadsC-config">
+        <div class="sub-section">
+          <div class="sub-hdr">💵 PRICING</div>
+          <div class="sub-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Base Price (USD cent)</div>
+                <input type="number" id="iads-baseCent" placeholder="100 = $1" class="input-dev" value="100"/>
+              </div>
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Increment/bulan (cent)</div>
+                <input type="number" id="iads-incCent" placeholder="100 = $1" class="input-dev" value="100"/>
+              </div>
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">PRIME Multiplier</div>
+                <input type="number" id="iads-primeMulti" placeholder="2" class="input-dev" value="2"/>
+              </div>
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Max Slots</div>
+                <input type="number" id="iads-maxSlots" placeholder="20" class="input-dev" value="20"/>
+              </div>
+            </div>
+            <button class="btn-dev btn-dev-gold" onclick="iadsSetPricing()">💾 UPDATE PRICING</button>
+            <button class="btn-dev" onclick="iadsLoadConfig()" style="margin-left:6px;">🔄 LOAD CURRENT</button>
+            <div id="iads-pricing-msg" style="font-size:10px;margin-top:8px;color:var(--muted);"></div>
+          </div>
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-hdr">🪙 HARGA INDC</div>
+          <div class="sub-body">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">INDC Price (USD cent) — 30 = $0.003</div>
+            <input type="number" id="iads-indcPrice" placeholder="30" class="input-dev" value="30"/>
+            <button class="btn-dev btn-dev-gold" onclick="iadsSetIndcPrice()" style="margin-top:6px;">UPDATE HARGA</button>
+            <div id="iads-price-msg" style="font-size:10px;margin-top:6px;color:var(--muted);"></div>
+          </div>
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-hdr">🚀 STATUS LISTING</div>
+          <div class="sub-body">
+            <div style="font-size:11px;color:var(--text);margin-bottom:10px;">Setelah token listing di DEX, aktifkan untuk switch ke PancakeSwap buyback & unlock pool withdraw.</div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-dev btn-dev-green" onclick="iadsSetListed(true)">✅ SET LISTED</button>
+              <button class="btn-dev btn-dev-red" onclick="iadsSetListed(false)">❌ SET UNLISTED</button>
+            </div>
+            <div id="iads-listed-msg" style="font-size:10px;margin-top:8px;color:var(--muted);"></div>
+          </div>
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-hdr">🏦 POOL WITHDRAW</div>
+          <div class="sub-body">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Hanya tersedia setelah isListed = true</div>
+            <div id="iads-pool-bal" style="font-size:12px;color:var(--gold);margin-bottom:8px;">Pool: —</div>
+            <button class="btn-dev btn-dev-gold" onclick="iadsWithdrawPool()">💰 WITHDRAW POOL</button>
+            <div id="iads-pool-msg" style="font-size:10px;margin-top:6px;color:var(--muted);"></div>
+          </div>
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-hdr">⏸️ PAUSE CONTRACT</div>
+          <div class="sub-body">
+            <div style="display:flex;gap:8px;">
+              <button class="btn-dev btn-dev-green" onclick="iadsSetPaused(false)">▶️ UNPAUSE</button>
+              <button class="btn-dev btn-dev-red" onclick="iadsSetPaused(true)">⏸️ PAUSE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: HOUSE ADS -->
+      <div class="atab-content" id="iadsC-house">
+        <div class="sub-section">
+          <div class="sub-hdr">🏠 PASANG HOUSE AD</div>
+          <div class="sub-body">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Banner URL (Firebase Storage)</div>
+            <input type="text" id="iads-h-banner" placeholder="https://..." class="input-dev" style="margin-bottom:8px;"/>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Target URL</div>
+            <input type="text" id="iads-h-target" placeholder="https://..." class="input-dev" style="margin-bottom:8px;"/>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Judul</div>
+            <input type="text" id="iads-h-title" placeholder="Judul iklan" class="input-dev" style="margin-bottom:8px;"/>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Durasi (hari)</div>
+                <input type="number" id="iads-h-days" placeholder="30" class="input-dev" value="30"/>
+              </div>
+              <div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Slot Type</div>
+                <select id="iads-h-slot" class="input-dev">
+                  <option value="0">REGULAR</option>
+                  <option value="1">PRIME</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-dev btn-dev-gold" onclick="iadsSubmitHouseAd()">📣 PASANG HOUSE AD</button>
+            <div id="iads-house-msg" style="font-size:10px;margin-top:8px;color:var(--muted);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: REVIEWS -->
+      <div class="atab-content" id="iadsC-reviews">
+        <div id="iadsReviewsList">
+          <div class="loading"><div class="spinner"></div><div>Memuat review...</div></div>
+        </div>
+      </div>
+
+      <div id="iads-section-msg" style="font-size:11px;text-align:center;padding:8px;color:var(--muted);min-height:20px;"></div>
+
+    </div><!-- /indcAdsSection -->
 
   </div><!-- /panelContent -->
 
@@ -1079,7 +1254,7 @@ function switchTab(tab){
   _currentTab = tab;
 
   // Toggle all tabs
-  ['pending','approved','all','ads','garuda','point'].forEach(t=>{
+  ['pending','approved','all','ads','garuda','point','indcads'].forEach(t=>{
     const key = t.charAt(0).toUpperCase()+t.slice(1);
     const el  = document.getElementById('tab'+key);
     if(el) el.classList.toggle('active', t===tab);
@@ -1097,7 +1272,8 @@ function switchTab(tab){
   const pointSection  = document.getElementById('pointSection');
 
   // Hide everything special first
-  [adsSection,garudaSection,pointSection].forEach(s=>{ if(s) s.style.display='none'; });
+  const indcAdsSection = document.getElementById('indcAdsSection');
+  [adsSection,garudaSection,pointSection,indcAdsSection].forEach(s=>{ if(s) s.style.display='none'; });
 
   if(tab==='ads'){
     if(toolbar)    toolbar.style.display='none';
@@ -1120,6 +1296,13 @@ function switchTab(tab){
     if(statusMsg)  statusMsg.style.display='none';
     pointSection.style.display='block';
     loadPvStats();
+  } else if(tab==='indcads'){
+    if(toolbar)    toolbar.style.display='none';
+    if(batchBar)   batchBar.style.display='none';
+    if(reqList)    reqList.style.display='none';
+    if(statusMsg)  statusMsg.style.display='none';
+    indcAdsSection.style.display='block';
+    iadsLoadAll();
   } else {
     if(toolbar)    toolbar.style.display='';
     if(reqList)    reqList.style.display='';
@@ -1324,6 +1507,406 @@ function copyAddr(addr){
   navigator.clipboard.writeText(addr).then(()=>{
     setStatus('✅ Address disalin: '+addr,'var(--green)');
   });
+}
+
+
+// ═══════════════════════════════════════════
+//   INDOCOIN ADS v2 — ADMIN JS
+// ═══════════════════════════════════════════
+const IADS_CONTRACT = "0x39A88147C2320dF90D9734d134B0F09EAc51CB0D";
+const IADS_ABI = [
+  "function getPendingAdIds() view returns(uint256[])",
+  "function getActiveAdIds() view returns(uint256[])",
+  "function adBase(uint256) view returns(address,uint8,uint8,uint8,bool,uint256,uint256,uint256,uint256)",
+  "function adContent(uint256) view returns(string,string,string,string)",
+  "function adMetrics(uint256) view returns(uint256,uint256,uint256,uint256)",
+  "function approveAd(uint256) external",
+  "function rejectAd(uint256,string) external",
+  "function setPricing(uint256,uint256,uint256) external",
+  "function setMaxSlots(uint256) external",
+  "function setIndcPrice(uint256) external",
+  "function setIsListed(bool) external",
+  "function setPaused(bool) external",
+  "function withdrawPool() external",
+  "function submitHouseAd(string,string,string,string,uint256,uint8) external",
+  "function getPoolBalance() view returns(uint256)",
+  "function getTotalBurned() view returns(uint256)",
+  "function basePriceCent() view returns(uint256)",
+  "function incrementCent() view returns(uint256)",
+  "function primeMultiplier() view returns(uint256)",
+  "function maxSlots() view returns(uint256)",
+  "function indcPriceCent() view returns(uint256)",
+  "function isListed() view returns(bool)",
+  "function waitlistLength() view returns(uint256)",
+  "function getReviews(uint256,uint256) view returns(tuple(address,uint256,uint8,string,uint256)[])",
+  "function reviewCount() view returns(uint256)"
+];
+
+const IADS_STATUS = ['PENDING','ACTIVE','REJECTED','EXPIRED','WITHDRAWN'];
+const IADS_SLOT   = ['REGULAR','PRIME'];
+const IADS_PAY    = ['INDC','USDT','RUPIAH'];
+
+let _iadsContract = null;
+let _iadsAllAds   = [];
+
+function iadsSetMsg(msg, color='var(--muted)') {
+  const el = document.getElementById('iads-section-msg');
+  if(el){ el.textContent = msg; el.style.color = color; }
+}
+
+async function iadsGetContract() {
+  if(_iadsContract && _signer) return _iadsContract;
+  if(!_signer) { iadsSetMsg('❌ Connect wallet dulu', 'var(--red)'); return null; }
+  _iadsContract = new ethers.Contract(IADS_CONTRACT, IADS_ABI, _signer);
+  return _iadsContract;
+}
+
+async function iadsLoadAll() {
+  iadsSetMsg('⏳ Memuat data...', 'var(--gold)');
+  try {
+    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+
+    const [pendingIds, activeIds, poolBal, burned] = await Promise.all([
+      c.getPendingAdIds().catch(()=>[]),
+      c.getActiveAdIds().catch(()=>[]),
+      c.getPoolBalance().catch(()=>0n),
+      c.getTotalBurned().catch(()=>0n)
+    ]);
+
+    document.getElementById('iadsPending').textContent  = pendingIds.length;
+    document.getElementById('iadsActive').textContent   = activeIds.length;
+    document.getElementById('iadsRevenue').textContent  = '—';
+    document.getElementById('iadsBurned').textContent   =
+      (Number(burned) / 1e9).toFixed(0) + ' INDC';
+
+    // Load pending ads
+    await iadsRenderPending(pendingIds, c);
+    await iadsRenderActive(activeIds, c);
+
+    iadsSetMsg('✅ Data dimuat', 'var(--green)');
+  } catch(e) {
+    iadsSetMsg('❌ ' + e.message, 'var(--red)');
+  }
+}
+
+async function iadsRenderPending(ids, c) {
+  const el = document.getElementById('iadsPendingList');
+  if(!ids.length) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px;">✅ Tidak ada iklan pending</div>';
+    return;
+  }
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat pending...</div></div>';
+  const cards = await Promise.all(ids.map(async id => {
+    try {
+      const [base, cont, met] = await Promise.all([
+        c.adBase(id), c.adContent(id), c.adMetrics(id)
+      ]);
+      return iadsCardHTML(id, base, cont, met, true);
+    } catch(e) { return ''; }
+  }));
+  el.innerHTML = cards.join('') || '<div style="text-align:center;padding:20px;color:var(--muted);">Tidak ada data</div>';
+}
+
+async function iadsRenderActive(ids, c) {
+  const el = document.getElementById('iadsActiveList');
+  if(!ids.length) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px;">Belum ada iklan aktif</div>';
+    return;
+  }
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat aktif...</div></div>';
+  const cards = await Promise.all(ids.map(async id => {
+    try {
+      const [base, cont, met] = await Promise.all([
+        c.adBase(id), c.adContent(id), c.adMetrics(id)
+      ]);
+      return iadsCardHTML(id, base, cont, met, false);
+    } catch(e) { return ''; }
+  }));
+  el.innerHTML = cards.join('') || '<div style="text-align:center;padding:20px;color:var(--muted);">Tidak ada data</div>';
+}
+
+function iadsCardHTML(id, base, cont, met, isPending) {
+  const advertiser = base[0];
+  const status     = Number(base[1]);
+  const payMethod  = IADS_PAY[Number(base[2])] || '—';
+  const slotType   = IADS_SLOT[Number(base[3])] || 'REGULAR';
+  const isHouseAd  = base[4];
+  const duration   = Number(base[5]);
+  const totalPaid  = (Number(base[6]) / 1e9).toFixed(2);
+  const expiresAt  = Number(base[8]);
+  const bannerUrl  = cont[0];
+  const targetUrl  = cont[1];
+  const title      = cont[2];
+  const reject     = cont[3];
+  const imps       = Number(met[0]);
+  const clicks     = Number(met[1]);
+  const ctr        = imps > 0 ? ((clicks/imps)*100).toFixed(1) : '0.0';
+
+  const expDate = expiresAt ? new Date(expiresAt*1000).toLocaleDateString('id') : '—';
+  const short   = advertiser ? advertiser.slice(0,8)+'...'+advertiser.slice(-4) : '—';
+  const daysLeft = expiresAt ? Math.ceil((expiresAt - Date.now()/1000)/86400) : 0;
+
+  const statusColor = status===1 ? 'var(--green)' : status===2 ? 'var(--red)' : 'var(--gold)';
+
+  return \`
+  <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--gold);margin-bottom:3px;">\${title||'Tanpa Judul'}</div>
+        <div style="font-size:0.7rem;color:var(--muted);">ID #\${id} • \${slotType} • \${payMethod} • \${isHouseAd?'🏠 HOUSE':''}</div>
+      </div>
+      <span style="font-size:0.7rem;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,0.05);color:\${statusColor};">\${IADS_STATUS[status]||'—'}</span>
+    </div>
+
+    \${bannerUrl ? \`<img src="\${bannerUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:10px;" onerror="this.style.display='none'"/>\` : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;font-size:0.72rem;">
+      <div style="color:var(--muted);">Wallet<br><span style="color:var(--text);font-family:'Share Tech Mono',monospace;">\${short}</span></div>
+      <div style="color:var(--muted);">URL Tujuan<br><a href="\${targetUrl}" target="_blank" style="color:var(--blue);word-break:break-all;">\${(targetUrl||'—').slice(0,30)}...</a></div>
+      <div style="color:var(--muted);">Durasi<br><span style="color:var(--text);">\${duration} hari</span></div>
+      <div style="color:var(--muted);">Bayar<br><span style="color:var(--gold);">\${totalPaid} INDC</span></div>
+      <div style="color:var(--muted);">Expire<br><span style="color:\${daysLeft<=7?'var(--red)':'var(--text)'};">\${expDate}\${daysLeft>0?' ('+daysLeft+'hr)':''}</span></div>
+      <div style="color:var(--muted);">Stats<br><span style="color:var(--text);">\${imps} tayangan • \${clicks} klik • CTR \${ctr}%</span></div>
+    </div>
+
+    \${reject ? \`<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px;margin-bottom:8px;font-size:0.72rem;color:var(--red);">❌ Alasan ditolak: \${reject}</div>\` : ''}
+
+    \${isPending ? \`
+    <div style="margin-bottom:8px;">
+      <input type="text" id="iads-reject-reason-\${id}" placeholder="Alasan penolakan (wajib jika reject)..."
+        style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:var(--text);font-size:0.78rem;margin-bottom:6px;"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <button onclick="iadsApprove(\${id})" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:var(--green);padding:10px;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:0.7rem;cursor:pointer;letter-spacing:1px;">✅ APPROVE</button>
+        <button onclick="iadsReject(\${id})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:10px;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:0.7rem;cursor:pointer;letter-spacing:1px;">❌ REJECT</button>
+      </div>
+    </div>
+    \` : ''}
+
+    <div id="iads-msg-\${id}" style="font-size:0.72rem;color:var(--muted);text-align:center;min-height:14px;"></div>
+  </div>\`;
+}
+
+async function iadsApprove(id) {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const msg = document.getElementById(\`iads-msg-\${id}\`);
+  msg.textContent = '⏳ Memproses approve...';
+  msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.approveAd(id);
+    msg.textContent = '⏳ Menunggu konfirmasi...';
+    await tx.wait();
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Iklan disetujui!';
+    setTimeout(() => iadsLoadAll(), 2000);
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = '❌ ' + (e.reason || e.message);
+  }
+}
+
+async function iadsReject(id) {
+  const reason = document.getElementById(\`iads-reject-reason-\${id}\`)?.value?.trim();
+  if(!reason) { iadsSetMsg('❌ Isi alasan penolakan dulu!', 'var(--red)'); return; }
+  const c = await iadsGetContract();
+  if(!c) return;
+  const msg = document.getElementById(\`iads-msg-\${id}\`);
+  msg.textContent = '⏳ Memproses reject...';
+  msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.rejectAd(id, reason);
+    msg.textContent = '⏳ Menunggu konfirmasi...';
+    await tx.wait();
+
+    // Update Firestore status juga
+    try {
+      const { getFirestore, collection, query, where, getDocs, doc, updateDoc } =
+        await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+      const db   = getFirestore(_fbApp);
+      const q    = query(collection(db,'paidAds'), where('advertiser','==',
+        (await _signer.getAddress()).toLowerCase()));
+      const snap = await getDocs(q);
+      snap.forEach(async d => {
+        if(Number(d.data().adId) === id)
+          await updateDoc(doc(db,'paidAds',d.id), { status:'rejected', rejectReason:reason });
+      });
+    } catch(fe) { /* Firestore update optional */ }
+
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Iklan ditolak & refund otomatis!';
+    setTimeout(() => iadsLoadAll(), 2000);
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = '❌ ' + (e.reason || e.message);
+  }
+}
+
+function switchIadsTab(tab, btn) {
+  document.querySelectorAll('#indcAdsSection .atab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#indcAdsSection .atab-content').forEach(c => c.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const el = document.getElementById(\`iadsC-\${tab}\`);
+  if(el) el.classList.add('active');
+  if(tab === 'reviews') iadsLoadReviews();
+  if(tab === 'history') iadsLoadHistory();
+  if(tab === 'config')  iadsLoadConfig();
+}
+
+async function iadsLoadConfig() {
+  try {
+    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+    const [base, inc, multi, slots, price, listed, pool] = await Promise.all([
+      c.basePriceCent(), c.incrementCent(), c.primeMultiplier(),
+      c.maxSlots(), c.indcPriceCent(), c.isListed(), c.getPoolBalance()
+    ]);
+    document.getElementById('iads-baseCent').value  = base.toString();
+    document.getElementById('iads-incCent').value   = inc.toString();
+    document.getElementById('iads-primeMulti').value = multi.toString();
+    document.getElementById('iads-maxSlots').value  = slots.toString();
+    document.getElementById('iads-indcPrice').value = price.toString();
+    document.getElementById('iads-pool-bal').textContent =
+      'Pool: ' + (Number(pool)/1e9).toFixed(2) + ' INDC | isListed: ' + listed;
+    document.getElementById('iads-pricing-msg').textContent = '✅ Config dimuat';
+  } catch(e) {
+    document.getElementById('iads-pricing-msg').textContent = '❌ ' + e.message;
+  }
+}
+
+async function iadsSetPricing() {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const base  = parseInt(document.getElementById('iads-baseCent').value);
+  const inc   = parseInt(document.getElementById('iads-incCent').value);
+  const multi = parseInt(document.getElementById('iads-primeMulti').value);
+  const slots = parseInt(document.getElementById('iads-maxSlots').value);
+  const msg   = document.getElementById('iads-pricing-msg');
+  msg.textContent = '⏳ Memproses...'; msg.style.color = 'var(--gold)';
+  try {
+    const tx1 = await c.setPricing(base, inc, multi);
+    await tx1.wait();
+    const tx2 = await c.setMaxSlots(slots);
+    await tx2.wait();
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Pricing diupdate!';
+  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+}
+
+async function iadsSetIndcPrice() {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const price = parseInt(document.getElementById('iads-indcPrice').value);
+  const msg   = document.getElementById('iads-price-msg');
+  msg.textContent = '⏳...'; msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.setIndcPrice(price);
+    await tx.wait();
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Harga INDC diupdate!';
+  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+}
+
+async function iadsSetListed(val) {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const msg = document.getElementById('iads-listed-msg');
+  msg.textContent = '⏳...'; msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.setIsListed(val);
+    await tx.wait();
+    msg.style.color = 'var(--green)';
+    msg.textContent = \`✅ isListed = \${val}\`;
+  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+}
+
+async function iadsSetPaused(val) {
+  const c = await iadsGetContract();
+  if(!c) return;
+  iadsSetMsg('⏳ Memproses...', 'var(--gold)');
+  try {
+    const tx = await c.setPaused(val);
+    await tx.wait();
+    iadsSetMsg(\`✅ Contract \${val?'PAUSED':'ACTIVE'}\`, 'var(--green)');
+  } catch(e) { iadsSetMsg('❌ '+(e.reason||e.message), 'var(--red)'); }
+}
+
+async function iadsWithdrawPool() {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const msg = document.getElementById('iads-pool-msg');
+  msg.textContent = '⏳...'; msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.withdrawPool();
+    await tx.wait();
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ Pool berhasil di-withdraw!';
+    iadsLoadConfig();
+  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+}
+
+async function iadsSubmitHouseAd() {
+  const c = await iadsGetContract();
+  if(!c) return;
+  const banner = document.getElementById('iads-h-banner').value.trim();
+  const target = document.getElementById('iads-h-target').value.trim();
+  const title  = document.getElementById('iads-h-title').value.trim();
+  const days   = parseInt(document.getElementById('iads-h-days').value);
+  const slot   = parseInt(document.getElementById('iads-h-slot').value);
+  const msg    = document.getElementById('iads-house-msg');
+  if(!banner||!target||!title) { msg.textContent='❌ Lengkapi semua field!'; msg.style.color='var(--red)'; return; }
+  msg.textContent = '⏳ Submit...'; msg.style.color = 'var(--gold)';
+  try {
+    const tx = await c.submitHouseAd(banner, target, title, '', days, slot);
+    await tx.wait();
+    // Auto approve house ad
+    const idNum = (await c.waitlistLength()).toString();
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✅ House ad berhasil dipasang!';
+  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+}
+
+async function iadsLoadReviews() {
+  const el = document.getElementById('iadsReviewsList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat review...</div></div>';
+  try {
+    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+    const count = Number(await c.reviewCount());
+    if(!count) { el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada review</div>'; return; }
+    const reviews = await c.getReviews(0, Math.min(count, 50));
+    el.innerHTML = reviews.map(r => \`
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--muted);">\${r[0].slice(0,8)}...\${r[0].slice(-4)}</span>
+          <span style="color:var(--gold);font-size:0.78rem;">${'⭐'.repeat(Number(r[2]))}</span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text);margin-bottom:4px;">\${r[3]}</div>
+        <div style="font-size:0.68rem;color:var(--muted);">Ad #\${r[1]} • \${new Date(Number(r[4])*1000).toLocaleDateString('id')}</div>
+      </div>\`).join('');
+  } catch(e) { el.innerHTML = \`<div style="color:var(--red);padding:16px;">❌ \${e.message}</div>\`; }
+}
+
+async function iadsLoadHistory() {
+  const el = document.getElementById('iadsHistoryList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat riwayat...</div></div>';
+  try {
+    const { getFirestore, collection, query, orderBy, limit, getDocs } =
+      await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+    const db   = getFirestore(_fbApp);
+    const snap = await getDocs(query(collection(db,'paidAds'), orderBy('submittedAt','desc'), limit(50)));
+    const ads  = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if(!ads.length) { el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada riwayat</div>'; return; }
+    el.innerHTML = ads.map(a => \`
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;margin-bottom:8px;font-size:0.75rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--gold);font-weight:700;">\${a.title||'Tanpa Judul'}</span>
+          <span style="padding:2px 8px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--text);">\${a.status||'—'}</span>
+        </div>
+        <div style="color:var(--muted);">\${a.slotType||'REGULAR'} • \${a.durationDays||'—'} hari • \${a.payMethod||'—'}</div>
+        <div style="color:var(--muted);margin-top:2px;">Advertiser: \${(a.advertiser||'—').slice(0,12)}...</div>
+      </div>\`).join('');
+  } catch(e) { el.innerHTML=\`<div style="color:var(--red);padding:16px;">❌ \${e.message}</div>\`; }
 }
 
 /* ── STARS ── */
