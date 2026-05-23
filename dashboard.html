@@ -283,9 +283,14 @@ body {
 /* Active banner */
 .ads-active-banner {
   position: absolute; inset: 0;
-  display: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
 }
-.ads-active-banner.show { display: block; }
+.ads-active-banner.show {
+  opacity: 1;
+  pointer-events: auto;
+}
 .ads-dots {
   position: absolute; bottom: 6px; left: 50%;
   transform: translateX(-50%);
@@ -2071,7 +2076,7 @@ document.getElementById('bankINDCPopup').addEventListener('click',function(e){
 });
 </script>
 <!-- AD CLICK POPUP -->
-<div id="adPopupOverlay" style="display:none;" class="ad-popup-overlay" onclick="closeAdPopup(event)">
+<div id="adPopupOverlay" style="visibility:hidden;opacity:0;pointer-events:none;" class="ad-popup-overlay" onclick="closeAdPopup(event)">
   <div class="ad-popup-box" onclick="event.stopPropagation()">
     <div class="ad-popup-title">IKLAN BERBAYAR</div>
     <div class="ad-popup-name" id="adPopupName">—</div>
@@ -2091,20 +2096,24 @@ document.getElementById('bankINDCPopup').addEventListener('click',function(e){
 
 <script>
 let _adPopupUrl = '';
-function openAdPopup(adId, targetUrl, title) {
+window.openAdPopup = function(adId, targetUrl, title) {
   _adPopupUrl = targetUrl;
   document.getElementById('adPopupName').textContent = title || 'Iklan';
-  const ov=document.getElementById('adPopupOverlay'); ov.style.display='flex'; ov.style.animation='fadeIn 0.2s ease';
+  var ov=document.getElementById('adPopupOverlay'); ov.style.visibility='visible'; ov.style.opacity='1'; ov.style.pointerEvents='auto';
   // Tetap catat klik
   fetch(`/click?id=${adId}`, { method:'GET', mode:'no-cors' }).catch(()=>{});
 }
-function visitAd() {
+window.visitAd = function() {
   closeAdPopup();
   if (_adPopupUrl) window.open(_adPopupUrl, '_blank');
 }
-function closeAdPopup(e) {
-  if (!e || e.target === document.getElementById('adPopupOverlay'))
-    document.getElementById('adPopupOverlay').style.display = 'none';
+window.closeAdPopup = function(e) {
+  if (!e || e.target === document.getElementById('adPopupOverlay')) {
+    var ov2 = document.getElementById('adPopupOverlay');
+    ov2.style.visibility = 'hidden';
+    ov2.style.opacity = '0';
+    ov2.style.pointerEvents = 'none';
+  }
 }
 </script>
 
