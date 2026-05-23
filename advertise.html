@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>INDOCOIN Ads — Pasang Iklan</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
 <style>
 :root {
@@ -176,19 +175,6 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark3);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:20px;font-size:0.82rem;white-space:nowrap;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;}
 #toast.show{opacity:1;}
 
-/* CROP MODAL */
-.crop-modal{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;animation:fadeUp 0.3s ease;}
-.crop-modal-box{background:var(--dark2);border:1px solid var(--border);border-radius:20px;padding:16px;width:100%;max-width:480px;}
-.crop-modal-title{font-family:'Orbitron',sans-serif;font-size:0.82rem;color:var(--gold);text-align:center;margin-bottom:12px;letter-spacing:1px;}
-.crop-hint{font-size:0.72rem;color:var(--muted);text-align:center;margin-bottom:10px;}
-.crop-hint span{color:var(--gold);}
-.crop-container{width:100%;height:220px;overflow:hidden;border-radius:10px;background:#000;margin-bottom:14px;}
-.crop-container img{max-width:100%;}
-.crop-ratio-info{display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:var(--muted);margin-bottom:12px;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 12px;}
-.crop-ratio-info span{color:var(--gold);font-weight:700;}
-.crop-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.btn-crop-cancel{background:var(--dark3);border:1px solid var(--border);color:var(--muted);padding:12px;border-radius:12px;font-family:'Rajdhani',sans-serif;font-size:0.85rem;cursor:pointer;}
-.btn-crop-use{background:linear-gradient(135deg,var(--gold3),var(--gold));color:#000;border:none;padding:12px;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;letter-spacing:0.5px;}
 /* ANIMATE */
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 
@@ -388,7 +374,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <input type="file" class="upload-input" id="bannerInput" accept="image/jpeg,image/png,image/gif" onchange="handleBanner(event)"/>
         <div class="upload-icon">🖼️</div>
         <div class="upload-title">Tap untuk upload banner</div>
-        <div class="upload-sub">JPG / PNG / GIF • Maks 10MB<br/>Akan dipotong otomatis 358 × 120 px</div>
+        <div class="upload-sub">JPG / PNG / GIF • Maks 2MB<br/>Ukuran ideal: 468 × 160 px</div>
       </div>
       <div class="preview-box" id="previewBox">
         <div class="preview-label">Preview Banner</div>
@@ -403,8 +389,8 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <div class="section">
       <div class="sec-title">DETAIL IKLAN</div>
       <div class="form-group">
-        <div class="form-label">Judul Iklan <span class="req">*wajib</span></div>
-        <input type="text" class="form-input" id="adTitle" placeholder="Contoh: Promo Token XYZ — Beli Sekarang!" maxlength="60"/>
+        <div class="form-label">Brand / Nama Perusahaan <span class="req">*wajib</span></div>
+        <input type="text" class="form-input" id="adTitle" placeholder="Contoh: PT. Segar Arum, Token XYZ..." maxlength="60"/>
         <div class="form-hint">Maks 60 karakter</div>
       </div>
       <div class="form-group">
@@ -817,70 +803,23 @@ async function updateCostDisplay() {
 }
 
 // ── BANNER UPLOAD ─────────────────────────────────
-// Cropper instance
-let _cropper = null;
-let _origFileName = '';
-
 window.handleBanner = (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) { showToast('❌ File terlalu besar, maks 10MB'); return; }
-  _origFileName = file.name;
-  const url = URL.createObjectURL(file);
-  openCropModal(url);
-};
+  if (file.size > 2 * 1024 * 1024) { showToast('❌ File terlalu besar, maks 2MB'); return; }
 
-function openCropModal(url) {
-  const modal = document.getElementById('cropModal');
-  const img   = document.getElementById('cropImage');
-  modal.style.display = 'flex';
-  img.src = url;
-  // Destroy cropper lama jika ada
-  if (_cropper) { _cropper.destroy(); _cropper = null; }
-  img.onload = () => {
-    _cropper = new Cropper(img, {
-      aspectRatio : 358 / 120,   // rasio banner dashboard
-      viewMode    : 1,
-      dragMode    : 'move',
-      autoCropArea: 1,
-      responsive  : true,
-      background  : false,
-      guides      : true,
-      highlight   : false,
-      cropBoxMovable   : false,
-      cropBoxResizable : false,
-      toggleDragModeOnDblclick: false,
-    });
-  };
-}
+  bannerFile = file;
+  const url  = URL.createObjectURL(file);
+  const img  = document.getElementById('previewImg');
+  img.src    = url;
 
-window.closeCropModal = () => {
-  document.getElementById('cropModal').style.display = 'none';
-  if (_cropper) { _cropper.destroy(); _cropper = null; }
-  // Reset input supaya bisa pilih file yang sama lagi
-  document.getElementById('bannerInput').value = '';
-};
+  const box = document.getElementById('previewBox');
+  box.style.display = 'block';
+  document.getElementById('previewSize').textContent =
+    `${(file.size/1024).toFixed(0)} KB • ${file.name}`;
 
-window.applyCrop = () => {
-  if (!_cropper) return;
-  // Export canvas dengan ukuran 716 × 184 (2x untuk retina)
-  const canvas = _cropper.getCroppedCanvas({ width: 716, height: 240 });
-  canvas.toBlob(blob => {
-    bannerFile = new File([blob], _origFileName.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
-    const url  = URL.createObjectURL(blob);
-
-    // Tampilkan preview
-    document.getElementById('cropModal').style.display = 'none';
-    document.getElementById('previewImg').src = url;
-    document.getElementById('previewBox').style.display = 'block';
-    document.getElementById('previewSize').textContent =
-      `${(blob.size/1024).toFixed(0)} KB • 716×240 px (retina)`;
-    document.getElementById('uploadArea').style.borderColor = 'var(--green)';
-
-    if (_cropper) { _cropper.destroy(); _cropper = null; }
-    checkStep2();
-    showToast('✅ Foto berhasil dipotong!');
-  }, 'image/jpeg', 0.92);
+  document.getElementById('uploadArea').style.borderColor = 'var(--green)';
+  checkStep2();
 };
 
 // ── TOS ──────────────────────────────────────────
@@ -1169,6 +1108,5 @@ const s = document.createElement('script');
 s.src   = "https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js";
 document.head.appendChild(s);
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </body>
 </html>
