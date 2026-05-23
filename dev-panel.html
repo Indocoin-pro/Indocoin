@@ -6,6 +6,8 @@
 <title>INDOCOIN — Dev Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getDatabase, ref, onValue, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
@@ -662,27 +664,65 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
         <div class="sub-section">
           <div class="sub-hdr">🏠 PASANG HOUSE AD</div>
           <div class="sub-body">
-            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Banner URL (Firebase Storage)</div>
-            <input type="text" id="iads-h-banner" placeholder="https://..." class="input-dev" style="margin-bottom:8px;"/>
-            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Target URL</div>
-            <input type="text" id="iads-h-target" placeholder="https://..." class="input-dev" style="margin-bottom:8px;"/>
-            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Judul</div>
+
+            <!-- Upload Banner -->
+            <div style="font-size:9px;color:var(--muted);margin-bottom:6px;">BANNER <span style="color:var(--gold);">*</span></div>
+            <div id="hads-upload-area" onclick="document.getElementById('hads-file-input').click()"
+                 style="border:2px dashed rgba(250,204,21,0.3);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:rgba(255,255,255,0.02);margin-bottom:8px;transition:all 0.2s;"
+                 onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='rgba(250,204,21,0.3)'">
+              <div id="hads-upload-icon" style="font-size:1.5rem;margin-bottom:4px;">🖼️</div>
+              <div style="font-size:10px;color:var(--muted);">Tap untuk pilih foto banner<br/><span style="color:var(--gold);">358 × 120 px</span> • Auto crop</div>
+              <input type="file" id="hads-file-input" accept="image/*" style="display:none;" onchange="hadsHandleFile(event)"/>
+            </div>
+
+            <!-- Preview Banner -->
+            <div id="hads-preview" style="display:none;margin-bottom:8px;border-radius:10px;overflow:hidden;border:1px solid rgba(250,204,21,0.2);">
+              <img id="hads-preview-img" style="width:100%;height:80px;object-fit:cover;display:block;"/>
+              <div style="padding:5px 8px;background:rgba(0,0,0,0.3);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:9px;color:var(--green);">✓ Banner siap</span>
+                <span style="font-size:9px;color:var(--blue);cursor:pointer;" onclick="document.getElementById('hads-file-input').click()">Ganti foto</span>
+              </div>
+            </div>
+
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">TARGET URL <span style="color:var(--gold);">*</span></div>
+            <input type="text" id="iads-h-target" placeholder="https://indocoin.id" class="input-dev" style="margin-bottom:8px;"/>
+
+            <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">JUDUL <span style="color:var(--gold);">*</span></div>
             <input type="text" id="iads-h-title" placeholder="Judul iklan" class="input-dev" style="margin-bottom:8px;"/>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
               <div>
-                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Durasi (hari)</div>
-                <input type="number" id="iads-h-days" placeholder="30" class="input-dev" value="30"/>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">DURASI (HARI)</div>
+                <input type="number" id="iads-h-days" class="input-dev" value="30"/>
               </div>
               <div>
-                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">Slot Type</div>
+                <div style="font-size:9px;color:var(--muted);margin-bottom:4px;">SLOT</div>
                 <select id="iads-h-slot" class="input-dev">
                   <option value="0">REGULAR</option>
                   <option value="1">PRIME</option>
                 </select>
               </div>
             </div>
-            <button class="btn-dev btn-dev-gold" onclick="iadsSubmitHouseAd()">📣 PASANG HOUSE AD</button>
-            <div id="iads-house-msg" style="font-size:10px;margin-top:8px;color:var(--muted);"></div>
+
+            <button class="btn-dev btn-dev-gold" onclick="iadsSubmitHouseAd()" style="width:100%;padding:12px;">
+              📣 PASANG & AUTO APPROVE
+            </button>
+            <div id="iads-house-msg" style="font-size:10px;margin-top:8px;color:var(--muted);text-align:center;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CROP MODAL -->
+      <div id="hads-crop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:#111;border:1px solid rgba(250,204,21,0.3);border-radius:16px;padding:16px;width:100%;max-width:420px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.78rem;color:var(--gold);text-align:center;margin-bottom:8px;">✂️ SESUAIKAN BANNER</div>
+          <div style="font-size:9px;color:var(--muted);text-align:center;margin-bottom:10px;">Geser & pinch zoom • Rasio <span style="color:var(--gold);">358×120</span></div>
+          <div style="width:100%;height:200px;overflow:hidden;border-radius:8px;background:#000;margin-bottom:12px;">
+            <img id="hads-crop-img" src="" style="max-width:100%;"/>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button onclick="hadsCloseCrop()" style="background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:var(--muted);padding:10px;border-radius:10px;font-size:0.82rem;cursor:pointer;">✕ Batal</button>
+            <button onclick="hadsApplyCrop()" style="background:linear-gradient(135deg,#f59e0b,#facc15);color:#000;border:none;padding:10px;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:0.72rem;font-weight:700;cursor:pointer;">✓ GUNAKAN</button>
           </div>
         </div>
       </div>
@@ -1671,25 +1711,119 @@ function switchIadsTab(tab, btn) {
   if(tab === 'reviews') iadsLoadReviews();
 }
 
+// ── HOUSE ADS — Crop & Upload ──────────────────
+let _hadsCropper = null;
+let _hadsBannerFile = null;
+let _hadsBannerUrl  = '';
+
+window.hadsHandleFile = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  _hadsBannerFile = file;
+  // Buka crop modal
+  const modal = document.getElementById('hads-crop-modal');
+  const img   = document.getElementById('hads-crop-img');
+  modal.style.display = 'flex';
+  img.src = url;
+  if (_hadsCropper) { _hadsCropper.destroy(); _hadsCropper = null; }
+  img.onload = () => {
+    _hadsCropper = new Cropper(img, {
+      aspectRatio       : 358 / 120,
+      viewMode          : 1,
+      dragMode          : 'move',
+      autoCropArea      : 1,
+      responsive        : true,
+      background        : false,
+      guides            : true,
+      cropBoxMovable    : false,
+      cropBoxResizable  : false,
+    });
+  };
+};
+
+window.hadsCloseCrop = () => {
+  document.getElementById('hads-crop-modal').style.display = 'none';
+  if (_hadsCropper) { _hadsCropper.destroy(); _hadsCropper = null; }
+  document.getElementById('hads-file-input').value = '';
+};
+
+window.hadsApplyCrop = () => {
+  if (!_hadsCropper) return;
+  const canvas = _hadsCropper.getCroppedCanvas({ width: 716, height: 240 });
+  canvas.toBlob(blob => {
+    _hadsBannerFile = new File([blob], 'house-ad-banner.jpg', { type: 'image/jpeg' });
+    const url = URL.createObjectURL(blob);
+    _hadsBannerUrl = '';
+    document.getElementById('hads-crop-modal').style.display = 'none';
+    document.getElementById('hads-preview-img').src = url;
+    document.getElementById('hads-preview').style.display = 'block';
+    document.getElementById('hads-upload-area').style.display = 'none';
+    if (_hadsCropper) { _hadsCropper.destroy(); _hadsCropper = null; }
+  }, 'image/jpeg', 0.92);
+};
+
 async function iadsSubmitHouseAd() {
-  const c = await iadsGetContract();
-  if(!c) return;
-  const banner = document.getElementById('iads-h-banner').value.trim();
+  const msg = document.getElementById('iads-house-msg');
   const target = document.getElementById('iads-h-target').value.trim();
   const title  = document.getElementById('iads-h-title').value.trim();
   const days   = parseInt(document.getElementById('iads-h-days').value);
   const slot   = parseInt(document.getElementById('iads-h-slot').value);
-  const msg    = document.getElementById('iads-house-msg');
-  if(!banner||!target||!title) { msg.textContent='❌ Lengkapi semua field!'; msg.style.color='var(--red)'; return; }
-  msg.textContent = '⏳ Submit...'; msg.style.color = 'var(--gold)';
+
+  if (!_hadsBannerFile) { msg.textContent='❌ Upload banner dulu!'; msg.style.color='var(--red)'; return; }
+  if (!target||!title)  { msg.textContent='❌ Lengkapi target URL dan judul!'; msg.style.color='var(--red)'; return; }
+
+  const c = await iadsGetContract();
+  if (!c) return;
+
   try {
-    const tx = await c.submitHouseAd(banner, target, title, '', days, slot);
-    await tx.wait();
-    // Auto approve house ad
-    const idNum = (await c.waitlistLength()).toString();
-    msg.style.color = 'var(--green)';
-    msg.textContent = '✅ House ad berhasil dipasang!';
-  } catch(e) { msg.style.color='var(--red)'; msg.textContent='❌ '+(e.reason||e.message); }
+    // Step 1: Upload banner ke Firebase Storage
+    msg.textContent = '⏳ Upload banner...'; msg.style.color = 'var(--gold)';
+    const { getStorage, ref, uploadBytes, getDownloadURL } =
+      await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js");
+    const storage  = getStorage();
+    const sRef     = ref(storage, `ads/house/${Date.now()}.jpg`);
+    await uploadBytes(sRef, _hadsBannerFile);
+    const bannerUrl = await getDownloadURL(sRef);
+
+    // Step 2: Submit house ad ke contract
+    msg.textContent = '⏳ Submit ke contract...'; msg.style.color = 'var(--gold)';
+    const tx1 = await c.submitHouseAd(bannerUrl, target, title, '', days, slot);
+    const receipt = await tx1.wait();
+
+    // Step 3: Ambil adId dari event AdSubmitted
+    let adId = 0;
+    const iface = new ethers.utils.Interface([
+      "event AdSubmitted(uint256 indexed adId, address indexed advertiser, uint8 slotType, uint256 paid)"
+    ]);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed.name === 'AdSubmitted') { adId = Number(parsed.args.adId); break; }
+      } catch(e) {}
+    }
+
+    // Step 4: Auto approve langsung
+    if (adId > 0) {
+      msg.textContent = `⏳ Auto approve ad #${adId}...`; msg.style.color = 'var(--gold)';
+      const tx2 = await c.approveAd(adId);
+      await tx2.wait();
+      msg.textContent = `✅ House ad #${adId} LIVE di dashboard!`; msg.style.color = 'var(--green)';
+    } else {
+      msg.textContent = '✅ House ad submit! Approve manual di tab PENDING.'; msg.style.color = 'var(--green)';
+    }
+
+    // Reset form
+    _hadsBannerFile = null;
+    document.getElementById('hads-preview').style.display = 'none';
+    document.getElementById('hads-upload-area').style.display = 'block';
+    document.getElementById('iads-h-target').value = '';
+    document.getElementById('iads-h-title').value  = '';
+
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = '❌ ' + (e.reason || e.message || 'Error');
+  }
 }
 
 async function iadsLoadReviews() {
