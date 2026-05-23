@@ -1562,16 +1562,15 @@ async function iadsGetContract() {
 }
 
 async function iadsLoadAll() {
+  if (!window._provider) { iadsSetMsg('❌ Connect wallet dulu', 'var(--red)'); return; }
   iadsSetMsg('⏳ Memuat data...', 'var(--gold)');
   try {
-    const cAdmin = _signer ? new ethers.Contract(IADS_CONTRACT, IADS_ABI, _signer) : null;
-    const rpcPub = window._provider || new ethers.providers.StaticJsonRpcProvider("https://bsc-dataseed1.binance.org/");
-    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, rpcPub);
-
+    const p = window._provider;
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
 
     const [pendingIds, activeIds, poolBal, burned] = await Promise.all([
-      (cAdmin||c).getPendingAdIds().catch(()=>[]),
-      (cAdmin||c).getActiveAdIds().catch(()=>[]),
+      c.getPendingAdIds().catch(()=>[]),
+      c.getActiveAdIds().catch(()=>[]),
       c.getPoolBalance().catch(()=>0n),
       c.getTotalBurned().catch(()=>0n)
     ]);
@@ -1756,12 +1755,10 @@ function switchIadsTab(tab, btn) {
 }
 
 async function iadsLoadConfig() {
+  if (!window._provider) { document.getElementById('iads-pricing-msg').textContent='❌ Connect wallet dulu'; return; }
   try {
-    const cfgP = _signer ? new ethers.Contract(IADS_CONTRACT, IADS_ABI, _signer)
-      : new ethers.Contract(IADS_CONTRACT, IADS_ABI,
-          window._provider || new ethers.providers.StaticJsonRpcProvider("https://bsc-dataseed1.binance.org/"));
-    const c = cfgP;
-
+    const p = window._provider;
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
     const [base, inc, multi, slots, price, listed, pool] = await Promise.all([
       c.basePriceCent(), c.incrementCent(), c.primeMultiplier(),
       c.maxSlots(), c.indcPriceCent(), c.isListed(), c.getPoolBalance()
@@ -1873,11 +1870,10 @@ async function iadsSubmitHouseAd() {
 
 async function iadsLoadReviews() {
   const el = document.getElementById('iadsReviewsList');
+  if (!window._provider) { el.innerHTML='<div style="padding:16px;color:var(--red);">❌ Connect wallet dulu</div>'; return; }
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat review...</div></div>';
-    const revP = window._provider || new ethers.providers.StaticJsonRpcProvider("https://bsc-dataseed1.binance.org/");
-    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, revP);
   try {
-    const p = new ethers.providers.StaticJsonRpcProvider("https://bsc-dataseed1.binance.org/");
+    const p = window._provider;
     const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
     const count = Number(await c.reviewCount());
     if(!count) { el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada review</div>'; return; }
@@ -1901,7 +1897,7 @@ async function iadsLoadHistory() {
     const { getFirestore, collection, query, orderBy, limit, getDocs } =
       await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
     const db   = getFirestore(_fbApp);
-    const snap = await getDocs(query(collection(db,'paidAds'), orderBy('registeredAt','desc'), limit(50)));
+    const snap = await getDocs(query(collection(db,'paidAds'), orderBy('submittedAt','desc'), limit(50)));
     const ads  = snap.docs.map(d => ({id:d.id,...d.data()}));
     if(!ads.length) { el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada riwayat</div>'; return; }
     el.innerHTML = ads.map(a => `
