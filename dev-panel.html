@@ -1762,21 +1762,49 @@ async function iadsSubmitHouseAd() {
   if (!c) return;
 
   try {
-    // Step 1: Konversi banner ke base64 Data URL — tidak perlu Firebase Storage
+    // Step 1: Konversi banner ke base64
     msg.textContent = '⏳ Memproses banner...'; msg.style.color = 'var(--gold)';
-    const bannerUrl = await new Promise((resolve, reject) => {
+    const base64Banner = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload  = () => resolve(reader.result);
       reader.onerror = () => reject(new Error('Gagal baca file'));
       reader.readAsDataURL(_hadsBannerFile);
     });
 
-    // Step 2: Submit ke contract
-    msg.textContent = '⏳ Submit ke contract...'; msg.style.color = 'var(--gold)';
-    const tx1     = await c.submitHouseAd(bannerUrl, target, title, '', days, slot);
-    const receipt = await tx1.wait();
+    // Step 2: Simpan ke Firestore langsung → status active
+    msg.textContent = '⏳ Menyimpan ke database...'; msg.style.color = 'var(--gold)';
+    const { initializeApp: _fI, getApps: _fG } =
+      await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js");
+    const { getFirestore, collection, addDoc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+    const _FC2  = {apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",authDomain:"indocoin-network.firebaseapp.com",projectId:"indocoin-network",storageBucket:"indocoin-network.firebasestorage.app",messagingSenderId:"742922450154",appId:"1:742922450154:web:97e0847e85bfe3e9f9d393"};
+    const _fApp2 = _fG().find(a=>a.name==='hadsFs') || _fI(_FC2,'hadsFs');
+    const _db2   = getFirestore(_fApp2);
 
-    // Step 3: Ambil adId dari event lalu auto approve
+    const docRef = await addDoc(collection(_db2,'paidAds'), {
+      advertiser  : await _signer.getAddress(),
+      bannerUrl   : base64Banner,
+      targetUrl   : target,
+      title       : title,
+      slotType    : slot === 0 ? 'regular' : 'prime',
+      durationDays: days,
+      payMethod   : 'HOUSE',
+      isHouseAd   : true,
+      status      : 'active',
+      impressions : 0,
+      clicks      : 0,
+      registeredAt: serverTimestamp(),
+      approvedAt  : serverTimestamp(),
+      expiresAt   : new Date(Date.now() + days * 86400000)
+    });
+
+    // Step 3: Submit ke contract dengan URL pendek (bukan base64)
+    msg.textContent = '⏳ Submit ke contract...'; msg.style.color = 'var(--gold)';
+    const shortUrl = `https://indocoin.id/hads/${docRef.id}`;
+    const tx1      = await c.submitHouseAd(shortUrl, target, title, '', days, slot);
+    const receipt  = await tx1.wait();
+
+    // Step 4: Ambil adId & auto approve
     let adId = 0;
     const iface = new ethers.utils.Interface([
       "event AdSubmitted(uint256 indexed adId,address indexed advertiser,uint8 slotType,uint256 paid)"
@@ -1784,15 +1812,13 @@ async function iadsSubmitHouseAd() {
     for (const log of receipt.logs) {
       try { const p = iface.parseLog(log); if(p.name==='AdSubmitted'){ adId=Number(p.args.adId); break; } } catch(e){}
     }
-
     if (adId > 0) {
-      msg.textContent = `⏳ Auto approve ad #${adId}...`; msg.style.color = 'var(--gold)';
+      msg.textContent = `⏳ Auto approve #${adId}...`; msg.style.color = 'var(--gold)';
       const tx2 = await c.approveAd(adId);
       await tx2.wait();
-      msg.textContent = `✅ House ad #${adId} LIVE! Cek dashboard.`; msg.style.color = 'var(--green)';
-    } else {
-      msg.textContent = '✅ Submitted! Approve manual di tab PENDING.'; msg.style.color = 'var(--green)';
     }
+
+    msg.textContent = '✅ House ad LIVE! Cek dashboard sekarang.'; msg.style.color = 'var(--green)';
 
     // Reset form
     _hadsBannerFile = null;
