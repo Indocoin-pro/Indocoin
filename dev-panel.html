@@ -1562,11 +1562,9 @@ async function iadsGetContract() {
 }
 
 async function iadsLoadAll() {
-  if (!window._provider) { iadsSetMsg('❌ Connect wallet dulu', 'var(--red)'); return; }
   iadsSetMsg('⏳ Memuat data...', 'var(--gold)');
   try {
-    const p = window._provider;
-    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, _provider);
 
     const [pendingIds, activeIds, poolBal, burned] = await Promise.all([
       c.getPendingAdIds().catch(()=>[]),
@@ -1755,10 +1753,8 @@ function switchIadsTab(tab, btn) {
 }
 
 async function iadsLoadConfig() {
-  if (!window._provider) { document.getElementById('iads-pricing-msg').textContent='❌ Connect wallet dulu'; return; }
   try {
-    const p = window._provider;
-    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, _provider);
     const [base, inc, multi, slots, price, listed, pool] = await Promise.all([
       c.basePriceCent(), c.incrementCent(), c.primeMultiplier(),
       c.maxSlots(), c.indcPriceCent(), c.isListed(), c.getPoolBalance()
@@ -1870,11 +1866,9 @@ async function iadsSubmitHouseAd() {
 
 async function iadsLoadReviews() {
   const el = document.getElementById('iadsReviewsList');
-  if (!window._provider) { el.innerHTML='<div style="padding:16px;color:var(--red);">❌ Connect wallet dulu</div>'; return; }
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat review...</div></div>';
   try {
-    const p = window._provider;
-    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
+    const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, _provider);
     const count = Number(await c.reviewCount());
     if(!count) { el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada review</div>'; return; }
     const reviews = await c.getReviews(0, Math.min(count, 50));
