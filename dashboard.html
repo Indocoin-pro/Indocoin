@@ -1198,7 +1198,7 @@ body {
           <div class="other-icon">🏦</div>
           <div class="other-name">BANK INDC</div>
         </a>
-        <a href="paid-ads.html" class="other-item" style="text-decoration:none;position:relative;overflow:hidden;">
+        <a href="advertise.html" class="other-item" style="text-decoration:none;position:relative;overflow:hidden;">
           <div class="other-icon" style="animation:adsPulse 2s ease-in-out infinite alternate;">📢</div>
           <div class="other-name" style="color:#facc15;font-size:8px;letter-spacing:0.5px;">PAID ADS</div>
         </a>
@@ -1334,7 +1334,7 @@ body {
           </div>
           <div class="ads-ph-pasang-wrap">
             <span class="ads-ph-hand">👉</span>
-            <span class="ads-ph-pasang" onclick="window.location.href='paid-ads-register.html'">pasang iklan</span>
+            <span class="ads-ph-pasang" onclick="window.location.href='advertise.html'">pasang iklan</span>
           </div>
         </div>
 
@@ -1485,9 +1485,9 @@ let adsBannerAds = [];
 async function loadPaidAdsBanners() {
   try {
     const q    = query(
-      collection(db, 'paidAdsPublic'),
-      where('active', '==', true),
-      orderBy('registeredAt', 'desc'),
+      collection(db, 'paidAds'),
+      where('status', '==', 'active'),
+      orderBy('approvedAt', 'desc'),
       limit(20)
     );
     const snap = await getDocs(q);
@@ -1521,7 +1521,7 @@ async function loadPaidAdsBanners() {
     if (adsBannerAds.length > 1) {
       setInterval(() => {
         goToAdsBanner((adsBannerIdx + 1) % adsBannerAds.length);
-      }, 5000);
+      }, 8000);
     }
 
   } catch(e) {
@@ -1536,37 +1536,57 @@ function goToAdsBanner(idx) {
 }
 
 function buildAdsBanner(ad) {
-  const catColor = {UMKM:'#e8a830',UD:'#facc15',CV:'#60a5fa',PT:'#a78bfa'}[ad.kategori] || '#facc15';
-  const avatar   = ad.profilUrl
-    ? `<img src="${ad.profilUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
-    : '<span style="font-size:22px;">🏪</span>';
-  const produk   = ad.produk?.[0];
-  const hargaTxt = produk?.showPrice && produk?.harga > 0
-    ? `ab ${Number(produk.harga).toLocaleString('id-ID')} INDC`
-    : (produk?.nama || '');
+  // Format baru: gambar banner + klik ke targetUrl pengiklan
+  const isPrime = ad.slotType === 'prime' || ad.slotType === 'PRIME';
+  const primeBadge = isPrime
+    ? `<div style="position:absolute;top:6px;left:6px;background:linear-gradient(135deg,#f59e0b,#facc15);color:#000;font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:1px;z-index:2;">⭐ PRIME</div>`
+    : '';
 
+  // Jika ada bannerUrl → tampilkan gambar
+  if (ad.bannerUrl) {
+    return `
+    <div style="position:absolute;inset:0;cursor:pointer;overflow:hidden;"
+         onclick="recordAdClick('${ad.id}','${ad.targetUrl}')">
+      <img src="${ad.bannerUrl}"
+           style="width:100%;height:100%;object-fit:cover;display:block;
+                  animation:bannerFadeIn 0.5s ease;"
+           onerror="this.parentElement.style.background='#0a0f1e'"/>
+      ${primeBadge}
+      <div style="position:absolute;bottom:0;left:0;right:0;height:22px;
+                  background:linear-gradient(transparent,rgba(0,0,0,0.7));
+                  display:flex;align-items:center;justify-content:flex-end;padding:0 10px;">
+        <span style="font-size:8px;color:rgba(250,204,21,0.5);font-family:'Orbitron',sans-serif;
+                     letter-spacing:1px;cursor:pointer;text-decoration:underline;"
+              onclick="event.stopPropagation();window.location.href='advertise.html'">pasang iklan</span>
+      </div>
+    </div>`;
+  }
+
+  // Fallback: tidak ada gambar → tampilkan teks
   return `
-  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a0f1e,#0d1a0d);cursor:pointer;"
-       onclick="window.location.href='paid-ads-store.html?id=${ad.id}'">
-    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(250,204,21,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(250,204,21,0.04) 1px,transparent 1px);background-size:28px 28px;animation:gridMove 10s linear infinite;"></div>
-    <div style="position:absolute;left:-20px;top:-20px;width:140px;height:140px;background:radial-gradient(circle,${catColor}30,transparent 70%);"></div>
-    <div style="position:absolute;inset:0;display:flex;align-items:center;padding:0 18px;gap:14px;">
-      <div style="width:58px;height:58px;border-radius:50%;background:rgba(250,204,21,0.08);border:2px solid ${catColor}77;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 0 18px ${catColor}44;">
-        ${avatar}
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:inline-block;background:${catColor}22;border:1px solid ${catColor}55;color:${catColor};font-family:'Orbitron',sans-serif;font-size:8px;padding:2px 7px;border-radius:4px;letter-spacing:1px;margin-bottom:4px;">${ad.kategori}</div>
-        <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#fff;text-shadow:0 0 12px rgba(250,204,21,0.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ad.namaUsaha}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">📍 ${ad.kota} · ${ad.jamOperasional || ''}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#facc15;font-weight:900;">${hargaTxt}</div>
-        <div style="margin-top:7px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#000;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;padding:5px 10px;border-radius:7px;letter-spacing:1px;">LIHAT →</div>
-      </div>
+  <div style="position:absolute;inset:0;background:linear-gradient(135deg,#0a0f1e,#0d1a0d);
+              cursor:pointer;display:flex;align-items:center;justify-content:center;"
+       onclick="recordAdClick('${ad.id}','${ad.targetUrl}')">
+    ${primeBadge}
+    <div style="text-align:center;padding:0 20px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;
+                  color:#facc15;margin-bottom:6px;">${ad.title || 'IKLAN'}</div>
+      <div style="font-size:10px;color:#94a3b8;">${ad.targetUrl || ''}</div>
     </div>
-    <div style="position:absolute;bottom:6px;right:10px;font-size:8px;color:rgba(250,204,21,0.3);font-family:'Orbitron',sans-serif;letter-spacing:1px;text-decoration:underline;cursor:pointer;"
-         onclick="event.stopPropagation();window.location.href='paid-ads-register.html'">pasang iklan</div>
+    <div style="position:absolute;bottom:6px;right:10px;font-size:8px;
+                color:rgba(250,204,21,0.4);font-family:'Orbitron',sans-serif;
+                letter-spacing:1px;text-decoration:underline;cursor:pointer;"
+         onclick="event.stopPropagation();window.location.href='advertise.html'">pasang iklan</div>
   </div>`;
+}
+
+// Record klik iklan + redirect ke website pengiklan
+function recordAdClick(adId, targetUrl) {
+  // Tracker via server sebelum redirect
+  const tracker = `/click?id=${adId}`;
+  fetch(tracker, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  // Redirect ke website pengiklan
+  if (targetUrl) window.open(targetUrl, '_blank');
 }
 </script>
 

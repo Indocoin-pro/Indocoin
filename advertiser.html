@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>INDOCOIN Ads — Dashboard Pengiklan</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --gold:#facc15;--gold2:#fbbf24;--gold3:#f59e0b;
+  --dark:#080808;--dark2:#111111;--dark3:#1a1a1a;--dark4:#141414;
+  --text:#e2e8f0;--muted:#64748b;
+  --glow:0 0 20px #facc1566;
+  --blue:#3b82f6;--red:#ef4444;--green:#22c55e;
+  --card:rgba(255,255,255,0.04);--border:rgba(250,204,21,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;padding-bottom:80px;overflow-x:hidden;}
+#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bgLogo img{width:320px;opacity:0.03;filter:blur(1px);}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:1;pointer-events:none;background:linear-gradient(90deg,transparent,#facc1522,transparent);animation:scan 6s linear infinite;}
+@keyframes scan{0%{top:-2px;}100%{top:100vh;}}
+.layout{position:relative;z-index:1;}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(8,8,8,0.95);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
+.topbar-logo{display:flex;align-items:center;gap:8px;font-family:'Orbitron',sans-serif;font-weight:700;font-size:0.95rem;color:var(--gold);}
+.topbar-logo img{width:26px;height:26px;border-radius:50%;}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.78rem;cursor:pointer;transition:all 0.2s;}
+.btn-sm:hover{border-color:var(--gold);color:var(--gold);}
+.wallet-chip{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.wallet-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+.main{padding:16px 16px 100px;max-width:480px;margin:0 auto;}
+
+/* NO WALLET */
+.no-wallet{text-align:center;padding:60px 20px;animation:fadeUp 0.5s ease;}
+.no-wallet-icon{font-size:3rem;margin-bottom:16px;}
+.no-wallet h2{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--gold);margin-bottom:8px;}
+.no-wallet p{font-size:0.85rem;color:var(--muted);margin-bottom:20px;}
+.btn-connect{width:100%;background:linear-gradient(135deg,var(--dark3),var(--dark4));border:1px solid var(--gold);color:var(--gold);padding:14px;border-radius:14px;font-family:'Orbitron',sans-serif;font-size:0.85rem;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-connect:hover{background:rgba(250,204,21,0.08);box-shadow:var(--glow);}
+
+/* NO AD */
+.no-ad{text-align:center;padding:40px 20px;animation:fadeUp 0.5s ease;}
+.no-ad-icon{font-size:2.5rem;margin-bottom:12px;}
+.no-ad h2{font-family:'Orbitron',sans-serif;font-size:0.95rem;color:var(--gold);margin-bottom:8px;}
+.no-ad p{font-size:0.82rem;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+
+/* STATUS BADGE */
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;letter-spacing:0.5px;}
+.status-pending  {background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);}
+.status-active   {background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.3);}
+.status-rejected {background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);}
+.status-expired  {background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.3);}
+.status-withdrawn{background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.3);}
+
+/* AD CARD */
+.ad-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px;animation:fadeUp 0.5s ease;}
+.ad-banner-wrap{position:relative;width:100%;height:160px;background:var(--dark3);overflow:hidden;}
+.ad-banner-wrap img{width:100%;height:100%;object-fit:cover;}
+.ad-banner-overlay{position:absolute;top:8px;right:8px;}
+.ad-info{padding:14px;}
+.ad-title{font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--gold);margin-bottom:6px;}
+.ad-url{font-size:0.75rem;color:var(--blue);margin-bottom:10px;word-break:break-all;display:flex;align-items:center;gap:4px;}
+.ad-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.meta-item{background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;}
+.meta-label{font-size:0.65rem;color:var(--muted);letter-spacing:0.5px;margin-bottom:3px;}
+.meta-val{font-size:0.85rem;color:var(--text);font-weight:600;}
+.meta-val.gold{color:var(--gold);font-family:'Orbitron',sans-serif;}
+
+/* PROGRESS BAR WAKTU */
+.time-bar{margin-bottom:12px;}
+.time-bar-label{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-bottom:5px;}
+.time-bar-track{height:4px;background:var(--dark3);border-radius:2px;overflow:hidden;}
+.time-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold3),var(--gold));border-radius:2px;transition:width 0.5s;}
+.time-bar-fill.warn{background:linear-gradient(90deg,var(--red),#f97316);}
+
+/* STATS ROW */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.stat-box{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--gold);}
+.stat-lbl{font-size:0.62rem;color:var(--muted);margin-top:2px;letter-spacing:0.3px;}
+
+/* CHART */
+.chart-wrap{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;}
+.chart-title{font-size:0.72rem;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
+.chart-title span{color:var(--gold);}
+.chart-bars{display:flex;align-items:flex-end;gap:4px;height:60px;}
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.chart-bar{width:100%;border-radius:3px 3px 0 0;background:var(--gold3);transition:height 0.5s;min-height:2px;}
+.chart-bar.clicks{background:var(--blue);}
+.chart-day{font-size:0.55rem;color:var(--muted);}
+.chart-legend{display:flex;gap:12px;margin-top:8px;}
+.chart-legend-item{display:flex;align-items:center;gap:4px;font-size:0.68rem;color:var(--muted);}
+.chart-legend-dot{width:8px;height:8px;border-radius:2px;}
+
+/* REJECT BOX */
+.reject-box{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:12px;margin-bottom:12px;}
+.reject-title{font-size:0.78rem;color:var(--red);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.reject-reason{font-size:0.8rem;color:var(--text);line-height:1.5;}
+
+/* EXPIRE WARN */
+.expire-warn{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+.expire-warn-text{font-size:0.78rem;color:var(--gold3);line-height:1.4;}
+
+/* WAITLIST */
+.waitlist-box{background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:12px;margin-bottom:12px;}
+.waitlist-title{font-size:0.78rem;color:var(--blue);font-weight:600;margin-bottom:6px;}
+.waitlist-pos{font-family:'Orbitron',sans-serif;font-size:1.4rem;color:var(--blue);text-align:center;padding:8px 0;}
+
+/* ACTION BUTTONS */
+.action-row{display:grid;gap:8px;}
+.btn-action{width:100%;padding:12px;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:0.78rem;cursor:pointer;transition:all 0.3s;border:none;letter-spacing:0.5px;}
+.btn-renew{background:linear-gradient(135deg,var(--gold3),var(--gold));color:#000;}
+.btn-renew:hover{box-shadow:var(--glow);}
+.btn-upgrade{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;}
+.btn-upgrade:hover{box-shadow:0 0 20px #a855f766;}
+.btn-withdraw{background:var(--dark3);border:1px solid var(--red);color:var(--red);}
+.btn-withdraw:hover{background:rgba(239,68,68,0.08);}
+.btn-new{background:linear-gradient(135deg,var(--gold3),var(--gold));color:#000;}
+
+/* HISTORY */
+.history-list{display:flex;flex-direction:column;gap:10px;}
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;}
+.history-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.history-title{font-size:0.82rem;color:var(--text);font-weight:600;}
+.history-date{font-size:0.7rem;color:var(--muted);}
+.history-meta{display:flex;gap:12px;}
+.history-meta span{font-size:0.72rem;color:var(--muted);}
+.history-meta strong{color:var(--text);}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:var(--dark3);border-radius:12px;padding:4px;margin-bottom:16px;}
+.tab{flex:1;text-align:center;padding:8px 4px;border-radius:9px;font-size:0.72rem;color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.3px;}
+.tab.active{background:rgba(250,204,21,0.1);color:var(--gold);border:1px solid var(--border);}
+
+/* SECTION */
+.section{margin-bottom:20px;}
+.sec-title{font-family:'Orbitron',sans-serif;font-size:0.75rem;letter-spacing:2px;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:0;right:0;background:rgba(8,8,8,0.97);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 12px;z-index:200;backdrop-filter:blur(12px);}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:0.6rem;letter-spacing:0.5px;text-decoration:none;min-width:48px;transition:color 0.2s;}
+.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.bnav-icon{font-size:1.2rem;}
+
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark3);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:20px;font-size:0.82rem;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;}
+
+/* ANIMATE */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* LOADING */
+.loading-wrap{text-align:center;padding:60px 20px;}
+.loading-wrap .spinner{width:32px;height:32px;}
+.loading-wrap p{color:var(--muted);font-size:0.82rem;margin-top:12px;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{background:var(--dark2);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;animation:slideUp 0.3s ease;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-title{font-family:'Orbitron',sans-serif;font-size:0.9rem;color:var(--gold);margin-bottom:16px;text-align:center;}
+.modal-close{position:absolute;top:16px;right:16px;background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="bgLogo"><img src="assets/logo.png" alt=""/></div>
+<div class="scanline"></div>
+<div class="layout">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <img src="assets/logo.png" alt=""/>
+    MY ADS
+  </div>
+  <div class="topbar-right">
+    <div class="wallet-chip" id="walletChip" style="display:none;">
+      <div class="wallet-dot"></div>
+      <span id="walletShort">—</span>
+    </div>
+    <button class="btn-sm" onclick="location.href='advertise.html'">+ PASANG IKLAN</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LOADING -->
+  <div id="panelLoading" class="loading-wrap">
+    <div class="spinner"></div>
+    <p>Memuat data iklan...</p>
+  </div>
+
+  <!-- NO WALLET -->
+  <div id="panelNoWallet" style="display:none;">
+    <div class="no-wallet">
+      <div class="no-wallet-icon">🔗</div>
+      <h2>CONNECT WALLET</h2>
+      <p>Hubungkan wallet untuk melihat status dan statistik iklan kamu.</p>
+      <button class="btn-connect" onclick="connectWallet()">
+        <span>🔗</span> CONNECT WALLET
+      </button>
+    </div>
+  </div>
+
+  <!-- NO AD -->
+  <div id="panelNoAd" style="display:none;">
+    <div class="no-ad">
+      <div class="no-ad-icon">📢</div>
+      <h2>BELUM ADA IKLAN</h2>
+      <p>Kamu belum pernah pasang iklan di INDOCOIN.<br/>Mulai sekarang dan jangkau komunitas crypto Indonesia!</p>
+      <button class="btn-connect" onclick="location.href='advertise.html'">
+        <span>📢</span> PASANG IKLAN SEKARANG
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="panelMain" style="display:none;">
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" id="tabAktif" onclick="switchTab('aktif')">IKLAN AKTIF</div>
+      <div class="tab" id="tabHistory" onclick="switchTab('history')">RIWAYAT</div>
+      <div class="tab" id="tabStats" onclick="switchTab('stats')">STATISTIK</div>
+    </div>
+
+    <!-- TAB: IKLAN AKTIF -->
+    <div id="contentAktif">
+
+      <!-- AD CARD -->
+      <div class="ad-card" id="adCard">
+        <div class="ad-banner-wrap">
+          <img id="adBanner" src="" alt="banner"/>
+          <div class="ad-banner-overlay">
+            <span class="status-badge" id="adStatusBadge">—</span>
+          </div>
+        </div>
+        <div class="ad-info">
+          <div class="ad-title" id="adTitle">—</div>
+          <div class="ad-url" id="adUrl">🔗 —</div>
+
+          <!-- REJECT REASON -->
+          <div class="reject-box" id="rejectBox" style="display:none;">
+            <div class="reject-title">❌ Alasan Penolakan</div>
+            <div class="reject-reason" id="rejectReason">—</div>
+          </div>
+
+          <!-- WAITLIST -->
+          <div class="waitlist-box" id="waitlistBox" style="display:none;">
+            <div class="waitlist-title">⏳ Posisi Waiting List</div>
+            <div class="waitlist-pos" id="waitlistPos">—</div>
+            <div style="font-size:0.72rem;color:var(--muted);text-align:center;">Iklan kamu akan otomatis aktif saat slot tersedia</div>
+          </div>
+
+          <!-- EXPIRE WARNING -->
+          <div class="expire-warn" id="expireWarn" style="display:none;">
+            <span style="font-size:1.3rem;">⚠️</span>
+            <div class="expire-warn-text">Iklan kamu akan berakhir dalam <strong id="expireDays" style="color:var(--gold);">—</strong>. Perpanjang sekarang agar tidak terputus!</div>
+          </div>
+
+          <!-- AD META -->
+          <div class="ad-meta">
+            <div class="meta-item">
+              <div class="meta-label">PAKET</div>
+              <div class="meta-val" id="adSlotType">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">DURASI</div>
+              <div class="meta-val" id="adDuration">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">MULAI</div>
+              <div class="meta-val" id="adStart">—</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">BERAKHIR</div>
+              <div class="meta-val" id="adExpire">—</div>
+            </div>
+          </div>
+
+          <!-- TIME PROGRESS -->
+          <div class="time-bar" id="timeBar" style="display:none;">
+            <div class="time-bar-label">
+              <span>Sisa waktu</span>
+              <span id="timeLeft" style="color:var(--gold);">—</span>
+            </div>
+            <div class="time-bar-track">
+              <div class="time-bar-fill" id="timeBarFill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- STATS -->
+          <div class="stats-grid" id="statsGrid" style="display:none;">
+            <div class="stat-box">
+              <div class="stat-val" id="statImpressions">0</div>
+              <div class="stat-lbl">TAYANGAN</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="statClicks">0</div>
+              <div class="stat-lbl">KLIK</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="statCTR">0%</div>
+              <div class="stat-lbl">CTR</div>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div class="action-row" id="actionRow">
+            <!-- Diisi JS -->
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB: HISTORY -->
+    <div id="contentHistory" style="display:none;">
+      <div class="section">
+        <div class="sec-title">RIWAYAT IKLAN</div>
+        <div class="history-list" id="historyList">
+          <div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:20px;">Memuat riwayat...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: STATISTIK -->
+    <div id="contentStats" style="display:none;">
+      <div class="section">
+        <div class="sec-title">PERFORMA IKLAN</div>
+
+        <!-- SUMMARY CARDS -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+          <div class="stat-box" style="padding:14px;">
+            <div class="stat-val" id="totalImpressions">0</div>
+            <div class="stat-lbl">TOTAL TAYANGAN</div>
+          </div>
+          <div class="stat-box" style="padding:14px;">
+            <div class="stat-val" id="totalClicks">0</div>
+            <div class="stat-lbl">TOTAL KLIK</div>
+          </div>
+          <div class="stat-box" style="padding:14px;">
+            <div class="stat-val" id="totalCTR">0%</div>
+            <div class="stat-lbl">RATA-RATA CTR</div>
+          </div>
+          <div class="stat-box" style="padding:14px;">
+            <div class="stat-val" id="totalAds">0</div>
+            <div class="stat-lbl">TOTAL IKLAN</div>
+          </div>
+        </div>
+
+        <!-- CHART IMPRESSIONS -->
+        <div class="chart-wrap">
+          <div class="chart-title">
+            <span>Tayangan & Klik (7 hari)</span>
+            <span id="chartPeriod">—</span>
+          </div>
+          <div class="chart-bars" id="chartBars">
+            <!-- Diisi JS -->
+          </div>
+          <div class="chart-legend">
+            <div class="chart-legend-item">
+              <div class="chart-legend-dot" style="background:var(--gold3);"></div>
+              <span>Tayangan</span>
+            </div>
+            <div class="chart-legend-item">
+              <div class="chart-legend-dot" style="background:var(--blue);"></div>
+              <span>Klik</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOYALTY INFO -->
+        <div class="section">
+          <div class="sec-title">LOYALTY STATUS</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:0.82rem;color:var(--muted);">Bulan aktif berturut-turut</span>
+              <span style="font-size:0.82rem;color:var(--gold);font-weight:700;" id="loyaltyMonth">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:0.82rem;color:var(--muted);">Harga saat ini</span>
+              <span style="font-size:0.82rem;color:var(--text);font-weight:700;" id="loyaltyPrice">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:0.82rem;color:var(--muted);">Harga bulan depan</span>
+              <span style="font-size:0.82rem;color:var(--gold3);font-weight:700;" id="loyaltyNext">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="font-size:0.82rem;color:var(--muted);">Total iklan dipasang</span>
+              <span style="font-size:0.82rem;color:var(--text);" id="loyaltyTotal">—</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /panelMain -->
+
+</div><!-- /main -->
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
+  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
+  <a class="bnav-item active" href="advertiser.html"><span class="bnav-icon">📢</span>IKLAN</a>
+  <a class="bnav-item" href="presale.html"><span class="bnav-icon">🚀</span>PRESALE</a>
+  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>KOMUNITAS</a>
+</nav>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs, orderBy, limit }
+                            from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+// ── CONFIG ──────────────────────────────────
+const firebaseConfig = {
+  apiKey           : "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain       : "indocoin-network.firebaseapp.com",
+  projectId        : "indocoin-network",
+  storageBucket    : "indocoin-network.firebasestorage.app",
+  messagingSenderId: "742922450154",
+  appId            : "1:742922450154:web:97e0847e85bfe3e9f9d393"
+};
+
+const ADS_CONTRACT = "0x39A88147C2320dF90D9734d134B0F09EAc51CB0D";
+const BSC_CHAIN_ID = 56;
+
+const ADS_ABI = [
+  "function getMyAd() view returns(tuple(address,uint8,uint8,uint8,bool,uint256,uint256,uint256,uint256),tuple(string,string,string,string),tuple(uint256,uint256,uint256,uint256))",
+  "function calcCost(address,uint256,uint8) view returns(uint256,uint256,uint256,uint256)",
+  "function withdrawPending(uint256) external",
+  "function basePriceCent() view returns(uint256)",
+  "function incrementCent() view returns(uint256)",
+  "function activeAdOf(address) view returns(uint256)",
+  "function adBase(uint256) view returns(address,uint8,uint8,uint8,bool,uint256,uint256,uint256,uint256)",
+  "function adContent(uint256) view returns(string,string,string,string)",
+  "function adMetrics(uint256) view returns(uint256,uint256,uint256,uint256)",
+  "function advRec(address) view returns(uint256,uint256,uint256,uint256)"
+];
+
+const STATUS = ['PENDING','ACTIVE','REJECTED','EXPIRED','WITHDRAWN'];
+const SLOT   = ['REGULER','PRIME'];
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+let provider, signer, myAddr;
+let currentAdId = 0;
+let adData = null;
+
+// ── INIT ─────────────────────────────────────
+window.addEventListener('load', async () => {
+  const s = document.createElement('script');
+  s.src   = "https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js";
+  s.onload = async () => {
+    await autoConnect();
+  };
+  document.head.appendChild(s);
+});
+
+async function autoConnect() {
+  if (!window.ethereum) { showPanel('noWallet'); return; }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts && accounts.length > 0) {
+      await connectWallet(true);
+    } else {
+      showPanel('noWallet');
+    }
+  } catch(e) { showPanel('noWallet'); }
+}
+
+window.connectWallet = async (silent = false) => {
+  try {
+    const { ethers } = window;
+    provider = new ethers.BrowserProvider(window.ethereum);
+    if (!silent) await provider.send("eth_requestAccounts", []);
+    const net = await provider.getNetwork();
+    if (Number(net.chainId) !== BSC_CHAIN_ID) {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x38' }]
+      });
+    }
+    signer = await provider.getSigner();
+    myAddr = await signer.getAddress();
+
+    // Update UI
+    document.getElementById('walletChip').style.display = 'flex';
+    document.getElementById('walletShort').textContent  =
+      `${myAddr.slice(0,6)}...${myAddr.slice(-4)}`;
+
+    await loadAdData();
+  } catch(e) {
+    if (!silent) showToast('❌ ' + (e.message || 'Gagal'));
+    showPanel('noWallet');
+  }
+};
+
+// ── LOAD AD DATA ─────────────────────────────
+async function loadAdData() {
+  showPanel('loading');
+  try {
+    const { ethers } = window;
+    const p   = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const c   = new ethers.Contract(ADS_CONTRACT, ADS_ABI, p);
+
+    const adId = await c.activeAdOf(myAddr);
+    currentAdId = Number(adId);
+
+    // Cek Firestore untuk data terbaru
+    const q    = query(
+      collection(db, 'paidAds'),
+      where('advertiser', '==', myAddr.toLowerCase()),
+      orderBy('submittedAt', 'desc'),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    const allAds = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (allAds.length === 0 && currentAdId === 0) {
+      showPanel('noAd'); return;
+    }
+
+    // Data iklan terbaru
+    const latest = allAds[0];
+    if (!latest && currentAdId === 0) { showPanel('noAd'); return; }
+
+    adData = latest;
+
+    // Jika ada adId on-chain, ambil data dari contract
+    if (currentAdId > 0) {
+      try {
+        const [base, content, metrics] = await Promise.all([
+          c.adBase(currentAdId),
+          c.adContent(currentAdId),
+          c.adMetrics(currentAdId)
+        ]);
+        adData = {
+          ...adData,
+          status      : STATUS[Number(base[1])],
+          slotType    : SLOT[Number(base[3])],
+          durationDays: Number(base[5]),
+          totalPaid   : base[6].toString(),
+          submittedAt : Number(base[7]),
+          expiresAt   : Number(base[8]),
+          bannerUrl   : content[0],
+          targetUrl   : content[1],
+          title       : content[2],
+          rejectReason: content[3],
+          impressions : Number(metrics[0]),
+          clicks      : Number(metrics[1]),
+          approvedAt  : Number(metrics[2]),
+          startAt     : Number(metrics[3]),
+          adId        : currentAdId
+        };
+      } catch(e) { /* pakai data Firestore */ }
+    }
+
+    // Load loyalty data
+    try {
+      const [rec, base2, inc] = await Promise.all([
+        c.advRec(myAddr),
+        c.basePriceCent(),
+        c.incrementCent()
+      ]);
+      const months = Number(rec[0]);
+      const step   = Math.min(months, 5) - 1;
+      const daily  = (Number(base2) + step * Number(inc)) / 100;
+      const next   = (Number(base2) + Math.min(step+1, 4) * Number(inc)) / 100;
+
+      document.getElementById('loyaltyMonth').textContent = `${months} bulan`;
+      document.getElementById('loyaltyPrice').textContent = `$${daily}/hari`;
+      document.getElementById('loyaltyNext').textContent  = `$${next}/hari`;
+      document.getElementById('loyaltyTotal').textContent = Number(rec[3]).toString();
+    } catch(e) {}
+
+    showPanel('main');
+    renderAd(adData);
+    renderHistory(allAds);
+    renderStats(allAds);
+
+  } catch(e) {
+    console.error(e);
+    showPanel('noWallet');
+  }
+}
+
+// ── RENDER AD ────────────────────────────────
+function renderAd(ad) {
+  if (!ad) return;
+
+  const status = (ad.status || 'pending').toLowerCase();
+
+  // Banner
+  if (ad.bannerUrl) {
+    document.getElementById('adBanner').src = ad.bannerUrl;
+  }
+
+  // Title & URL
+  document.getElementById('adTitle').textContent = ad.title || '—';
+  document.getElementById('adUrl').innerHTML =
+    `🔗 <a href="${ad.targetUrl}" target="_blank" style="color:var(--blue)">${ad.targetUrl || '—'}</a>`;
+
+  // Status badge
+  const badge = document.getElementById('adStatusBadge');
+  badge.textContent = status.toUpperCase();
+  badge.className   = `status-badge status-${status}`;
+
+  // Meta
+  document.getElementById('adSlotType').textContent  = ad.slotType || 'REGULER';
+  document.getElementById('adDuration').textContent  = `${ad.durationDays || '—'} hari`;
+
+  const fmt = ts => ts ? new Date(ts * 1000).toLocaleDateString('id') : '—';
+  document.getElementById('adStart').textContent  = fmt(ad.startAt || ad.approvedAt);
+  document.getElementById('adExpire').textContent = fmt(ad.expiresAt);
+
+  // Reject reason
+  if (status === 'rejected' && ad.rejectReason) {
+    document.getElementById('rejectBox').style.display = 'block';
+    document.getElementById('rejectReason').textContent = ad.rejectReason;
+  }
+
+  // Time bar (hanya jika active)
+  if (status === 'active' && ad.expiresAt && ad.startAt) {
+    document.getElementById('timeBar').style.display = 'block';
+    const total   = ad.expiresAt - ad.startAt;
+    const elapsed = Date.now()/1000 - ad.startAt;
+    const pct     = Math.max(0, Math.min(100, 100 - (elapsed/total*100)));
+    const daysLeft = Math.ceil((ad.expiresAt - Date.now()/1000) / 86400);
+
+    document.getElementById('timeLeft').textContent = `${daysLeft} hari lagi`;
+    const fill = document.getElementById('timeBarFill');
+    fill.style.width = pct + '%';
+    if (pct < 20) fill.classList.add('warn');
+
+    // Expire warning
+    if (daysLeft <= 7) {
+      document.getElementById('expireWarn').style.display = 'flex';
+      document.getElementById('expireDays').textContent   = `${daysLeft} hari`;
+    }
+  }
+
+  // Stats
+  if (status === 'active' || status === 'expired') {
+    document.getElementById('statsGrid').style.display = 'grid';
+    const imp = ad.impressions || 0;
+    const clk = ad.clicks || 0;
+    const ctr = imp > 0 ? ((clk/imp)*100).toFixed(1) : '0.0';
+    document.getElementById('statImpressions').textContent = imp.toLocaleString('id');
+    document.getElementById('statClicks').textContent      = clk.toLocaleString('id');
+    document.getElementById('statCTR').textContent         = `${ctr}%`;
+  }
+
+  // Action buttons
+  renderActions(status, ad);
+}
+
+function renderActions(status, ad) {
+  const row = document.getElementById('actionRow');
+  row.innerHTML = '';
+
+  if (status === 'active') {
+    const daysLeft = ad.expiresAt ? Math.ceil((ad.expiresAt - Date.now()/1000) / 86400) : 0;
+    if (daysLeft <= 7) {
+      row.innerHTML += `<button class="btn-action btn-renew" onclick="renewAd()">🔄 PERPANJANG IKLAN</button>`;
+    }
+    if (ad.slotType !== 'PRIME') {
+      row.innerHTML += `<button class="btn-action btn-upgrade" onclick="upgradeAd()">⭐ UPGRADE KE PRIME</button>`;
+    }
+  }
+
+  if (status === 'pending') {
+    const submitted = ad.submittedAt || 0;
+    const canWithdraw = (Date.now()/1000) >= submitted + 86400;
+    if (canWithdraw) {
+      row.innerHTML += `<button class="btn-action btn-withdraw" onclick="withdrawAd()">↩️ TARIK IKLAN & REFUND</button>`;
+    } else {
+      const waitHours = Math.ceil((submitted + 86400 - Date.now()/1000) / 3600);
+      row.innerHTML += `<button class="btn-action btn-withdraw" disabled style="opacity:0.4;">↩️ Bisa tarik dalam ${waitHours} jam</button>`;
+    }
+  }
+
+  if (status === 'rejected' || status === 'expired' || status === 'withdrawn') {
+    row.innerHTML += `<button class="btn-action btn-new" onclick="location.href='advertise.html'">📢 PASANG IKLAN BARU</button>`;
+  }
+}
+
+// ── RENDER HISTORY ────────────────────────────
+function renderHistory(ads) {
+  const list = document.getElementById('historyList');
+  if (!ads || ads.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:0.82rem;padding:20px;">Belum ada riwayat</div>';
+    return;
+  }
+
+  list.innerHTML = ads.map(ad => {
+    const status = (ad.status || 'pending').toLowerCase();
+    const date   = ad.submittedAt?.toDate?.()?.toLocaleDateString('id') ||
+                   (ad.submittedAt ? new Date(ad.submittedAt*1000).toLocaleDateString('id') : '—');
+    return `
+    <div class="history-item">
+      <div class="history-top">
+        <div class="history-title">${ad.title || 'Tanpa judul'}</div>
+        <span class="status-badge status-${status}">${status.toUpperCase()}</span>
+      </div>
+      <div class="history-meta">
+        <span>${ad.slotType || 'REGULER'} • ${ad.durationDays || '—'} hari</span>
+        <span>📅 ${date}</span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">
+        👁 ${(ad.impressions||0).toLocaleString('id')} tayangan •
+        👆 ${(ad.clicks||0).toLocaleString('id')} klik
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER STATS ──────────────────────────────
+function renderStats(ads) {
+  const totImp = ads.reduce((a, b) => a + (b.impressions || 0), 0);
+  const totClk = ads.reduce((a, b) => a + (b.clicks || 0), 0);
+  const ctr    = totImp > 0 ? ((totClk/totImp)*100).toFixed(1) : '0.0';
+
+  document.getElementById('totalImpressions').textContent = totImp.toLocaleString('id');
+  document.getElementById('totalClicks').textContent      = totClk.toLocaleString('id');
+  document.getElementById('totalCTR').textContent         = `${ctr}%`;
+  document.getElementById('totalAds').textContent         = ads.length;
+
+  // Chart 7 hari (mock data — real data dari backend nanti)
+  renderChart();
+}
+
+function renderChart() {
+  const days  = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+  const imps  = Array.from({length:7}, () => Math.floor(Math.random() * 80 + 10));
+  const clks  = imps.map(v => Math.floor(v * (0.2 + Math.random() * 0.2)));
+  const maxV  = Math.max(...imps, 1);
+
+  const bars = document.getElementById('chartBars');
+  bars.innerHTML = days.map((d, i) => `
+    <div class="chart-bar-wrap">
+      <div class="chart-bar" style="height:${(imps[i]/maxV)*52}px" title="${imps[i]} tayangan"></div>
+      <div class="chart-bar clicks" style="height:${(clks[i]/maxV)*52}px" title="${clks[i]} klik"></div>
+      <div class="chart-day">${d}</div>
+    </div>
+  `).join('');
+
+  const now = new Date();
+  document.getElementById('chartPeriod').textContent =
+    `${new Date(now - 6*86400000).toLocaleDateString('id',{day:'2-digit',month:'short'})} – ${now.toLocaleDateString('id',{day:'2-digit',month:'short'})}`;
+}
+
+// ── ACTIONS ──────────────────────────────────
+window.renewAd = () => {
+  location.href = `advertise.html?renew=1&days=${adData?.durationDays || 30}&slot=${adData?.slotType === 'PRIME' ? 'prime' : 'regular'}`;
+};
+
+window.upgradeAd = () => {
+  location.href = 'advertise.html?slot=prime';
+};
+
+window.withdrawAd = async () => {
+  if (!signer || !currentAdId) { showToast('❌ Connect wallet dulu'); return; }
+  if (!confirm('Tarik iklan dan refund?')) return;
+  try {
+    const { ethers } = window;
+    const c  = new ethers.Contract(ADS_CONTRACT, ADS_ABI, signer);
+    const tx = await c.withdrawPending(currentAdId);
+    showToast('⏳ Memproses refund...');
+    await tx.wait();
+    showToast('✅ Refund berhasil!');
+    await loadAdData();
+  } catch(e) {
+    showToast('❌ ' + (e.reason || e.message || 'Error'));
+  }
+};
+
+// ── TABS ─────────────────────────────────────
+window.switchTab = (tab) => {
+  ['aktif','history','stats'].forEach(t => {
+    document.getElementById(`tab${t.charAt(0).toUpperCase()+t.slice(1)}`).className =
+      'tab' + (t === tab ? ' active' : '');
+    document.getElementById(`content${t.charAt(0).toUpperCase()+t.slice(1)}`).style.display =
+      t === tab ? 'block' : 'none';
+  });
+};
+
+// ── PANELS ───────────────────────────────────
+function showPanel(name) {
+  ['loading','noWallet','noAd','main'].forEach(p => {
+    const el = document.getElementById(`panel${p.charAt(0).toUpperCase()+p.slice(1)}`);
+    if (el) el.style.display = p === name ? 'block' : 'none';
+  });
+}
+
+// ── TOAST ─────────────────────────────────────
+window.showToast = (msg) => {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+};
+</script>
+</body>
+</html>

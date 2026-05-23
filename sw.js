@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "88.8";
+const VERSION = "88.9";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -93,6 +93,8 @@ const CACHE_FILES = [
   "/wallet-bridge.js",
   "/indc-staking.html",
   "/dev-panel.html",
+  "/advertise.html",
+  "/advertiser.html",
   "/merchant.html",
   "/merchant-pay.html",
   "/merchant-qr.html",
