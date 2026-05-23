@@ -2062,6 +2062,88 @@ if("serviceWorker" in navigator){
 </div>
 <style>
 @keyframes progressAnim { from{width:25%} to{width:60%} }
+
+@keyframes bannerFadeIn { from{opacity:0;} to{opacity:1;} }
+@keyframes slideUp { from{transform:translateY(100%);} to{transform:translateY(0);} }
+
+/* AD POPUP */
+.ad-popup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, visibility 0.25s;
+}
+.ad-popup-overlay.open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.ad-popup-box {
+  background: #111827;
+  border: 1px solid rgba(250,204,21,0.25);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px 36px;
+  width: 100%;
+  max-width: 480px;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+.ad-popup-overlay.open .ad-popup-box {
+  transform: translateY(0);
+}
+.ad-popup-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  color: rgba(250,204,21,0.5);
+  letter-spacing: 2px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.ad-popup-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  color: #facc15;
+  text-align: center;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+.ad-popup-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  border: none;
+  transition: opacity 0.2s;
+}
+.ad-popup-visit {
+  background: rgba(250,204,21,0.1);
+  border: 1px solid rgba(250,204,21,0.3) !important;
+  color: #facc15;
+}
+.ad-popup-register {
+  background: linear-gradient(135deg,#f59e0b,#facc15);
+  color: #000;
+}
+.ad-popup-cancel {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  color: rgba(255,255,255,0.4);
+  justify-content: center;
+  font-size: 0.82rem;
+}
 </style>
 <script>
 function showBankINDCPopup(){
@@ -2076,7 +2158,7 @@ document.getElementById('bankINDCPopup').addEventListener('click',function(e){
 });
 </script>
 <!-- AD CLICK POPUP -->
-<div id="adPopupOverlay" style="visibility:hidden;opacity:0;pointer-events:none;" class="ad-popup-overlay" onclick="closeAdPopup(event)">
+<div id="adPopupOverlay" class="ad-popup-overlay" onclick="closeAdPopup(event)">
   <div class="ad-popup-box" onclick="event.stopPropagation()">
     <div class="ad-popup-title">IKLAN BERBAYAR</div>
     <div class="ad-popup-name" id="adPopupName">—</div>
@@ -2099,7 +2181,7 @@ let _adPopupUrl = '';
 window.openAdPopup = function(adId, targetUrl, title) {
   _adPopupUrl = targetUrl;
   document.getElementById('adPopupName').textContent = title || 'Iklan';
-  var ov=document.getElementById('adPopupOverlay'); ov.style.visibility='visible'; ov.style.opacity='1'; ov.style.pointerEvents='auto';
+  document.getElementById('adPopupOverlay').classList.add('open');
   // Tetap catat klik
   fetch(`/click?id=${adId}`, { method:'GET', mode:'no-cors' }).catch(()=>{});
 }
@@ -2109,10 +2191,7 @@ window.visitAd = function() {
 }
 window.closeAdPopup = function(e) {
   if (!e || e.target === document.getElementById('adPopupOverlay')) {
-    var ov2 = document.getElementById('adPopupOverlay');
-    ov2.style.visibility = 'hidden';
-    ov2.style.opacity = '0';
-    ov2.style.pointerEvents = 'none';
+    document.getElementById('adPopupOverlay').classList.remove('open');
   }
 }
 </script>
