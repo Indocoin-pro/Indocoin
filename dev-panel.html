@@ -1564,7 +1564,7 @@ async function iadsGetContract() {
 async function iadsLoadAll() {
   iadsSetMsg('⏳ Memuat data...', 'var(--gold)');
   try {
-    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const p = new ethers.providers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
     const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
 
     const [pendingIds, activeIds, poolBal, burned] = await Promise.all([
@@ -1723,7 +1723,7 @@ async function iadsReject(id) {
     try {
       const { getFirestore, collection, query, where, getDocs, doc, updateDoc } =
         await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-      const db   = getFirestore(_fbApp);
+      const db = getFirestore(_fbApp);
       const q    = query(collection(db,'paidAds'), where('advertiser','==',
         (await _signer.getAddress()).toLowerCase()));
       const snap = await getDocs(q);
@@ -1755,7 +1755,7 @@ function switchIadsTab(tab, btn) {
 
 async function iadsLoadConfig() {
   try {
-    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const p = new ethers.providers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
     const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
     const [base, inc, multi, slots, price, listed, pool] = await Promise.all([
       c.basePriceCent(), c.incrementCent(), c.primeMultiplier(),
@@ -1870,7 +1870,7 @@ async function iadsLoadReviews() {
   const el = document.getElementById('iadsReviewsList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat review...</div></div>';
   try {
-    const p = new ethers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
+    const p = new ethers.providers.JsonRpcProvider("https://bsc-dataseed.binance.org/");
     const c = new ethers.Contract(IADS_CONTRACT, IADS_ABI, p);
     const count = Number(await c.reviewCount());
     if(!count) { el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada review</div>'; return; }
@@ -1893,7 +1893,7 @@ async function iadsLoadHistory() {
   try {
     const { getFirestore, collection, query, orderBy, limit, getDocs } =
       await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-    const db   = getFirestore(_fbApp);
+    const db = getFirestore(_fbApp);
     const snap = await getDocs(query(collection(db,'paidAds'), orderBy('submittedAt','desc'), limit(50)));
     const ads  = snap.docs.map(d => ({id:d.id,...d.data()}));
     if(!ads.length) { el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);">Belum ada riwayat</div>'; return; }
