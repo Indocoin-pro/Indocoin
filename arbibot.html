@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>INDOCOIN — ArbiBot Trade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<style>
+:root {
+  --bg    : #080808;
+  --bg2   : #111111;
+  --bg3   : #1a1a1a;
+  --gold  : #c8922a;
+  --gold2 : #e8a830;
+  --gold3 : #f5c842;
+  --green : #22c55e;
+  --red   : #ef4444;
+  --blue  : #3b82f6;
+  --muted : #6b7280;
+  --text  : #f5f0e8;
+  --border: rgba(200,146,42,0.15);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:80px;}
+
+/* ── BG LOGO ── */
+#bgLogo{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;}
+#bgLogo img{width:min(85vw,85vh);opacity:0.03;filter:blur(2px);}
+
+/* ── HEADER ── */
+.header{position:sticky;top:0;z-index:100;background:rgba(8,8,8,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.header-left{display:flex;align-items:center;gap:10px;}
+.header-logo{width:36px;height:36px;border-radius:50%;border:1px solid var(--gold);}
+.header-title{font-family:'Orbitron',sans-serif;font-size:0.78rem;font-weight:700;color:var(--gold);}
+.header-sub{font-size:0.65rem;color:var(--muted);letter-spacing:1px;}
+.btn-connect{background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;padding:8px 14px;border-radius:20px;font-family:'Orbitron',sans-serif;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:1px;}
+.wallet-addr{font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--gold);background:rgba(200,146,42,0.1);border:1px solid var(--border);padding:6px 10px;border-radius:20px;}
+
+/* ── LAYOUT ── */
+.layout{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 16px;}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:28px 0 20px;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(200,146,42,0.08);border:1px solid var(--border);border-radius:20px;padding:5px 14px;margin-bottom:14px;font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--gold);letter-spacing:2px;}
+.hero-badge-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:900;line-height:1.1;margin-bottom:6px;}
+.hero-title span{color:var(--gold);}
+.hero-tagline{font-family:'Share Tech Mono',monospace;font-size:0.78rem;color:var(--muted);letter-spacing:2px;margin-bottom:16px;}
+.hero-desc{font-size:0.88rem;color:rgba(245,240,232,0.6);line-height:1.6;max-width:340px;margin:0 auto;}
+
+/* ── BOT STATUS ── */
+.bot-status{background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:12px 16px;margin:16px 0;display:flex;align-items:center;justify-content:space-between;}
+.bot-status.paused{background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.2);}
+.bot-status-left{display:flex;align-items:center;gap:8px;}
+.bot-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+.bot-dot.off{background:var(--red);animation:none;}
+.bot-label{font-family:'Orbitron',sans-serif;font-size:0.72rem;font-weight:700;}
+.bot-label.off{color:var(--red);}
+.bot-label.on{color:var(--green);}
+.bot-sub{font-size:0.7rem;color:var(--muted);}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;text-align:center;}
+.stat-icon{font-size:1.4rem;margin-bottom:6px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:2px;}
+.stat-lbl{font-size:0.65rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+
+/* ── USER DASHBOARD ── */
+.user-dash{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:16px;margin:16px 0;}
+.dash-title{font-family:'Orbitron',sans-serif;font-size:0.72rem;color:var(--gold);letter-spacing:2px;margin-bottom:14px;}
+.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.dash-item{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px;}
+.dash-item-label{font-size:0.65rem;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.dash-item-val{font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;color:var(--text);}
+.dash-item-val.gold{color:var(--gold);}
+.dash-item-val.green{color:var(--green);}
+.dash-active{background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:10px;padding:8px 12px;font-size:0.75rem;color:var(--green);text-align:center;margin-bottom:12px;}
+.dash-inactive{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:10px;padding:8px 12px;font-size:0.75rem;color:var(--red);text-align:center;margin-bottom:12px;}
+
+/* ── AKTIVASI SECTION ── */
+.aktivasi-box{background:linear-gradient(135deg,rgba(200,146,42,0.08),rgba(200,146,42,0.03));border:1px solid var(--border);border-radius:20px;padding:18px;margin:16px 0;}
+.aktivasi-title{font-family:'Orbitron',sans-serif;font-size:0.78rem;color:var(--gold);margin-bottom:8px;}
+.aktivasi-info{font-size:0.82rem;color:rgba(245,240,232,0.7);margin-bottom:14px;line-height:1.5;}
+.aktivasi-cost{font-family:'Share Tech Mono',monospace;font-size:0.88rem;color:var(--gold3);margin-bottom:14px;}
+
+/* ── BUTTONS ── */
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;padding:14px;border-radius:14px;font-family:'Orbitron',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;letter-spacing:1px;transition:opacity 0.2s;margin-bottom:8px;}
+.btn-primary:hover{opacity:0.9;}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-secondary{width:100%;background:transparent;color:var(--gold);border:1px solid var(--border);padding:12px;border-radius:14px;font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;margin-bottom:8px;}
+.btn-secondary:hover{background:rgba(200,146,42,0.08);}
+.btn-green{width:100%;background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.3);padding:12px;border-radius:14px;font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.btn-red{width:100%;background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.3);padding:12px;border-radius:14px;font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── INPUT ── */
+.input-group{margin-bottom:12px;}
+.input-label{font-size:0.72rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px;}
+.input-wrap{position:relative;}
+.input-field{width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 70px 12px 14px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.88rem;outline:none;}
+.input-field:focus{border-color:var(--gold);}
+.input-suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:0.72rem;color:var(--muted);}
+.input-hint{font-size:0.68rem;color:var(--muted);margin-top:4px;}
+
+/* ── SECTION ── */
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:16px;margin:16px 0;}
+.section-title{font-family:'Orbitron',sans-serif;font-size:0.72rem;color:var(--gold);letter-spacing:2px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+
+/* ── CARA KERJA ── */
+.step-list{display:flex;flex-direction:column;gap:10px;}
+.step-item{display:flex;gap:12px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(200,146,42,0.1);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:0.65rem;color:var(--gold);flex-shrink:0;}
+.step-text{flex:1;}
+.step-title{font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:2px;}
+.step-desc{font-size:0.75rem;color:var(--muted);line-height:1.5;}
+
+/* ── FEE INFO ── */
+.fee-grid{display:grid;gap:8px;}
+.fee-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;}
+.fee-label{font-size:0.78rem;color:var(--muted);}
+.fee-val{font-family:'Share Tech Mono',monospace;font-size:0.82rem;color:var(--gold);}
+
+/* ── MSG ── */
+.msg-box{padding:10px 14px;border-radius:10px;font-size:0.78rem;text-align:center;margin:8px 0;min-height:36px;}
+.msg-loading{background:rgba(200,146,42,0.08);color:var(--gold);}
+.msg-success{background:rgba(34,197,94,0.08);color:var(--green);}
+.msg-error{background:rgba(239,68,68,0.08);color:var(--red);}
+
+/* ── EMERGENCY ── */
+.emergency-box{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:14px;padding:14px;margin-top:12px;}
+.emergency-title{font-family:'Orbitron',sans-serif;font-size:0.7rem;color:var(--red);margin-bottom:6px;}
+.emergency-desc{font-size:0.75rem;color:rgba(239,68,68,0.7);margin-bottom:10px;line-height:1.5;}
+
+/* ── DISCLAIMER ── */
+.disclaimer{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;margin:16px 0;font-size:0.72rem;color:var(--muted);line-height:1.6;text-align:center;}
+
+/* ── CONTRACT INFO ── */
+.contract-info{text-align:center;padding:16px 0;font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);}
+.contract-addr{color:var(--gold);word-break:break-all;}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(8,8,8,0.95);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 calc(8px + env(safe-area-inset-bottom));}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(--muted);padding:4px 12px;border-radius:10px;transition:color 0.2s;}
+.bn-item.active{color:var(--gold);}
+.bn-icon{font-size:20px;}
+.bn-label{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:1px;}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.fade-up{animation:fadeUp 0.4s ease both;}
+
+/* ── POOL BAR ── */
+.pool-bar-wrap{margin:6px 0 14px;}
+.pool-bar-label{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-bottom:5px;}
+.pool-bar-bg{background:rgba(255,255,255,0.06);border-radius:10px;height:8px;overflow:hidden;}
+.pool-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));border-radius:10px;transition:width 1s ease;}
+</style>
+</head>
+<body>
+
+<!-- BG LOGO -->
+<div id="bgLogo"><img src="assets/logo.png" alt=""/></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <img src="assets/logo.png" class="header-logo" alt="INDOCOIN"/>
+    <div>
+      <div class="header-title">ARBIBOT TRADE</div>
+      <div class="header-sub">BOT BEKERJA, KAMU SANTAI</div>
+    </div>
+  </div>
+  <button class="btn-connect" id="btnConnect" onclick="connectWallet()">CONNECT</button>
+  <div class="wallet-addr" id="walletAddr" style="display:none;"></div>
+</header>
+
+<div class="layout">
+
+  <!-- HERO -->
+  <div class="hero fade-up">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      ARBITRAGE BOT AKTIF 24 JAM
+    </div>
+    <div class="hero-title">ARBI<span>BOT</span><br/>TRADE</div>
+    <div class="hero-tagline">— BOT BEKERJA, KAMU SANTAI —</div>
+    <div class="hero-desc">Bot arbitrage otomatis yang memanfaatkan selisih harga di berbagai DEX BSC. Deposit USDT, biarkan bot bekerja, tarik profit kapan saja.</div>
+  </div>
+
+  <!-- BOT STATUS -->
+  <div class="bot-status" id="botStatusBox">
+    <div class="bot-status-left">
+      <div class="bot-dot" id="botDot"></div>
+      <div>
+        <div class="bot-label on" id="botLabel">BOT RUNNING</div>
+        <div class="bot-sub">PancakeSwap V2 · V3 · BiSwap</div>
+      </div>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--green);" id="winRateDisplay">—</div>
+  </div>
+
+  <!-- STATS PUBLIK -->
+  <div class="stats-grid fade-up">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-val" id="statUsers">—</div>
+      <div class="stat-lbl">User Aktif</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-val" id="statProfit">—</div>
+      <div class="stat-lbl">Total Profit</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-val" id="statBurned">—</div>
+      <div class="stat-lbl">INDC Burned</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-val" id="statTrades">—</div>
+      <div class="stat-lbl">Total Trades</div>
+    </div>
+  </div>
+
+  <!-- USER DASHBOARD (muncul setelah connect) -->
+  <div id="userDash" style="display:none;" class="fade-up">
+
+    <!-- Status aktivasi -->
+    <div id="activationStatus"></div>
+
+    <!-- AKTIVASI BOX (muncul kalau belum aktif) -->
+    <div class="aktivasi-box" id="aktivasiBox" style="display:none;">
+      <div class="aktivasi-title">⚡ AKTIVASI BOT</div>
+      <div class="aktivasi-info">Bayar biaya aktivasi setara $1 dalam INDC per bulan untuk mulai deposit dan gunakan ArbiBot Trade.</div>
+      <div class="aktivasi-cost">Biaya aktivasi: <span id="aktivasiCost">—</span> INDC</div>
+      <button class="btn-primary" onclick="doActivate()">⚡ AKTIVASI SEKARANG</button>
+      <div id="aktivasiMsg" class="msg-box" style="display:none;"></div>
+    </div>
+
+    <!-- USER BALANCE -->
+    <div class="user-dash">
+      <div class="dash-title">📊 SALDO & PROFIT KAMU</div>
+      <div class="dash-row">
+        <div class="dash-item">
+          <div class="dash-item-label">SALDO AKTIF</div>
+          <div class="dash-item-val gold" id="userBalance">$0</div>
+        </div>
+        <div class="dash-item">
+          <div class="dash-item-label">PROFIT TERKUMPUL</div>
+          <div class="dash-item-val green" id="userProfit">$0</div>
+        </div>
+      </div>
+      <div class="dash-row">
+        <div class="dash-item">
+          <div class="dash-item-label">STATUS BOT</div>
+          <div class="dash-item-val" id="userBotStatus">—</div>
+        </div>
+        <div class="dash-item">
+          <div class="dash-item-label">AKTIVASI HINGGA</div>
+          <div class="dash-item-val" id="userActivated" style="font-size:0.75rem;">—</div>
+        </div>
+      </div>
+
+      <!-- Claim Profit -->
+      <button class="btn-green" id="btnClaimProfit" onclick="doClaimProfit()" style="display:none;">
+        💰 KLAIM PROFIT KE WALLET
+      </button>
+      <div id="claimMsg" class="msg-box" style="display:none;"></div>
+    </div>
+
+    <!-- DEPOSIT -->
+    <div class="section" id="depositSection">
+      <div class="section-title">💵 DEPOSIT</div>
+      <div class="input-group">
+        <div class="input-label">JUMLAH DEPOSIT</div>
+        <div class="input-wrap">
+          <input type="number" class="input-field" id="depositAmt" placeholder="Min $20" min="20" max="2000"/>
+          <span class="input-suffix">USDT</span>
+        </div>
+        <div class="input-hint">Min $20 · Maks $2.000 · Saldo deposit kamu</div>
+      </div>
+      <div class="pool-bar-wrap">
+        <div class="pool-bar-label">
+          <span>$0</span>
+          <span id="depositBarLabel">$0 / $2.000</span>
+          <span>$2.000</span>
+        </div>
+        <div class="pool-bar-bg">
+          <div class="pool-bar-fill" id="depositBar" style="width:0%"></div>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnDeposit" onclick="doDeposit()">💵 DEPOSIT USDT</button>
+      <div id="depositMsg" class="msg-box" style="display:none;"></div>
+    </div>
+
+    <!-- WITHDRAW -->
+    <div class="section">
+      <div class="section-title">💸 WITHDRAW</div>
+      <div class="input-group">
+        <div class="input-label">JUMLAH WITHDRAW</div>
+        <div class="input-wrap">
+          <input type="number" class="input-field" id="withdrawAmt" placeholder="Maks $3.000/hari"/>
+          <span class="input-suffix">USDT</span>
+        </div>
+        <div class="input-hint">Maks $3.000/hari · Cooldown 5 menit</div>
+      </div>
+      <button class="btn-secondary" onclick="doWithdraw()">💸 WITHDRAW USDT</button>
+      <div id="withdrawMsg" class="msg-box" style="display:none;"></div>
+
+      <!-- Emergency Withdraw -->
+      <div class="emergency-box">
+        <div class="emergency-title">🚨 EMERGENCY WITHDRAW</div>
+        <div class="emergency-desc">Tarik semua saldo sekaligus. Request dulu, eksekusi setelah 24 jam.</div>
+        <div class="btn-grid">
+          <button class="btn-red" onclick="doEmergencyRequest()" id="btnEmergReq">🚨 REQUEST</button>
+          <button class="btn-red" onclick="doEmergencyExec()" id="btnEmergExec" style="opacity:0.4;" disabled>⚡ EKSEKUSI</button>
+        </div>
+        <div id="emergMsg" class="msg-box" style="display:none;"></div>
+      </div>
+    </div>
+
+  </div><!-- /userDash -->
+
+  <!-- CARA KERJA -->
+  <div class="section fade-up">
+    <div class="section-title">⚙️ CARA KERJA</div>
+    <div class="step-list">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <div class="step-title">Aktivasi Bot</div>
+          <div class="step-desc">Bayar aktivasi setara $1 dalam INDC per bulan untuk unlock akses deposit.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <div class="step-title">Deposit USDT atau BNB</div>
+          <div class="step-desc">Deposit minimum $20 hingga maksimal $2.000. Dana tersimpan aman di smart contract BSC.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <div class="step-title">Bot Scan 24 Jam</div>
+          <div class="step-desc">Bot otomatis scan selisih harga di PancakeSwap V2, V3, dan BiSwap setiap saat.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          <div class="step-title">Eksekusi Flash Loan</div>
+          <div class="step-desc">Dana kamu tidak pernah dipakai untuk trading. Bot pakai Flash Loan — danamu selalu aman.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">5</div>
+        <div class="step-text">
+          <div class="step-title">Profit Terkumpul Otomatis</div>
+          <div class="step-desc">Profit masuk ke saldomu otomatis. Fee 10% dipotong dalam INDC saat ada profit.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">6</div>
+        <div class="step-text">
+          <div class="step-title">Withdraw Kapan Saja</div>
+          <div class="step-desc">Tarik profit dan modal kapan saja langsung ke wallet kamu. Maksimal $3.000/hari.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFO FEE -->
+  <div class="section fade-up">
+    <div class="section-title">💰 INFO FEE</div>
+    <div class="fee-grid">
+      <div class="fee-row">
+        <span class="fee-label">Fee dari Profit</span>
+        <span class="fee-val">10% dalam INDC</span>
+      </div>
+      <div class="fee-row">
+        <span class="fee-label">Tidak profit</span>
+        <span class="fee-val">Tidak ada fee ✅</span>
+      </div>
+      <div class="fee-row">
+        <span class="fee-label">Aktivasi</span>
+        <span class="fee-val">$1 INDC/bulan</span>
+      </div>
+      <div class="fee-row">
+        <span class="fee-label">Dev Wallet</span>
+        <span class="fee-val">98.5%</span>
+      </div>
+      <div class="fee-row">
+        <span class="fee-label">Insurance Fund</span>
+        <span class="fee-val">1%</span>
+      </div>
+      <div class="fee-row">
+        <span class="fee-label">Burn INDC</span>
+        <span class="fee-val">0.5% 🔥</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    ⚠️ ArbiBot Trade bukan produk investasi. Tidak ada jaminan profit. Hasil dapat bervariasi tergantung kondisi market. Gunakan dana yang siap dikelola sendiri. DYOR.
+  </div>
+
+  <!-- CONTRACT INFO -->
+  <div class="contract-info">
+    <div style="margin-bottom:4px;">Smart Contract Terverifikasi BSC</div>
+    <div class="contract-addr">0x51c48a8713AE5718608dD63adBf3e59194775859</div>
+  </div>
+
+</div><!-- /layout -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <a href="dashboard.html"  class="bn-item"><span class="bn-icon">🏠</span><span class="bn-label">HOME</span></a>
+  <a href="earn.html"       class="bn-item"><span class="bn-icon">💰</span><span class="bn-label">EARN</span></a>
+  <a href="referral.html"   class="bn-item"><span class="bn-icon">🌐</span><span class="bn-label">REFERRAL</span></a>
+  <a href="presale.html"    class="bn-item"><span class="bn-icon">🚀</span><span class="bn-label">PRESALE</span></a>
+  <a href="community.html"  class="bn-item"><span class="bn-icon">💬</span><span class="bn-label">COMMUNITY</span></a>
+</nav>
+
+<script>
+// ── CONTRACT CONFIG ──────────────────────────────────────
+const CONTRACT_ADDR = '0x51c48a8713AE5718608dD63adBf3e59194775859';
+const USDT_ADDR     = '0x55d398326f99059fF775485246999027B3197955';
+const INDC_ADDR     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+
+const CONTRACT_ABI = [
+  "function activate() external",
+  "function deposit(uint256) external",
+  "function withdraw(uint256) external",
+  "function claimProfit() external",
+  "function requestEmergencyWithdraw() external",
+  "function executeEmergencyWithdraw() external",
+  "function getUserInfo(address) view returns(uint256,uint256,uint256,bool,bool)",
+  "function getPublicStats() view returns(uint256,uint256,uint256,uint256,uint256,uint256)",
+  "function getActivationCost() view returns(uint256)",
+  "function paused() view returns(bool)"
+];
+
+const ERC20_ABI = [
+  "function approve(address,uint256) external returns(bool)",
+  "function allowance(address,address) view returns(uint256)",
+  "function balanceOf(address) view returns(uint256)"
+];
+
+// ── STATE ────────────────────────────────────────────────
+let _provider, _signer, _contract, _wallet;
+
+// ── CONNECT WALLET ───────────────────────────────────────
+async function connectWallet() {
+  try {
+    if (!window.ethereum) { alert('Install MetaMask atau TokenPocket dulu!'); return; }
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+    // Pastikan BSC
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId !== '0x38') {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x38' }]
+      }).catch(async () => {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{ chainId:'0x38', chainName:'BSC Mainnet',
+            nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
+            rpcUrls:['https://bsc-dataseed.binance.org/'],
+            blockExplorerUrls:['https://bscscan.com'] }]
+        });
+      });
+    }
+
+    _provider = new ethers.providers.Web3Provider(window.ethereum);
+    _signer   = _provider.getSigner();
+    _wallet   = await _signer.getAddress();
+    _contract = new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, _signer);
+
+    // Update UI
+    document.getElementById('btnConnect').style.display  = 'none';
+    document.getElementById('walletAddr').style.display  = 'block';
+    document.getElementById('walletAddr').textContent    =
+      _wallet.slice(0,6) + '...' + _wallet.slice(-4);
+    document.getElementById('userDash').style.display    = 'block';
+
+    await loadUserData();
+    await loadPublicStats();
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// ── LOAD DATA ────────────────────────────────────────────
+async function loadPublicStats() {
+  try {
+    const p = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const c = new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, p);
+    const [users, profit, burned, trades, winRate, insurance] = await c.getPublicStats();
+    const isPaused = await c.paused();
+
+    document.getElementById('statUsers').textContent  = users.toString();
+    document.getElementById('statProfit').textContent = '$' + (Number(ethers.utils.formatUnits(profit,18))).toFixed(2);
+    document.getElementById('statBurned').textContent = (Number(ethers.utils.formatUnits(burned,9))).toFixed(0) + ' INDC';
+    document.getElementById('statTrades').textContent = trades.toString();
+    document.getElementById('winRateDisplay').textContent = 'Win Rate: ' + winRate.toString() + '%';
+
+    // Bot status
+    const botBox  = document.getElementById('botStatusBox');
+    const botDot  = document.getElementById('botDot');
+    const botLbl  = document.getElementById('botLabel');
+    if (isPaused) {
+      botBox.classList.add('paused');
+      botDot.classList.add('off');
+      botLbl.textContent = 'BOT PAUSED';
+      botLbl.className = 'bot-label off';
+      document.getElementById('winRateDisplay').style.color = 'var(--red)';
+    }
+  } catch(e) { console.warn('Stats error:', e.message); }
+}
+
+async function loadUserData() {
+  if (!_contract || !_wallet) return;
+  try {
+    const [balance, profit, activatedUntil, active, emergPending] =
+      await _contract.getUserInfo(_wallet);
+    const activationCost = await _contract.getActivationCost();
+
+    const bal  = Number(ethers.utils.formatUnits(balance, 18));
+    const pft  = Number(ethers.utils.formatUnits(profit,  18));
+    const cost = Number(ethers.utils.formatUnits(activationCost, 9));
+
+    document.getElementById('userBalance').textContent = '$' + bal.toFixed(2);
+    document.getElementById('userProfit').textContent  = '$' + pft.toFixed(2);
+    document.getElementById('aktivasiCost').textContent = cost.toFixed(2);
+
+    // Status aktivasi
+    const statusEl = document.getElementById('activationStatus');
+    const aktivBox = document.getElementById('aktivasiBox');
+    const depSec   = document.getElementById('depositSection');
+
+    if (active) {
+      const expDate = new Date(Number(activatedUntil) * 1000).toLocaleDateString('id-ID');
+      statusEl.innerHTML = `<div class="dash-active">✅ Bot Aktif hingga ${expDate}</div>`;
+      aktivBox.style.display = 'none';
+      depSec.style.display   = 'block';
+      document.getElementById('userBotStatus').textContent = '🟢 AKTIF';
+      document.getElementById('userBotStatus').style.color = 'var(--green)';
+    } else {
+      statusEl.innerHTML = `<div class="dash-inactive">⚠️ Bot belum aktif — Bayar aktivasi untuk mulai</div>`;
+      aktivBox.style.display = 'block';
+      depSec.style.display   = 'none';
+      document.getElementById('userBotStatus').textContent = '🔴 TIDAK AKTIF';
+      document.getElementById('userBotStatus').style.color = 'var(--red)';
+    }
+
+    // Activated until
+    if (Number(activatedUntil) > 0) {
+      const expDate = new Date(Number(activatedUntil) * 1000).toLocaleDateString('id-ID');
+      document.getElementById('userActivated').textContent = expDate;
+    } else {
+      document.getElementById('userActivated').textContent = '—';
+    }
+
+    // Deposit bar
+    const pct = Math.min(bal / 2000 * 100, 100);
+    document.getElementById('depositBar').style.width = pct + '%';
+    document.getElementById('depositBarLabel').textContent =
+      '$' + bal.toFixed(0) + ' / $2.000';
+
+    // Claim profit button
+    document.getElementById('btnClaimProfit').style.display =
+      pft > 0 ? 'block' : 'none';
+
+    // Emergency
+    if (emergPending) {
+      document.getElementById('btnEmergExec').disabled = false;
+      document.getElementById('btnEmergExec').style.opacity = '1';
+    }
+
+  } catch(e) { console.warn('User data error:', e.message); }
+}
+
+// ── AKTIVASI ─────────────────────────────────────────────
+async function doActivate() {
+  const msg = document.getElementById('aktivasiMsg');
+  showMsg(msg, '⏳ Proses aktivasi...', 'loading');
+  try {
+    const cost    = await _contract.getActivationCost();
+    const indc    = new ethers.Contract(INDC_ADDR, ERC20_ABI, _signer);
+    const allowance = await indc.allowance(_wallet, CONTRACT_ADDR);
+
+    if (allowance.lt(cost)) {
+      showMsg(msg, '⏳ Approve INDC...', 'loading');
+      const appTx = await indc.approve(CONTRACT_ADDR, ethers.constants.MaxUint256);
+      await appTx.wait();
+    }
+
+    showMsg(msg, '⏳ Aktivasi...', 'loading');
+    const tx = await _contract.activate();
+    await tx.wait();
+
+    showMsg(msg, '✅ Bot berhasil diaktivasi!', 'success');
+    await loadUserData();
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+// ── DEPOSIT ──────────────────────────────────────────────
+async function doDeposit() {
+  const msg = document.getElementById('depositMsg');
+  const amt = parseFloat(document.getElementById('depositAmt').value);
+  if (!amt || amt < 20)  { showMsg(msg, '❌ Minimum deposit $20', 'error'); return; }
+  if (amt > 2000)        { showMsg(msg, '❌ Maksimum deposit $2.000', 'error'); return; }
+
+  showMsg(msg, '⏳ Approve USDT...', 'loading');
+  try {
+    const amount = ethers.utils.parseUnits(amt.toString(), 18);
+    const usdt   = new ethers.Contract(USDT_ADDR, ERC20_ABI, _signer);
+    const allow  = await usdt.allowance(_wallet, CONTRACT_ADDR);
+
+    if (allow.lt(amount)) {
+      const appTx = await usdt.approve(CONTRACT_ADDR, ethers.constants.MaxUint256);
+      await appTx.wait();
+    }
+
+    showMsg(msg, '⏳ Deposit...', 'loading');
+    const tx = await _contract.deposit(amount);
+    await tx.wait();
+
+    showMsg(msg, '✅ Deposit berhasil! Bot mulai bekerja.', 'success');
+    document.getElementById('depositAmt').value = '';
+    await loadUserData();
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+// ── WITHDRAW ─────────────────────────────────────────────
+async function doWithdraw() {
+  const msg = document.getElementById('withdrawMsg');
+  const amt = parseFloat(document.getElementById('withdrawAmt').value);
+  if (!amt || amt <= 0)  { showMsg(msg, '❌ Masukkan jumlah withdraw', 'error'); return; }
+  if (amt > 3000)        { showMsg(msg, '❌ Maksimum $3.000/hari', 'error'); return; }
+
+  showMsg(msg, '⏳ Proses withdraw...', 'loading');
+  try {
+    const amount = ethers.utils.parseUnits(amt.toString(), 18);
+    const tx     = await _contract.withdraw(amount);
+    await tx.wait();
+
+    showMsg(msg, '✅ Withdraw berhasil!', 'success');
+    document.getElementById('withdrawAmt').value = '';
+    await loadUserData();
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+// ── CLAIM PROFIT ─────────────────────────────────────────
+async function doClaimProfit() {
+  const msg = document.getElementById('claimMsg');
+  showMsg(msg, '⏳ Klaim profit...', 'loading');
+  try {
+    const tx = await _contract.claimProfit();
+    await tx.wait();
+    showMsg(msg, '✅ Profit berhasil diklaim!', 'success');
+    await loadUserData();
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+// ── EMERGENCY WITHDRAW ───────────────────────────────────
+async function doEmergencyRequest() {
+  const msg = document.getElementById('emergMsg');
+  if (!confirm('Yakin mau request emergency withdraw? Dana bisa diambil setelah 24 jam.')) return;
+  showMsg(msg, '⏳ Request emergency...', 'loading');
+  try {
+    const tx = await _contract.requestEmergencyWithdraw();
+    await tx.wait();
+    showMsg(msg, '✅ Request diterima! Eksekusi setelah 24 jam.', 'success');
+    document.getElementById('btnEmergExec').disabled = false;
+    document.getElementById('btnEmergExec').style.opacity = '1';
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+async function doEmergencyExec() {
+  const msg = document.getElementById('emergMsg');
+  if (!confirm('Eksekusi emergency withdraw? Semua saldo akan ditarik.')) return;
+  showMsg(msg, '⏳ Eksekusi...', 'loading');
+  try {
+    const tx = await _contract.executeEmergencyWithdraw();
+    await tx.wait();
+    showMsg(msg, '✅ Semua saldo berhasil ditarik!', 'success');
+    await loadUserData();
+  } catch(e) {
+    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function showMsg(el, text, type) {
+  el.style.display = 'block';
+  el.textContent   = text;
+  el.className     = 'msg-box msg-' + type;
+}
+
+// Auto load stats
+loadPublicStats();
+setInterval(loadPublicStats, 30000);
+
+// Auto connect kalau sudah pernah connect
+(async () => {
+  if (window.ethereum) {
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => []);
+    if (accounts.length) connectWallet();
+  }
+})();
+</script>
+
+</body>
+</html>
