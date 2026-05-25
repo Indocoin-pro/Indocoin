@@ -29,11 +29,17 @@ const CONFIG = {
 
   // Token addresses BSC
   TOKENS: {
-    USDT : '0x55d398326f99059fF775485246999027B3197955',
-    BNB  : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
-    INDC : '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
-    CAKE : '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
-    BUSD : '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+    USDT  : '0x55d398326f99059fF775485246999027B3197955',
+    BNB   : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+    INDC  : '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+    CAKE  : '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
+    BTCB  : '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', // Bridged BTC
+    ETH   : '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', // Bridged ETH
+    XRP   : '0x1D2F0da169ceB9fC7B3144628dB156f3F6c60dBE',
+    ADA   : '0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47',
+    DOT   : '0x7083609fCE4d1d8Dc0C979AAb8c869Ea2C873402',
+    LINK  : '0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD',
+    MATIC : '0xCC42724C6683B7E57334c4E856f4c9965ED682bD',
   },
 
   // DEX Router addresses
@@ -43,12 +49,30 @@ const CONFIG = {
     BISWAP     : '0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8',
   },
 
-  // Pasangan token yang di-scan
+  // Pasangan token yang di-scan — 20 pasangan
   PAIRS: [
-    { tokenIn: 'USDT', tokenOut: 'BNB',  amountIn: '100' },   // $100 USDT
-    { tokenIn: 'USDT', tokenOut: 'CAKE', amountIn: '100' },
-    { tokenIn: 'USDT', tokenOut: 'INDC', amountIn: '50'  },
-    { tokenIn: 'BNB',  tokenOut: 'USDT', amountIn: '0.1' },
+    // USDT/ 10 pasangan
+    { tokenIn: 'USDT', tokenOut: 'BNB',   amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'BTCB',  amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'ETH',   amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'CAKE',  amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'XRP',   amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'ADA',   amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'DOT',   amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'LINK',  amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'MATIC', amountIn: '100' },
+    { tokenIn: 'USDT', tokenOut: 'INDC',  amountIn: '50'  },
+    // BNB/ 10 pasangan
+    { tokenIn: 'BNB',  tokenOut: 'BTCB',  amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'ETH',   amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'CAKE',  amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'XRP',   amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'ADA',   amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'DOT',   amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'LINK',  amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'MATIC', amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'USDT',  amountIn: '0.1' },
+    { tokenIn: 'BNB',  tokenOut: 'INDC',  amountIn: '0.1' },
   ],
 
   // Thresholds
