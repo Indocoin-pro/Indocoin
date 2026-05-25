@@ -25,7 +25,7 @@ const CONFIG = {
   RPC_URL       : 'https://bsc-dataseed1.binance.org/',
   RPC_BACKUP    : 'https://bsc-dataseed2.binance.org/',
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
-  CONTRACT_ADDR : '0x51c48a8713AE5718608dD63adBf3e59194775859',
+  CONTRACT_ADDR : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
 
   // Token addresses BSC
   TOKENS: {
