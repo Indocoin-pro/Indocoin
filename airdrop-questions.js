@@ -193,60 +193,29 @@ window.AIRDROP_QUESTIONS = {
     { id:270, k:"C", q:"Kegunaan token INDC di ekosistem INDOCOIN meliputi...", p:["Staking, trading, undian, airdrop, referral, bayar akses program, dan transfer antar user","Hanya untuk staking dan tidak bisa digunakan untuk lainnya","Hanya sebagai token spekulatif tanpa utilitas di platform","Wajib dikonversi ke USDT sebelum digunakan di platform"], j:0, e:"INDC adalah utilitas token multi-fungsi — digunakan di seluruh ekosistem INDOCOIN dari trading hingga airdrop." },
     { id:271, k:"C", q:"Point Vault Staking unik karena...", p:["INDC yang di-stake hangus tapi menghasilkan Point yang bisa ditukar pulsa, listrik, dan produk nyata","INDC yang di-stake kembali utuh ditambah reward INDC setiap hari","Reward berupa USDT yang dikirim langsung ke rekening bank","Sistem lotere — setiap stake punya peluang menang hadiah besar"], j:0, e:"Point Vault: stake INDC hangus — dapat Point harian yang bisa ditukar kebutuhan sehari-hari seperti pulsa dan token listrik." },
     { id:272, k:"C", q:"Di Point Vault Staking, 1 Point setara dengan...", p:["Rp 1 — bisa ditukar produk nyata sesuai nilai Point yang terkumpul","$1 USDT — nilai Point mengikuti kurs dolar","1 INDC — Point bisa dikonversi kembali ke INDC","0.1 USDT — harga tetap tidak berubah"], j:0, e:"1 Point = Rp 1. Kumpulkan Point dari staking INDC dan tukar dengan pulsa, token listrik, BPJS, atau bonus INDC." },
+    // ── PROGRAM BARU (id 38-42) ─────────────────────────
+
+    // PERMAINAN (id:38)
+    { id:273, k:"C", q:"Halaman Permainan INDOCOIN berisi...", p:["Kumpulan game blockchain yang bisa dimainkan sambil earn INDC","Game slot online berbayar","Video tutorial cara bermain kripto","Marketplace NFT untuk game"], j:0, e:"Permainan INDOCOIN: BrainClash, Sanjaya, Indowar — main sambil earn INDC!" },
+    { id:274, k:"C", q:"Keunggulan game di INDOCOIN dibanding game biasa adalah...", p:["Reward nyata dalam token INDC yang bisa dikonversi ke nilai ekonomi","Grafis lebih bagus dari game AAA","Bisa dimainkan tanpa internet","Gratis selamanya tanpa batasan"], j:0, e:"Game INDOCOIN memberi reward INDC nyata — bukan hanya hiburan tapi juga penghasilan!" },
+
+    // ARBIBOT TRADE (id:39)
+    { id:275, k:"C", q:"ArbiBot Trade INDOCOIN adalah...", p:["Bot arbitrage otomatis yang scan selisih harga di DEX BSC 24 jam dan hasilkan profit","Robot yang memprediksi harga kripto untuk besok","AI trading yang mengelola portofolio saham","Bot yang membeli INDC saat harga turun"], j:0, e:"ArbiBot Trade: bot scan 20 pasangan token di PancakeSwap & BiSwap tiap 30 detik — profit otomatis!" },
+    { id:276, k:"C", q:"Teknologi Flash Loan di ArbiBot Trade berarti...", p:["Dana user TIDAK pernah dipakai trading — bot pakai pinjaman instan dari pool eksternal","User bisa pinjam USDT dari platform","Transaksi dilakukan sangat cepat","Sistem kredit untuk deposit lebih besar"], j:0, e:"Flash Loan: bot pinjam dari pool eksternal — danamu aman di contract sepanjang waktu!" },
+    { id:277, k:"C", q:"Fee ArbiBot Trade dibayar menggunakan...", p:["Token INDC — wajib punya INDC untuk claim profit","USDT dipotong dari profit","BNB untuk gas fee","Tidak ada fee sama sekali"], j:0, e:"Fee ArbiBot Trade dalam INDC — makin banyak user, makin banyak INDC dibakar, harga naik!" },
+    { id:278, k:"C", q:"Minimum deposit ArbiBot Trade adalah...", p:["$20 USDT dengan maksimal $2.000 USDT","$100 USDT tanpa batas","0.1 BNB minimum","1.000 INDC minimum"], j:0, e:"Min $20 maks $2.000 USDT — modal kecil sudah bisa gunakan bot arbitrage profesional INDOCOIN!" },
+
+    // MERCHANT (id:40)
+    { id:279, k:"C", q:"Fitur Merchant INDOCOIN memungkinkan...", p:["Pemilik usaha menerima pembayaran dalam INDC dari pelanggan secara langsung","Belanja online di marketplace","Transfer uang ke rekening bank","Cetak kartu debit berbasis INDC"], j:0, e:"Merchant INDOCOIN: terima pembayaran INDC langsung — dukung ekonomi kripto lokal Indonesia!" },
+    { id:280, k:"C", q:"Cara merchant bergabung di INDOCOIN adalah...", p:["Daftar di halaman Merchant, connect wallet BSC, dan mulai terima pembayaran INDC","Bayar biaya pendaftaran $500 USDT","Hanya untuk merchant yang diverifikasi OJK","Upload KYC dan tunggu 30 hari"], j:0, e:"Daftar di halaman Merchant INDOCOIN — connect wallet BSC dan langsung bisa terima pembayaran INDC!" },
+
+    // GARUDA FORCE (id:41)
+    { id:281, k:"C", q:"Garuda Force Mission Staking adalah...", p:["Program staking INDC dengan misi/tantangan untuk reward lebih besar","Staking khusus TNI dan Polri","Staking dengan lock 10 tahun","Hanya untuk member VIP"], j:0, e:"Garuda Force Mission: stake INDC + selesaikan misi → reward berlipat!" },
+    { id:282, k:"C", q:"Nama Garuda Force di INDOCOIN terinspirasi dari...", p:["Simbol Garuda sebagai identitas kekuatan dan kebanggaan Indonesia","Nama pendiri INDOCOIN","Karakter game ekosistem INDOCOIN","Singkatan dari nama program"], j:0, e:"Garuda = simbol nasional Indonesia — INDOCOIN bangga membangun DeFi dengan identitas lokal!" },
+
+    // MEMBER VIP (id:42)
+    { id:283, k:"C", q:"Member VIP INDOCOIN mendapatkan...", p:["Akses eksklusif ke fitur premium, reward lebih besar, dan prioritas layanan","Bebas gas fee selamanya","Jaminan profit 50% per bulan","Akses rekening bank INDOCOIN"], j:0, e:"Member VIP INDOCOIN: fitur eksklusif, reward premium — level up sekarang!" },
+    { id:284, k:"C", q:"Status VIP INDOCOIN diraih dengan...", p:["Memenuhi syarat aktivitas dan kontribusi nyata di ekosistem INDOCOIN","Membayar $100 USDT per tahun","Diundang langsung developer","Otomatis setelah 1 tahun bergabung"], j:0, e:"Status VIP diraih melalui aktivitas nyata di ekosistem — bukan dibeli, tapi dibuktikan!" },
+
   ]
 };
-
-// ── UTILITY FUNCTIONS ────────────────────────────────────────
-
-// Ambil soal acak per sesi user (anti-repeat per wallet)
-window.getAirdropQuestion = function(walletAddress, pageId, level) {
-  const pool = level === 1 ? AIRDROP_QUESTIONS.level1 : AIRDROP_QUESTIONS.level2;
-  const storageKey = `indc_soal_${walletAddress.toLowerCase()}`;
-
-  // Load history soal yang sudah tampil
-  let history = [];
-  try {
-    history = JSON.parse(localStorage.getItem(storageKey) || '[]');
-  } catch(e) { history = []; }
-
-  // Pisah kategori
-  const catA = pool.filter(s => s.k === "A");
-  const catC = pool.filter(s => s.k === "C");
-
-  // Pilih soal yang belum pernah tampil
-  function pickUnused(pool, history) {
-    const unused = pool.filter(s => !history.includes(s.id));
-    if (unused.length === 0) {
-      // Reset — semua sudah tampil, acak ulang
-      pool.forEach(s => {
-        const idx = history.indexOf(s.id);
-        if (idx > -1) history.splice(idx, 1);
-      });
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-    return unused[Math.floor(Math.random() * unused.length)];
-  }
-
-  const soalEdukasi  = pickUnused(catA, history);
-  const soalPlatform = pickUnused(catC, history);
-
-  // Tandai sudah tampil
-  if (!history.includes(soalEdukasi.id))  history.push(soalEdukasi.id);
-  if (!history.includes(soalPlatform.id)) history.push(soalPlatform.id);
-  localStorage.setItem(storageKey, JSON.stringify(history));
-
-  return { edukasi: soalEdukasi, platform: soalPlatform };
-}
-
-// Cek jawaban
-window.checkAnswer = function(soalId, jawabanIndex, level) {
-  const pool = [...AIRDROP_QUESTIONS.level1, ...AIRDROP_QUESTIONS.level2];
-  const soal = pool.find(s => s.id === soalId);
-  if (!soal) return { benar: false, penjelasan: "" };
-  return {
-    benar: soal.j === jawabanIndex,
-    penjelasan: soal.e
-  };
-}
-
-// window.AIRDROP_QUESTIONS sudah global

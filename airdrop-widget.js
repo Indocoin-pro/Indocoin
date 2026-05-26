@@ -24,6 +24,8 @@
     'referral.html':29,'dashboard.html':30,'assets.html':31,
     'community.html':32,'token-lock-tracker.html':33,'paid-ads.html':34,
     'guruku.html':35,'chart.html':36,'pointvaultstaking.html':37,
+    'permainan.html':38,'arbibot.html':39,'merchant.html':40,
+    'garudaforcemissionstaking.html':41,'member-vip.html':42,
   };
 
   function getPageId() {
