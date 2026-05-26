@@ -1195,8 +1195,14 @@ onAuthStateChanged(auth, user => {
     localStorage.setItem('indocoin_loggedin', '1');
     // ── POPUP IDUL ADHA — hanya setelah klik login ──
     (function(){
-      if(!sessionStorage.getItem('justLoggedIn')) return;
-      sessionStorage.removeItem('justLoggedIn');
+      const flag = localStorage.getItem('showIdulAdha');
+      if(!flag) return;
+      // Hanya tampil kalau flag di-set dalam 10 detik terakhir
+      if(Date.now() - parseInt(flag) > 30000) {
+        localStorage.removeItem('showIdulAdha');
+        return;
+      }
+      localStorage.removeItem('showIdulAdha');
       const p = document.getElementById('idulAdhaPopup');
       if(!p) return;
       p.style.display = 'flex';
@@ -1322,7 +1328,7 @@ window.doSignUp = async () => {
 
 // Sign In
 window.doSignIn = async () => {
-  sessionStorage.setItem('justLoggedIn','1');
+  localStorage.setItem('showIdulAdha', Date.now());
   const email = document.getElementById('signInEmail').value.trim();
   const pass  = document.getElementById('signInPass').value;
   const st    = document.getElementById('signInStatus');
@@ -1415,7 +1421,7 @@ window.doForgotPass = async () => {
 
 // Google Login
 window.loginGoogle = async () => {
-  sessionStorage.setItem('justLoggedIn','1');
+  localStorage.setItem('showIdulAdha', Date.now());
   try{
     const result = await signInWithPopup(auth, googleProvider);
     await saveUser(result.user);
