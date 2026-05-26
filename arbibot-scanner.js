@@ -28,10 +28,12 @@ const CONFIG = {
     MATIC : '0xCC42724C6683B7E57334c4E856f4c9965ED682bD',
   },
 
-  // DEX Routers
+  // DEX Routers BSC
   ROUTERS: {
     PANCAKE_V2 : '0x10ED43C718714eb63d5aA57B78B54704E256024E',
     BISWAP     : '0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8',
+    APESWAP    : '0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7',
+    MDEX       : '0x7DAe51BD3E3376B8c7c4900E9107f12Be3AF1bA8',
   },
 
   // PancakeSwap V3 Pool Factory (untuk Flash Loan)
@@ -179,36 +181,45 @@ async function findArbitrageOpportunities() {
       const decimals     = pair.tokenIn === 'WBNB' ? 18 : 18;
       const amountIn     = ethers.utils.parseUnits(pair.amountIn, decimals);
 
-      // Cek harga di 2 DEX
-      const [pricePancake, priceBiswap] = await Promise.all([
-        getDexPrice(CONFIG.ROUTERS.PANCAKE_V2, tokenInAddr, tokenOutAddr, amountIn),
-        getDexPrice(CONFIG.ROUTERS.BISWAP,     tokenInAddr, tokenOutAddr, amountIn),
-      ]);
+      // Cek harga di 4 DEX
+      const dexList = [
+        { name: 'PancakeSwap', router: CONFIG.ROUTERS.PANCAKE_V2 },
+        { name: 'BiSwap',      router: CONFIG.ROUTERS.BISWAP     },
+        { name: 'ApeSwap',     router: CONFIG.ROUTERS.APESWAP    },
+        { name: 'MDEX',        router: CONFIG.ROUTERS.MDEX       },
+      ];
 
-      if (!pricePancake || !priceBiswap) continue;
+      const prices = await Promise.all(
+        dexList.map(d => getDexPrice(d.router, tokenInAddr, tokenOutAddr, amountIn))
+      );
 
-      // Hitung selisih
-      const pancakeNum = parseFloat(ethers.utils.formatUnits(pricePancake, decimals));
-      const biswapNum  = parseFloat(ethers.utils.formatUnits(priceBiswap,  decimals));
-      const amountNum  = parseFloat(pair.amountIn);
+      // Filter DEX yang return harga valid
+      const validDex = dexList
+        .map((d, i) => ({ ...d, price: prices[i] }))
+        .filter(d => d.price !== null);
 
-      let profitPct = 0, buyDex = '', sellDex = '', buyRouter = '', sellRouter = '';
+      if (validDex.length < 2) continue;
 
-      if (pancakeNum > biswapNum) {
-        // Beli di BiSwap, jual di PancakeSwap
-        profitPct  = (pancakeNum - biswapNum) / biswapNum;
-        buyDex     = 'BiSwap';
-        sellDex    = 'PancakeSwap';
-        buyRouter  = CONFIG.ROUTERS.BISWAP;
-        sellRouter = CONFIG.ROUTERS.PANCAKE_V2;
-      } else {
-        // Beli di PancakeSwap, jual di BiSwap
-        profitPct  = (biswapNum - pancakeNum) / pancakeNum;
-        buyDex     = 'PancakeSwap';
-        sellDex    = 'BiSwap';
-        buyRouter  = CONFIG.ROUTERS.PANCAKE_V2;
-        sellRouter = CONFIG.ROUTERS.BISWAP;
-      }
+      // Cari DEX termurah (untuk BELI) & termahal (untuk JUAL)
+      const sortedDex = validDex.map(d => ({
+        ...d,
+        priceNum: parseFloat(ethers.utils.formatUnits(d.price, decimals))
+      })).sort((a, b) => a.priceNum - b.priceNum);
+
+      // Wait — kita beli di DEX yang HASILnya paling SEDIKIT (harga termahal)
+      // dan jual di DEX yang HASILnya paling BANYAK (harga termurah)
+      // Sebenarnya: getAmountsOut = kalau aku jual X tokenIn dapat berapa tokenOut
+      // Beli murah = dapat banyak tokenOut per tokenIn → pilih yg PRICE TERTINGGI
+      // Jual mahal = dapat banyak tokenIn per tokenOut → pilih yg PRICE TERTINGGI saat jual balik
+      const buyAt  = sortedDex[sortedDex.length - 1]; // beli di DEX yg kasih tokenOut terbanyak
+      const sellAt = sortedDex[0];                    // jual di DEX yg paling sedikit (selisih harga)
+
+      const amountNum = parseFloat(pair.amountIn);
+      const profitPct = (buyAt.priceNum - sellAt.priceNum) / sellAt.priceNum;
+      const buyDex     = buyAt.name;
+      const sellDex    = sellAt.name;
+      const buyRouter  = buyAt.router;
+      const sellRouter = sellAt.router;
 
       // Kurangi flash loan fee 0.05%
       const netProfitPct = profitPct - CONFIG.FLASH_FEE_PCT;
