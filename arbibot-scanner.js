@@ -10,7 +10,8 @@ const CONFIG = {
   RPC_URL       : 'https://bsc-dataseed1.binance.org/',
   RPC_BACKUP    : 'https://bsc-dataseed2.binance.org/',
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
-  CONTRACT_ADDR : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
+  CONTRACT_ADDR    : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
+  FLASH_EXECUTOR   : '0x9a19843c190c041ea46A8cc7091a1c5f0e822464',
 
   // Token addresses BSC
   TOKENS: {
@@ -66,7 +67,7 @@ const CONFIG = {
   ],
 
   MIN_PROFIT_PCT : 0.005,   // 0.5% minimum profit setelah flash loan fee
-  FLASH_FEE_PCT  : 0.0005,  // 0.05% flash loan fee PancakeSwap V3
+  FLASH_FEE_PCT  : 0.0001,  // 0.01% flash loan fee PancakeSwap V3
   GAS_BUFFER_USD : 0.5,     // $0.50 buffer gas
   SCAN_INTERVAL  : 5,       // 5 detik — lebih kompetitif
   MAX_TRADE_USD  : 2000,
@@ -97,6 +98,11 @@ const PANCAKE_V3_POOL_ABI = [
   'function token1() view returns (address)',
 ];
 
+// ArbiFlashExecutor contract
+const FLASH_EXECUTOR_ABI = [
+  'function executeArbitrage(address tokenIn, address tokenOut, uint256 amount, address buyRouter, address sellRouter, address topUser) external',
+];
+
 // Contract INDOCOIN ArbiBotTrade
 const CONTRACT_ABI = [
   'function distributeProfit(address user, uint256 grossProfit) external',
@@ -109,7 +115,7 @@ const CONTRACT_ABI = [
 // ─────────────────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────────────────
-let provider, signer, contract;
+let provider, signer, contract, flashExecutor;
 let scanCount   = 0;
 let totalArbi   = 0;
 let totalProfit = 0;
@@ -133,7 +139,9 @@ async function init() {
   }
 
   signer   = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
-  contract = new ethers.Contract(CONFIG.CONTRACT_ADDR, CONTRACT_ABI, signer);
+  contract       = new ethers.Contract(CONFIG.CONTRACT_ADDR, CONTRACT_ABI, signer);
+  flashExecutor  = new ethers.Contract(CONFIG.FLASH_EXECUTOR, FLASH_EXECUTOR_ABI, signer);
+  console.log('⚡ FlashExecutor :', CONFIG.FLASH_EXECUTOR);
 
   console.log('🔑 Bot wallet:', signer.address);
   console.log('📋 Contract :', CONFIG.CONTRACT_ADDR);
@@ -238,69 +246,41 @@ async function findArbitrageOpportunities() {
 // ─────────────────────────────────────────────────────────
 async function executeFlashLoan(opp) {
   console.log('\n⚡ EKSEKUSI FLASH LOAN ARBITRAGE');
-  console.log(`   Pasangan : ${opp.tokenIn}/${opp.tokenOut}`);
-  console.log(`   Beli di  : ${opp.buyDex}`);
-  console.log(`   Jual di  : ${opp.sellDex}`);
-  console.log(`   Modal    : $${opp.amountInNum} (Flash Loan — tanpa modal sendiri)`);
+  console.log(`   Pasangan   : ${opp.tokenIn}/${opp.tokenOut}`);
+  console.log(`   Beli di    : ${opp.buyDex}`);
+  console.log(`   Jual di    : ${opp.sellDex}`);
+  console.log(`   Modal      : $${opp.amountInNum} (Flash Loan — tanpa modal sendiri)`);
   console.log(`   Est. Profit: $${opp.estimatedProfit.toFixed(4)}`);
 
   try {
-    // Encode data untuk callback
-    // Data: tokenIn, tokenOut, buyRouter, sellRouter, amountIn
-    const abiCoder = new ethers.utils.AbiCoder();
-    const flashData = abiCoder.encode(
-      ['address', 'address', 'address', 'address', 'uint256'],
-      [
-        opp.tokenInAddr,
-        opp.tokenOutAddr,
-        opp.buyRouter,
-        opp.sellRouter,
-        opp.amountIn,
-      ]
-    );
-
-    // Hubungi pool V3 untuk flash loan
-    const pool = new ethers.Contract(
-      CONFIG.FLASH_POOL_USDT_WBNB,
-      PANCAKE_V3_POOL_ABI,
-      signer
-    );
-
-    // Tentukan amount0/amount1 berdasarkan token0/token1 pool
-    const token0 = await pool.token0();
-    const isToken0 = opp.tokenInAddr.toLowerCase() === token0.toLowerCase();
-    const amount0  = isToken0 ? opp.amountIn : ethers.BigNumber.from(0);
-    const amount1  = isToken0 ? ethers.BigNumber.from(0) : opp.amountIn;
-
-    console.log('   Meminta Flash Loan dari PancakeSwap V3...');
-
-    const tx = await pool.flash(
-      signer.address, // recipient = bot wallet (yang akan menerima dana flash loan)
-      amount0,
-      amount1,
-      flashData,
-      { gasLimit: 500000 }
-    );
-
-    const receipt = await tx.wait();
-    console.log(`✅ Flash Loan TX: ${receipt.transactionHash.slice(0,20)}...`);
-
-    // Setelah flash loan selesai, cek profit aktual
-    const tokenInContract = new ethers.Contract(opp.tokenInAddr, ERC20_ABI, provider);
-    const balAfter        = await tokenInContract.balanceOf(signer.address);
-    const profitWei       = balAfter.gt(0) ? balAfter : ethers.BigNumber.from(0);
-
-    if (profitWei.gt(0)) {
-      const profitUSD = parseFloat(ethers.utils.formatUnits(profitWei, 18));
-      console.log(`🎉 PROFIT AKTUAL: $${profitUSD.toFixed(4)}`);
-
-      totalArbi++;
-      totalProfit += profitUSD;
-      lastExecTime = Date.now();
-
-      // Transfer profit ke contract untuk distribusi ke user
-      await distributeToContract(opp.tokenInAddr, profitWei, profitUSD);
+    // Cek BNB untuk gas
+    const bnbBal = await provider.getBalance(signer.address);
+    const bnbEth = parseFloat(ethers.utils.formatEther(bnbBal));
+    if (bnbEth < 0.005) {
+      console.warn('  ⚠️  BNB tidak cukup untuk gas! Minimal 0.005 BNB');
+      return;
     }
+
+    // Panggil FlashExecutor contract
+    // Contract yang akan handle Flash Loan + arbitrage + kembalikan pinjaman
+    const tx = await flashExecutor.executeArbitrage(
+      opp.tokenInAddr,
+      opp.tokenOutAddr,
+      opp.amountIn,
+      opp.buyRouter,
+      opp.sellRouter,
+      signer.address, // topUser — untuk distribusi profit
+      { gasLimit: 600000 }
+    );
+
+    console.log('   Menunggu konfirmasi...');
+    const receipt = await tx.wait();
+    console.log(`✅ Sukses! TX: ${receipt.transactionHash.slice(0,20)}...`);
+    console.log(`   Gas used : ${receipt.gasUsed.toString()}`);
+
+    totalArbi++;
+    lastExecTime = Date.now();
+    console.log(`📊 Total eksekusi: ${totalArbi}`);
 
   } catch(e) {
     console.error('  ❌ Flash Loan gagal:', e.message);
