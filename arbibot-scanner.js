@@ -67,6 +67,7 @@ const CONFIG = {
   ],
 
   MIN_PROFIT_PCT : 0.005,   // 0.5% minimum profit setelah flash loan fee
+  MAX_PROFIT_PCT : 0.05,    // 5% maksimum — lebih dari ini = likuiditas tipis/harga palsu
   FLASH_FEE_PCT  : 0.0001,  // 0.01% flash loan fee PancakeSwap V3
   GAS_BUFFER_USD : 0.5,     // $0.50 buffer gas
   SCAN_INTERVAL  : 5,       // 5 detik — lebih kompetitif
