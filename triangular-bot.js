@@ -27,8 +27,6 @@ const CONFIG = {
   ROUTERS: {
     PANCAKE_V2 : '0x10ED43C718714eb63d5aA57B78B54704E256024E',
     BISWAP     : '0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8',
-    APESWAP    : '0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7',
-    MDEX       : '0x7DAe51BD3E3376B8c7c4900E9107f12Be3AF1bA8',
   },
 
   // Pasangan triangular untuk discan
@@ -36,20 +34,14 @@ const CONFIG = {
   TRIANGLES: [
     ['WBNB', 'BTCB'],
     ['WBNB', 'ETH'],
-    ['WBNB', 'CAKE'],
     ['BTCB', 'WBNB'],
     ['ETH',  'WBNB'],
-    ['BTCB', 'ETH'],
-    ['ETH',  'BTCB'],
-    ['CAKE', 'WBNB'],
-    ['BUSD', 'WBNB'],
-    ['WBNB', 'BUSD'],
   ],
 
   AMOUNT_IN_USDT   : '300',   // jumlah pinjam per percobaan
   MIN_PROFIT_USD   : 0.5,     // minimal profit
   MAX_PROFIT_PCT   : 0.05,    // > 5% = palsu, skip
-  SCAN_INTERVAL    : 8,       // detik
+  SCAN_INTERVAL    : 15,      // detik
   COOLDOWN_AFTER_TX: 30,      // detik setelah eksekusi
   EXECUTE_MODE     : false,   // false = simulasi
 };
@@ -131,6 +123,7 @@ async function findTriangular() {
   const amountIn = ethers.utils.parseUnits(CONFIG.AMOUNT_IN_USDT, 18);
   const opportunities = [];
   const routers = Object.entries(CONFIG.ROUTERS);
+  let checked = 0;
 
   for (const [bSymbol, cSymbol] of CONFIG.TRIANGLES) {
     const tokenB = CONFIG.TOKENS[bSymbol];
