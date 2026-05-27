@@ -15,7 +15,8 @@ const CONFIG = {
   RPC_BACKUP2   : 'https://bsc-rpc.publicnode.com',
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
 
-  ARBIBOT_TRADE : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
+  ARBIBOT_TRADE     : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
+  FLASH_LIQUIDATOR  : '0x97a17e1d4c33032c038b709806440d4fc3a2992b',  // VenusFlashLiquidator
 
   // Venus Protocol BSC
   VENUS: {
@@ -71,12 +72,17 @@ const ERC20_ABI = [
 
 const ARBIBOT_ABI = [
   'function distributeProfit(address user, uint256 grossProfit) external',
+  'function getTopUser() view returns (address)',
+];
+
+const FLASH_LIQUIDATOR_ABI = [
+  'function executeLiquidation(address borrower, address vTokenBorrowed, uint256 repayAmount, address vTokenCollateral, address topUser) external',
 ];
 
 // ─────────────────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────────────────
-let provider, signer, comptroller, arbibotTrade;
+let provider, signer, comptroller, arbibotTrade, flashLiquidator;
 let borrowers = new Set();
 let scanCount = 0;
 let totalLiquidations = 0;
@@ -106,9 +112,11 @@ async function init() {
   signer       = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
   comptroller  = new ethers.Contract(CONFIG.VENUS.COMPTROLLER, COMPTROLLER_ABI, signer);
   arbibotTrade = new ethers.Contract(CONFIG.ARBIBOT_TRADE, ARBIBOT_ABI, signer);
+  flashLiquidator = new ethers.Contract(CONFIG.FLASH_LIQUIDATOR, FLASH_LIQUIDATOR_ABI, signer);
 
   console.log('🔑 Bot wallet:', signer.address);
   console.log('💰 Profit ke:', CONFIG.ARBIBOT_TRADE);
+  console.log('⚡ Flash Liquidator:', CONFIG.FLASH_LIQUIDATOR);
   console.log('🎯 Mode:', CONFIG.EXECUTE_MODE ? '🔴 LIVE EXECUTION' : '🟢 SIMULASI');
 
   const bnbBal = await provider.getBalance(signer.address);
@@ -260,36 +268,32 @@ async function executeLiquidation(opp) {
       return;
     }
     
-    const vToken = new ethers.Contract(opp.borrowedAsset, VTOKEN_ABI, signer);
-    const underlying = await vToken.underlying();
-    const tokenContract = new ethers.Contract(underlying, ERC20_ABI, signer);
+    // Cari top user untuk distribusi profit
+    let topUser = '0x0000000000000000000000000000000000000000';
+    try {
+      topUser = await arbibotTrade.getTopUser();
+    } catch(e) {}
     
-    // Cek saldo & approve
-    const balance = await tokenContract.balanceOf(signer.address);
-    if (balance.lt(opp.repayAmount)) {
-      console.warn(`   ⚠️  Saldo token tidak cukup`);
-      return;
-    }
-    
-    await (await tokenContract.approve(opp.borrowedAsset, opp.repayAmount)).wait();
-    
-    // Liquidate
-    const tx = await vToken.liquidateBorrow(
+    // Eksekusi via FlashLiquidator contract — zero modal!
+    const tx = await flashLiquidator.executeLiquidation(
       opp.borrower,
+      opp.borrowedAsset,
       opp.repayAmount,
       opp.collateralAsset,
-      { gasLimit: 600000 }
+      topUser,
+      { gasLimit: 1500000 }
     );
+    
+    console.log(`   📡 TX terkirim: ${tx.hash.slice(0,20)}...`);
+    console.log('   ⏳ Menunggu konfirmasi...');
     
     const receipt = await tx.wait();
     if (receipt.status === 1) {
-      console.log(`   ✅ SUCCESS! TX: ${receipt.transactionHash.slice(0,20)}...`);
+      console.log(`   ✅ SUCCESS! Profit ke ArbiBotTrade contract`);
       totalLiquidations++;
-      
-      // TODO: Redeem collateral, jual ke USDT, transfer ke ArbiBotTrade
-      // Sederhana: hitung collateral yang diterima
+      totalProfit += opp.estimatedBonus;
     } else {
-      console.log(`   ❌ TX failed`);
+      console.log(`   ❌ TX revert`);
     }
     
   } catch(e) {
