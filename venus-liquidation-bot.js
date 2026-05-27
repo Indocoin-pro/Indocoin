@@ -42,7 +42,7 @@ const CONFIG = {
   MAX_REPAY_USD      : 1000,
   SCAN_INTERVAL      : 15,         // detik — cek health factor
   INDEX_INTERVAL     : 3600,       // detik — scan borrower baru tiap 1 jam
-  INDEX_BLOCKS_BACK  : 10000,      // ~ 8 jam blok BSC
+  INDEX_BLOCKS_BACK  : 300000,     // ~ 10 hari blok BSC
   BORROWER_FILE      : '/root/indocoin/venus-borrowers.json',
   EXECUTE_MODE       : false,      // false = simulasi (aman), true = eksekusi real
 };
