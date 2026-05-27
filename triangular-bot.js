@@ -22,26 +22,45 @@ const CONFIG = {
     ETH   : '0x2170Ed0880ac9A755fd29B2688956BD959F933F8',
     CAKE  : '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
     BUSD  : '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+    BUSD  : '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
   },
 
   ROUTERS: {
     PANCAKE_V2 : '0x10ED43C718714eb63d5aA57B78B54704E256024E',
     BISWAP     : '0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8',
+    APESWAP    : '0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7',
   },
 
   // Pasangan triangular untuk discan
   // [tokenB, tokenC] — start & end selalu USDT
   TRIANGLES: [
+    // Top tier (paling likuid)
     ['WBNB', 'BTCB'],
-    ['WBNB', 'ETH'],
     ['BTCB', 'WBNB'],
+    ['WBNB', 'ETH'],
     ['ETH',  'WBNB'],
+    ['BTCB', 'ETH'],
+    ['ETH',  'BTCB'],
+    
+    // Dengan BUSD (stablecoin)
+    ['BUSD', 'WBNB'],
+    ['WBNB', 'BUSD'],
+    ['BUSD', 'BTCB'],
+    ['BTCB', 'BUSD'],
+    ['BUSD', 'ETH'],
+    
+    // Dengan CAKE
+    ['WBNB', 'CAKE'],
+    ['CAKE', 'WBNB'],
+    ['BTCB', 'CAKE'],
+    ['CAKE', 'BTCB'],
+    ['CAKE', 'ETH'],
   ],
 
   AMOUNT_IN_USDT   : '300',   // jumlah pinjam per percobaan
   MIN_PROFIT_USD   : 0.5,     // minimal profit
   MAX_PROFIT_PCT   : 0.05,    // > 5% = palsu, skip
-  SCAN_INTERVAL    : 15,      // detik
+  SCAN_INTERVAL    : 20,      // detik (banyak kombinasi)
   COOLDOWN_AFTER_TX: 30,      // detik setelah eksekusi
   EXECUTE_MODE     : false,   // false = simulasi
 };
