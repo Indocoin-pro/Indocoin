@@ -15,11 +15,12 @@ const CONFIG = {
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
 
   ARBIBOT_TRADE     : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
-  AAVE_LIQUIDATOR   : 'BELUM_DEPLOY',  // ← Update setelah deploy contract
+  AAVE_LIQUIDATOR   : '0xeffcdb5df0783c6802331f0b7067931152b19bb1',
 
   // Aave V3 BSC Addresses
   AAVE_POOL         : '0x6807dc923806fE8Fd134338EABCA509979a7e0cB',
   POOL_ADDR_PROVIDER: '0xff75B6da14FfbbfD355Daf7a2731456b3562Ba6D',
+  DATA_PROVIDER     : '0x41585C50524fb8c3899B43D7D797d9486AAc94DB',
 
   // Token assets di Aave V3 BSC
   ASSETS: [
@@ -40,6 +41,10 @@ const CONFIG = {
   EXECUTE_MODE      : false,      // false = simulasi
 };
 
+const DATA_PROVIDER_ABI = [
+  'function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)',
+];
+
 const POOL_ABI = [
   'function getUserAccountData(address) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
   'function getUserConfiguration(address) view returns (tuple(uint256 data))',
@@ -55,7 +60,7 @@ const ARBIBOT_ABI = [
   'function getTopUser() view returns (address)',
 ];
 
-let provider, signer, pool, liquidator, arbibotTrade;
+let provider, signer, pool, dataProvider, liquidator, arbibotTrade;
 let borrowers = new Set();
 let scanCount = 0;
 let totalLiquidations = 0;
@@ -77,6 +82,7 @@ async function init() {
 
   signer = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
   pool = new ethers.Contract(CONFIG.AAVE_POOL, POOL_ABI, signer);
+  dataProvider = new ethers.Contract(CONFIG.DATA_PROVIDER, DATA_PROVIDER_ABI, signer);
   arbibotTrade = new ethers.Contract(CONFIG.ARBIBOT_TRADE, ARBIBOT_ABI, signer);
   
   if (CONFIG.AAVE_LIQUIDATOR !== 'BELUM_DEPLOY') {
@@ -162,12 +168,39 @@ async function checkBorrower(borrower) {
     // Estimasi bonus (rata-rata 7.5% di Aave V3 BSC)
     const estimatedBonus = debtUSD * 0.075 * 0.5; // 50% close factor
     
+    // Cari collateral asset terbesar & debt asset terbesar
+    let bestCollateral = null, bestDebt = null;
+    let maxCollateralBal = ethers.BigNumber.from(0);
+    let maxDebtBal = ethers.BigNumber.from(0);
+    
+    for (const asset of CONFIG.ASSETS) {
+      try {
+        const r = await dataProvider.getUserReserveData(asset.address, borrower);
+        
+        if (r.currentATokenBalance.gt(maxCollateralBal) && r.usageAsCollateralEnabled) {
+          maxCollateralBal = r.currentATokenBalance;
+          bestCollateral = asset.address;
+        }
+        
+        const totalDebt = r.currentStableDebt.add(r.currentVariableDebt);
+        if (totalDebt.gt(maxDebtBal)) {
+          maxDebtBal = totalDebt;
+          bestDebt = asset.address;
+        }
+      } catch(e) {}
+    }
+    
+    if (!bestCollateral || !bestDebt) return null;
+
     return {
       borrower,
       healthFactor,
       debtUSD,
       collateralUSD,
       estimatedBonus,
+      collateralAsset: bestCollateral,
+      debtAsset: bestDebt,
+      debtToCover: maxDebtBal.div(2), // 50% close factor
     };
 
   } catch(e) {
@@ -205,8 +238,29 @@ async function executeLiquidation(opp) {
     // Untuk simpel: ambil asset terbesar
     // Catatan: implementasi lengkap perlu cek reserve user
     
+    let topUser = '0x0000000000000000000000000000000000000000';
+    try { topUser = await arbibotTrade.getTopUser(); } catch(e) {}
+    
     console.log('   📡 Mengirim TX...');
-    console.log('   ℹ️  Logic lengkap perlu deploy AaveFlashLiquidator.sol');
+    
+    const tx = await liquidator.executeLiquidation(
+      opp.collateralAsset,
+      opp.debtAsset,
+      opp.borrower,
+      opp.debtToCover,
+      topUser,
+      { gasLimit: 1500000 }
+    );
+    
+    console.log(`   TX: ${tx.hash.slice(0,20)}...`);
+    const receipt = await tx.wait();
+    
+    if (receipt.status === 1) {
+      console.log(`   ✅ SUCCESS!`);
+      totalLiquidations++;
+    } else {
+      console.log(`   ❌ Revert`);
+    }
     
   } catch(e) {
     console.error('   ❌ Gagal:', e.message.slice(0,80));
