@@ -37,6 +37,7 @@ const CONFIG = {
   // Coba berbagai modal — beda modal = beda peluang slippage
   AMOUNT_IN_USDT_LIST: ['500', '1000', '3000', '5000'],
   MIN_PROFIT_USD   : 0.5,     // minimal $0.50 profit
+  MIN_PROFIT_PCT   : 0.006,   // minimal 0.6% (cover fee swap 2x + flash loan + slippage)
   MAX_PROFIT_PCT   : 0.005,   // > 0.5% = palsu untuk stablecoin
   SCAN_INTERVAL    : 12,      // detik
   COOLDOWN_AFTER_TX: 30,
@@ -129,6 +130,7 @@ async function findOpportunities() {
       const profitUSD = (buyAt.priceNum - sellAt.priceNum);
 
       if (profitPct > CONFIG.MAX_PROFIT_PCT) continue;
+      if (profitPct < CONFIG.MIN_PROFIT_PCT) continue;
       if (profitUSD < CONFIG.MIN_PROFIT_USD) continue;
 
       opps.push({
