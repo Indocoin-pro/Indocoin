@@ -23,19 +23,19 @@ const CONFIG = {
   DODO_POOLS: [
     {
       name    : 'WBNB-USDT',
-      address : '0x5b206ee7738c3F1Cd13779B6FE2bC4BdC8d56dC0',
+      address : '0x5b206ee7738c3f1cd13779b6fe2bc4bdc8d56dc0',
       base    : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
       quote   : '0x55d398326f99059fF775485246999027B3197955', // USDT
     },
     {
       name    : 'BTCB-USDT',
-      address : '0x395E0625fAcD80aEea1Fbf03e1D81e859169e7C2',
+      address : '0x395e0625facd80aeea1fbf03e1d81e859169e7c2',
       base    : '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c', // BTCB
       quote   : '0x55d398326f99059fF775485246999027B3197955', // USDT
     },
     {
       name    : 'ETH-USDT',
-      address : '0xA9b59Ec84cFFEC9D32390D24a55e0e9F03bA2BA0',
+      address : '0xa9b59ec84cffec9d32390d24a55e0e9f03ba2ba0',
       base    : '0x2170Ed0880ac9A755fd29B2688956BD959F933F8', // ETH
       quote   : '0x55d398326f99059fF775485246999027B3197955', // USDT
     },
