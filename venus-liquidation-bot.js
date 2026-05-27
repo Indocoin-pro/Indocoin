@@ -1,10 +1,12 @@
 require("dotenv").config();
 const { ethers } = require('ethers');
+const fs = require('fs');
 
 // ─────────────────────────────────────────────────────────
-//  VENUS LIQUIDATION BOT — INDOCOIN
-//  Monitor & eksekusi liquidation di Venus Protocol BSC
-//  Profit otomatis masuk ke ArbiBotTrade → dibagi ke user
+//  VENUS + MULTI LIQUIDATION BOT — INDOCOIN
+//  Monitor & eksekusi liquidation di Venus, Radiant, dll
+//  Auto-indexing borrower dari blockchain
+//  Profit otomatis ke ArbiBotTrade → dibagi ke user
 // ─────────────────────────────────────────────────────────
 
 const CONFIG = {
@@ -12,98 +14,80 @@ const CONFIG = {
   RPC_BACKUP    : 'https://bsc-dataseed2.binance.org/',
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
 
-  // Contract INDOCOIN (untuk kirim profit ke user)
   ARBIBOT_TRADE : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
 
-  // Venus Protocol BSC Addresses
-  COMPTROLLER   : '0xfD36E2c2a6789Db23113685031d7F16329158384',
-  VBNB          : '0xA07c5b74C9B40447a954e1466938b865b6BBea36',
-  VUSDT         : '0xfD5840Cd36d94D7229439859C0112a4185BC0255',
-  VBUSD         : '0x95c78222B3D6e262426483D42CfA53685A67Ab9D',
-  VBTC          : '0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B',
-  VETH          : '0xf508fCD89b8bd15579dc79A6827cB4686A3592c8',
-  VUSDC         : '0xeCA88125a5ADbe82614ffC12D0DB554E2e2867C8',
-  VCAKE         : '0x86aC3974e2BD0d60825230fa6F355fF11409df5c',
-  VLINK         : '0x650b940a1033B8A1b1873f78730FcFC73ec11f1f',
-  VXRP          : '0xB248a295732e0225acd3337607cc01068e3b9c10',
+  // Venus Protocol BSC
+  VENUS: {
+    COMPTROLLER : '0xfD36E2c2a6789Db23113685031d7F16329158384',
+    VTOKENS: [
+      { name: 'vBNB',  address: '0xA07c5b74C9B40447a954e1466938b865b6BBea36', decimals: 8  },
+      { name: 'vUSDT', address: '0xfD5840Cd36d94D7229439859C0112a4185BC0255', decimals: 8  },
+      { name: 'vBUSD', address: '0x95c78222B3D6e262426483D42CfA53685A67Ab9D', decimals: 8  },
+      { name: 'vBTC',  address: '0x882C173bC7Ff3b7786CA16dfeD3DFFfb9Ee7847B', decimals: 8  },
+      { name: 'vETH',  address: '0xf508fCD89b8bd15579dc79A6827cB4686A3592c8', decimals: 8  },
+      { name: 'vUSDC', address: '0xeCA88125a5ADbe82614ffC12D0DB554E2e2867C8', decimals: 8  },
+      { name: 'vCAKE', address: '0x86aC3974e2BD0d60825230fa6F355fF11409df5c', decimals: 8  },
+    ],
+    LIQUIDATION_BONUS : 0.10,
+    CLOSE_FACTOR      : 0.5,
+  },
 
-  // Token addresses
   USDT          : '0x55d398326f99059fF775485246999027B3197955',
-  BUSD          : '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
   WBNB          : '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
-
-  // PancakeSwap Router (untuk jual collateral)
   PANCAKE_ROUTER: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
 
   // Setting
-  MIN_HEALTH_FACTOR : 1.0,    // < 1.0 = bisa liquidate
-  MIN_PROFIT_USD    : 5,      // skip kalau profit < $5
-  MAX_REPAY_USD     : 1000,   // maksimal repay per liquidation
-  SCAN_INTERVAL     : 15,     // detik
-  CLOSE_FACTOR      : 0.5,    // Venus: bisa liquidate 50% hutang
-  LIQUIDATION_BONUS : 0.10,   // Venus: 10% bonus
-
-  // Daftar borrower yang dipantau
-  // Untuk awal: monitor borrower terbesar Venus
-  // Idealnya: indexing event Borrow dari Comptroller
-  WATCH_BORROWERS: [
-    // TOP borrowers Venus BSC (perlu update berkala)
-    // Bisa diisi dari https://app.venus.io/governance/leaderboard
-    // atau scan event Borrow dari blockchain
-  ],
+  MIN_PROFIT_USD     : 5,
+  MAX_REPAY_USD      : 1000,
+  SCAN_INTERVAL      : 15,         // detik — cek health factor
+  INDEX_INTERVAL     : 3600,       // detik — scan borrower baru tiap 1 jam
+  INDEX_BLOCKS_BACK  : 50000,      // ~ 1.5 hari blok BSC
+  BORROWER_FILE      : '/root/indocoin/venus-borrowers.json',
+  EXECUTE_MODE       : false,      // false = simulasi (aman), true = eksekusi real
 };
 
 // ─────────────────────────────────────────────────────────
 //  ABIs
 // ─────────────────────────────────────────────────────────
-
 const COMPTROLLER_ABI = [
-  'function getAccountLiquidity(address) view returns (uint256 err, uint256 liquidity, uint256 shortfall)',
+  'function getAccountLiquidity(address) view returns (uint256, uint256, uint256)',
   'function getAssetsIn(address) view returns (address[])',
-  'function markets(address) view returns (bool isListed, uint256 collateralFactor, bool isComped)',
-  'function oracle() view returns (address)',
-  'function liquidationIncentiveMantissa() view returns (uint256)',
-  'function closeFactorMantissa() view returns (uint256)',
+  'function markets(address) view returns (bool, uint256, bool)',
 ];
 
 const VTOKEN_ABI = [
   'function borrowBalanceStored(address) view returns (uint256)',
   'function balanceOf(address) view returns (uint256)',
-  'function exchangeRateStored() view returns (uint256)',
   'function underlying() view returns (address)',
   'function liquidateBorrow(address borrower, uint256 repayAmount, address vTokenCollateral) returns (uint256)',
+  'event Borrow(address borrower, uint256 borrowAmount, uint256 accountBorrows, uint256 totalBorrows)',
 ];
 
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function approve(address,uint256) returns (bool)',
-  'function transfer(address,uint256) returns (bool)',
-];
-
-const ROUTER_ABI = [
-  'function swapExactTokensForTokens(uint256,uint256,address[],address,uint256) returns (uint256[])',
 ];
 
 const ARBIBOT_ABI = [
   'function distributeProfit(address user, uint256 grossProfit) external',
-  'function totalUserDeposits() view returns (uint256)',
 ];
 
 // ─────────────────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────────────────
 let provider, signer, comptroller, arbibotTrade;
+let borrowers = new Set();
 let scanCount = 0;
 let totalLiquidations = 0;
 let totalProfit = 0;
-let isRunning = false;
+let lastIndexTime = 0;
 
 // ─────────────────────────────────────────────────────────
 //  INIT
 // ─────────────────────────────────────────────────────────
 async function init() {
-  console.log('💧 Venus Liquidation Bot — INDOCOIN');
-  console.log('═'.repeat(50));
+  console.log('💧 Venus Liquidation Bot — INDOCOIN (Auto-Indexer)');
+  console.log('═'.repeat(55));
 
   try {
     provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
@@ -114,41 +98,110 @@ async function init() {
     console.log('✅ Connected to BSC (backup RPC)');
   }
 
-  signer        = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
-  comptroller   = new ethers.Contract(CONFIG.COMPTROLLER, COMPTROLLER_ABI, signer);
-  arbibotTrade  = new ethers.Contract(CONFIG.ARBIBOT_TRADE, ARBIBOT_ABI, signer);
+  signer       = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
+  comptroller  = new ethers.Contract(CONFIG.VENUS.COMPTROLLER, COMPTROLLER_ABI, signer);
+  arbibotTrade = new ethers.Contract(CONFIG.ARBIBOT_TRADE, ARBIBOT_ABI, signer);
 
   console.log('🔑 Bot wallet:', signer.address);
-  console.log('📋 Venus Comptroller:', CONFIG.COMPTROLLER);
   console.log('💰 Profit ke:', CONFIG.ARBIBOT_TRADE);
+  console.log('🎯 Mode:', CONFIG.EXECUTE_MODE ? '🔴 LIVE EXECUTION' : '🟢 SIMULASI');
 
   const bnbBal = await provider.getBalance(signer.address);
-  const bnbEth = parseFloat(ethers.utils.formatEther(bnbBal));
-  console.log(`⛽ BNB balance: ${bnbEth.toFixed(6)} BNB`);
+  console.log(`⛽ BNB: ${parseFloat(ethers.utils.formatEther(bnbBal)).toFixed(6)}`);
 
-  const usdtBal = await new ethers.Contract(CONFIG.USDT, ERC20_ABI, provider).balanceOf(signer.address);
-  const usdtNum = parseFloat(ethers.utils.formatUnits(usdtBal, 18));
-  console.log(`💵 USDT balance: ${usdtNum.toFixed(2)} USDT`);
-
-  console.log(`👁️  Monitoring ${CONFIG.WATCH_BORROWERS.length} borrower\n`);
+  // Load borrower dari file kalau ada
+  loadBorrowers();
+  console.log(`📋 Borrower terdaftar: ${borrowers.size}`);
 }
 
 // ─────────────────────────────────────────────────────────
-//  CEK HEALTH FACTOR BORROWER
+//  LOAD & SAVE BORROWER LIST
+// ─────────────────────────────────────────────────────────
+function loadBorrowers() {
+  try {
+    if (fs.existsSync(CONFIG.BORROWER_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CONFIG.BORROWER_FILE, 'utf-8'));
+      borrowers = new Set(data);
+    }
+  } catch(e) {}
+}
+
+function saveBorrowers() {
+  try {
+    fs.writeFileSync(CONFIG.BORROWER_FILE, JSON.stringify([...borrowers], null, 2));
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────────────────────
+//  AUTO-INDEXER: Scan event Borrow dari Venus
+// ─────────────────────────────────────────────────────────
+async function indexBorrowers() {
+  console.log('\n🔍 Indexing borrower dari blockchain...');
+  
+  try {
+    const currentBlock = await provider.getBlockNumber();
+    const fromBlock = currentBlock - CONFIG.INDEX_BLOCKS_BACK;
+    
+    let newCount = 0;
+    
+    // Scan event Borrow di setiap vToken
+    for (const vTokenInfo of CONFIG.VENUS.VTOKENS) {
+      try {
+        const vToken = new ethers.Contract(vTokenInfo.address, VTOKEN_ABI, provider);
+        
+        // Filter event Borrow
+        const filter = vToken.filters.Borrow();
+        
+        // Scan dalam chunks 5000 blok agar tidak timeout
+        const chunkSize = 5000;
+        for (let start = fromBlock; start < currentBlock; start += chunkSize) {
+          const end = Math.min(start + chunkSize, currentBlock);
+          
+          try {
+            const events = await vToken.queryFilter(filter, start, end);
+            
+            for (const ev of events) {
+              const addr = ev.args.borrower.toLowerCase();
+              if (!borrowers.has(addr)) {
+                borrowers.add(addr);
+                newCount++;
+              }
+            }
+          } catch(e) {
+            // Skip chunk yang error
+          }
+        }
+        
+        console.log(`   ${vTokenInfo.name}: total ${borrowers.size} borrower`);
+        
+      } catch(e) {
+        console.log(`   ${vTokenInfo.name}: error ${e.message.slice(0,40)}`);
+      }
+    }
+    
+    saveBorrowers();
+    console.log(`✅ Indexing selesai: ${newCount} borrower baru | Total: ${borrowers.size}`);
+    lastIndexTime = Date.now();
+    
+  } catch(e) {
+    console.error('❌ Indexing error:', e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  CEK HEALTH FACTOR
 // ─────────────────────────────────────────────────────────
 async function checkBorrower(borrower) {
   try {
     const [err, liquidity, shortfall] = await comptroller.getAccountLiquidity(borrower);
     
     if (err.toNumber() !== 0) return null;
-    
-    // Shortfall > 0 = borrower under-collateralized = bisa liquidate
     if (shortfall.eq(0)) return null;
     
     const shortfallUSD = parseFloat(ethers.utils.formatUnits(shortfall, 18));
     if (shortfallUSD < CONFIG.MIN_PROFIT_USD) return null;
 
-    // Cari asset yang dipinjam dan dijaminkan
+    // Cari asset untuk liquidate
     const assetsIn = await comptroller.getAssetsIn(borrower);
     
     let borrowedAsset = null, collateralAsset = null;
@@ -157,20 +210,11 @@ async function checkBorrower(borrower) {
     
     for (const vToken of assetsIn) {
       const v = new ethers.Contract(vToken, VTOKEN_ABI, provider);
-      
-      // Cek hutang
       const borrow = await v.borrowBalanceStored(borrower);
-      if (borrow.gt(maxBorrow)) {
-        maxBorrow = borrow;
-        borrowedAsset = vToken;
-      }
-      
-      // Cek collateral
       const balance = await v.balanceOf(borrower);
-      if (balance.gt(maxCollateral)) {
-        maxCollateral = balance;
-        collateralAsset = vToken;
-      }
+      
+      if (borrow.gt(maxBorrow)) { maxBorrow = borrow; borrowedAsset = vToken; }
+      if (balance.gt(maxCollateral)) { maxCollateral = balance; collateralAsset = vToken; }
     }
     
     if (!borrowedAsset || !collateralAsset) return null;
@@ -181,8 +225,8 @@ async function checkBorrower(borrower) {
       borrowedAsset,
       collateralAsset,
       maxBorrow,
-      // Bisa liquidate maksimum 50% dari hutang
       repayAmount: maxBorrow.mul(50).div(100),
+      estimatedBonus: shortfallUSD * CONFIG.VENUS.LIQUIDATION_BONUS,
     };
     
   } catch(e) {
@@ -194,57 +238,54 @@ async function checkBorrower(borrower) {
 //  EKSEKUSI LIQUIDATION
 // ─────────────────────────────────────────────────────────
 async function executeLiquidation(opp) {
-  console.log('\n⚡ EKSEKUSI LIQUIDATION');
+  console.log('\n⚡ LIQUIDATION OPPORTUNITY');
   console.log(`   Borrower    : ${opp.borrower.slice(0,10)}...`);
   console.log(`   Shortfall   : $${opp.shortfallUSD.toFixed(2)}`);
-  console.log(`   Repay       : ${ethers.utils.formatUnits(opp.repayAmount, 18).slice(0,8)}`);
-  console.log(`   Est. Bonus  : ${(opp.shortfallUSD * CONFIG.LIQUIDATION_BONUS).toFixed(2)}`);
+  console.log(`   Est. Bonus  : $${opp.estimatedBonus.toFixed(2)}`);
+  
+  if (!CONFIG.EXECUTE_MODE) {
+    console.log('   📝 SIMULASI MODE — set EXECUTE_MODE=true untuk eksekusi');
+    return;
+  }
   
   try {
-    // Cek BNB untuk gas
     const bnbBal = await provider.getBalance(signer.address);
-    const bnbEth = parseFloat(ethers.utils.formatEther(bnbBal));
-    if (bnbEth < 0.005) {
-      console.warn('  ⚠️  BNB tidak cukup');
+    if (parseFloat(ethers.utils.formatEther(bnbBal)) < 0.005) {
+      console.warn('   ⚠️  BNB tidak cukup');
       return;
     }
-    
-    // Untuk versi awal: hanya simulasi
-    // Eksekusi liquidation perlu:
-    // 1. Approve USDT/asset ke vToken
-    // 2. Panggil liquidateBorrow()
-    // 3. Dapat collateral (vToken)
-    // 4. Redeem ke underlying token
-    // 5. Jual ke USDT
-    // 6. Transfer profit ke ArbiBotTrade
-    
-    console.log('   📝 SIMULASI MODE — liquidation tidak dieksekusi');
-    console.log('   ℹ️  Untuk aktifkan: uncomment baris executeLiquidation di main()');
-    
-    /* AKTIFKAN setelah test:
     
     const vToken = new ethers.Contract(opp.borrowedAsset, VTOKEN_ABI, signer);
     const underlying = await vToken.underlying();
     const tokenContract = new ethers.Contract(underlying, ERC20_ABI, signer);
     
-    // Approve token ke vToken
-    await tokenContract.approve(opp.borrowedAsset, opp.repayAmount);
+    // Cek saldo & approve
+    const balance = await tokenContract.balanceOf(signer.address);
+    if (balance.lt(opp.repayAmount)) {
+      console.warn(`   ⚠️  Saldo token tidak cukup`);
+      return;
+    }
+    
+    await (await tokenContract.approve(opp.borrowedAsset, opp.repayAmount)).wait();
     
     // Liquidate
     const tx = await vToken.liquidateBorrow(
       opp.borrower,
       opp.repayAmount,
       opp.collateralAsset,
-      { gasLimit: 500000 }
+      { gasLimit: 600000 }
     );
+    
     const receipt = await tx.wait();
-    console.log(`   ✅ TX: ${receipt.transactionHash.slice(0,20)}...`);
-    
-    totalLiquidations++;
-    
-    // Jual collateral dan transfer profit ke ArbiBotTrade
-    // (implementasi tambahan)
-    */
+    if (receipt.status === 1) {
+      console.log(`   ✅ SUCCESS! TX: ${receipt.transactionHash.slice(0,20)}...`);
+      totalLiquidations++;
+      
+      // TODO: Redeem collateral, jual ke USDT, transfer ke ArbiBotTrade
+      // Sederhana: hitung collateral yang diterima
+    } else {
+      console.log(`   ❌ TX failed`);
+    }
     
   } catch(e) {
     console.error('   ❌ Liquidation gagal:', e.message.slice(0,80));
@@ -255,54 +296,60 @@ async function executeLiquidation(opp) {
 //  SCAN LOOP
 // ─────────────────────────────────────────────────────────
 async function scanAndLiquidate() {
-  if (isRunning) return;
-  isRunning = true;
   scanCount++;
-
+  
   const now = new Date();
   const ts  = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
-  try {
-    if (CONFIG.WATCH_BORROWERS.length === 0) {
-      console.log(`[${ts}] Scan #${scanCount} — Tidak ada borrower yang dipantau. Tambahkan ke WATCH_BORROWERS.`);
-      isRunning = false;
-      return;
-    }
-    
-    process.stdout.write(`[${ts}] Scan #${scanCount} — checking ${CONFIG.WATCH_BORROWERS.length} borrowers... `);
-    
-    const opps = [];
-    for (const borrower of CONFIG.WATCH_BORROWERS) {
-      const opp = await checkBorrower(borrower);
-      if (opp) opps.push(opp);
-    }
-    
-    if (opps.length === 0) {
-      console.log('semua sehat ✅');
-    } else {
-      console.log(`⚠️  ${opps.length} borrower BISA DI-LIQUIDATE!`);
-      
-      // Eksekusi yang shortfall terbesar dulu
-      opps.sort((a,b) => b.shortfallUSD - a.shortfallUSD);
-      
-      for (const opp of opps.slice(0, 3)) {
-        await executeLiquidation(opp);
-      }
-    }
-    
-  } catch(e) {
-    console.error(`❌ Scanner error: ${e.message}`);
+  // Re-index borrower setiap 1 jam
+  if (Date.now() - lastIndexTime > CONFIG.INDEX_INTERVAL * 1000) {
+    await indexBorrowers();
   }
   
-  isRunning = false;
+  if (borrowers.size === 0) {
+    console.log(`[${ts}] Scan #${scanCount} — Belum ada borrower terindeks`);
+    return;
+  }
+  
+  process.stdout.write(`[${ts}] Scan #${scanCount} — checking ${borrowers.size} borrowers... `);
+  
+  const opps = [];
+  const borrowerArr = [...borrowers];
+  
+  // Cek paralel dalam batch 20 untuk lebih cepat
+  const batchSize = 20;
+  for (let i = 0; i < borrowerArr.length; i += batchSize) {
+    const batch = borrowerArr.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(b => checkBorrower(b)));
+    results.forEach(r => { if (r) opps.push(r); });
+  }
+  
+  if (opps.length === 0) {
+    console.log('semua sehat ✅');
+  } else {
+    console.log(`⚠️  ${opps.length} bisa di-liquidate!`);
+    opps.sort((a,b) => b.estimatedBonus - a.estimatedBonus);
+    
+    for (const opp of opps.slice(0, 3)) {
+      await executeLiquidation(opp);
+    }
+  }
+  
+  console.log(`📊 Stats: ${totalLiquidations} liquidations | Total profit: $${totalProfit.toFixed(2)}`);
 }
 
 // ─────────────────────────────────────────────────────────
 //  START
 // ─────────────────────────────────────────────────────────
 async function start() {
-  console.log(`\n🔄 Venus Liquidator aktif — interval ${CONFIG.SCAN_INTERVAL}s`);
-  console.log(`📊 Min profit: $${CONFIG.MIN_PROFIT_USD}\n`);
+  // Index pertama kali
+  if (borrowers.size === 0) {
+    await indexBorrowers();
+  } else {
+    lastIndexTime = Date.now();
+  }
+  
+  console.log(`\n🔄 Venus Liquidator aktif — scan interval ${CONFIG.SCAN_INTERVAL}s\n`);
   
   await scanAndLiquidate();
   setInterval(scanAndLiquidate, CONFIG.SCAN_INTERVAL * 1000);
@@ -311,6 +358,6 @@ async function start() {
 init()
   .then(start)
   .catch(e => {
-    console.error('❌ Fatal error:', e.message);
+    console.error('❌ Fatal:', e.message);
     process.exit(1);
   });
