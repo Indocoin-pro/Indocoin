@@ -1,0 +1,145 @@
+<!-- ═══════════════════════════════════════════════════
+     LIVE BOT FEED — paste ke dashboard.html section "Other"
+     ═══════════════════════════════════════════════════ -->
+
+<div class="live-bot-feed-card">
+  <div class="lbf-header">
+    <span class="lbf-dot"></span>
+    <span class="lbf-title">LIVE BOT ACTIVITY</span>
+    <span class="lbf-meta">6 bots · 24/7</span>
+  </div>
+  <div class="lbf-content" id="lbf-content">
+    <div class="lbf-line lbf-loading">⏳ Connecting to bot stream...</div>
+  </div>
+  <div class="lbf-footer" id="lbf-stats">
+    ▮ Memuat statistik...
+  </div>
+</div>
+
+<style>
+.live-bot-feed-card {
+  background: #000;
+  border: 1px solid #c8912a;
+  border-radius: 12px;
+  font-family: 'Courier New', 'Monaco', monospace;
+  margin: 16px 0;
+  overflow: hidden;
+  box-shadow: 0 0 30px rgba(200, 145, 42, 0.2);
+}
+.lbf-header {
+  background: linear-gradient(90deg, #0a0a0f, #1a1a1f);
+  border-bottom: 1px solid #c8912a;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lbf-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #00ff41;
+  box-shadow: 0 0 8px #00ff41;
+  animation: lbfPulse 1.5s ease-in-out infinite;
+}
+@keyframes lbfPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.lbf-title {
+  color: #c8912a;
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+.lbf-meta {
+  margin-left: auto;
+  color: #888;
+  font-size: 11px;
+}
+.lbf-content {
+  height: 320px;
+  overflow-y: auto;
+  padding: 12px 16px;
+  background: #000;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #00ff41;
+}
+.lbf-content::-webkit-scrollbar { width: 6px; }
+.lbf-content::-webkit-scrollbar-track { background: #111; }
+.lbf-content::-webkit-scrollbar-thumb { background: #c8912a55; border-radius: 3px; }
+.lbf-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+  opacity: 0;
+  animation: lbfFadeIn 0.3s forwards;
+}
+@keyframes lbfFadeIn {
+  to { opacity: 1; }
+}
+.lbf-tag {
+  display: inline-block;
+  background: #c8912a22;
+  color: #c8912a;
+  padding: 1px 7px;
+  margin-right: 8px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 10px;
+  min-width: 80px;
+  text-align: center;
+}
+.lbf-line.success { color: #00ff41; font-weight: bold; }
+.lbf-line.warning { color: #ffd700; }
+.lbf-line.opportunity { color: #ff79c6; }
+.lbf-line.loading { color: #888; font-style: italic; }
+.lbf-footer {
+  background: #0a0a0f;
+  border-top: 1px solid #c8912a44;
+  padding: 8px 16px;
+  font-size: 10px;
+  color: #888;
+}
+</style>
+
+<script>
+(function() {
+  async function updateBotFeed() {
+    try {
+      const res = await fetch('/api/bot-live-feed');
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      const content = document.getElementById('lbf-content');
+      const stats = document.getElementById('lbf-stats');
+      
+      if (data.feed && data.feed.length > 0) {
+        content.innerHTML = data.feed.map(item => {
+          let cls = '';
+          if (item.text.includes('✅') || item.text.includes('SUCCESS')) cls = 'success';
+          else if (item.text.includes('✨') || item.text.includes('⚡') || item.text.includes('peluang')) cls = 'opportunity';
+          else if (item.text.includes('❌')) cls = 'warning';
+          return `<div class="lbf-line ${cls}"><span class="lbf-tag">${item.bot}</span>${escapeHtml(item.text)}</div>`;
+        }).join('');
+        content.scrollTop = content.scrollHeight;
+        
+        const time = new Date(data.timestamp).toLocaleTimeString('id-ID');
+        stats.textContent = `▮ ${data.feed.length} events · ${data.bots_running} bots · last update ${time}`;
+      } else {
+        content.innerHTML = '<div class="lbf-line loading">📡 Tidak ada aktivitas bot saat ini...</div>';
+      }
+    } catch(e) {
+      console.error('Bot feed error:', e);
+    }
+  }
+  
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  
+  updateBotFeed();
+  setInterval(updateBotFeed, 5000);
+})();
+</script>
