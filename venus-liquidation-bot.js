@@ -10,8 +10,9 @@ const fs = require('fs');
 // ─────────────────────────────────────────────────────────
 
 const CONFIG = {
-  RPC_URL       : 'https://bsc-dataseed1.binance.org/',
-  RPC_BACKUP    : 'https://bsc-dataseed2.binance.org/',
+  RPC_URL       : 'https://bsc.publicnode.com',
+  RPC_BACKUP    : 'https://binance.llamarpc.com',
+  RPC_BACKUP2   : 'https://bsc-rpc.publicnode.com',
   PRIVATE_KEY   : process.env.BOT_PRIVATE_KEY || 'ISI_PRIVATE_KEY_BOT_DISINI',
 
   ARBIBOT_TRADE : '0x4C37CAD6909305274373803b88f4D2ab5162f259',
@@ -41,7 +42,7 @@ const CONFIG = {
   MAX_REPAY_USD      : 1000,
   SCAN_INTERVAL      : 15,         // detik — cek health factor
   INDEX_INTERVAL     : 3600,       // detik — scan borrower baru tiap 1 jam
-  INDEX_BLOCKS_BACK  : 50000,      // ~ 1.5 hari blok BSC
+  INDEX_BLOCKS_BACK  : 10000,      // ~ 8 jam blok BSC
   BORROWER_FILE      : '/root/indocoin/venus-borrowers.json',
   EXECUTE_MODE       : false,      // false = simulasi (aman), true = eksekusi real
 };
@@ -89,14 +90,18 @@ async function init() {
   console.log('💧 Venus Liquidation Bot — INDOCOIN (Auto-Indexer)');
   console.log('═'.repeat(55));
 
-  try {
-    provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
-    await provider.getBlockNumber();
-    console.log('✅ Connected to BSC');
-  } catch(e) {
-    provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_BACKUP);
-    console.log('✅ Connected to BSC (backup RPC)');
+  const rpcs = [CONFIG.RPC_URL, CONFIG.RPC_BACKUP, CONFIG.RPC_BACKUP2];
+  for (const rpc of rpcs) {
+    try {
+      provider = new ethers.providers.JsonRpcProvider(rpc);
+      await provider.getBlockNumber();
+      console.log(`✅ Connected to: ${rpc}`);
+      break;
+    } catch(e) {
+      console.log(`❌ RPC gagal: ${rpc}`);
+    }
   }
+  if (!provider) throw new Error('Semua RPC gagal');
 
   signer       = new ethers.Wallet(CONFIG.PRIVATE_KEY, provider);
   comptroller  = new ethers.Contract(CONFIG.VENUS.COMPTROLLER, COMPTROLLER_ABI, signer);
@@ -153,7 +158,7 @@ async function indexBorrowers() {
         const filter = vToken.filters.Borrow();
         
         // Scan dalam chunks 5000 blok agar tidak timeout
-        const chunkSize = 5000;
+        const chunkSize = 1000;
         for (let start = fromBlock; start < currentBlock; start += chunkSize) {
           const end = Math.min(start + chunkSize, currentBlock);
           
