@@ -32,13 +32,11 @@ const CONFIG = {
   // Catatan: tokenIn HARUS USDT karena flash pool USDT/WBNB
   PAIRS: [
     { tokenIn: 'USDT', tokenOut: 'BUSD' },
-    { tokenIn: 'USDT', tokenOut: 'USDC' },
-    { tokenIn: 'USDT', tokenOut: 'DAI'  },
   ],
 
   AMOUNT_IN_USDT   : '1000',  // jumlah pinjam per percobaan (stablecoin perlu volume besar)
-  MIN_PROFIT_USD   : 0.3,     // minimal $0.30 profit
-  MAX_PROFIT_PCT   : 0.02,    // > 2% = palsu (stablecoin tidak akan beda 2%)
+  MIN_PROFIT_USD   : 0.5,     // minimal $0.50 profit
+  MAX_PROFIT_PCT   : 0.005,   // > 0.5% = palsu untuk stablecoin
   SCAN_INTERVAL    : 12,      // detik
   COOLDOWN_AFTER_TX: 30,
   EXECUTE_MODE     : false,
