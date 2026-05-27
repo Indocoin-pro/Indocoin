@@ -34,7 +34,8 @@ const CONFIG = {
     { tokenIn: 'USDT', tokenOut: 'BUSD' },
   ],
 
-  AMOUNT_IN_USDT   : '1000',  // jumlah pinjam per percobaan (stablecoin perlu volume besar)
+  // Coba berbagai modal — beda modal = beda peluang slippage
+  AMOUNT_IN_USDT_LIST: ['500', '1000', '3000', '5000'],
   MIN_PROFIT_USD   : 0.5,     // minimal $0.50 profit
   MAX_PROFIT_PCT   : 0.005,   // > 0.5% = palsu untuk stablecoin
   SCAN_INTERVAL    : 12,      // detik
@@ -96,46 +97,50 @@ async function getDexPrice(router, tokenIn, tokenOut, amountIn) {
 
 async function findOpportunities() {
   const opps = [];
-  const amountIn = ethers.utils.parseUnits(CONFIG.AMOUNT_IN_USDT, 18);
   const routers = Object.entries(CONFIG.ROUTERS);
 
-  for (const pair of CONFIG.PAIRS) {
-    const tokenInAddr  = CONFIG.TOKENS[pair.tokenIn].addr;
-    const tokenOutAddr = CONFIG.TOKENS[pair.tokenOut].addr;
+  // Iterasi setiap modal yang berbeda
+  for (const amountStr of CONFIG.AMOUNT_IN_USDT_LIST) {
+    const amountIn = ethers.utils.parseUnits(amountStr, 18);
 
-    // Scan harga di semua DEX
-    const prices = await Promise.all(
-      routers.map(([name, router]) => getDexPrice(router, tokenInAddr, tokenOutAddr, amountIn))
-    );
+    for (const pair of CONFIG.PAIRS) {
+      const tokenInAddr  = CONFIG.TOKENS[pair.tokenIn].addr;
+      const tokenOutAddr = CONFIG.TOKENS[pair.tokenOut].addr;
 
-    const validDex = routers.map(([name, router], i) => ({
-      name, router, price: prices[i]
-    })).filter(d => d.price !== null);
+      const prices = await Promise.all(
+        routers.map(([name, router]) => getDexPrice(router, tokenInAddr, tokenOutAddr, amountIn))
+      );
 
-    if (validDex.length < 2) continue;
+      const validDex = routers.map(([name, router], i) => ({
+        name, router, price: prices[i]
+      })).filter(d => d.price !== null);
 
-    const sortedDex = validDex.map(d => ({
-      ...d,
-      priceNum: parseFloat(ethers.utils.formatUnits(d.price, 18))
-    })).sort((a,b) => a.priceNum - b.priceNum);
+      if (validDex.length < 2) continue;
 
-    const buyAt  = sortedDex[sortedDex.length - 1];
-    const sellAt = sortedDex[0];
+      const sortedDex = validDex.map(d => ({
+        ...d,
+        priceNum: parseFloat(ethers.utils.formatUnits(d.price, 18))
+      })).sort((a,b) => a.priceNum - b.priceNum);
 
-    const profitPct = (buyAt.priceNum - sellAt.priceNum) / sellAt.priceNum;
-    const profitUSD = (buyAt.priceNum - sellAt.priceNum);
+      const buyAt  = sortedDex[sortedDex.length - 1];
+      const sellAt = sortedDex[0];
 
-    if (profitPct > CONFIG.MAX_PROFIT_PCT) continue;
-    if (profitUSD < CONFIG.MIN_PROFIT_USD) continue;
+      const profitPct = (buyAt.priceNum - sellAt.priceNum) / sellAt.priceNum;
+      const profitUSD = (buyAt.priceNum - sellAt.priceNum);
 
-    opps.push({
-      pair: `${pair.tokenIn}/${pair.tokenOut}`,
-      tokenInAddr, tokenOutAddr,
-      amountIn,
-      buyDex: buyAt.name, sellDex: sellAt.name,
-      buyRouter: buyAt.router, sellRouter: sellAt.router,
-      profitUSD, profitPct,
-    });
+      if (profitPct > CONFIG.MAX_PROFIT_PCT) continue;
+      if (profitUSD < CONFIG.MIN_PROFIT_USD) continue;
+
+      opps.push({
+        pair: `${pair.tokenIn}/${pair.tokenOut}`,
+        tokenInAddr, tokenOutAddr,
+        amountIn,
+        amountStr,
+        buyDex: buyAt.name, sellDex: sellAt.name,
+        buyRouter: buyAt.router, sellRouter: sellAt.router,
+        profitUSD, profitPct,
+      });
+    }
   }
 
   return opps.sort((a,b) => b.profitUSD - a.profitUSD);
@@ -146,7 +151,7 @@ async function executeOpp(opp) {
   console.log(`   Pasangan  : ${opp.pair}`);
   console.log(`   Beli di   : ${opp.buyDex}`);
   console.log(`   Jual di   : ${opp.sellDex}`);
-  console.log(`   Modal     : $${CONFIG.AMOUNT_IN_USDT} (Flash Loan)`);
+  console.log(`   Modal     : $${opp.amountStr} (Flash Loan)`);
   console.log(`   Est Profit: $${opp.profitUSD.toFixed(4)} (${(opp.profitPct*100).toFixed(4)}%)`);
 
   if (!CONFIG.EXECUTE_MODE) {
@@ -206,7 +211,7 @@ async function scan() {
     } else {
       console.log(`[${ts}] Scan #${scanCount} — ✨ ${opps.length} peluang!`);
       for (const opp of opps.slice(0, 3)) {
-        console.log(`   → ${opp.pair}: $${opp.profitUSD.toFixed(4)} (${(opp.profitPct*100).toFixed(4)}%) | ${opp.buyDex} → ${opp.sellDex}`);
+        console.log(`   → ${opp.pair} [$${opp.amountStr}]: $${opp.profitUSD.toFixed(4)} (${(opp.profitPct*100).toFixed(4)}%) | ${opp.buyDex} → ${opp.sellDex}`);
       }
       await executeOpp(opps[0]);
     }
