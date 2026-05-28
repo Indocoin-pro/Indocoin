@@ -376,7 +376,104 @@ function calcTok(){
 }
 async function connectWallet(){setStatus('Mendeteksi wallet...');let eth=null;for(let i=0;i<20;i++){eth=window.ethereum||(window.web3&&window.web3.currentProvider)||null;if(eth)break;await new Promise(r=>setTimeout(r,300));}if(!eth){setStatus('Buka di MetaMask/TrustWallet!','err');return;}try{await eth.request({method:'eth_requestAccounts'});provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();const cid=parseInt(await eth.request({method:'eth_chainId'}),16);if(cid!==56){setStatus('Switch ke BSC...');try{await eth.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x38'}]});}catch(e){await eth.request({method:'wallet_addEthereumChain',params:[{chainId:'0x38',chainName:'BNB Smart Chain',nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},rpcUrls:['https://bsc-dataseed1.binance.org/'],blockExplorerUrls:['https://bscscan.com/']}]});}provider=new ethers.providers.Web3Provider(eth,'any');signer=provider.getSigner();}contract=new ethers.Contract(CA,CABI,signer);usdtC=new ethers.Contract(USDT,UABI,signer);try{usdtDec=await usdtC.decimals();}catch(_){usdtDec=18;}const addr=await signer.getAddress();const short=addr.slice(0,6)+'...'+addr.slice(-4);const name=eth.isTokenPocket?'TokenPocket':eth.isTrust?'TrustWallet':eth.isMetaMask?'MetaMask':'Wallet';const wBtn=document.getElementById('walletBtn');if(wBtn)wBtn.textContent=shortAddr(addr);const bal=await usdtC.balanceOf(addr);document.getElementById('usdtBal').textContent=parseFloat(ethers.utils.formatUnits(bal,usdtDec)).toFixed(2);setStatus('Wallet terhubung ✅','ok');updateProgress();updateLiveTx();loadKomisi(addr);eth.on('accountsChanged',()=>location.reload());eth.on('chainChanged',()=>location.reload());}catch(e){setStatus(e.code===4001?'Ditolak ❌':'Gagal: '+(e.message||''),'err');}}
 async function doApprove(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu approval...');const tx=await usdtC.approve(CA,ethers.utils.parseUnits(amt,usdtDec));setStatus('Memproses...');await tx.wait();setStatus('USDT Approved ✅ — Klik Buy Token!','ok');}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Approve gagal ❌','err');}}
-async function doBuy(){if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}const amt=document.getElementById('amount').value.trim();if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}try{setStatus('Menunggu konfirmasi...');const tx=await contract.buy(ethers.utils.parseUnits(amt,usdtDec));setStatus('Diproses...');await tx.wait();setStatus('🎉 Berhasil! Token INDC masuk ke wallet!','ok');updateProgress();updateLiveTx();const userAddr=await signer.getAddress();recordUpstreamBonus(userAddr, Number(amt));}catch(e){setStatus(e.code===4001?'Dibatalkan ❌':'Gagal ❌','err');}}
+async function doBuy(){
+  if(!signer){setStatus('Hubungkan wallet dulu!','err');return;}
+  const amt = document.getElementById('amount').value.trim();
+  if(!amt||isNaN(amt)||Number(amt)<=0){setStatus('Masukkan jumlah USDT!','err');return;}
+  
+  const userAddr = await signer.getAddress();
+  const usdtWei = ethers.utils.parseUnits(amt, usdtDec);
+  
+  try {
+    // === DIAGNOSTIC PRE-CHECK ===
+    setStatus('🔍 Memeriksa kondisi...');
+    
+    // 1. Cek allowance USDT
+    const allowance = await usdtC.allowance(userAddr, CA);
+    if(allowance.lt(usdtWei)){
+      setStatus('❌ Approve USDT belum cukup. Klik APPROVE dulu!','err');
+      return;
+    }
+    
+    // 2. Cek balance USDT
+    const balance = await usdtC.balanceOf(userAddr);
+    if(balance.lt(usdtWei)){
+      const balFmt = parseFloat(ethers.utils.formatUnits(balance,usdtDec)).toFixed(2);
+      setStatus(`❌ Saldo USDT tidak cukup. Saldo: ${balFmt} USDT`,'err');
+      return;
+    }
+    
+    // 3. Cek presale aktif
+    try {
+      const isActive = await contract.presaleActive();
+      if(!isActive){
+        setStatus('❌ Presale sudah TIDAK AKTIF!','err');
+        return;
+      }
+    } catch(_) {}
+    
+    // 4. Cek estimasi total INDC vs remaining
+    try {
+      const est = await contract.estimateBuy(usdtWei);
+      const totalIndc = est.totalIndc || est[2];
+      const info = await contract.getPresaleInfo();
+      const remaining = info.remaining || info[3];
+      if(totalIndc.gt(remaining)){
+        const totalFmt = parseFloat(ethers.utils.formatUnits(totalIndc,9)).toLocaleString('id-ID');
+        const remFmt = parseFloat(ethers.utils.formatUnits(remaining,9)).toLocaleString('id-ID');
+        setStatus(`❌ Pool tidak cukup. Butuh ${totalFmt} INDC, sisa ${remFmt} INDC`,'err');
+        return;
+      }
+    } catch(estErr) {
+      console.warn('estimate failed:', estErr);
+    }
+    
+    // 5. Static call dulu — simulasi tanpa kirim TX
+    setStatus('🔍 Simulasi transaksi...');
+    try {
+      await contract.callStatic.buy(usdtWei, { from: userAddr });
+    } catch(simErr) {
+      let reason = 'Transaksi akan ditolak blockchain';
+      if(simErr.error?.message) reason = simErr.error.message;
+      else if(simErr.reason) reason = simErr.reason;
+      else if(simErr.data?.message) reason = simErr.data.message;
+      else if(simErr.message) reason = simErr.message.split('(')[0].trim();
+      setStatus('❌ ' + reason.substring(0, 150),'err');
+      console.error('Simulasi gagal:', simErr);
+      return;
+    }
+    
+    // === KIRIM TX SUNGGUHAN ===
+    setStatus('💳 Menunggu konfirmasi wallet...');
+    const tx = await contract.buy(usdtWei);
+    setStatus('⏳ Diproses di blockchain... (' + tx.hash.slice(0,10) + '...)');
+    const receipt = await tx.wait();
+    
+    if(receipt.status === 1){
+      setStatus('🎉 Berhasil! Token INDC masuk ke wallet!','ok');
+      updateProgress();
+      updateLiveTx();
+      recordUpstreamBonus(userAddr, Number(amt));
+    } else {
+      setStatus('❌ Transaksi gagal di blockchain (revert). Cek BSCScan: ' + tx.hash.slice(0,10),'err');
+    }
+  } catch(e) {
+    console.error('doBuy error:', e);
+    let msg = '❌ Gagal';
+    if(e.code === 4001 || e.code === 'ACTION_REJECTED'){ 
+      msg = '❌ Dibatalkan di wallet'; 
+    } else if(e.code === 'INSUFFICIENT_FUNDS'){ 
+      msg = '❌ BNB tidak cukup untuk gas fee'; 
+    } else if(e.error?.message){ 
+      msg = '❌ ' + e.error.message.substring(0, 150); 
+    } else if(e.reason){ 
+      msg = '❌ ' + e.reason.substring(0, 150); 
+    } else if(e.message){ 
+      msg = '❌ ' + e.message.split('(')[0].substring(0, 150); 
+    }
+    setStatus(msg,'err');
+  }
+}
 async function loadKomisi(addr){
   try{
     const komisiPend = await contract.pendingKomisi(addr);
