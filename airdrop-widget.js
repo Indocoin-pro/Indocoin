@@ -23,16 +23,18 @@
     'sanjaya.html':26,'indowar.html':27,'stairway-to-heaven.html':28,
     'referral.html':29,'dashboard.html':30,'assets.html':31,
     'community.html':32,'token-lock-tracker.html':33,'paid-ads.html':34,
-    'guruku.html':35,'chart.html':36,'pointvaultstaking.html':37,
-    'permainan.html':38,'arbibot.html':39,'merchant.html':40,
-    'garudaforcemissionstaking.html':41,'member-vip.html':42,
+    'guruku.html':35,'chart.html':36,
+    'arbibot.html':37,'merchant.html':38,'member-vip.html':40,
   };
 
   function getPageId() {
+    // PAGE_MAP authoritative — abaikan data-page-id kalau halaman ada di PAGE_MAP
+    const fn = window.location.pathname.split('/').pop()||'';
+    if(PAGE_MAP[fn]) return PAGE_MAP[fn];
+    // Fallback: data-page-id untuk halaman yang tidak ada di PAGE_MAP
     const script = document.currentScript;
     if(script && script.dataset.pageId) return parseInt(script.dataset.pageId);
-    const fn = window.location.pathname.split('/').pop()||'';
-    return PAGE_MAP[fn]||99;
+    return 99;
   }
   const PAGE_ID = getPageId();
 
