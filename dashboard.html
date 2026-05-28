@@ -2360,6 +2360,39 @@ window.closeAdPopup = function(e) {
 .br-feed-line.scan .br-tag { background: #00d9ff15; border-color: #00d9ff66; color: #00d9ff; }
 .br-feed-line.log { color: #00ff4180; }
 
+/* Running tail-f animation */
+.br-feed-line {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  transition: transform 0.4s ease-out;
+}
+.br-feed-line .br-time {
+  color: #00d9ff99;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.br-feed-line .br-msg {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.br-line-new {
+  animation: brSlideUp 0.4s ease-out;
+}
+@keyframes brSlideUp {
+  0% { 
+    opacity: 0; 
+    transform: translateY(18px);
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0);
+  }
+}
+
 .br-loading {
   color: #00ff4188; font-style: italic; text-align: center;
   padding: 20px; letter-spacing: 1px; font-size: 10px;
@@ -2581,6 +2614,22 @@ window.closeAdPopup = function(e) {
 <script>
 const BR_API = 'https://api.indocoin.id/api/bot-live-feed';
 const BR_BOTS = ['arbibot','venus','triangular','stablecoin','aave','v2v3'];
+const BR_NAMES = {
+  arbibot: 'HUNTER-X',
+  venus: 'PHOENIX',
+  triangular: 'TRIDENT',
+  stablecoin: 'CIPHER',
+  aave: 'VORTEX',
+  v2v3: 'MIRROR'
+};
+function brBotName(raw) {
+  if(!raw) return '???';
+  return BR_NAMES[raw.toLowerCase()] || raw.toUpperCase();
+}
+// Buffer log running (tail-f style)
+let brLogBuffer = [];
+const BR_MAX_LINES = 30;
+let brLastSeenTs = 0;
 let brInterval = null;
 
 function openBotRadarModal() {
@@ -2593,6 +2642,9 @@ function closeBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.remove('show');
   document.body.style.overflow = '';
   if (brInterval) { clearInterval(brInterval); brInterval = null; }
+  // Reset buffer biar fresh saat buka lagi
+  brLogBuffer = [];
+  brLastSeenTs = 0;
 }
 
 async function brUpdateFeed() {
@@ -2624,13 +2676,42 @@ async function brUpdateFeed() {
       return;
     }
     
-    // === LIVE LOG ===
+    // === LIVE LOG — RUNNING TAIL-F STYLE ===
     const content = document.getElementById('br-feed-content');
     if (data.feed && data.feed.length > 0) {
-      const recent = data.feed.slice(-25); // ambil 25 terakhir
-      content.innerHTML = recent.map(item => {
+      // Ambil yang baru (ts > brLastSeenTs)
+      const sorted = data.feed.slice().sort((a,b) => (a.ts||0) - (b.ts||0));
+      let newItems = sorted.filter(item => (item.ts || 0) > brLastSeenTs);
+      
+      // Kalau pertama kali (buffer kosong), ambil 25 terakhir
+      if (brLogBuffer.length === 0 && newItems.length === 0) {
+        newItems = sorted.slice(-25);
+      }
+      
+      // Update timestamp pointer
+      if (sorted.length > 0) {
+        brLastSeenTs = sorted[sorted.length-1].ts || brLastSeenTs;
+      }
+      
+      // Append item baru ke buffer, satu persatu dengan slide animation
+      newItems.forEach(item => {
+        brLogBuffer.push(item);
+        // Geser: kalau buffer melebihi max, paling atas hilang
+        if (brLogBuffer.length > BR_MAX_LINES) {
+          brLogBuffer.shift();
+        }
+      });
+      
+      // Render buffer ke DOM
+      content.innerHTML = brLogBuffer.map((item, idx) => {
         const cls = item.type || 'log';
-        return `<div class="br-feed-line ${cls}"><span class="br-tag">${item.bot}</span>${brEscape(item.text)}</div>`;
+        const isNewest = idx === brLogBuffer.length - 1;
+        const animCls = isNewest ? ' br-line-new' : '';
+        return '<div class="br-feed-line ' + cls + animCls + '">' +
+               '<span class="br-tag">' + brBotName(item.bot) + '</span> ' +
+               '<span class="br-time">' + brEscape((item.text||'').substring(0,11)) + '</span> ' +
+               '<span class="br-msg">' + brEscape((item.text||'').substring(11).trim()) + '</span>' +
+               '</div>';
       }).join('');
       content.scrollTop = content.scrollHeight;
     }
@@ -2647,7 +2728,7 @@ async function brUpdateFeed() {
       return `
         <div class="br-bot-card ${online?'':'offline'}">
           <div class="br-bot-name">
-            <span class="br-bot-led"></span>${name.toUpperCase()}
+            <span class="br-bot-led"></span>${brBotName(name)}
           </div>
           <div class="br-bot-stats">
             ${online ? `${b.memory||0}MB · ${b.cpu||0}%` : 'OFFLINE'}
