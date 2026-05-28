@@ -2361,37 +2361,109 @@ window.closeAdPopup = function(e) {
 .br-feed-line.log { color: #00ff4180; }
 
 /* Running tail-f animation */
-.br-feed-line {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  transition: transform 0.4s ease-out;
+/* === 6 KOTAK PER BOT === */
+.br-bot-box {
+  background: #00ff4108;
+  border: 1px solid #00ff4133;
+  border-radius: 3px;
+  margin-bottom: 5px;
+  overflow: hidden;
 }
-.br-feed-line .br-time {
-  color: #00d9ff99;
+.br-bot-box.offline { background: #ff003c08; border-color: #ff003c44; }
+.br-bot-head {
+  background: #00ff411a;
+  padding: 3px 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 9px; letter-spacing: 1px;
+  border-bottom: 1px solid #00ff4133;
+}
+.br-bot-box.offline .br-bot-head { background: #ff003c1a; }
+.br-bot-head-name {
+  color: #00ff41;
+  font-weight: bold;
+  display: flex; align-items: center; gap: 5px;
+}
+.br-bot-box.offline .br-bot-head-name { color: #ff003c; }
+.br-bot-head-stats {
+  color: #00ff4188;
+  font-size: 8px;
+}
+.br-bot-led-mini {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #00ff41; box-shadow: 0 0 4px #00ff41;
+  animation: brLedPulse 1.5s ease-in-out infinite;
+}
+.br-bot-box.offline .br-bot-led-mini { background: #ff003c; box-shadow: 0 0 4px #ff003c; }
+
+/* Container 4 baris log per bot — slot fixed */
+.br-bot-logs {
+  position: relative;
+  height: 64px;        /* 4 baris × 16px */
+  overflow: hidden;
+}
+.br-bot-logs-inner {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex; flex-direction: column;
+  transition: transform 0.5s ease-out;
+}
+.br-bot-log-line {
+  height: 16px;
   font-size: 9px;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-}
-.br-feed-line .br-msg {
-  flex: 1;
+  line-height: 16px;
+  color: #00ff41cc;
+  padding: 0 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex; gap: 5px;
 }
-.br-line-new {
-  animation: brSlideUp 0.4s ease-out;
+.br-bot-log-line .br-time {
+  color: #00d9ff99;
+  font-size: 8.5px;
+  flex-shrink: 0;
 }
-@keyframes brSlideUp {
+.br-bot-log-line .br-msg {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.br-bot-log-line.success { color: #00ff41; }
+.br-bot-log-line.opportunity { color: #ffd700; }
+.br-bot-log-line.error { color: #ff003c; }
+.br-bot-log-line.scan { color: #00ff4199; }
+.br-bot-log-line.log { color: #00ff4180; }
+.br-bot-box.offline .br-bot-log-line { color: #ff003c80; }
+
+/* Animasi slide-up: log baru naik dari bawah */
+.br-bot-log-line.new {
+  animation: brSlideLine 0.5s ease-out;
+}
+@keyframes brSlideLine {
   0% { 
     opacity: 0; 
-    transform: translateY(18px);
+    transform: translateY(20px);
+    background: #00ff4122;
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0);
+    background: #00ff4111;
   }
   100% { 
     opacity: 1; 
     transform: translateY(0);
+    background: transparent;
   }
 }
+.br-bot-box.offline .br-bot-log-line.new {
+  animation: brSlideLineOffline 0.5s ease-out;
+}
+@keyframes brSlideLineOffline {
+  0% { opacity: 0; transform: translateY(20px); background: #ff003c22; }
+  100% { opacity: 1; transform: translateY(0); background: transparent; }
+}
+
 
 .br-loading {
   color: #00ff4188; font-style: italic; text-align: center;
@@ -2561,20 +2633,15 @@ window.closeAdPopup = function(e) {
   <!-- MAIN AREA -->
   <div class="br-main">
 
-    <!-- Live Log Terminal -->
+    <!-- Live Log Terminal — 6 KOTAK PER BOT -->
     <div class="br-terminal">
       <div class="br-terminal-header">
         <span>▶ LIVE_STREAM.LOG</span>
         <span id="br-events-count">--</span>
       </div>
       <div class="br-terminal-content" id="br-feed-content">
-        <div class="br-loading">▮▮▮ CONNECTING TO STREAM... ▮▮▮</div>
+        <!-- 6 kotak bot auto-generated -->
       </div>
-    </div>
-
-    <!-- Bot Status Grid -->
-    <div class="br-bots-grid" id="br-bots-grid">
-      <!-- Auto-generated -->
     </div>
 
     <!-- SECTION 1 — STATS LIVE -->
@@ -2630,6 +2697,8 @@ function brBotName(raw) {
 let brLogBuffer = [];
 const BR_MAX_LINES = 30;
 let brLastSeenTs = 0;
+// Track timestamp terakhir per bot (untuk deteksi log baru)
+let brLastBotTs = {};
 let brInterval = null;
 
 function openBotRadarModal() {
@@ -2642,9 +2711,10 @@ function closeBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.remove('show');
   document.body.style.overflow = '';
   if (brInterval) { clearInterval(brInterval); brInterval = null; }
-  // Reset buffer biar fresh saat buka lagi
+  // Reset state biar fresh saat buka lagi
   brLogBuffer = [];
   brLastSeenTs = 0;
+  brLastBotTs = {};
 }
 
 async function brUpdateFeed() {
@@ -2676,44 +2746,82 @@ async function brUpdateFeed() {
       return;
     }
     
-    // === LIVE LOG — RUNNING TAIL-F STYLE ===
+    // === LIVE LOG — 6 KOTAK PER BOT, scroll naik ===
     const content = document.getElementById('br-feed-content');
     if (data.feed && data.feed.length > 0) {
-      // Ambil yang baru (ts > brLastSeenTs)
-      const sorted = data.feed.slice().sort((a,b) => (a.ts||0) - (b.ts||0));
-      let newItems = sorted.filter(item => (item.ts || 0) > brLastSeenTs);
-      
-      // Kalau pertama kali (buffer kosong), ambil 25 terakhir
-      if (brLogBuffer.length === 0 && newItems.length === 0) {
-        newItems = sorted.slice(-25);
-      }
-      
-      // Update timestamp pointer
-      if (sorted.length > 0) {
-        brLastSeenTs = sorted[sorted.length-1].ts || brLastSeenTs;
-      }
-      
-      // Append item baru ke buffer, satu persatu dengan slide animation
-      newItems.forEach(item => {
-        brLogBuffer.push(item);
-        // Geser: kalau buffer melebihi max, paling atas hilang
-        if (brLogBuffer.length > BR_MAX_LINES) {
-          brLogBuffer.shift();
+      // Kelompokkan log per bot
+      const byBot = {};
+      BR_BOTS.forEach(b => byBot[b] = []);
+      data.feed.forEach(item => {
+        const key = (item.bot||'').toLowerCase();
+        if (byBot[key] !== undefined) {
+          byBot[key].push(item);
         }
       });
       
-      // Render buffer ke DOM
-      content.innerHTML = brLogBuffer.map((item, idx) => {
-        const cls = item.type || 'log';
-        const isNewest = idx === brLogBuffer.length - 1;
-        const animCls = isNewest ? ' br-line-new' : '';
-        return '<div class="br-feed-line ' + cls + animCls + '">' +
-               '<span class="br-tag">' + brBotName(item.bot) + '</span> ' +
-               '<span class="br-time">' + brEscape((item.text||'').substring(0,11)) + '</span> ' +
-               '<span class="br-msg">' + brEscape((item.text||'').substring(11).trim()) + '</span>' +
-               '</div>';
-      }).join('');
-      content.scrollTop = content.scrollHeight;
+      // Render: bangun ulang kalau struktur belum ada
+      if (!content.querySelector('.br-bot-box')) {
+        content.innerHTML = BR_BOTS.map(b => {
+          const display = brBotName(b);
+          return '<div class="br-bot-box" data-bot="' + b + '">' +
+                 '<div class="br-bot-head">' +
+                 '<span class="br-bot-head-name"><span class="br-bot-led-mini"></span>' + display + '</span>' +
+                 '<span class="br-bot-head-stats" data-stats></span>' +
+                 '</div>' +
+                 '<div class="br-bot-logs"><div class="br-bot-logs-inner" data-logs></div></div>' +
+                 '</div>';
+        }).join('');
+      }
+      
+      // Update tiap kotak bot
+      BR_BOTS.forEach(b => {
+        const box = content.querySelector('.br-bot-box[data-bot="' + b + '"]');
+        if (!box) return;
+        
+        // Status bot
+        const status = data.bots?.[b];
+        const online = status && status.status === 'online';
+        box.classList.toggle('offline', !online);
+        const statsEl = box.querySelector('[data-stats]');
+        if (statsEl) {
+          statsEl.textContent = online 
+            ? (status.memory||0) + 'MB · ' + (status.cpu||0) + '%' 
+            : 'OFFLINE';
+        }
+        
+        // Logs — ambil 4 paling baru
+        const logsEl = box.querySelector('[data-logs]');
+        if (!logsEl) return;
+        
+        const logs = byBot[b].slice(-4); // 4 paling baru
+        if (logs.length === 0) {
+          logsEl.innerHTML = '<div class="br-bot-log-line" style="opacity:0.4">(no activity)</div>';
+          return;
+        }
+        
+        // Deteksi: cari ts terbaru di logs, bandingkan dengan brLastBotTs[b]
+        const lastTs = brLastBotTs[b] || 0;
+        let newestTs = lastTs;
+        logs.forEach(it => { if ((it.ts||0) > newestTs) newestTs = it.ts; });
+        
+        // Render: log paling baru dapat class 'new' kalau ts-nya > yang terakhir kita tahu
+        logsEl.innerHTML = logs.map((item, idx) => {
+          const cls = item.type || 'log';
+          const isNew = (item.ts || 0) > lastTs && lastTs > 0; // skip animasi pas first load
+          const newCls = isNew ? ' new' : '';
+          const text = item.text || '';
+          const m = text.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)/);
+          const time = m ? m[1] : '';
+          const msg = m ? m[2] : text;
+          return '<div class="br-bot-log-line ' + cls + newCls + '">' +
+                 (time ? '<span class="br-time">[' + brEscape(time) + ']</span> ' : '') +
+                 '<span class="br-msg">' + brEscape(msg) + '</span>' +
+                 '</div>';
+        }).join('');
+        
+        // Update tracker — simpan ts terbaru bot ini
+        brLastBotTs[b] = newestTs;
+      });
     }
     
     // === EVENTS COUNT ===
