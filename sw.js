@@ -134,11 +134,12 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.url.startsWith("chrome-extension")) return;
   if (event.request.url.includes("firebase") || 
-      event.request.url.includes("googleapis") ||
-      event.request.url.includes("ethers") ||
-      event.request.url.includes("binance.org") ||
-      event.request.url.includes("cdn.binance") || event.request.url.includes("madkidgames")) return;
-
+    event.request.url.includes("googleapis") ||
+    event.request.url.includes("ethers") ||
+    event.request.url.includes("binance.org") ||
+    event.request.url.includes("cdn.binance") || 
+    event.request.url.includes("madkidgames") ||
+    event.request.url.includes("api.indocoin.id")) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
