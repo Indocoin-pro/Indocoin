@@ -2596,12 +2596,33 @@ function closeBotRadarModal() {
 }
 
 async function brUpdateFeed() {
+  const debugEl = document.getElementById('br-feed-content');
+  const ts = new Date().toLocaleTimeString();
+  
   try {
-    const res = await fetch(BR_API, { cache: 'no-store' });
+    if(debugEl) debugEl.innerHTML = '<div class="br-loading">▶ FETCH @ ' + ts + '...</div>';
+    
+    const res = await fetch(BR_API + '?nocache=' + Date.now(), { 
+      cache: 'no-store',
+      mode: 'cors'
+    });
+    
     if (!res.ok) {
       throw new Error('HTTP ' + res.status + ' ' + res.statusText);
     }
     const data = await res.json();
+    
+    // DEBUG: log apa yang diterima
+    console.log('Bot radar data:', data);
+    if(!data.feed && !data.bots){
+      if(debugEl) debugEl.innerHTML = 
+        '<div class="br-loading">▶ RESPONSE @ ' + ts + '</div>' +
+        '<div style="color:#ffd700;font-size:9px;margin-top:8px;padding:4px;border:1px solid #ffd70044;">' +
+        'KEYS: ' + Object.keys(data).join(',') + '<br>' +
+        'RAW: ' + JSON.stringify(data).substring(0, 300) +
+        '</div>';
+      return;
+    }
     
     // === LIVE LOG ===
     const content = document.getElementById('br-feed-content');
