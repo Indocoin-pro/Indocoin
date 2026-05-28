@@ -219,3 +219,47 @@ window.AIRDROP_QUESTIONS = {
 
   ]
 };
+
+// ─────────────────────────────────────────────────────────────
+//  GETTER FUNCTION — ambil 1 soal edukasi + 1 soal platform
+//  Deterministik berdasarkan wallet + pageId + tanggal hari ini
+//  Jadi user dapat soal yang sama jika reload halaman di hari yang sama
+// ─────────────────────────────────────────────────────────────
+window.getAirdropQuestion = function(wallet, pageId, level) {
+  const QS = window.AIRDROP_QUESTIONS;
+  if (!QS) return { edukasi: null, platform: null };
+  
+  // Level: pageId 1-15 → level1 (2 pilihan), 16+ → level2 (4 pilihan)
+  const useLevel = (pageId && pageId >= 16) ? 'level2' : 'level1';
+  const pool = QS[useLevel] || QS.level1 || [];
+  
+  // Pisah kategori A (Edukasi) & C (Platform)
+  const eduPool  = pool.filter(q => q.k === 'A');
+  const platPool = pool.filter(q => q.k === 'C');
+  
+  if (eduPool.length === 0 || platPool.length === 0) {
+    return { edukasi: null, platform: null };
+  }
+  
+  // Seed deterministik: wallet + pageId + tanggal
+  const d = new Date();
+  const dateStr = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  const seed = (wallet || 'anon') + '_' + (pageId || 0) + '_' + dateStr;
+  
+  // Hash sederhana (deterministic)
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+  
+  // Pick deterministik
+  const eduIdx  = hash % eduPool.length;
+  const platIdx = (hash * 31 + 7) % platPool.length;
+  
+  return {
+    edukasi:  eduPool[eduIdx],
+    platform: platPool[platIdx]
+  };
+};
