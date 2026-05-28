@@ -2597,8 +2597,10 @@ function closeBotRadarModal() {
 
 async function brUpdateFeed() {
   try {
-    const res = await fetch(BR_API);
-    if (!res.ok) return;
+    const res = await fetch(BR_API, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+    }
     const data = await res.json();
     
     // === LIVE LOG ===
@@ -2643,8 +2645,16 @@ async function brUpdateFeed() {
   } catch(e) {
     console.error('Bot radar error:', e);
     const content = document.getElementById('br-feed-content');
-    if (content && !content.querySelector('.br-feed-line')) {
-      content.innerHTML = '<div class="br-loading">▮ CONNECTION ERROR ▮</div>';
+    if (content) {
+      const errMsg = (e && e.message) ? e.message : String(e);
+      content.innerHTML = 
+        '<div class="br-loading">▮ ERROR ▮</div>' +
+        '<div style="color:#ff003c;font-size:9px;margin-top:8px;padding:4px;border:1px solid #ff003c44;">' +
+        'TYPE: ' + (e && e.name ? e.name : 'Unknown') + '<br>' +
+        'MSG: ' + errMsg.substring(0, 200) + '<br>' +
+        'URL: ' + BR_API + '<br>' +
+        'TIME: ' + new Date().toLocaleTimeString() +
+        '</div>';
     }
   }
 }
