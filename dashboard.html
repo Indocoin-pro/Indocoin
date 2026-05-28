@@ -2230,146 +2230,431 @@ window.closeAdPopup = function(e) {
 <!-- ── END POPUP ── -->
 
 
-<!-- ═══════════════ BOT RADAR MODAL ═══════════════ -->
+<!-- ═══════════════ BOT RADAR HACKER STUDIO ═══════════════ -->
 <style>
-@keyframes radarLivePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(34, 197, 94, 0.8); }
-  50% { opacity: 0.5; box-shadow: 0 0 8px rgba(34, 197, 94, 1); }
-}
+/* Hacker studio full screen modal */
 .br-modal-overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85); z-index: 9999;
-  backdrop-filter: blur(6px);
-  align-items: center; justify-content: center; padding: 16px;
+  background: #000; z-index: 9999;
+  flex-direction: column;
+  font-family: 'Courier New', 'Monaco', monospace;
 }
 .br-modal-overlay.show { display: flex; }
-.br-modal-content {
-  background: #0a0a0f; border: 1px solid #c8912a; border-radius: 14px;
-  max-width: 480px; width: 100%; max-height: 85vh;
-  overflow: hidden; display: flex; flex-direction: column;
-  box-shadow: 0 0 40px rgba(200, 145, 42, 0.3);
+
+/* Grid background effect */
+.br-modal-overlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: 
+    linear-gradient(rgba(0,255,65,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,65,0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  z-index: 1;
 }
-.br-modal-header {
-  background: linear-gradient(90deg, #0a0a0f, #1a1a1f);
-  border-bottom: 1px solid #c8912a;
-  padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+
+/* HEADER */
+.br-header {
+  background: linear-gradient(90deg, #000, #001a08, #000);
+  border-bottom: 1px solid #00ff4144;
+  padding: 11px 14px;
+  display: flex; align-items: center; gap: 8px;
+  position: relative; z-index: 2;
 }
-.br-modal-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: #00ff41; box-shadow: 0 0 10px #00ff41;
-  animation: brDotPulse 1.2s ease-in-out infinite;
+.br-header::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00ff41, transparent);
+  animation: brScanH 3s linear infinite;
 }
-@keyframes brDotPulse {
+@keyframes brScanH {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.br-led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #00ff41; box-shadow: 0 0 8px #00ff41, 0 0 14px #00ff41;
+  animation: brLedPulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes brLedPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.7); }
+  50% { opacity: 0.3; transform: scale(0.85); }
 }
-.br-modal-title {
-  color: #c8912a; font-weight: bold; font-size: 13px;
-  letter-spacing: 0.5px; flex: 1;
+.br-title {
+  color: #00ff41; font-weight: bold; font-size: 11px;
+  letter-spacing: 2px; flex: 1;
+  text-shadow: 0 0 8px #00ff4188;
 }
-.br-modal-close {
-  background: transparent; border: 1px solid #c8912a55;
-  color: #c8912a; width: 28px; height: 28px; border-radius: 50%;
-  cursor: pointer; font-size: 14px;
+.br-live-tag {
+  background: #00ff4122; color: #00ff41;
+  border: 1px solid #00ff41;
+  padding: 2px 6px; border-radius: 2px;
+  font-size: 8px; letter-spacing: 1.5px; font-weight: bold;
 }
-.br-modal-close:hover { background: #c8912a22; }
-.br-modal-subtitle {
-  padding: 8px 18px; background: #1a1a1f; color: #888;
-  font-size: 11px; border-bottom: 1px solid #c8912a22; text-align: center;
+.br-close-btn {
+  background: transparent; border: 1px solid #00ff4144;
+  color: #00ff41; width: 26px; height: 26px;
+  border-radius: 3px; cursor: pointer; font-size: 13px;
+  font-family: monospace; transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
 }
-.br-feed-content {
-  flex: 1; overflow-y: auto; padding: 14px 18px; background: #000;
-  font-family: 'Courier New', 'Monaco', monospace;
-  font-size: 11px; line-height: 1.7; color: #00ff41; min-height: 280px;
+.br-close-btn:hover { background: #00ff4122; box-shadow: 0 0 10px #00ff41; }
+
+/* MAIN AREA */
+.br-main {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+  position: relative; z-index: 2;
 }
-.br-feed-content::-webkit-scrollbar { width: 6px; }
-.br-feed-content::-webkit-scrollbar-track { background: #0a0a0f; }
-.br-feed-content::-webkit-scrollbar-thumb { background: #c8912a55; border-radius: 3px; }
+
+/* Live Log Terminal */
+.br-terminal {
+  flex: 1; min-height: 180px;
+  background: #000308;
+  border: 1px solid #00ff4144;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.br-terminal-header {
+  background: #00ff4108;
+  border-bottom: 1px solid #00ff4133;
+  padding: 5px 9px;
+  font-size: 9px; color: #00ff41;
+  letter-spacing: 2px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.br-terminal-content {
+  flex: 1;
+  overflow-y: auto; padding: 7px 9px;
+  font-size: 10px; line-height: 1.55;
+  color: #00ff41;
+}
+.br-terminal-content::-webkit-scrollbar { width: 4px; }
+.br-terminal-content::-webkit-scrollbar-track { background: #000; }
+.br-terminal-content::-webkit-scrollbar-thumb { background: #00ff4144; border-radius: 2px; }
 .br-feed-line {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  margin-bottom: 3px; opacity: 0; animation: brFadeIn 0.3s forwards;
+  margin-bottom: 2px; opacity: 0; animation: brFeedIn 0.3s forwards;
 }
-@keyframes brFadeIn { to { opacity: 1; } }
-.br-feed-tag {
-  display: inline-block; background: #c8912a22; color: #c8912a;
-  padding: 1px 7px; margin-right: 8px; border-radius: 3px;
-  font-weight: bold; font-size: 10px; min-width: 80px; text-align: center;
+@keyframes brFeedIn { to { opacity: 1; } }
+.br-tag {
+  display: inline-block;
+  background: #00ff4122; color: #00ff41;
+  border: 1px solid #00ff4144;
+  padding: 0 5px; margin-right: 6px;
+  font-size: 8px; letter-spacing: 1px;
+  min-width: 65px; text-align: center; font-weight: bold;
 }
-.br-feed-line.success { color: #00ff41; font-weight: bold; }
-.br-feed-line.warning { color: #ffd700; }
-.br-feed-line.opportunity { color: #ff79c6; }
-.br-feed-line.br-loading { color: #888; font-style: italic; }
-.br-feed-footer {
-  background: #0a0a0f; border-top: 1px solid #c8912a44;
-  padding: 8px 18px; font-size: 10px; color: #888;
+.br-feed-line.success .br-tag { background: #00ff4133; border-color: #00ff41; }
+.br-feed-line.opportunity { color: #ffd700; }
+.br-feed-line.opportunity .br-tag { background: #ffd70022; border-color: #ffd700; color: #ffd700; }
+.br-feed-line.error { color: #ff003c; }
+.br-feed-line.error .br-tag { background: #ff003c22; border-color: #ff003c; color: #ff003c; }
+.br-feed-line.scan { color: #00ff4199; }
+.br-feed-line.scan .br-tag { background: #00d9ff15; border-color: #00d9ff66; color: #00d9ff; }
+.br-feed-line.log { color: #00ff4180; }
+
+.br-loading {
+  color: #00ff4188; font-style: italic; text-align: center;
+  padding: 20px; letter-spacing: 1px; font-size: 10px;
+}
+
+/* BOT STATUS GRID */
+.br-bots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.br-bot-card {
+  background: #00ff4108;
+  border: 1px solid #00ff4133;
+  border-radius: 3px;
+  padding: 5px 7px;
+  position: relative; overflow: hidden;
+}
+.br-bot-card.offline {
+  background: #ff003c08;
+  border-color: #ff003c44;
+}
+.br-bot-card.offline .br-bot-led { background: #ff003c; box-shadow: 0 0 4px #ff003c; }
+.br-bot-card.offline .br-bot-name { color: #ff003c; }
+.br-bot-name {
+  color: #00ff41;
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: bold;
+  display: flex; align-items: center; gap: 4px;
+  text-transform: uppercase;
+}
+.br-bot-led {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #00ff41; box-shadow: 0 0 4px #00ff41;
+  animation: brLedPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.br-bot-stats {
+  color: #00ff4199;
+  font-size: 8px;
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}
+
+/* SECTION 1 — STATS LIVE */
+.br-section1 {
+  background: linear-gradient(180deg, #001a08, #000a04);
+  border: 1px solid #00ff4144;
+  border-radius: 3px;
+  padding: 9px 8px 7px;
+  flex-shrink: 0;
+}
+.br-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.br-stat {
+  text-align: center;
+  padding: 3px 2px;
+  border-right: 1px solid #00ff4122;
+}
+.br-stat:last-child { border-right: 0; }
+.br-stat-num {
+  color: #00ff41;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 6px #00ff4188;
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+.br-stat-label {
+  color: #00ff4188;
+  font-size: 7px;
+  letter-spacing: 1px;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+.br-edu {
+  font-size: 8.5px;
+  color: #00ff4199;
+  text-align: center;
+  letter-spacing: 1px;
+  padding-top: 5px;
+  border-top: 1px solid #00ff4122;
+  line-height: 1.4;
+}
+.br-edu::before { content: '> '; color: #00ff41; }
+
+/* SECTION 2 — CTA ARBIBOT */
+.br-section2 {
+  background: linear-gradient(135deg, #002a0f, #001a08, #002a0f);
+  border: 1px solid #00ff41;
+  border-radius: 3px;
+  padding: 9px 10px;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px #00ff4122, inset 0 0 12px #00ff4108;
+  position: relative; overflow: hidden;
+}
+.br-section2::before {
+  content: '';
+  position: absolute; top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, #00ff4122, transparent);
+  animation: brShine 3s linear infinite;
+}
+@keyframes brShine {
+  0% { left: -50%; }
+  100% { left: 150%; }
+}
+.br-section2-text {
+  color: #00ff41;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  margin-bottom: 7px;
+  text-align: center;
+  text-shadow: 0 0 4px #00ff4188;
+  position: relative; z-index: 1;
+}
+.br-section2-text span { color: #ffd700; font-weight: bold; }
+.br-cta-btn {
+  display: block;
+  width: 100%;
+  background: #00ff4118;
+  border: 1px solid #00ff41;
+  color: #00ff41;
+  padding: 10px;
+  text-decoration: none;
   font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all .25s;
+  text-shadow: 0 0 6px #00ff41;
+  text-align: center;
+  position: relative; z-index: 1;
+  border-radius: 2px;
 }
-.br-modal-info {
-  padding: 12px 18px; background: #1a1a1f; border-top: 1px solid #c8912a22;
-  color: #888; font-size: 10px; text-align: center; line-height: 1.6;
+.br-cta-btn:hover, .br-cta-btn:active {
+  background: #00ff41;
+  color: #000;
+  box-shadow: 0 0 20px #00ff41, inset 0 0 12px #00ff4144;
+  text-shadow: none;
+}
+
+/* Responsive — sembunyi border kalau layar kecil */
+@media (max-width: 360px) {
+  .br-stat-num { font-size: 12px; }
+  .br-stat-label { font-size: 6px; }
+  .br-title { font-size: 10px; letter-spacing: 1.5px; }
 }
 </style>
 
-<div id="bot-radar-modal" class="br-modal-overlay" onclick="if(event.target===this)closeBotRadarModal()">
-  <div class="br-modal-content">
-    <div class="br-modal-header">
-      <span class="br-modal-dot"></span>
-      <span class="br-modal-title">🛰️ BOT RADAR · LIVE ACTIVITY</span>
-      <button class="br-modal-close" onclick="closeBotRadarModal()">✕</button>
+<div id="bot-radar-modal" class="br-modal-overlay">
+  <!-- HEADER -->
+  <div class="br-header">
+    <span class="br-led"></span>
+    <span class="br-title">BOT_RADAR // INDOCOIN</span>
+    <span class="br-live-tag">● LIVE</span>
+    <button class="br-close-btn" onclick="closeBotRadarModal()">✕</button>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="br-main">
+
+    <!-- Live Log Terminal -->
+    <div class="br-terminal">
+      <div class="br-terminal-header">
+        <span>▶ LIVE_STREAM.LOG</span>
+        <span id="br-events-count">--</span>
+      </div>
+      <div class="br-terminal-content" id="br-feed-content">
+        <div class="br-loading">▮▮▮ CONNECTING TO STREAM... ▮▮▮</div>
+      </div>
     </div>
-    <div class="br-modal-subtitle">
-      6 bot AI INDOCOIN scan DeFi BSC 24/7
+
+    <!-- Bot Status Grid -->
+    <div class="br-bots-grid" id="br-bots-grid">
+      <!-- Auto-generated -->
     </div>
-    <div class="br-feed-content" id="br-feed-content">
-      <div class="br-feed-line br-loading">⏳ Menghubungkan ke bot stream...</div>
+
+    <!-- SECTION 1 — STATS LIVE -->
+    <div class="br-section1">
+      <div class="br-stats-grid">
+        <div class="br-stat">
+          <div class="br-stat-num" id="br-stat-scan">0</div>
+          <div class="br-stat-label">SCAN</div>
+        </div>
+        <div class="br-stat">
+          <div class="br-stat-num" id="br-stat-opp">0</div>
+          <div class="br-stat-label">PELUANG</div>
+        </div>
+        <div class="br-stat">
+          <div class="br-stat-num" id="br-stat-success">0</div>
+          <div class="br-stat-label">SUKSES</div>
+        </div>
+        <div class="br-stat">
+          <div class="br-stat-num" id="br-stat-bots">0/6</div>
+          <div class="br-stat-label">BOT ONLINE</div>
+        </div>
+      </div>
+      <div class="br-edu">6 BOT AI SCAN DEFI BSC 24/7 — TRANSPARANSI PENUH</div>
     </div>
-    <div class="br-feed-footer" id="br-feed-stats">
-      ▮ Memuat statistik...
+
+    <!-- SECTION 2 — ARBIBOT CTA -->
+    <div class="br-section2">
+      <div class="br-section2-text">
+        [$$] PROFIT BOT → USER VIA <span>ARBIBOT</span>
+      </div>
+      <a href="arbibot.html" class="br-cta-btn">►► JOIN ARBIBOT ◄◄</a>
     </div>
-    <div class="br-modal-info">
-      💡 Bot ini bekerja real-time mencari peluang arbitrage,<br>
-      liquidation & cross-DEX trading untuk komunitas INDOCOIN
-    </div>
+
   </div>
 </div>
 
 <script>
+const BR_API = 'https://api.indocoin.id/api/bot-live-feed';
+const BR_BOTS = ['arbibot','venus','triangular','stablecoin','aave','v2v3'];
 let brInterval = null;
+
 function openBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.add('show');
+  document.body.style.overflow = 'hidden';
   brUpdateFeed();
   brInterval = setInterval(brUpdateFeed, 5000);
 }
 function closeBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.remove('show');
+  document.body.style.overflow = '';
   if (brInterval) { clearInterval(brInterval); brInterval = null; }
 }
+
 async function brUpdateFeed() {
   try {
-    const res = await fetch('/api/bot-live-feed');
+    const res = await fetch(BR_API);
     if (!res.ok) return;
     const data = await res.json();
+    
+    // === LIVE LOG ===
     const content = document.getElementById('br-feed-content');
-    const stats = document.getElementById('br-feed-stats');
     if (data.feed && data.feed.length > 0) {
-      content.innerHTML = data.feed.map(item => {
-        let cls = '';
-        if (item.text.includes('✅') || item.text.includes('SUCCESS')) cls = 'success';
-        else if (item.text.includes('✨') || item.text.includes('⚡') || item.text.includes('peluang')) cls = 'opportunity';
-        else if (item.text.includes('❌')) cls = 'warning';
-        return `<div class="br-feed-line ${cls}"><span class="br-feed-tag">${item.bot}</span>${brEscape(item.text)}</div>`;
+      const recent = data.feed.slice(-25); // ambil 25 terakhir
+      content.innerHTML = recent.map(item => {
+        const cls = item.type || 'log';
+        return `<div class="br-feed-line ${cls}"><span class="br-tag">${item.bot}</span>${brEscape(item.text)}</div>`;
       }).join('');
       content.scrollTop = content.scrollHeight;
-      const time = new Date(data.timestamp).toLocaleTimeString('id-ID');
-      stats.textContent = `▮ ${data.feed.length} events · ${data.bots_running} bots · update ${time}`;
-    } else {
-      content.innerHTML = '<div class="br-feed-line br-loading">📡 Belum ada aktivitas...</div>';
     }
-  } catch(e) { console.error('Bot radar error:', e); }
+    
+    // === EVENTS COUNT ===
+    document.getElementById('br-events-count').textContent = 
+      `${data.feed?.length || 0} EVENTS`;
+    
+    // === BOT STATUS GRID ===
+    const grid = document.getElementById('br-bots-grid');
+    grid.innerHTML = BR_BOTS.map(name => {
+      const b = data.bots?.[name];
+      const online = b && b.status === 'online';
+      return `
+        <div class="br-bot-card ${online?'':'offline'}">
+          <div class="br-bot-name">
+            <span class="br-bot-led"></span>${name.toUpperCase()}
+          </div>
+          <div class="br-bot-stats">
+            ${online ? `${b.memory||0}MB · ${b.cpu||0}%` : 'OFFLINE'}
+          </div>
+        </div>`;
+    }).join('');
+    
+    // === STATS LIVE ===
+    const s = data.stats || {};
+    document.getElementById('br-stat-scan').textContent = s.totalScan || 0;
+    document.getElementById('br-stat-opp').textContent = s.totalOpportunity || 0;
+    document.getElementById('br-stat-success').textContent = s.totalSuccess || 0;
+    document.getElementById('br-stat-bots').textContent = 
+      `${data.bots_running || 0}/${data.bots_total || 6}`;
+    
+  } catch(e) {
+    console.error('Bot radar error:', e);
+    const content = document.getElementById('br-feed-content');
+    if (content && !content.querySelector('.br-feed-line')) {
+      content.innerHTML = '<div class="br-loading">▮ CONNECTION ERROR ▮</div>';
+    }
+  }
 }
-function brEscape(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function brEscape(s) { 
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); 
+}
 </script>
-<!-- ═══════════════ END BOT RADAR ═══════════════ -->
+<!-- ═══════════════ END BOT RADAR HACKER STUDIO ═══════════════ -->
+
 
 </body>
 </html>
