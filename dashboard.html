@@ -2235,7 +2235,7 @@ window.closeAdPopup = function(e) {
 /* ── BOT RADAR MODAL ── */
 .br-modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 9999;
-  background: #000d02f5;
+  background: #000000;
   flex-direction: column;
   font-family: 'Courier New', monospace;
 }
@@ -2254,7 +2254,7 @@ window.closeAdPopup = function(e) {
 .br-header {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; border-bottom: 1px solid #00ff4144;
-  background: #000a02; flex-shrink: 0; position: relative; z-index: 1;
+  background: #0a0a0a; flex-shrink: 0; position: relative; z-index: 1;
 }
 .br-led {
   width: 8px; height: 8px; border-radius: 50%;
@@ -2290,7 +2290,7 @@ window.closeAdPopup = function(e) {
 
 /* TERMINAL */
 .br-terminal {
-  background: #00050100; border: 1px solid #00ff4133;
+  background: #0d0d0d; border: 1px solid #00ff4133;
   border-radius: 3px; overflow: hidden; flex: 1;
 }
 .br-terminal-header {
@@ -2312,19 +2312,19 @@ window.closeAdPopup = function(e) {
 }
 .br-log-tag {
   width: 34px; flex-shrink: 0;
-  color: #00ff41cc; font-size: 8.5px; font-weight: bold;
+  color: #4ec9b0; font-size: 8.5px; font-weight: bold;
   letter-spacing: 1px; padding: 0 6px;
   text-align: right; line-height: 16px;
-  border-right: 1px solid #00ff4133;
-  text-shadow: 0 0 6px #00ff4188;
+  border-right: 1px solid #4ec9b044;
+  text-shadow: 0 0 6px #4ec9b066;
 }
-.br-log-tag.offline { color: #ff003c99; }
+.br-log-tag.offline { color: #f4474799; }
 .br-log-tag.empty { color: transparent; }
 .br-log-line {
   flex: 1; font-size: 9px; line-height: 16px;
   padding: 0 8px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
-  color: #00ff4199;
+  color: #d4d4d4;
 }
 .br-log-line .t { color: #00d9ffaa; font-size: 8px; }
 .br-log-line .ok  { color: #00ff41; }
@@ -2352,7 +2352,7 @@ window.closeAdPopup = function(e) {
 
 /* STATS */
 .br-section1 {
-  background: linear-gradient(180deg, #001a08, #000a04);
+  background: linear-gradient(180deg, #111111, #0a0a0a);
   border: 1px solid #00ff4144; border-radius: 3px;
   padding: 9px 8px 7px; flex-shrink: 0;
 }
@@ -2508,10 +2508,20 @@ function brFormatLine(item, isNew) {
   else if (type === 'opportunity') { prefix = '[$$] '; msgClass = 'opp'; }
   else if (type === 'scan') { prefix = '>> '; msgClass = 'dim'; }
 
+  // Syntax highlight: angka -> oranye, keyword -> ungu, string -> oranye
+  function syntaxHL(s) {
+    return brEscape(s)
+      .replace(/(#\d+)/g, '<span style="color:#b5cea8">$1</span>')
+      .replace(/\b(checking|borrowers|semua|sehat|stablecoin|selisih|pairs|liquidations|Scan)\b/g, '<span style="color:#ce9178">$1</span>')
+      .replace(/\b(V2|V3|BSC|AAVE|Venus|USDT|BNB)\b/g, '<span style="color:#b48eff">$1</span>')
+      .replace(/(\d+\.\d+|\d+(?=\s*(ms|s|%|MB)))/g, '<span style="color:#b5cea8">$1</span>');
+  }
+
   const newCls = isNew ? ' new-line' : '';
+  const prefixSpan = '<span style="color:#d4d4d488">' + brEscape(prefix) + '</span>';
   return '<div class="br-log-line' + newCls + '">' +
     (time ? '<span class="t">[' + brEscape(time) + '] </span>' : '') +
-    '<span class="' + msgClass + '">' + brEscape(prefix + msg) + '</span>' +
+    (msgClass ? '<span class="' + msgClass + '">' + prefixSpan + syntaxHL(msg) + '</span>' : prefixSpan + syntaxHL(msg)) +
     '</div>';
 }
 
