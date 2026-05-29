@@ -2552,7 +2552,13 @@ async function brUpdateFeed() {
       const short  = BR_SHORT[b] || b.substring(0,3).toUpperCase();
       const status = data.bots?.[b];
       const online = status && status.status === 'online';
-      const logs   = byBot[b].slice(-5);
+      // Filter item Stats (pendek/tidak informatif) untuk VTX dan PHX agar tidak makan baris
+      const allLogs = byBot[b];
+      const filteredLogs = allLogs.filter(it => {
+        const t = (it.text || '').toLowerCase();
+        return !t.startsWith('📊') && !t.startsWith('>> 📊');
+      });
+      const logs = (filteredLogs.length > 0 ? filteredLogs : allLogs).slice(-5);
       const lastTs = brLastBotTs[b] || 0;
 
       // Update tracker ts
@@ -2567,14 +2573,24 @@ async function brUpdateFeed() {
           '<div class="br-log-line dim">&nbsp;&nbsp;:: (no activity)</div>' +
           '</div>';
       } else {
+        // Batasi 5 baris VISUAL (bukan 5 item — karena 1 item bisa jadi 2 baris)
+        let visualCount = 0;
+        let firstTag = true;
         logs.forEach((item, i) => {
+          if (visualCount >= 5) return;
           const isNew = (item.ts||0) > lastTs && lastTs > 0;
-          const tag = i === 0 ? short : '';
-          const tagCls = i === 0 ? (online ? '' : 'offline') : 'empty';
+          const lineHtml = brFormatLine(item, isNew);
+          // Hitung berapa baris visual yang dihasilkan item ini
+          const lineCount = (lineHtml.match(/br-log-line/g) || []).length;
+          if (visualCount + lineCount > 5) return; // skip kalau melebihi 5
+          const tag = firstTag ? short : '';
+          const tagCls = firstTag ? (online ? '' : 'offline') : 'empty';
+          firstTag = false;
           html += '<div class="br-log-row">' +
             '<div class="br-log-tag ' + tagCls + '">' + tag + '</div>' +
-            brFormatLine(item, isNew) +
+            lineHtml +
             '</div>';
+          visualCount += lineCount;
         });
       }
 
