@@ -308,6 +308,7 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
       <div class="panel-tab active" id="tabPending" onclick="switchTab('pending')">⏳ PENDING</div>
       <div class="panel-tab" id="tabApproved" onclick="switchTab('approved')">✅ APPROVED</div>
       <div class="panel-tab" id="tabAll" onclick="switchTab('all')">📋 SEMUA</div>
+      <div class="panel-tab" id="tabBonusIndc" onclick="switchTab('bonusindc')" style="background:rgba(200,146,42,0.06);border-color:rgba(200,146,42,0.3);color:var(--gold);">🪙 BONUS INDC</div>
       <div class="panel-tab" id="tabAds" onclick="switchTab('ads')" style="background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.2);">📢 ADS</div>
       <div class="panel-tab" id="tabGaruda" onclick="switchTab('garuda')" style="background:rgba(249,115,22,0.06);border-color:rgba(249,115,22,0.2);color:var(--orange);">⚔ GARUDA</div>
       <div class="panel-tab" id="tabPoint" onclick="switchTab('point')" style="background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.2);color:var(--green);">📌 POINT</div>
@@ -332,6 +333,10 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <!-- LIST -->
     <div id="reqList">
       <div class="loading"><div class="spinner"></div><div>Memuat data...</div></div>
+    </div>
+    <!-- BONUS INDC LIST -->
+    <div id="bonusIndcList" style="display:none;">
+      <div class="loading"><div class="spinner"></div><div>Memuat data bonus INDC...</div></div>
     </div>
 
     <div class="status-msg" id="statusMsg"></div>
@@ -761,6 +766,14 @@ const USDT_ABI = [
 ];
 
 let _usdt; // USDT contract instance
+let _indc; // INDC token contract instance
+
+// INDC Token ABI — transfer dan balanceOf
+const INDC_ABI = [
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)",
+];
 
 const MASTER_ABI = [
   {"inputs":[{"name":"_user","type":"address"},{"name":"_rewardAmount","type":"uint256"},{"name":"_programId","type":"uint8"},{"name":"_token","type":"uint8"}],"name":"distributeRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -808,6 +821,7 @@ async function connectWallet(){
     _staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
     _master   = new ethers.Contract(SC.MASTER, MASTER_ABI, _signer);
     _usdt     = new ethers.Contract(SC.USDT, USDT_ABI, _signer);
+    _indc     = new ethers.Contract(SC.INDC, INDC_ABI, _signer);
 
     document.getElementById('walletBtn').textContent = shortAddr(_wallet);
 
@@ -1211,8 +1225,8 @@ function switchTab(tab){
   _currentTab = tab;
 
   // Toggle all tabs
-  ['pending','approved','all','ads','garuda','point','indcads'].forEach(t=>{
-    const key = t.charAt(0).toUpperCase()+t.slice(1);
+  ['pending','approved','all','bonusindc','ads','garuda','point','indcads'].forEach(t=>{
+    const key = t==='bonusindc' ? 'BonusIndc' : t.charAt(0).toUpperCase()+t.slice(1);
     const el  = document.getElementById('tab'+key);
     if(el) el.classList.toggle('active', t===tab);
   });
@@ -1222,6 +1236,7 @@ function switchTab(tab){
   const batchBar = document.getElementById('batchBar');
   const reqList  = document.getElementById('reqList');
   const adsSection = document.getElementById('adsSection');
+  const bonusIndcList = document.getElementById('bonusIndcList');
 
   const toolbar       = document.getElementById('toolbar');
   const statusMsg     = document.getElementById('statusMsg');
@@ -1231,8 +1246,16 @@ function switchTab(tab){
   // Hide everything special first
   const indcAdsSection = document.getElementById('indcAdsSection');
   [adsSection,garudaSection,pointSection,indcAdsSection].forEach(s=>{ if(s) s.style.display='none'; });
+  if(bonusIndcList) bonusIndcList.style.display='none';
 
-  if(tab==='ads'){
+  if(tab==='bonusindc'){
+    if(toolbar)    toolbar.style.display='none';
+    if(batchBar)   batchBar.style.display='none';
+    if(reqList)    reqList.style.display='none';
+    if(statusMsg)  statusMsg.style.display='none';
+    if(bonusIndcList) bonusIndcList.style.display='block';
+    loadBonusIndcData();
+  } else if(tab==='ads'){
     if(toolbar)    toolbar.style.display='none';
     if(batchBar)   batchBar.style.display='none';
     if(reqList)    reqList.style.display='none';
@@ -1271,6 +1294,120 @@ function switchTab(tab){
 
 // ═══════════════════════════════════════════
 //   PAID ADS ADMIN
+// ═══════════════════════════════════════════
+// 🪙 BONUS INDC — Firebase type:'INDC'
+// ═══════════════════════════════════════════
+let _bonusIndcData = {};
+
+async function loadBonusIndcData(){
+  const el = document.getElementById('bonusIndcList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat bonus INDC...</div></div>';
+  try{
+    const fbUrl = 'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json?orderBy=%22type%22&equalTo=%22INDC%22';
+    const res = await fetch(fbUrl);
+    const raw = await res.json();
+    _bonusIndcData = raw || {};
+    renderBonusIndcList();
+  }catch(e){
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Gagal memuat data</div></div>';
+  }
+}
+
+function renderBonusIndcList(){
+  const el = document.getElementById('bonusIndcList');
+  const entries = Object.entries(_bonusIndcData)
+    .filter(([,v]) => v.type === 'INDC')
+    .sort(([,a],[,b]) => (b.ts||0)-(a.ts||0));
+
+  if(entries.length === 0){
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🪙</div><div>Belum ada request Bonus INDC</div></div>';
+    return;
+  }
+
+  el.innerHTML = entries.map(([fbKey, d]) => {
+    const dt   = new Date(d.ts||0).toLocaleString('id-ID');
+    const done = d.status === 'done';
+    const statusClass = done ? 'approved' : 'pending';
+    const statusText  = done ? '✅ DONE' : '⏳ PENDING';
+    const bonus = d.indcBonus || Math.floor((d.indcAmount||0)*1.07);
+    return `
+    <div class="req-card ${statusClass}" id="bicard_${fbKey}">
+      <div class="req-top">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="req-wallet">${shortAddr(d.user||'')}</span>
+            <button class="btn-copy" onclick="copyAddr('${d.user||''}')">COPY</button>
+            <a href="https://bscscan.com/address/${d.user||''}" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);text-decoration:none;border:1px solid rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">BSCSCAN↗</a>
+          </div>
+          <div class="req-wallet-full">${d.user||''}</div>
+        </div>
+        <span class="req-status ${statusClass}">${statusText}</span>
+      </div>
+
+      <div class="req-amounts">
+        <div class="req-amt">
+          <div class="req-amt-val indc">${fmtINDC(d.indcAmount||0)}</div>
+          <div class="req-amt-lbl">INDC Reward</div>
+        </div>
+        <div class="req-amt">
+          <div class="req-amt-val" style="color:var(--gold)">${fmtINDC(bonus)}</div>
+          <div class="req-amt-lbl">+7% Dikirim</div>
+        </div>
+        <div class="req-amt">
+          <div class="req-amt-val" style="font-size:10px;color:var(--muted)">INDC</div>
+          <div class="req-amt-lbl">Tipe Bonus</div>
+        </div>
+      </div>
+
+      <div class="req-meta">
+        <span class="req-date">🕐 ${dt}</span>
+      </div>
+
+      ${!done ? `
+      <button class="btn-approve-single" onclick="approveBonusIndc('${fbKey}','${d.user||''}',${bonus})" id="bibtn_${fbKey}">
+        🪙 APPROVE — Kirim ${fmtINDC(bonus)} INDC ke wallet ini
+      </button>` : `
+      <div style="text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--green);padding:8px;background:rgba(34,197,94,0.06);border-radius:8px">
+        ✅ INDC sudah dikirim
+      </div>`}
+    </div>`;
+  }).join('');
+}
+
+async function approveBonusIndc(fbKey, userAddr, indcBonus){
+  if(!_indc){ alert('Connect wallet Dev dulu!'); return; }
+  if(!confirm(`Kirim ${fmtINDC(indcBonus)} INDC ke ${shortAddr(userAddr)}?`)) return;
+
+  const btn = document.getElementById('bibtn_'+fbKey);
+  if(btn){ btn.textContent='⏳ Mengirim INDC...'; btn.disabled=true; }
+
+  try{
+    // Transfer INDC dari Dev Wallet ke user
+    const amount = ethers.utils.parseUnits(indcBonus.toString(), SC.INDC_DEC);
+    const tx = await _indc.transfer(userAddr, amount);
+    if(btn) btn.textContent='⏳ Menunggu konfirmasi...';
+    await tx.wait();
+
+    // Update Firebase status jadi done
+    try{
+      const fbUrl = `https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests/${fbKey}.json`;
+      await fetch(fbUrl, {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ status:'done', approvedAt: Date.now(), txHash: tx.hash })
+      });
+    }catch(eFb){ console.warn('FB update gagal:', eFb); }
+
+    // Update local data dan re-render
+    if(_bonusIndcData[fbKey]) _bonusIndcData[fbKey].status = 'done';
+    renderBonusIndcList();
+    setStatus('✅ '+fmtINDC(indcBonus)+' INDC berhasil dikirim ke '+shortAddr(userAddr), 'var(--green)');
+  }catch(e){
+    if(btn){ btn.textContent='🪙 APPROVE — Kirim INDC'; btn.disabled=false; }
+    setStatus('❌ Gagal: '+(e.reason||e.message||''), 'var(--red)');
+  }
+}
+
 // ═══════════════════════════════════════════
 let _allAds    = [];
 let _adsFilter = 'semua';

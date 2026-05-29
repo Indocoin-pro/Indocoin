@@ -171,6 +171,23 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .opsi-tab,.inner-tab,.info-box-card,.info-box-full,.countdown-row{border-color:rgba(255,255,255,0.2)!important;}
 .opsi-tab.active,.inner-tab.active,.info-box-card:active,.info-box-full:active{border-color:rgba(255,255,255,0.85)!important;}
 input:focus,select:focus,textarea:focus{border-color:rgba(255,255,255,0.85)!important;outline:none;}
+/* ===== REWARD TYPE POPUP ===== */
+#rewardTypeOverlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center;}
+#rewardTypeOverlay.show{display:flex;}
+.rtp-sheet{background:#111111;border:1px solid rgba(200,146,42,0.35);border-bottom:none;border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;}
+.rtp-title{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:4px;}
+.rtp-subtitle{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold);text-align:center;margin-bottom:18px;}
+.rtp-opts{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:16px;align-items:center;}
+.rtp-opt{background:rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.15);border-radius:14px;padding:14px 10px;cursor:pointer;transition:all 0.25s;text-align:center;}
+.rtp-opt:hover{border-color:rgba(200,146,42,0.6);background:rgba(200,146,42,0.06);}
+.rtp-opt.selected{border-color:var(--gold);background:rgba(200,146,42,0.1);}
+.rtp-opt-icon{font-size:22px;margin-bottom:6px;}
+.rtp-opt-label{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--white);letter-spacing:1px;display:block;}
+.rtp-opt-desc{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;display:block;line-height:1.5;}
+.rtp-opt-val{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);margin-top:6px;display:block;}
+.rtp-confirm{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;}
+.rtp-confirm:hover{box-shadow:0 4px 20px rgba(250,204,21,0.4);}
+.rtp-cancel{width:100%;padding:10px;background:transparent;border:none;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;margin-top:8px;letter-spacing:1px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script type="module">
@@ -591,52 +608,72 @@ async function doRequest(){
   if(!_wallet){await connectWallet();return;}
   const val=parseFloat(document.getElementById('inpReq').value)||0;
   if(val<MIN_REQ_INDC){setMsg('Req','Minimum '+MIN_REQ_INDC+' INDC ($1 USDT)','var(--red)');return;}
-  const btn=document.getElementById('btnReq');btn.textContent='⏳ Menghitung...';btn.disabled=true;
-  setMsg('Req','Menghitung matching profit downline...','var(--gold)');
+  // Tampilkan popup pilihan reward type
+  showRtpPopup(val);
+}
+
+async function doRequestWithType(rewardType, val){
+  if(!_wallet){await connectWallet();return;}
+  const btn=document.getElementById('btnReq');btn.textContent='⏳ Memproses...';btn.disabled=true;
 
   try{
-    setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
-    const tx=await _staking.requestUSDT(toINDC(val));
-    setMsg('Req','Transaksi dikirim...','var(--gold)');
-    await tx.wait();
-
-    const fbData = {
-      user: _wallet,
-      indcAmount: val,
-      usdtAmount: val * INDC_PRICE,
-      ts: Date.now(),
-      status: 'pending'
-    };
-
-    let fbSaved = false;
-    if (typeof window._fbSaveRequest === 'function') {
-      try {
-        await window._fbSaveRequest(fbData);
-        fbSaved = true;
-      } catch(eFb) {
-        console.warn('FB save via window gagal:', eFb);
+    if(rewardType === 'INDC'){
+      // ===== BONUS +7% — Firebase only, tidak on-chain =====
+      setMsg('Req','Menyimpan request bonus INDC...','var(--gold)');
+      const indcBonus = Math.floor(val * 1.07);
+      const fbData = {
+        user: _wallet,
+        indcAmount: val,
+        indcBonus: indcBonus,
+        type: 'INDC',
+        ts: Date.now(),
+        status: 'pending'
+      };
+      let fbSaved = false;
+      if(typeof window._fbSaveRequest === 'function'){
+        try{ await window._fbSaveRequest(fbData); fbSaved=true; }
+        catch(e){ console.warn('FB INDC save gagal:',e); }
       }
+      if(!fbSaved){
+        try{
+          await fetch('https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json',
+            {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fbData)});
+          fbSaved=true;
+        }catch(e2){ console.warn('FB REST INDC gagal:',e2); }
+      }
+      setMsg('Req','✓ Request berhasil! Dev akan kirim '+fmtN(indcBonus)+' INDC ke wallet kamu.','var(--gold2)');
+
+    } else {
+      // ===== TUKAR KE USDT — on-chain seperti biasa =====
+      setMsg('Req','Menunggu konfirmasi transaksi...','var(--gold)');
+      const tx=await _staking.requestUSDT(toINDC(val));
+      setMsg('Req','Transaksi dikirim...','var(--gold)');
+      await tx.wait();
+      const fbData = {
+        user: _wallet,
+        indcAmount: val,
+        usdtAmount: val * INDC_PRICE,
+        type: 'USDT',
+        ts: Date.now(),
+        status: 'pending'
+      };
+      let fbSaved = false;
+      if(typeof window._fbSaveRequest === 'function'){
+        try{ await window._fbSaveRequest(fbData); fbSaved=true; }
+        catch(e){ console.warn('FB USDT save gagal:',e); }
+      }
+      if(!fbSaved){
+        try{
+          await fetch('https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json',
+            {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fbData)});
+          fbSaved=true;
+        }catch(e2){ console.warn('FB REST USDT gagal:',e2); }
+      }
+      setMsg('Req','✓ Request berhasil! Dev akan kirim $'+(val*INDC_PRICE).toFixed(2)+' USDT ke wallet kamu.','var(--gold2)');
     }
 
-    if (!fbSaved) {
-      // Fallback: simpan langsung via fetch ke Firebase REST API
-      try {
-        const fbUrl = 'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json';
-        await fetch(fbUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fbData)
-        });
-        fbSaved = true;
-      } catch(eFb2) {
-        console.warn('FB REST fallback gagal:', eFb2);
-      }
-    }
-
-    setMsg('Req','✓ Request berhasil! Dev akan kirim USDT ke wallet kamu.','var(--gold2)');
     document.getElementById('inpReq').value='';
     const _pv2=document.getElementById('usdtPreview');if(_pv2)_pv2.textContent='$0.00 USDT';
-
     await loadStakeData();
   }catch(e){setMsg('Req','Request gagal: '+(e.reason||e.message||''),'var(--red)');}
   finally{btn.textContent='REQUEST USDT KE WALLET';btn.disabled=false;}
@@ -697,10 +734,75 @@ if("serviceWorker" in navigator){
     <button onclick="document.getElementById('programBerakhirPopup').style.display='none';" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:13px;cursor:pointer;font-weight:600;">Tutup</button>
   </div>
 </div>
+<!-- ===== REWARD TYPE POPUP ===== -->
+<div id="rewardTypeOverlay">
+  <div class="rtp-sheet">
+    <div class="rtp-title">PILIH CARA TERIMA REWARD</div>
+    <div class="rtp-subtitle" id="rtpAmountLabel">— INDC reward</div>
+    <div class="rtp-opts">
+      <div class="rtp-opt selected" id="rtpOptUsdt" onclick="selectRtpType('USDT')">
+        <div class="rtp-opt-icon">💵</div>
+        <span class="rtp-opt-label">TUKAR KE USDT</span>
+        <span class="rtp-opt-desc">Admin kirim USDT ke wallet</span>
+        <span class="rtp-opt-val" id="rtpValUsdt">$0.00 USDT</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;">
+        <div style="width:30px;height:30px;border-radius:50%;background:#111111;border:1px solid rgba(200,146,42,0.4);display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);">atau</div>
+      </div>
+      <div class="rtp-opt" id="rtpOptIndc" onclick="selectRtpType('INDC')">
+        <div class="rtp-opt-icon">🎁</div>
+        <span class="rtp-opt-label">BONUS +7%</span>
+        <span class="rtp-opt-desc">Terima INDC lebih banyak</span>
+        <span class="rtp-opt-val" id="rtpValIndc">0 INDC</span>
+      </div>
+    </div>
+    <button class="rtp-confirm" id="rtpConfirmBtn" onclick="confirmRewardType()">KONFIRMASI REQUEST</button>
+    <button class="rtp-cancel" onclick="closeRtpPopup()">✕ Batal</button>
+  </div>
+</div>
+
 <script>
 function showProgramBerakhir(e) {
   e.preventDefault();
   document.getElementById('programBerakhirPopup').style.display = 'flex';
+}
+
+// ===== REWARD TYPE POPUP =====
+let _rtpSelectedType = 'USDT';
+let _rtpIndcAmount = 0;
+
+function selectRtpType(type) {
+  _rtpSelectedType = type;
+  document.getElementById('rtpOptUsdt').classList.toggle('selected', type === 'USDT');
+  document.getElementById('rtpOptIndc').classList.toggle('selected', type === 'INDC');
+}
+
+function closeRtpPopup() {
+  document.getElementById('rewardTypeOverlay').classList.remove('show');
+  const btn = document.getElementById('btnReq');
+  if (btn) { btn.textContent = 'REQUEST USDT KE WALLET'; btn.disabled = false; }
+}
+
+function showRtpPopup(indcAmount) {
+  _rtpSelectedType = 'USDT';
+  _rtpIndcAmount = indcAmount;
+  selectRtpType('USDT');
+  const usdtVal = (indcAmount * 0.003).toFixed(2);
+  const indcBonus = Math.floor(indcAmount * 1.07);
+  document.getElementById('rtpAmountLabel').textContent = fmtN(indcAmount) + ' INDC reward';
+  document.getElementById('rtpValUsdt').textContent = '$' + usdtVal + ' USDT';
+  document.getElementById('rtpValIndc').textContent = fmtN(indcBonus) + ' INDC';
+  document.getElementById('rewardTypeOverlay').classList.add('show');
+}
+
+async function confirmRewardType() {
+  const btn = document.getElementById('rtpConfirmBtn');
+  btn.textContent = '⏳ Memproses...';
+  btn.disabled = true;
+  await doRequestWithType(_rtpSelectedType, _rtpIndcAmount);
+  btn.textContent = 'KONFIRMASI REQUEST';
+  btn.disabled = false;
+  closeRtpPopup();
 }
 </script>
 </body>
