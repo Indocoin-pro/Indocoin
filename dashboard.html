@@ -2552,11 +2552,13 @@ async function brUpdateFeed() {
       const short  = BR_SHORT[b] || b.substring(0,3).toUpperCase();
       const status = data.bots?.[b];
       const online = status && status.status === 'online';
-      // Filter item Stats (pendek/tidak informatif) untuk VTX dan PHX agar tidak makan baris
       const allLogs = byBot[b];
-      const filteredLogs = allLogs.filter(it => {
-        const t = (it.text || '').toLowerCase();
-        return !t.startsWith('📊') && !t.startsWith('>> 📊');
+      const filteredLogs = allLogs.filter(function(it) {
+        var t = it.text || '';
+        if (t.indexOf('Stats:') >= 0 && t.indexOf('[') < 0) return false;
+        if (t.substring(0,4) === '>> v') return false;
+        if (t.substring(0,3) === '>> ' && t.charAt(3) !== '[') return false;
+        return true;
       });
       const logs = (filteredLogs.length > 0 ? filteredLogs : allLogs).slice(-5);
       const lastTs = brLastBotTs[b] || 0;
@@ -2573,24 +2575,14 @@ async function brUpdateFeed() {
           '<div class="br-log-line dim">&nbsp;&nbsp;:: (no activity)</div>' +
           '</div>';
       } else {
-        // Batasi 5 baris VISUAL (bukan 5 item — karena 1 item bisa jadi 2 baris)
-        let visualCount = 0;
-        let firstTag = true;
         logs.forEach((item, i) => {
-          if (visualCount >= 5) return;
           const isNew = (item.ts||0) > lastTs && lastTs > 0;
-          const lineHtml = brFormatLine(item, isNew);
-          // Hitung berapa baris visual yang dihasilkan item ini
-          const lineCount = (lineHtml.match(/br-log-line/g) || []).length;
-          if (visualCount + lineCount > 5) return; // skip kalau melebihi 5
-          const tag = firstTag ? short : '';
-          const tagCls = firstTag ? (online ? '' : 'offline') : 'empty';
-          firstTag = false;
+          const tag = i === 0 ? short : '';
+          const tagCls = i === 0 ? (online ? '' : 'offline') : 'empty';
           html += '<div class="br-log-row">' +
             '<div class="br-log-tag ' + tagCls + '">' + tag + '</div>' +
-            lineHtml +
+            brFormatLine(item, isNew) +
             '</div>';
-          visualCount += lineCount;
         });
       }
 
