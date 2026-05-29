@@ -2232,419 +2232,205 @@ window.closeAdPopup = function(e) {
 
 <!-- ═══════════════ BOT RADAR HACKER STUDIO ═══════════════ -->
 <style>
-/* Hacker studio full screen modal */
+/* ── BOT RADAR MODAL ── */
 .br-modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: #000; z-index: 9999;
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: #000d02f5;
   flex-direction: column;
-  font-family: 'Courier New', 'Monaco', monospace;
+  font-family: 'Courier New', monospace;
 }
 .br-modal-overlay.show { display: flex; }
-
-/* Grid background effect */
 .br-modal-overlay::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image: 
-    linear-gradient(rgba(0,255,65,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,255,65,0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
-  pointer-events: none;
-  z-index: 1;
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, #00ff410a 2px, #00ff410a 4px);
+  animation: brScan 8s linear infinite;
+}
+@keyframes brScan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
 }
 
 /* HEADER */
 .br-header {
-  background: linear-gradient(90deg, #000, #001a08, #000);
-  border-bottom: 1px solid #00ff4144;
-  padding: 11px 14px;
   display: flex; align-items: center; gap: 8px;
-  position: relative; z-index: 2;
-}
-.br-header::after {
-  content: '';
-  position: absolute; left: 0; right: 0; bottom: -1px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #00ff41, transparent);
-  animation: brScanH 3s linear infinite;
-}
-@keyframes brScanH {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  padding: 8px 12px; border-bottom: 1px solid #00ff4144;
+  background: #000a02; flex-shrink: 0; position: relative; z-index: 1;
 }
 .br-led {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #00ff41; box-shadow: 0 0 8px #00ff41, 0 0 14px #00ff41;
-  animation: brLedPulse 1.2s ease-in-out infinite;
-  flex-shrink: 0;
+  background: #00ff41; box-shadow: 0 0 8px #00ff41;
+  animation: brLedPulse 1s ease-in-out infinite;
 }
 @keyframes brLedPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.3; transform: scale(0.85); }
+  0%,100% { opacity: 1; } 50% { opacity: 0.4; }
 }
 .br-title {
-  color: #00ff41; font-weight: bold; font-size: 11px;
-  letter-spacing: 2px; flex: 1;
-  text-shadow: 0 0 8px #00ff4188;
+  flex: 1; color: #00ff41; font-size: 11px;
+  letter-spacing: 3px; font-weight: bold;
+  text-shadow: 0 0 8px #00ff41;
 }
 .br-live-tag {
-  background: #00ff4122; color: #00ff41;
-  border: 1px solid #00ff41;
-  padding: 2px 6px; border-radius: 2px;
-  font-size: 8px; letter-spacing: 1.5px; font-weight: bold;
+  color: #00ff41; font-size: 9px; letter-spacing: 2px;
+  border: 1px solid #00ff4166; padding: 2px 7px; border-radius: 2px;
+  animation: brLedPulse 1s ease-in-out infinite;
 }
 .br-close-btn {
-  background: transparent; border: 1px solid #00ff4144;
-  color: #00ff41; width: 26px; height: 26px;
-  border-radius: 3px; cursor: pointer; font-size: 13px;
-  font-family: monospace; transition: all .2s;
+  background: none; border: 1px solid #ff003c66;
+  color: #ff003c; width: 24px; height: 24px;
+  cursor: pointer; font-size: 12px; border-radius: 2px;
   display: flex; align-items: center; justify-content: center;
-  padding: 0;
 }
-.br-close-btn:hover { background: #00ff4122; box-shadow: 0 0 10px #00ff41; }
 
-/* MAIN AREA */
+/* MAIN */
 .br-main {
-  flex: 1; overflow: hidden;
-  display: flex; flex-direction: column;
-  padding: 8px;
-  gap: 8px;
-  position: relative; z-index: 2;
+  flex: 1; overflow-y: auto; padding: 8px;
+  display: flex; flex-direction: column; gap: 7px;
+  position: relative; z-index: 1;
 }
 
-/* Live Log Terminal */
+/* TERMINAL */
 .br-terminal {
-  flex: 1; min-height: 180px;
-  background: #000308;
-  border: 1px solid #00ff4144;
-  border-radius: 3px;
-  overflow: hidden;
-  display: flex; flex-direction: column;
+  background: #00050100; border: 1px solid #00ff4133;
+  border-radius: 3px; overflow: hidden; flex: 1;
 }
 .br-terminal-header {
-  background: #00ff4108;
-  border-bottom: 1px solid #00ff4133;
-  padding: 5px 9px;
-  font-size: 9px; color: #00ff41;
-  letter-spacing: 2px;
   display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 10px; background: #00ff4112;
+  border-bottom: 1px solid #00ff4133;
+  color: #00ff41; font-size: 9px; letter-spacing: 2px;
 }
 .br-terminal-content {
-  flex: 1;
-  overflow-y: auto; padding: 7px 9px;
-  font-size: 10px; line-height: 1.55;
-  color: #00ff41;
+  padding: 6px 0; overflow-y: auto; max-height: 340px;
 }
-.br-terminal-content::-webkit-scrollbar { width: 4px; }
-.br-terminal-content::-webkit-scrollbar-track { background: #000; }
-.br-terminal-content::-webkit-scrollbar-thumb { background: #00ff4144; border-radius: 2px; }
-.br-feed-line {
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  margin-bottom: 2px; opacity: 0; animation: brFeedIn 0.3s forwards;
-}
-@keyframes brFeedIn { to { opacity: 1; } }
-.br-tag {
-  display: inline-block;
-  background: #00ff4122; color: #00ff41;
-  border: 1px solid #00ff4144;
-  padding: 0 5px; margin-right: 6px;
-  font-size: 8px; letter-spacing: 1px;
-  min-width: 65px; text-align: center; font-weight: bold;
-}
-.br-feed-line.success .br-tag { background: #00ff4133; border-color: #00ff41; }
-.br-feed-line.opportunity { color: #ffd700; }
-.br-feed-line.opportunity .br-tag { background: #ffd70022; border-color: #ffd700; color: #ffd700; }
-.br-feed-line.error { color: #ff003c; }
-.br-feed-line.error .br-tag { background: #ff003c22; border-color: #ff003c; color: #ff003c; }
-.br-feed-line.scan { color: #00ff4199; }
-.br-feed-line.scan .br-tag { background: #00d9ff15; border-color: #00d9ff66; color: #00d9ff; }
-.br-feed-line.log { color: #00ff4180; }
+.br-terminal-content::-webkit-scrollbar { width: 3px; }
+.br-terminal-content::-webkit-scrollbar-thumb { background: #00ff4144; }
 
-/* Running tail-f animation */
-/* === 6 KOTAK PER BOT === */
-.br-bot-box {
-  background: #00ff4108;
-  border: 1px solid #00ff4133;
-  border-radius: 3px;
-  margin-bottom: 5px;
-  overflow: hidden;
+/* BARIS LOG — layout baru: singkatan kiri + log kanan */
+.br-log-row {
+  display: flex; align-items: flex-start;
+  min-height: 16px; padding: 1px 0;
 }
-.br-bot-box.offline { background: #ff003c08; border-color: #ff003c44; }
-.br-bot-head {
-  background: #00ff411a;
-  padding: 3px 8px;
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 9px; letter-spacing: 1px;
-  border-bottom: 1px solid #00ff4133;
+.br-log-tag {
+  width: 34px; flex-shrink: 0;
+  color: #00ff41cc; font-size: 8.5px; font-weight: bold;
+  letter-spacing: 1px; padding: 0 6px;
+  text-align: right; line-height: 16px;
+  border-right: 1px solid #00ff4133;
+  text-shadow: 0 0 6px #00ff4188;
 }
-.br-bot-box.offline .br-bot-head { background: #ff003c1a; }
-.br-bot-head-name {
-  color: #00ff41;
-  font-weight: bold;
-  display: flex; align-items: center; gap: 5px;
-}
-.br-bot-box.offline .br-bot-head-name { color: #ff003c; }
-.br-bot-head-stats {
-  color: #00ff4188;
-  font-size: 8px;
-}
-.br-bot-led-mini {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #00ff41; box-shadow: 0 0 4px #00ff41;
-  animation: brLedPulse 1.5s ease-in-out infinite;
-}
-.br-bot-box.offline .br-bot-led-mini { background: #ff003c; box-shadow: 0 0 4px #ff003c; }
-
-/* Container 4 baris log per bot — slot fixed */
-.br-bot-logs {
-  position: relative;
-  height: 64px;        /* 4 baris × 16px */
-  overflow: hidden;
-}
-.br-bot-logs-inner {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  display: flex; flex-direction: column;
-  transition: transform 0.5s ease-out;
-}
-.br-bot-log-line {
-  height: 16px;
-  font-size: 9px;
-  line-height: 16px;
-  color: #00ff41cc;
-  padding: 0 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex; gap: 5px;
-}
-.br-bot-log-line .br-time {
-  color: #00d9ff99;
-  font-size: 8.5px;
-  flex-shrink: 0;
-}
-.br-bot-log-line .br-msg {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.br-bot-log-line.success { color: #00ff41; }
-.br-bot-log-line.opportunity { color: #ffd700; }
-.br-bot-log-line.error { color: #ff003c; }
-.br-bot-log-line.scan { color: #00ff4199; }
-.br-bot-log-line.log { color: #00ff4180; }
-.br-bot-box.offline .br-bot-log-line { color: #ff003c80; }
-
-/* Animasi slide-up: log baru naik dari bawah */
-.br-bot-log-line.new {
-  animation: brSlideLine 0.5s ease-out;
-}
-@keyframes brSlideLine {
-  0% { 
-    opacity: 0; 
-    transform: translateY(20px);
-    background: #00ff4122;
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(0);
-    background: #00ff4111;
-  }
-  100% { 
-    opacity: 1; 
-    transform: translateY(0);
-    background: transparent;
-  }
-}
-.br-bot-box.offline .br-bot-log-line.new {
-  animation: brSlideLineOffline 0.5s ease-out;
-}
-@keyframes brSlideLineOffline {
-  0% { opacity: 0; transform: translateY(20px); background: #ff003c22; }
-  100% { opacity: 1; transform: translateY(0); background: transparent; }
-}
-
-
-.br-loading {
-  color: #00ff4188; font-style: italic; text-align: center;
-  padding: 20px; letter-spacing: 1px; font-size: 10px;
-}
-
-/* BOT STATUS GRID */
-.br-bots-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-}
-.br-bot-card {
-  background: #00ff4108;
-  border: 1px solid #00ff4133;
-  border-radius: 3px;
-  padding: 5px 7px;
-  position: relative; overflow: hidden;
-}
-.br-bot-card.offline {
-  background: #ff003c08;
-  border-color: #ff003c44;
-}
-.br-bot-card.offline .br-bot-led { background: #ff003c; box-shadow: 0 0 4px #ff003c; }
-.br-bot-card.offline .br-bot-name { color: #ff003c; }
-.br-bot-name {
-  color: #00ff41;
-  font-size: 9px;
-  letter-spacing: 1px;
-  font-weight: bold;
-  display: flex; align-items: center; gap: 4px;
-  text-transform: uppercase;
-}
-.br-bot-led {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #00ff41; box-shadow: 0 0 4px #00ff41;
-  animation: brLedPulse 1.5s ease-in-out infinite;
-  flex-shrink: 0;
-}
-.br-bot-stats {
+.br-log-tag.offline { color: #ff003c99; }
+.br-log-tag.empty { color: transparent; }
+.br-log-line {
+  flex: 1; font-size: 9px; line-height: 16px;
+  padding: 0 8px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
   color: #00ff4199;
-  font-size: 8px;
-  margin-top: 2px;
-  letter-spacing: 0.5px;
+}
+.br-log-line .t { color: #00d9ffaa; font-size: 8px; }
+.br-log-line .ok  { color: #00ff41; }
+.br-log-line .err { color: #ff003c; }
+.br-log-line .opp { color: #ffd700; }
+.br-log-line .dim { color: #00ff4155; }
+.br-log-line.new-line {
+  animation: brFadeIn 0.4s ease-out;
+}
+@keyframes brFadeIn {
+  0% { opacity: 0; background: #00ff4115; }
+  100% { opacity: 1; background: transparent; }
 }
 
-/* SECTION 1 — STATS LIVE */
+/* SEPARATOR antar bot */
+.br-bot-sep {
+  height: 1px; background: #00ff4118; margin: 3px 34px 3px 0;
+}
+
+/* LOADING / ERROR */
+.br-loading {
+  color: #00ff4188; font-size: 9px; text-align: center;
+  padding: 20px; letter-spacing: 1px;
+}
+
+/* STATS */
 .br-section1 {
   background: linear-gradient(180deg, #001a08, #000a04);
-  border: 1px solid #00ff4144;
-  border-radius: 3px;
-  padding: 9px 8px 7px;
-  flex-shrink: 0;
+  border: 1px solid #00ff4144; border-radius: 3px;
+  padding: 9px 8px 7px; flex-shrink: 0;
 }
 .br-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  margin-bottom: 6px;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 4px; margin-bottom: 6px;
 }
-.br-stat {
-  text-align: center;
-  padding: 3px 2px;
-  border-right: 1px solid #00ff4122;
-}
+.br-stat { text-align: center; padding: 3px 2px; border-right: 1px solid #00ff4122; }
 .br-stat:last-child { border-right: 0; }
 .br-stat-num {
-  color: #00ff41;
-  font-size: 14px;
-  font-weight: bold;
-  text-shadow: 0 0 6px #00ff4188;
-  letter-spacing: 1px;
-  line-height: 1.1;
+  color: #00ff41; font-size: 14px; font-weight: bold;
+  text-shadow: 0 0 6px #00ff4188; letter-spacing: 1px; line-height: 1.1;
 }
 .br-stat-label {
-  color: #00ff4188;
-  font-size: 7px;
-  letter-spacing: 1px;
-  margin-top: 2px;
-  text-transform: uppercase;
+  color: #00ff4188; font-size: 7px; letter-spacing: 1px;
+  margin-top: 2px; text-transform: uppercase;
 }
 .br-edu {
-  font-size: 8.5px;
-  color: #00ff4199;
-  text-align: center;
-  letter-spacing: 1px;
-  padding-top: 5px;
-  border-top: 1px solid #00ff4122;
-  line-height: 1.4;
+  font-size: 8.5px; color: #00ff4199; text-align: center;
+  letter-spacing: 1px; padding-top: 5px;
+  border-top: 1px solid #00ff4122; line-height: 1.4;
 }
 .br-edu::before { content: '> '; color: #00ff41; }
 
-/* SECTION 2 — CTA ARBIBOT */
+/* CTA */
 .br-section2 {
   background: linear-gradient(135deg, #002a0f, #001a08, #002a0f);
-  border: 1px solid #00ff41;
-  border-radius: 3px;
-  padding: 9px 10px;
-  flex-shrink: 0;
+  border: 1px solid #00ff41; border-radius: 3px;
+  padding: 9px 10px; flex-shrink: 0;
   box-shadow: 0 0 20px #00ff4122, inset 0 0 12px #00ff4108;
   position: relative; overflow: hidden;
 }
 .br-section2::before {
-  content: '';
-  position: absolute; top: 0; left: -100%;
+  content: ''; position: absolute; top: 0; left: -100%;
   width: 50%; height: 100%;
   background: linear-gradient(90deg, transparent, #00ff4122, transparent);
   animation: brShine 3s linear infinite;
 }
-@keyframes brShine {
-  0% { left: -50%; }
-  100% { left: 150%; }
-}
+@keyframes brShine { 0% { left: -50%; } 100% { left: 150%; } }
 .br-section2-text {
-  color: #00ff41;
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  margin-bottom: 7px;
-  text-align: center;
-  text-shadow: 0 0 4px #00ff4188;
-  position: relative; z-index: 1;
+  color: #00ff41; font-size: 10px; letter-spacing: 1.5px;
+  margin-bottom: 7px; text-align: center;
+  text-shadow: 0 0 4px #00ff4188; position: relative; z-index: 1;
 }
 .br-section2-text span { color: #ffd700; font-weight: bold; }
 .br-cta-btn {
-  display: block;
-  width: 100%;
-  background: #00ff4118;
-  border: 1px solid #00ff41;
-  color: #00ff41;
-  padding: 10px;
-  text-decoration: none;
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  letter-spacing: 2.5px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all .25s;
-  text-shadow: 0 0 6px #00ff41;
-  text-align: center;
-  position: relative; z-index: 1;
-  border-radius: 2px;
+  display: block; width: 100%;
+  background: #00ff4118; border: 1px solid #00ff41;
+  color: #00ff41; padding: 10px; text-decoration: none;
+  font-family: 'Courier New', monospace; font-size: 11px;
+  letter-spacing: 2.5px; font-weight: bold; cursor: pointer;
+  transition: all .25s; text-shadow: 0 0 6px #00ff41;
+  text-align: center; position: relative; z-index: 1; border-radius: 2px;
 }
 .br-cta-btn:hover, .br-cta-btn:active {
-  background: #00ff41;
-  color: #000;
+  background: #00ff41; color: #000;
   box-shadow: 0 0 20px #00ff41, inset 0 0 12px #00ff4144;
   text-shadow: none;
-}
-
-/* Responsive — sembunyi border kalau layar kecil */
-@media (max-width: 360px) {
-  .br-stat-num { font-size: 12px; }
-  .br-stat-label { font-size: 6px; }
-  .br-title { font-size: 10px; letter-spacing: 1.5px; }
 }
 </style>
 
 <div id="bot-radar-modal" class="br-modal-overlay">
-  <!-- HEADER -->
   <div class="br-header">
     <span class="br-led"></span>
     <span class="br-title">BOT_RADAR // INDOCOIN</span>
     <span class="br-live-tag">● LIVE</span>
     <button class="br-close-btn" onclick="closeBotRadarModal()">✕</button>
   </div>
-
-  <!-- MAIN AREA -->
   <div class="br-main">
-
-    <!-- Live Log Terminal — 6 KOTAK PER BOT -->
     <div class="br-terminal">
       <div class="br-terminal-header">
         <span>▶ LIVE_STREAM.LOG</span>
-        <span id="br-events-count">--</span>
+        <span id="br-events-count">-- EVENTS</span>
       </div>
       <div class="br-terminal-content" id="br-feed-content">
-        <!-- 6 kotak bot auto-generated -->
+        <div class="br-loading">▶ CONNECTING...</div>
       </div>
     </div>
-
-    <!-- SECTION 1 — STATS LIVE -->
     <div class="br-section1">
       <div class="br-stats-grid">
         <div class="br-stat">
@@ -2664,42 +2450,31 @@ window.closeAdPopup = function(e) {
           <div class="br-stat-label">BOT ONLINE</div>
         </div>
       </div>
-      <div class="br-edu">6 BOT AI SCAN DEFI BSC 24/7 — TRANSPARANSI PENUH</div>
+      <div class="br-edu">> 6 BOT AI SCAN DEFI BSC 24/7 — TRANSPARANSI PENUH</div>
     </div>
-
-    <!-- SECTION 2 — ARBIBOT CTA -->
     <div class="br-section2">
-      <div class="br-section2-text">
-        [$$] PROFIT BOT → USER VIA <span>ARBIBOT</span>
-      </div>
+      <div class="br-section2-text">[$$] PROFIT BOT → USER VIA <span>ARBIBOT</span></div>
       <a href="arbibot.html" class="br-cta-btn">►► JOIN ARBIBOT ◄◄</a>
     </div>
-
   </div>
 </div>
 
 <script>
 const BR_API = 'https://bot-feed.indocoin.id/api/bot-live-feed';
-const BR_BOTS = ['arbibot','venus','triangular','stablecoin','aave','v2v3'];
-const BR_NAMES = {
-  arbibot: 'HUNTER-X',
-  venus: 'PHOENIX',
-  triangular: 'TRIDENT',
-  stablecoin: 'CIPHER',
-  aave: 'VORTEX',
-  v2v3: 'MIRROR'
+
+// Urutan bot sesuai rencana (TRI,VTX,HNT,PHX,MRR,CPH)
+const BR_BOTS = ['triangular','aave','arbibot','venus','v2v3','stablecoin'];
+const BR_SHORT = {
+  triangular: 'TRI', aave: 'VTX', arbibot: 'HNT',
+  venus: 'PHX', v2v3: 'MRR', stablecoin: 'CPH'
 };
-function brBotName(raw) {
-  if(!raw) return '???';
-  return BR_NAMES[raw.toLowerCase()] || raw.toUpperCase();
-}
-// Buffer log running (tail-f style)
-let brLogBuffer = [];
-const BR_MAX_LINES = 30;
-let brLastSeenTs = 0;
-// Track timestamp terakhir per bot (untuk deteksi log baru)
-let brLastBotTs = {};
+const BR_NAMES = {
+  triangular: 'TRIDENT', aave: 'VORTEX', arbibot: 'HUNTER-X',
+  venus: 'PHOENIX', v2v3: 'MIRROR', stablecoin: 'CIPHER'
+};
+
 let brInterval = null;
+let brLastBotTs = {};
 
 function openBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.add('show');
@@ -2711,152 +2486,119 @@ function closeBotRadarModal() {
   document.getElementById('bot-radar-modal').classList.remove('show');
   document.body.style.overflow = '';
   if (brInterval) { clearInterval(brInterval); brInterval = null; }
-  // Reset state biar fresh saat buka lagi
-  brLogBuffer = [];
-  brLastSeenTs = 0;
   brLastBotTs = {};
 }
 
+function brEscape(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function brFormatLine(item, isNew) {
+  const text = item.text || '';
+  const type = item.type || 'log';
+  const m = text.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)/);
+  const time = m ? m[1] : '';
+  const msg  = m ? m[2] : text;
+
+  // Prefix coding style
+  let prefix = '>> ';
+  let msgClass = '';
+  if (type === 'success') { prefix = '[OK] '; msgClass = 'ok'; }
+  else if (type === 'error') { prefix = '[ERR] '; msgClass = 'err'; }
+  else if (type === 'opportunity') { prefix = '[$$] '; msgClass = 'opp'; }
+  else if (type === 'scan') { prefix = '>> '; msgClass = 'dim'; }
+
+  const newCls = isNew ? ' new-line' : '';
+  return '<div class="br-log-line' + newCls + '">' +
+    (time ? '<span class="t">[' + brEscape(time) + '] </span>' : '') +
+    '<span class="' + msgClass + '">' + brEscape(prefix + msg) + '</span>' +
+    '</div>';
+}
+
 async function brUpdateFeed() {
-  const debugEl = document.getElementById('br-feed-content');
-  const ts = new Date().toLocaleTimeString();
-  
   try {
-    const res = await fetch(BR_API + '?nocache=' + Date.now(), { 
-      cache: 'no-store',
-      mode: 'cors'
+    const res = await fetch(BR_API + '?nocache=' + Date.now(), {
+      cache: 'no-store', mode: 'cors'
     });
-    
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
-    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    
-    // DEBUG: log apa yang diterima
-    console.log('Bot radar data:', data);
-    if(!data.feed && !data.bots){
-      if(debugEl) debugEl.innerHTML = 
-        '<div class="br-loading">▶ RESPONSE @ ' + ts + '</div>' +
-        '<div style="color:#ffd700;font-size:9px;margin-top:8px;padding:4px;border:1px solid #ffd70044;">' +
-        'KEYS: ' + Object.keys(data).join(',') + '<br>' +
-        'RAW: ' + JSON.stringify(data).substring(0, 300) +
-        '</div>';
-      return;
-    }
-    
-    // === LIVE LOG — 6 KOTAK PER BOT, scroll naik ===
+
     const content = document.getElementById('br-feed-content');
-    if (data.feed && data.feed.length > 0) {
-      // Kelompokkan log per bot
-      const byBot = {};
-      BR_BOTS.forEach(b => byBot[b] = []);
-      data.feed.forEach(item => {
-        const key = (item.bot||'').toLowerCase();
-        if (byBot[key] !== undefined) {
-          byBot[key].push(item);
-        }
-      });
-      
-      // Render: bangun ulang kalau struktur belum ada
-      if (!content.querySelector('.br-bot-box')) {
-        content.innerHTML = BR_BOTS.map(b => {
-          const display = brBotName(b);
-          return '<div class="br-bot-box" data-bot="' + b + '">' +
-                 '<div class="br-bot-head">' +
-                 '<span class="br-bot-head-name"><span class="br-bot-led-mini"></span>' + display + '</span>' +
-                 '<span class="br-bot-head-stats" data-stats></span>' +
-                 '</div>' +
-                 '<div class="br-bot-logs"><div class="br-bot-logs-inner" data-logs></div></div>' +
-                 '</div>';
-        }).join('');
+    if (!content) return;
+
+    if (!data.feed && !data.bots) return;
+
+    // Kelompokkan log per bot
+    const byBot = {};
+    BR_BOTS.forEach(b => byBot[b] = []);
+    (data.feed || []).forEach(item => {
+      const key = (item.bot || '').toLowerCase();
+      if (byBot[key] !== undefined) byBot[key].push(item);
+    });
+
+    // Bangun HTML baru — tanpa clear total dulu (anti-kedip)
+    let html = '';
+    BR_BOTS.forEach((b, idx) => {
+      const short  = BR_SHORT[b] || b.substring(0,3).toUpperCase();
+      const status = data.bots?.[b];
+      const online = status && status.status === 'online';
+      const logs   = byBot[b].slice(-4);
+      const lastTs = brLastBotTs[b] || 0;
+
+      // Update tracker ts
+      let newestTs = lastTs;
+      logs.forEach(it => { if ((it.ts||0) > newestTs) newestTs = it.ts; });
+      brLastBotTs[b] = newestTs;
+
+      if (logs.length === 0) {
+        // Baris kosong dengan tag bot
+        html += '<div class="br-log-row">' +
+          '<div class="br-log-tag ' + (online ? '' : 'offline') + '">' + short + '</div>' +
+          '<div class="br-log-line dim">&nbsp;&nbsp;:: (no activity)</div>' +
+          '</div>';
+      } else {
+        logs.forEach((item, i) => {
+          const isNew = (item.ts||0) > lastTs && lastTs > 0;
+          const tag = i === 0 ? short : '';
+          const tagCls = i === 0 ? (online ? '' : 'offline') : 'empty';
+          html += '<div class="br-log-row">' +
+            '<div class="br-log-tag ' + tagCls + '">' + tag + '</div>' +
+            brFormatLine(item, isNew) +
+            '</div>';
+        });
       }
-      
-      // Update tiap kotak bot
-      BR_BOTS.forEach(b => {
-        const box = content.querySelector('.br-bot-box[data-bot="' + b + '"]');
-        if (!box) return;
-        
-        // Status bot
-        const status = data.bots?.[b];
-        const online = status && status.status === 'online';
-        box.classList.toggle('offline', !online);
-        const statsEl = box.querySelector('[data-stats]');
-        if (statsEl) {
-          statsEl.textContent = online 
-            ? (status.memory||0) + 'MB · ' + (status.cpu||0) + '%' 
-            : 'OFFLINE';
-        }
-        
-        // Logs — ambil 4 paling baru
-        const logsEl = box.querySelector('[data-logs]');
-        if (!logsEl) return;
-        
-        const logs = byBot[b].slice(-4); // 4 paling baru
-        if (logs.length === 0) {
-          logsEl.innerHTML = '<div class="br-bot-log-line" style="opacity:0.4">(no activity)</div>';
-          return;
-        }
-        
-        // Deteksi: cari ts terbaru di logs, bandingkan dengan brLastBotTs[b]
-        const lastTs = brLastBotTs[b] || 0;
-        let newestTs = lastTs;
-        logs.forEach(it => { if ((it.ts||0) > newestTs) newestTs = it.ts; });
-        
-        // Render: log paling baru dapat class 'new' kalau ts-nya > yang terakhir kita tahu
-        logsEl.innerHTML = logs.map((item, idx) => {
-          const cls = item.type || 'log';
-          const isNew = (item.ts || 0) > lastTs && lastTs > 0; // skip animasi pas first load
-          const newCls = isNew ? ' new' : '';
-          const text = item.text || '';
-          const m = text.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.*)/);
-          const time = m ? m[1] : '';
-          const msg = m ? m[2] : text;
-          return '<div class="br-bot-log-line ' + cls + newCls + '">' +
-                 (time ? '<span class="br-time">[' + brEscape(time) + ']</span> ' : '') +
-                 '<span class="br-msg">' + brEscape(msg) + '</span>' +
-                 '</div>';
-        }).join('');
-        
-        // Update tracker — simpan ts terbaru bot ini
-        brLastBotTs[b] = newestTs;
-      });
-    }
-    
-    // === EVENTS COUNT ===
-    document.getElementById('br-events-count').textContent = 
-      `${data.feed?.length || 0} EVENTS`;
-    
-    
-    // === STATS LIVE ===
+
+      // Separator antar bot (kecuali terakhir)
+      if (idx < BR_BOTS.length - 1) {
+        html += '<div class="br-bot-sep"></div>';
+      }
+    });
+
+    // Update konten tanpa flash
+    const newDiv = document.createElement('div');
+    newDiv.innerHTML = html;
+    // Ganti isi tanpa clear dulu
+    content.innerHTML = html;
+
+    // Update stats
+    document.getElementById('br-events-count').textContent = (data.feed?.length || 0) + ' EVENTS';
     const s = data.stats || {};
-    document.getElementById('br-stat-scan').textContent = s.totalScan || 0;
-    document.getElementById('br-stat-opp').textContent = s.totalOpportunity || 0;
+    document.getElementById('br-stat-scan').textContent    = s.totalScan || 0;
+    document.getElementById('br-stat-opp').textContent     = s.totalOpportunity || 0;
     document.getElementById('br-stat-success').textContent = s.totalSuccess || 0;
-    document.getElementById('br-stat-bots').textContent = 
-      `${data.bots_running || 0}/${data.bots_total || 6}`;
-    
+    document.getElementById('br-stat-bots').textContent    = (data.bots_running||0) + '/' + (data.bots_total||6);
+
   } catch(e) {
     console.error('Bot radar error:', e);
     const content = document.getElementById('br-feed-content');
     if (content) {
-      const errMsg = (e && e.message) ? e.message : String(e);
-      content.innerHTML = 
-        '<div class="br-loading">▮ ERROR ▮</div>' +
-        '<div style="color:#ff003c;font-size:9px;margin-top:8px;padding:4px;border:1px solid #ff003c44;">' +
-        'TYPE: ' + (e && e.name ? e.name : 'Unknown') + '<br>' +
-        'MSG: ' + errMsg.substring(0, 200) + '<br>' +
-        'URL: ' + BR_API + '<br>' +
-        'TIME: ' + new Date().toLocaleTimeString() +
-        '</div>';
+      content.innerHTML = '<div class="br-loading">▮ ERROR: ' + brEscape(e.message||'unknown') + '</div>';
     }
   }
 }
-
-function brEscape(s) { 
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); 
-}
 </script>
 <!-- ═══════════════ END BOT RADAR HACKER STUDIO ═══════════════ -->
+
 
 
 </body>
