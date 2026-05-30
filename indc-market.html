@@ -633,20 +633,18 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
       <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#f0b429;letter-spacing:1px;margin-bottom:4px;">🗳 VOTING MASUK DEX</div>
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);margin-bottom:14px;line-height:1.5;" id="voteSubtitle">Menunggu stabilisasi likuiditas &<br>distribusi komunitas, pool DEX 100%</div>
 
-      <!-- Angka YA / TIDAK — klik munculkan popup kalau belum aktif -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div onclick="handleVoteClick(true)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(104,211,145,0.2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;">
-          <span style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#68d391;display:block;" id="voteYes">0</span>
+      <!-- 1 baris: [angka YA] [tombol YA] [tombol TIDAK] [angka TIDAK] -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+        <div onclick="handleVoteClick(true)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(104,211,145,0.2);border-radius:8px;padding:10px;text-align:center;cursor:pointer;flex:1;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:#68d391;display:block;" id="voteYes">0</span>
         </div>
-        <div onclick="handleVoteClick(false)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(252,129,129,0.2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;">
-          <span style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#fc8181;display:block;" id="voteNo">0</span>
+        <div style="display:flex;flex-direction:column;gap:5px;flex:2;">
+          <button onclick="handleVoteClick(true)"  style="padding:9px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#2f855a,#38a169);color:#fff;">✅ YA</button>
+          <button onclick="handleVoteClick(false)" style="padding:9px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#c53030,#e53e3e);color:#fff;">❌ TIDAK</button>
         </div>
-      </div>
-
-      <!-- Tombol voting — hanya muncul saat aktif -->
-      <div id="voteActions" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <button onclick="doVote(true)"  style="padding:11px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#2f855a,#38a169);color:#fff;">✅ YA</button>
-        <button onclick="doVote(false)" style="padding:11px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#c53030,#e53e3e);color:#fff;">❌ TIDAK</button>
+        <div onclick="handleVoteClick(false)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(252,129,129,0.2);border-radius:8px;padding:10px;text-align:center;cursor:pointer;flex:1;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:#fc8181;display:block;" id="voteNo">0</span>
+        </div>
       </div>
 
       <div id="voteWaiting" style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);text-align:center;line-height:1.6;">Bertransaksi aktif untuk mempercepat voting!</div>
@@ -738,7 +736,7 @@ async function connectWallet() {
     }
 
     await loadMarketData();
-    checkActiveListing();
+    setTimeout(() => checkActiveListing(), 1500);
   } catch(e) { console.error('connectWallet:', e); }
 }
 
@@ -852,12 +850,12 @@ async function loadMarketData() {
     document.getElementById('voteYes').textContent = vYes.toString();
     document.getElementById('voteNo').textContent  = vNo.toString();
     if (votingActive) {
+      _votingActive = true;
       document.getElementById('voteSubtitle').innerHTML = 'Pool 100% — saatnya komunitas bersuara!';
-      document.getElementById('voteActions').style.display = 'grid';
       document.getElementById('voteWaiting').style.display = 'none';
     } else {
+      _votingActive = false;
       document.getElementById('voteSubtitle').innerHTML = 'Menunggu stabilisasi likuiditas &<br>distribusi komunitas, pool DEX 100%';
-      document.getElementById('voteActions').style.display = 'none';
       document.getElementById('voteWaiting').style.display = 'block';
     }
 
@@ -1099,9 +1097,10 @@ function _removeEma(period) {
   }
 }
 
+let _votingActive = false;
+
 function handleVoteClick(yes) {
-  const isActive = document.getElementById('voteActions').style.display === 'grid';
-  if (isActive) {
+  if (_votingActive) {
     doVote(yes);
   } else {
     document.getElementById('voteLockedPopup').style.display = 'flex';
