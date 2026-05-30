@@ -449,7 +449,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 
       <!-- JUAL -->
       <div class="form-panel" id="fpSell">
-        <span class="inp-lbl">JUMLAH INDC (min $15 — maks $30)</span>
+        <span class="inp-lbl">JUMLAH INDC (min $1 — maks $15)</span>
         <div class="inp-row">
           <input type="number" id="inpSellIndc" placeholder="masukkan jumlah INDC" oninput="calcSell()">
           <span class="inp-badge">INDC</span>
@@ -464,7 +464,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
             <span class="prev-val" id="pvSellFee">0 INDC</span>
           </div>
           <div class="prev-row">
-            <span class="prev-lbl">Maks ($30)</span>
+            <span class="prev-lbl">Maks ($15)</span>
             <span class="prev-val" id="pvSellMax">—</span>
           </div>
         </div>
@@ -495,37 +495,154 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 
   </div>
 
-  <!-- LISTING STATUS -->
-  <div class="listing-status" id="listingStatus">
-    <div class="ls-header">
-      <div class="ls-title">Status Jual Saya</div>
-      <span class="ls-badge listed" id="lsBadge">⏳ MENUNGGU PEMBELI</span>
+  <!-- 3 TABS: POSISI — INFO — NOTIFIKASI -->
+  <div style="background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,0.04);overflow:hidden;">
+
+    <!-- Tab Headers -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1.5px solid var(--border);">
+      <button class="tab3-btn active" id="t3Posisi"    onclick="switchTab3('posisi')"    style="padding:11px 4px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;border:none;background:transparent;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);">POSISI</button>
+      <button class="tab3-btn"        id="t3Info"      onclick="switchTab3('info')"      style="padding:11px 4px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;border:none;background:transparent;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;">INFO</button>
+      <button class="tab3-btn"        id="t3Notif"     onclick="switchTab3('notif')"     style="padding:11px 4px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;border:none;background:transparent;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;">NOTIFIKASI</button>
     </div>
-    <div class="ls-rows">
-      <div class="ls-box">
-        <span class="ls-box-val" id="lsIndcRemain">0 INDC</span>
-        <span class="ls-box-lbl">INDC Dijual</span>
+
+    <!-- Tab POSISI -->
+    <div id="tp3Posisi" style="padding:16px;">
+      <div id="posisiEmpty" style="text-align:center;padding:20px 10px;">
+        <div style="font-size:28px;margin-bottom:8px;">➖</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;margin-bottom:4px;">TIDAK ADA POSISI AKTIF</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);">Connect wallet dan jual INDC untuk mulai</div>
       </div>
-      <div class="ls-box">
-        <span class="ls-box-val" id="lsUsdtEstimate">$0.00</span>
-        <span class="ls-box-lbl">Estimasi USDT</span>
+      <div id="posisiActive" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);letter-spacing:1px;">POSISI SAYA</div>
+          <span id="posisiBadge" style="padding:4px 10px;border-radius:99px;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;background:#fffbf0;color:var(--gold);border:1px solid rgba(200,146,42,0.3);">⏳ MENUNGGU</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div style="background:var(--cream);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
+            <span style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);display:block;margin-bottom:2px;" id="posisiIndc">0 INDC</span>
+            <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);">INDC di Pool</span>
+          </div>
+          <div style="background:var(--cream);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
+            <span style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--green);display:block;margin-bottom:2px;" id="posisiUsdt">$0.00</span>
+            <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);">Estimasi USDT</span>
+          </div>
+        </div>
+        <div id="posisiNote" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);text-align:center;margin-bottom:12px;line-height:1.5;"></div>
+        <button id="posisiBatalBtn" onclick="doCancel()" style="width:100%;padding:10px;background:transparent;border:1.5px solid rgba(197,48,48,0.3);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:var(--red);display:none;">✕ BATAL JUAL</button>
       </div>
     </div>
-    <div class="ls-note" id="lsNote">INDC kamu sudah masuk pool dan menunggu pembeli.<br>USDT otomatis masuk wallet begitu ada yang beli.</div>
+
+    <!-- Tab INFO -->
+    <div id="tp3Info" style="padding:16px;display:none;">
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span>🏪</span> TENTANG INDC MARKET</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text2);line-height:1.6;">Platform jual beli INDC internal ekosistem Indocoin. Harga bergerak otomatis berdasarkan kondisi pool — semakin banyak penjual, harga turun. Semakin banyak pembeli, harga naik.</div>
+      </div>
+
+      <div style="height:1px;background:var(--cream2);margin-bottom:16px;"></div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span>💰</span> BIAYA TRANSAKSI</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Beli INDC</span>
+            <span style="color:var(--text2);font-weight:600;">Fee 0.5% USDT</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Jual INDC</span>
+            <span style="color:var(--text2);font-weight:600;">Fee 2% INDC</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Batal Jual</span>
+            <span style="color:var(--text2);font-weight:600;">Fee 1% INDC</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--cream2);margin-bottom:16px;"></div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span>📏</span> BATAS TRANSAKSI</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Minimum beli</span>
+            <span style="color:var(--text2);font-weight:600;">$1 USDT</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Minimum jual</span>
+            <span style="color:var(--text2);font-weight:600;">$1 USDT</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Maksimum jual</span>
+            <span style="color:var(--text2);font-weight:600;">$15 USDT</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Maksimum beli</span>
+            <span style="color:var(--text2);font-weight:600;">50% dari pool</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;">
+            <span style="color:var(--text3);">Cooldown</span>
+            <span style="color:var(--text2);font-weight:600;">15 menit</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--cream2);margin-bottom:16px;"></div>
+
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px;"><span>🏆</span> POOL DEX — SOFT LISTING</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text2);line-height:1.7;">
+          Phase 1 Presale telah selesai dan INDOCOIN terus tumbuh. Kini saatnya <strong>Phase 2</strong> — persiapan menuju listing di PancakeSwap.<br><br>
+          Likuiditas DEX yang sehat tidak bisa datang dari satu pihak saja. Di ekosistem crypto yang matang, likuiditas dibangun <strong>bersama komunitas</strong> — inilah yang membuat harga lebih stabil dan tahan manipulasi.<br><br>
+          Pool DEX yang terbentuk dari komunitas sendiri menciptakan <strong>likuiditas organik</strong> — jauh lebih kuat dibanding likuiditas dari satu sumber. Ini bukan penundaan, ini adalah <strong>persiapan yang benar</strong>.<br><br>
+          Ketika pool mencapai target, komunitas voting bersama untuk menentukan waktu yang tepat masuk ke PancakeSwap.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tab NOTIFIKASI -->
+    <div id="tp3Notif" style="padding:16px;display:none;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);letter-spacing:1px;margin-bottom:4px;">SET ALERT HARGA</div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-bottom:14px;">Notifikasi muncul saat harga menyentuh angka ini</div>
+
+      <div style="margin-bottom:10px;">
+        <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);display:block;margin-bottom:4px;">HARGA TARGET ($)</span>
+        <div style="display:flex;align-items:center;background:var(--cream);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+          <input type="number" id="notifPrice" placeholder="contoh: 0.015" step="0.001" style="flex:1;padding:9px 10px;background:transparent;border:none;outline:none;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">
+          <span style="padding:0 10px;font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;color:var(--gold);border-left:1px solid var(--border);">USDT</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <button onclick="setNotif('above')" style="padding:9px;border-radius:8px;border:1.5px solid var(--green);background:#f0faf4;font-family:'DM Mono',monospace;font-size:9px;color:var(--green);cursor:pointer;font-weight:600;">▲ Naik ke atas</button>
+        <button onclick="setNotif('below')" style="padding:9px;border-radius:8px;border:1.5px solid var(--red);background:#fff5f5;font-family:'DM Mono',monospace;font-size:9px;color:var(--red);cursor:pointer;font-weight:600;">▼ Turun ke bawah</button>
+      </div>
+
+      <div id="notifList" style="max-height:150px;overflow-y:auto;"></div>
+      <div id="msgNotif" style="font-family:'DM Mono',monospace;font-size:9px;margin-top:8px;"></div>
+    </div>
+
   </div>
 
-  <!-- VOTING -->
-  <div class="vote-card" id="voteCard">
+  <!-- VOTING CARD — PERMANEN -->
+  <div class="vote-card show" id="voteCard">
     <div class="vote-title">🗳 VOTING MASUK DEX</div>
-    <div class="vote-sub">Pool 100% — komunitas bersuara</div>
+    <div class="vote-sub" id="voteSubtitle">Menunggu pool terpenuhi...</div>
     <div class="vote-counts">
       <div class="vote-cnt"><span class="vote-cnt-val yes" id="voteYes">0</span><span class="vote-cnt-lbl">✅ YA</span></div>
-      <div class="vote-cnt"><span class="vote-cnt-val no" id="voteNo">0</span><span class="vote-cnt-lbl">❌ TIDAK</span></div>
+      <div class="vote-cnt"><span class="vote-cnt-val no"  id="voteNo">0</span><span class="vote-cnt-lbl">❌ TIDAK</span></div>
     </div>
-    <div class="vote-q">Setuju INDC masuk ke PancakeSwap DEX?</div>
-    <div class="vote-btns">
-      <button class="btn-vote yes" onclick="doVote(true)">✅ YA</button>
-      <button class="btn-vote no"  onclick="doVote(false)">❌ TIDAK</button>
+    <div id="voteActions" style="display:none;">
+      <div class="vote-q">Setuju INDC masuk ke PancakeSwap DEX?</div>
+      <div class="vote-btns">
+        <button class="btn-vote yes" onclick="doVote(true)">✅ YA</button>
+        <button class="btn-vote no"  onclick="doVote(false)">❌ TIDAK</button>
+      </div>
+    </div>
+    <div id="voteWaiting" style="text-align:center;padding:8px 0;">
+      <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);line-height:1.6;">Pool DEX belum mencapai target.<br>Bertransaksi aktif untuk mempercepat voting!</div>
     </div>
     <div class="msg-vote" id="msgVote"></div>
   </div>
@@ -714,12 +831,21 @@ async function loadMarketData() {
     const maxListF = parseFloat(ethers.utils.formatUnits(maxList, INDC_DEC));
     document.getElementById('pvSellMax').textContent = fmtN(maxListF) + ' INDC';
 
-    // Voting
+    // Voting card — selalu tampil, dinamis
+    document.getElementById('voteYes').textContent = vYes.toString();
+    document.getElementById('voteNo').textContent  = vNo.toString();
     if (votingActive) {
-      document.getElementById('voteCard').classList.add('show');
-      document.getElementById('voteYes').textContent = vYes.toString();
-      document.getElementById('voteNo').textContent  = vNo.toString();
+      document.getElementById('voteSubtitle').textContent = 'Pool 100% — komunitas bersuara!';
+      document.getElementById('voteActions').style.display = 'block';
+      document.getElementById('voteWaiting').style.display = 'none';
+    } else {
+      document.getElementById('voteSubtitle').textContent = 'Menunggu pool terpenuhi...';
+      document.getElementById('voteActions').style.display = 'none';
+      document.getElementById('voteWaiting').style.display = 'block';
     }
+
+    // Cek notifikasi harga
+    checkNotifications(_currentPrice);
 
     // Chart
     addChartPoint(_currentPrice);
@@ -996,8 +1122,135 @@ function switchTf(tf, btn) {
 }
 
 // ═══════════════════════════════════════════
-//  FORM TABS
+//  3 TABS
 // ═══════════════════════════════════════════
+function switchTab3(tab) {
+  ['posisi','info','notif'].forEach(t => {
+    document.getElementById('tp3' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
+    const btn = document.getElementById('t3' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (t === tab) {
+      btn.style.color       = 'var(--gold)';
+      btn.style.borderBottom = '2px solid var(--gold)';
+    } else {
+      btn.style.color       = 'var(--text3)';
+      btn.style.borderBottom = '2px solid transparent';
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+//  POSISI TAB
+// ═══════════════════════════════════════════
+function updatePosisi(hasListing, indcRemain, usdtEst, isPartial) {
+  if (!hasListing) {
+    document.getElementById('posisiEmpty').style.display  = 'block';
+    document.getElementById('posisiActive').style.display = 'none';
+    return;
+  }
+  document.getElementById('posisiEmpty').style.display  = 'none';
+  document.getElementById('posisiActive').style.display = 'block';
+  document.getElementById('posisiIndc').textContent  = fmtN(indcRemain) + ' INDC';
+  document.getElementById('posisiUsdt').textContent  = '$' + usdtEst.toFixed(2);
+  document.getElementById('posisiBatalBtn').style.display = 'block';
+
+  const badge = document.getElementById('posisiBadge');
+  const note  = document.getElementById('posisiNote');
+
+  if (indcRemain <= 0) {
+    badge.textContent  = '✅ TERJUAL';
+    badge.style.background = '#f0faf4';
+    badge.style.color      = 'var(--green)';
+    badge.style.border     = '1px solid rgba(47,133,90,0.3)';
+    note.textContent   = 'Semua INDC sudah terjual! USDT sudah masuk wallet kamu.';
+    document.getElementById('posisiBatalBtn').style.display = 'none';
+  } else if (isPartial) {
+    badge.textContent  = '🟡 TERJUAL SEBAGIAN';
+    badge.style.background = '#fffbf0';
+    badge.style.color      = 'var(--gold)';
+    badge.style.border     = '1px solid rgba(200,146,42,0.3)';
+    note.textContent   = 'Sebagian INDC sudah terjual. Sisa menunggu pembeli berikutnya.';
+  } else {
+    badge.textContent  = '⏳ MENUNGGU PEMBELI';
+    badge.style.background = '#fffbf0';
+    badge.style.color      = 'var(--gold)';
+    badge.style.border     = '1px solid rgba(200,146,42,0.3)';
+    note.textContent   = 'INDC kamu sudah masuk pool dan menunggu pembeli. USDT otomatis masuk wallet begitu ada yang beli.';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  NOTIFIKASI
+// ═══════════════════════════════════════════
+let _notifList = [];
+
+function setNotif(direction) {
+  const price = parseFloat(document.getElementById('notifPrice').value);
+  if (!price || price <= 0) {
+    document.getElementById('msgNotif').textContent = '⚠️ Masukkan harga target dulu';
+    document.getElementById('msgNotif').style.color = 'var(--red)';
+    return;
+  }
+  const existing = _notifList.find(n => n.price === price && n.direction === direction);
+  if (existing) {
+    document.getElementById('msgNotif').textContent = '⚠️ Alert ini sudah ada';
+    document.getElementById('msgNotif').style.color = 'var(--gold)';
+    return;
+  }
+  _notifList.push({ price, direction, triggered: false });
+  document.getElementById('notifPrice').value = '';
+  document.getElementById('msgNotif').textContent = '✅ Alert ditambahkan!';
+  document.getElementById('msgNotif').style.color = 'var(--green)';
+  renderNotifList();
+  setTimeout(() => { document.getElementById('msgNotif').textContent = ''; }, 2000);
+}
+
+function removeNotif(i) {
+  _notifList.splice(i, 1);
+  renderNotifList();
+}
+
+function renderNotifList() {
+  const el = document.getElementById('notifList');
+  if (_notifList.length === 0) {
+    el.innerHTML = '<div style="text-align:center;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);padding:10px;">Belum ada alert</div>';
+    return;
+  }
+  el.innerHTML = _notifList.map((n, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--cream2);">
+      <div>
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:${n.direction==='above'?'var(--green)':'var(--red)'};">
+          ${n.direction==='above'?'▲':'▼'} $${n.price.toFixed(4)}
+        </span>
+        ${n.triggered ? '<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:var(--text3);margin-left:6px;">✓ triggered</span>' : ''}
+      </div>
+      <button onclick="removeNotif(${i})" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;">✕</button>
+    </div>`).join('');
+}
+
+function checkNotifications(currentPrice) {
+  _notifList.forEach((n, i) => {
+    if (n.triggered) return;
+    const hit = n.direction === 'above'
+      ? currentPrice >= n.price
+      : currentPrice <= n.price;
+    if (hit) {
+      n.triggered = true;
+      renderNotifList();
+      // Browser notification atau alert
+      const msg = `🔔 INDC Market Alert!\nHarga ${n.direction==='above'?'naik ke':'turun ke'} $${currentPrice.toFixed(5)}\nTarget: $${n.price.toFixed(4)}`;
+      if (Notification && Notification.permission === 'granted') {
+        new Notification('INDC Market Alert', { body: msg.replace(/\n/g,' '), icon: '/img/logo.png' });
+      } else {
+        alert(msg);
+      }
+    }
+  });
+}
+
+// Minta izin notifikasi
+if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
 function switchFormTab(tab) {
   document.getElementById('fpBuy').classList.toggle('active', tab==='buy');
   document.getElementById('fpSell').classList.toggle('active', tab==='sell');
@@ -1089,12 +1342,12 @@ async function doList() {
   const indcF = parseFloat(document.getElementById('inpSellIndc').value) || 0;
   if (indcF <= 0) { showMsg('msgSell', 'Masukkan jumlah INDC', 'err'); return; }
 
-  // Validasi minimum $15
+  // Validasi minimum $1
   const usdtVal = indcF * _currentPrice;
-  if (usdtVal < 15) { showMsg('msgSell', 'Minimum listing setara $15', 'err'); return; }
+  if (usdtVal < 1) { showMsg('msgSell', 'Minimum jual setara $1', 'err'); return; }
 
-  // Validasi maksimum $30
-  if (usdtVal > 30) { showMsg('msgSell', 'Maks listing setara $30', 'err'); return; }
+  // Validasi maksimum $15
+  if (usdtVal > 15) { showMsg('msgSell', 'Maks jual setara $15', 'err'); return; }
 
   // Cek cooldown
   try {
@@ -1171,42 +1424,21 @@ async function checkActiveListing() {
     if (has) {
       await loadListingStatus(mkt);
     } else {
-      document.getElementById('listingStatus').classList.remove('show');
+      updatePosisi(false, 0, 0, false);
     }
   } catch(e) {}
 }
 
 async function loadListingStatus(mkt) {
   try {
-    // Ambil listing ID milik wallet ini
     const listingId  = await mkt.sellerListingId(_wallet);
     const listing    = await mkt.listings(listingId);
     const indcRemain = parseFloat(ethers.utils.formatUnits(listing.indcAmount, INDC_DEC));
     const usdtEst    = indcRemain * _currentPrice;
-
-    // Ambil listing awal dari event — bandingkan untuk tahu sudah terjual sebagian
-    // Sementara pakai indcRemain vs maxListingIndc sebagai indikator
     const maxList    = await mkt.maxListingIndc();
     const maxListF   = parseFloat(ethers.utils.formatUnits(maxList, INDC_DEC));
-    const isPartial  = indcRemain < maxListF * 0.98; // terjual > 2%
-
-    document.getElementById('lsIndcRemain').textContent  = fmtN(indcRemain) + ' INDC';
-    document.getElementById('lsUsdtEstimate').textContent = '$' + usdtEst.toFixed(2);
-
-    const badge = document.getElementById('lsBadge');
-    const note  = document.getElementById('lsNote');
-
-    if (isPartial) {
-      badge.textContent = '🟢 TERJUAL SEBAGIAN';
-      badge.className   = 'ls-badge partial';
-      note.textContent  = 'Sebagian INDC kamu sudah terjual! Sisa menunggu pembeli berikutnya.';
-    } else {
-      badge.textContent = '⏳ MENUNGGU PEMBELI';
-      badge.className   = 'ls-badge listed';
-      note.textContent  = 'INDC kamu sudah masuk pool dan menunggu pembeli. USDT otomatis masuk wallet begitu ada yang beli.';
-    }
-
-    document.getElementById('listingStatus').classList.add('show');
+    const isPartial  = indcRemain < maxListF * 0.98;
+    updatePosisi(true, indcRemain, usdtEst, isPartial);
   } catch(e) { console.error('loadListingStatus:', e); }
 }
 
