@@ -633,23 +633,34 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
       <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:#f0b429;letter-spacing:1px;margin-bottom:4px;">🗳 VOTING MASUK DEX</div>
       <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);margin-bottom:14px;line-height:1.5;" id="voteSubtitle">Menunggu stabilisasi likuiditas &<br>distribusi komunitas, pool DEX 100%</div>
 
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;flex:1;justify-content:center;">
-          <span style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:#68d391;" id="voteYes">0</span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);">✅ YA</span>
+      <!-- Angka YA / TIDAK — klik munculkan popup kalau belum aktif -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div onclick="handleVoteClick(true)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(104,211,145,0.2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#68d391;display:block;" id="voteYes">0</span>
         </div>
-        <div id="voteActions" style="display:flex;gap:6px;flex:2;">
-          <button onclick="doVote(true)"  style="flex:1;padding:10px 6px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#2f855a,#38a169);color:#fff;">✅ YA</button>
-          <button onclick="doVote(false)" style="flex:1;padding:10px 6px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#c53030,#e53e3e);color:#fff;">❌ TIDAK</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 12px;flex:1;justify-content:center;">
-          <span style="font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;color:#fc8181;" id="voteNo">0</span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);">❌ TIDAK</span>
+        <div onclick="handleVoteClick(false)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(252,129,129,0.2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+          <span style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:#fc8181;display:block;" id="voteNo">0</span>
         </div>
       </div>
 
-      <div id="voteWaiting" style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);text-align:center;margin-top:10px;line-height:1.6;">Bertransaksi aktif untuk mempercepat voting!</div>
+      <!-- Tombol voting — hanya muncul saat aktif -->
+      <div id="voteActions" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <button onclick="doVote(true)"  style="padding:11px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#2f855a,#38a169);color:#fff;">✅ YA</button>
+        <button onclick="doVote(false)" style="padding:11px;border-radius:8px;border:none;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;background:linear-gradient(135deg,#c53030,#e53e3e);color:#fff;">❌ TIDAK</button>
+      </div>
+
+      <div id="voteWaiting" style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);text-align:center;line-height:1.6;">Bertransaksi aktif untuk mempercepat voting!</div>
       <div class="msg-vote" id="msgVote"></div>
+    </div>
+  </div>
+
+  <!-- VOTING LOCKED POPUP -->
+  <div id="voteLockedPopup" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:flex-end;justify-content:center;">
+    <div style="background:#111111;border:1px solid rgba(200,146,42,0.3);border-bottom:none;border-radius:20px 20px 0 0;padding:28px 20px 40px;width:100%;max-width:480px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:14px;">🔒</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#f0b429;letter-spacing:1px;margin-bottom:12px;">VOTING BELUM DIBUKA</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:24px;">Voting belum dibuka. Bertransaksi aktif di INDC Market untuk mempercepat Pool DEX mencapai 100%.</div>
+      <button onclick="document.getElementById('voteLockedPopup').style.display='none';" style="width:100%;padding:14px;background:linear-gradient(135deg,#c8922a,#f0b429);border:none;border-radius:12px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:2px;">TUTUP</button>
     </div>
   </div>
 
@@ -842,7 +853,7 @@ async function loadMarketData() {
     document.getElementById('voteNo').textContent  = vNo.toString();
     if (votingActive) {
       document.getElementById('voteSubtitle').innerHTML = 'Pool 100% — saatnya komunitas bersuara!';
-      document.getElementById('voteActions').style.display = 'flex';
+      document.getElementById('voteActions').style.display = 'grid';
       document.getElementById('voteWaiting').style.display = 'none';
     } else {
       document.getElementById('voteSubtitle').innerHTML = 'Menunggu stabilisasi likuiditas &<br>distribusi komunitas, pool DEX 100%';
@@ -852,6 +863,9 @@ async function loadMarketData() {
 
     // Cek notifikasi harga
     checkNotifications(_currentPrice);
+
+    // Update posisi aktif kalau wallet sudah connect
+    if (_wallet) checkActiveListing();
 
     // Chart
     addChartPoint(_currentPrice);
@@ -1085,6 +1099,15 @@ function _removeEma(period) {
   }
 }
 
+function handleVoteClick(yes) {
+  const isActive = document.getElementById('voteActions').style.display === 'grid';
+  if (isActive) {
+    doVote(yes);
+  } else {
+    document.getElementById('voteLockedPopup').style.display = 'flex';
+  }
+}
+
 function toggleChartDropdown() {
   const dd = document.getElementById('chartDropdown');
   dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
@@ -1257,6 +1280,7 @@ function checkNotifications(currentPrice) {
 if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
   Notification.requestPermission();
 }
+
 function switchFormTab(tab) {
   document.getElementById('fpBuy').classList.toggle('active', tab==='buy');
   document.getElementById('fpSell').classList.toggle('active', tab==='sell');
@@ -1382,7 +1406,7 @@ async function doList() {
       const tx = await _indcTk.approve(MARKET_ADDR, ethers.constants.MaxUint256);
       await tx.wait();
     }
-    showMsg('msgSell', 'Menunggu konfirmasi listing...', 'inf');
+    showMsg('msgSell', 'Menunggu konfirmasi...', 'inf');
     const tx = await _market.listIndc(indcAmt);
     await tx.wait();
     showMsg('msgSell', '✅ INDC berhasil di-jual ke pool!', 'ok');
@@ -1423,11 +1447,12 @@ async function doVote(yes) {
 }
 
 async function checkActiveListing() {
-  if (!_wallet) return;
+  if (!_wallet) { console.log('checkActiveListing: wallet belum connect'); return; }
   try {
     const rpc = new ethers.providers.JsonRpcProvider(BSC_RPC);
     const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const has = await mkt.hasActiveListing(_wallet);
+    console.log('hasActiveListing:', has, 'wallet:', _wallet);
     document.getElementById('btnList').style.display       = has ? 'none'  : 'block';
     document.getElementById('btnCancelList').style.display = has ? 'block' : 'none';
     if (has) {
@@ -1435,7 +1460,7 @@ async function checkActiveListing() {
     } else {
       updatePosisi(false, 0, 0, false);
     }
-  } catch(e) {}
+  } catch(e) { console.error('checkActiveListing error:', e); }
 }
 
 async function loadListingStatus(mkt) {
