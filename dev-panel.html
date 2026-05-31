@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getDatabase, ref, onValue, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getDatabase, ref, onValue, update, query, orderByChild, get } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 const _fbApp = initializeApp({
   apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
   authDomain:"indocoin-network.firebaseapp.com",
@@ -885,60 +885,42 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    const filter       = _staking.filters.RequestedUSDT();
-    const DEPLOY_BLOCK = 101_000_000; // 2 minggu terakhir
-    const CHUNK_SIZE   = 2_000;      // Max block per query (aman untuk public RPC)
-
-    // Ambil block terbaru
-    const latestBlock = await _provider.getBlockNumber();
-
-    // Query per chunk — gabung semua events
-    const allEvents = [];
-    for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
-      const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
-      try{
-        const chunk = await _staking.queryFilter(filter, from, to);
-        allEvents.push(...chunk);
-      }catch(e){
-        console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
-      }
+    // Baca Firebase langsung pakai get()
+    const snap = await get(ref(_fbDb, 'usdt_requests'));
+    const users = new Set();
+    
+    if(snap.exists()){
+      snap.forEach(child => {
+        const v = child.val();
+        if(v && v.user && v.type !== 'INDC') {
+          users.add(v.user.toLowerCase());
+        }
+      });
     }
 
-    // Kumpulkan unique users dari semua events
-    const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
-    const users   = Array.from(userSet);
-
     _allRequests = [];
-
-    // Ambil semua request per user dari contract
     for(const user of users){
       try{
         const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
-          const indc = fromINDC(r.indcAmount);
-          const usdt = Number(r.usdtAmount) / 1000;
           _allRequests.push({
-            user     : user,
-            idx      : idx,
-            indc     : indc,
-            usdt     : usdt,
-            time     : Number(r.timestamp),
-            approved : r.approved,
+            user    : user,
+            idx     : idx,
+            indc    : fromINDC(r.indcAmount),
+            usdt    : Number(r.usdtAmount) / 1000,
+            time    : Number(r.timestamp),
+            approved: r.approved,
           });
         });
       }catch(e){ console.warn('Skip user', user, e); }
     }
 
-    // Sort: pending dulu, lalu terbaru
     _allRequests.sort((a,b) => {
       if(a.approved !== b.approved) return a.approved ? 1 : -1;
       return b.time - a.time;
     });
 
-    // Update counter pending
-    const pendingCount = _allRequests.filter(r => !r.approved).length;
-    document.getElementById('statPending').textContent = pendingCount;
-
+    document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
     _selected.clear();
     renderList();
 
