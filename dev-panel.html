@@ -885,60 +885,78 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
+    // Coba Firebase dulu — lebih cepat
+    if (typeof window._fbListenRequests === 'function') {
+      window._fbListenRequests(async (fbItems) => {
+        const usersFromFb = [...new Set(Object.values(fbItems).map(v => v.user?.toLowerCase()).filter(Boolean))];
+        
+        _allRequests = [];
+        for(const user of usersFromFb){
+          try{
+            const reqs = await _staking.getRequests(user);
+            reqs.forEach((r, idx) => {
+              const indc = fromINDC(r.indcAmount);
+              const usdt = Number(r.usdtAmount) / 1000;
+              _allRequests.push({
+                user     : user,
+                idx      : idx,
+                indc     : indc,
+                usdt     : usdt,
+                time     : Number(r.timestamp),
+                approved : r.approved,
+              });
+            });
+          }catch(e){ console.warn('Skip user', user, e); }
+        }
+
+        _allRequests.sort((a,b) => {
+          if(a.approved !== b.approved) return a.approved ? 1 : -1;
+          return b.time - a.time;
+        });
+
+        const pendingCount = _allRequests.filter(r => !r.approved).length;
+        document.getElementById('statPending').textContent = pendingCount;
+        _selected.clear();
+        renderList();
+      });
+      return;
+    }
+
+    // Fallback: scan blockchain kalau Firebase tidak tersedia
     const filter       = _staking.filters.RequestedUSDT();
-    const DEPLOY_BLOCK = 101_000_000; // Update ke block terkini
-    const CHUNK_SIZE   = 5_000;       // Perbesar chunk
-
-    // Ambil block terbaru
-    const latestBlock = await _provider.getBlockNumber();
-
-    // Query per chunk — gabung semua events
-    const allEvents = [];
+    const DEPLOY_BLOCK = 86_178_694;
+    const CHUNK_SIZE   = 50_000;
+    const latestBlock  = await _provider.getBlockNumber();
+    const allEvents    = [];
     for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
       try{
         const chunk = await _staking.queryFilter(filter, from, to);
         allEvents.push(...chunk);
-      }catch(e){
-        console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
-      }
+      }catch(e){ console.warn(`Chunk ${from}-${to} gagal:`, e.message); }
     }
 
-    // Kumpulkan unique users dari semua events
     const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
     const users   = Array.from(userSet);
+    _allRequests  = [];
 
-    _allRequests = [];
-
-    // Ambil semua request per user dari contract
     for(const user of users){
       try{
         const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
-          const indc = fromINDC(r.indcAmount);
-          const usdt = Number(r.usdtAmount) / 1000;
           _allRequests.push({
-            user     : user,
-            idx      : idx,
-            indc     : indc,
-            usdt     : usdt,
-            time     : Number(r.timestamp),
-            approved : r.approved,
+            user: user, idx,
+            indc: fromINDC(r.indcAmount),
+            usdt: Number(r.usdtAmount)/1000,
+            time: Number(r.timestamp),
+            approved: r.approved,
           });
         });
       }catch(e){ console.warn('Skip user', user, e); }
     }
 
-    // Sort: pending dulu, lalu terbaru
-    _allRequests.sort((a,b) => {
-      if(a.approved !== b.approved) return a.approved ? 1 : -1;
-      return b.time - a.time;
-    });
-
-    // Update counter pending
-    const pendingCount = _allRequests.filter(r => !r.approved).length;
-    document.getElementById('statPending').textContent = pendingCount;
-
+    _allRequests.sort((a,b) => a.approved?1:-1 || b.time-a.time);
+    document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
     _selected.clear();
     renderList();
 
