@@ -885,16 +885,20 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    const filter       = _staking.filters.RequestedUSDT();
-    const latestBlock  = await _provider.getBlockNumber();
-    const DEPLOY_BLOCK = latestBlock - 403_200; // 2 minggu terakhir (~403200 blocks)
+    // Pakai RPC publik BSC — lebih reliable dari wallet provider
+    const BSC_RPC  = 'https://bsc-dataseed1.binance.org/';
+    const rpc      = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, rpc);
+    const filter       = staking.filters.RequestedUSDT();
+    const latestBlock  = await rpc.getBlockNumber();
+    const DEPLOY_BLOCK = latestBlock - 403_200; // 2 minggu terakhir
     const CHUNK_SIZE   = 2_000;
 
     const allEvents = [];
     for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
       try{
-        const chunk = await _staking.queryFilter(filter, from, to);
+        const chunk = await staking.queryFilter(filter, from, to);
         allEvents.push(...chunk);
       }catch(e){
         console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
@@ -907,7 +911,7 @@ async function loadRequestsFromEvents(){
 
     for(const user of users){
       try{
-        const reqs = await _staking.getRequests(user);
+        const reqs = await staking.getRequests(user);
         reqs.forEach((r, idx) => {
           _allRequests.push({
             user    : user,
