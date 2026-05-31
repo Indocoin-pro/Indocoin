@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getDatabase, ref, onValue, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getDatabase, ref, onValue, update, query, orderByChild, get } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 const _fbApp = initializeApp({
   apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
   authDomain:"indocoin-network.firebaseapp.com",
@@ -885,90 +885,50 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    // Coba Firebase dulu — ambil semua USDT requests
-    if (typeof window._fbListenRequests === 'function') {
-      window._fbListenRequests(async (fbItems) => {
-        console.log('FB items total:', Object.keys(fbItems).length);
-        console.log('FB sample:', JSON.stringify(Object.values(fbItems).slice(0,2)));
-        
-        // Filter hanya type USDT (bukan INDC bonus)
-        const usdtUsers = [...new Set(
-          Object.values(fbItems)
-            .filter(v => v.type !== 'INDC' && v.user)
-            .map(v => v.user.toLowerCase())
-        )];
-        console.log('USDT users:', usdtUsers.length, usdtUsers);
-
-        _allRequests = [];
-        for(const user of usdtUsers){
-          try{
-            const reqs = await _staking.getRequests(user);
-            reqs.forEach((r, idx) => {
-              _allRequests.push({
-                user    : user,
-                idx     : idx,
-                indc    : fromINDC(r.indcAmount),
-                usdt    : Number(r.usdtAmount) / 1000,
-                time    : Number(r.timestamp),
-                approved: r.approved,
-              });
-            });
-          }catch(e){ console.warn('Skip user', user, e); }
-        }
-
-        _allRequests.sort((a,b) => {
-          if(a.approved !== b.approved) return a.approved ? 1 : -1;
-          return b.time - a.time;
-        });
-
-        document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
-        _selected.clear();
-        renderList();
-      });
+    // Baca dari Firebase langsung — cepat, tanpa scan blockchain
+    const snap = await get(query(ref(_fbDb, 'usdt_requests'), orderByChild('ts')));
+    if(!snap.exists()){
+      document.getElementById('statPending').textContent = '0';
+      _allRequests = [];
+      renderList();
       return;
     }
 
-    // Fallback: scan blockchain kalau Firebase tidak tersedia
-    const filter       = _staking.filters.RequestedUSDT();
-    const DEPLOY_BLOCK = 86_178_694;
-    const CHUNK_SIZE   = 50_000;
-    const latestBlock  = await _provider.getBlockNumber();
-    const allEvents    = [];
-    for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
-      const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
-      try{
-        const chunk = await _staking.queryFilter(filter, from, to);
-        allEvents.push(...chunk);
-      }catch(e){ console.warn(`Chunk ${from}-${to} gagal:`, e.message); }
-    }
+    const fbItems = {};
+    snap.forEach(c => { fbItems[c.key] = { fbKey: c.key, ...c.val() }; });
+    
+    // Filter hanya type USDT
+    const usdtEntries = Object.values(fbItems).filter(v => v.type !== 'INDC' && v.user);
+    const userSet = [...new Set(usdtEntries.map(v => v.user.toLowerCase()))];
 
-    const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
-    const users   = Array.from(userSet);
-    _allRequests  = [];
-
-    for(const user of users){
+    _allRequests = [];
+    for(const user of userSet){
       try{
         const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
           _allRequests.push({
-            user: user, idx,
-            indc: fromINDC(r.indcAmount),
-            usdt: Number(r.usdtAmount)/1000,
-            time: Number(r.timestamp),
+            user    : user,
+            idx     : idx,
+            indc    : fromINDC(r.indcAmount),
+            usdt    : Number(r.usdtAmount) / 1000,
+            time    : Number(r.timestamp),
             approved: r.approved,
           });
         });
       }catch(e){ console.warn('Skip user', user, e); }
     }
 
-    _allRequests.sort((a,b) => a.approved?1:-1 || b.time-a.time);
+    _allRequests.sort((a,b) => {
+      if(a.approved !== b.approved) return a.approved ? 1 : -1;
+      return b.time - a.time;
+    });
+
     document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
     _selected.clear();
     renderList();
 
   }catch(e){
-    // Fallback: jika semua gagal, tampilkan form manual
-    console.warn('Event query gagal, fallback ke manual:', e);
+    console.warn('loadRequestsFromEvents gagal:', e);
     document.getElementById('reqList').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">🔍</div>
