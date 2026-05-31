@@ -887,41 +887,19 @@ async function loadRequestsFromEvents(){
   try{
     const filter       = _staking.filters.RequestedUSDT();
     const latestBlock  = await _provider.getBlockNumber();
-    const MONTH_BLOCKS = 864_000; // ~1 bulan
-    const fromBlock    = Math.max(86_178_694, latestBlock - MONTH_BLOCKS);
-    const CHUNK_SIZE   = 50_000;
-
-    document.getElementById('reqList').innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat data...</div></div>';
+    const DEPLOY_BLOCK = latestBlock - 403_200; // 2 minggu terakhir (~403200 blocks)
+    const CHUNK_SIZE   = 2_000;
 
     const allEvents = [];
-    const totalChunks = Math.ceil((latestBlock - fromBlock) / CHUNK_SIZE);
-    let doneChunks = 0;
-
-    // Pakai eth_getLogs langsung — lebih reliable dari queryFilter
-    const iface     = new ethers.utils.Interface(STAKING_ABI);
-    const eventTopic = ethers.utils.id('RequestedUSDT(address,uint256,uint256)');
-
-    for(let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE){
+    for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
-      doneChunks++;
-      document.getElementById('reqList').innerHTML = `<div class="loading"><div class="spinner"></div><div>Scan block... ${doneChunks}/${totalChunks}</div></div>`;
       try{
-        const logs = await _provider.getLogs({
-          address: SC.STAKING,
-          topics:  [eventTopic],
-          fromBlock: from,
-          toBlock:   to,
-        });
-        logs.forEach(log => {
-          try {
-            const parsed = iface.parseLog(log);
-            allEvents.push({ args: { user: parsed.args.user } });
-          } catch(e) {}
-        });
-      }catch(e){ console.warn(`Chunk ${from}-${to} gagal:`, e.message); }
+        const chunk = await _staking.queryFilter(filter, from, to);
+        allEvents.push(...chunk);
+      }catch(e){
+        console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
+      }
     }
-
-    console.log('Total events found:', allEvents.length);
 
     const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
     const users   = Array.from(userSet);
@@ -948,12 +926,13 @@ async function loadRequestsFromEvents(){
       return b.time - a.time;
     });
 
-    document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
+    const pendingCount = _allRequests.filter(r => !r.approved).length;
+    document.getElementById('statPending').textContent = pendingCount;
     _selected.clear();
     renderList();
 
   }catch(e){
-    console.warn('loadRequestsFromEvents gagal:', e);
+    console.warn('Event query gagal, fallback ke manual:', e);
     document.getElementById('reqList').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">🔍</div>
@@ -965,6 +944,7 @@ async function loadRequestsFromEvents(){
       </div>`;
   }
 }
+
 
 async function loadManual(){
   const addr = document.getElementById('manualAddr').value.trim();
