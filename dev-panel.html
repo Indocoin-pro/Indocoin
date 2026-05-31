@@ -897,15 +897,31 @@ async function loadRequestsFromEvents(){
     const totalChunks = Math.ceil((latestBlock - fromBlock) / CHUNK_SIZE);
     let doneChunks = 0;
 
+    // Pakai eth_getLogs langsung — lebih reliable dari queryFilter
+    const iface     = new ethers.utils.Interface(STAKING_ABI);
+    const eventTopic = ethers.utils.id('RequestedUSDT(address,uint256,uint256)');
+
     for(let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
       doneChunks++;
       document.getElementById('reqList').innerHTML = `<div class="loading"><div class="spinner"></div><div>Scan block... ${doneChunks}/${totalChunks}</div></div>`;
       try{
-        const chunk = await _staking.queryFilter(filter, from, to);
-        allEvents.push(...chunk);
+        const logs = await _provider.getLogs({
+          address: SC.STAKING,
+          topics:  [eventTopic],
+          fromBlock: from,
+          toBlock:   to,
+        });
+        logs.forEach(log => {
+          try {
+            const parsed = iface.parseLog(log);
+            allEvents.push({ args: { user: parsed.args.user } });
+          } catch(e) {}
+        });
       }catch(e){ console.warn(`Chunk ${from}-${to} gagal:`, e.message); }
     }
+
+    console.log('Total events found:', allEvents.length);
 
     const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
     const users   = Array.from(userSet);
