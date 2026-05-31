@@ -401,9 +401,9 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 
     <div id="priceChartDiv" style="height:200px;border-radius:8px;overflow:hidden;"></div>
     <div class="chart-foot" style="margin-top:8px;">
-      <span>Transaksi on-chain</span>
+      <span>Powered by indocoin.id</span>
       <span id="chartRangeLabel">1 Jam terakhir</span>
-      <span>Trustless · Transparan</span>
+      <span>⛓ Onchain · Aman · Transparan</span>
     </div>
   </div>
 
@@ -1184,7 +1184,7 @@ function switchTab3(tab) {
 // ═══════════════════════════════════════════
 //  POSISI TAB
 // ═══════════════════════════════════════════
-function updatePosisi(hasListing, indcRemain, usdtEst, isPartial) {
+function updatePosisi(hasListing, indcRemain, usdtEst) {
   if (!hasListing) {
     document.getElementById('posisiEmpty').style.display  = 'block';
     document.getElementById('posisiActive').style.display = 'none';
@@ -1194,30 +1194,24 @@ function updatePosisi(hasListing, indcRemain, usdtEst, isPartial) {
   document.getElementById('posisiActive').style.display = 'block';
   document.getElementById('posisiIndc').textContent  = fmtN(indcRemain) + ' INDC';
   document.getElementById('posisiUsdt').textContent  = '$' + usdtEst.toFixed(2);
-  document.getElementById('posisiBatalBtn').style.display = 'block';
 
   const badge = document.getElementById('posisiBadge');
   const note  = document.getElementById('posisiNote');
 
   if (indcRemain <= 0) {
-    badge.textContent  = '✅ TERJUAL';
+    badge.textContent      = '✅ TERJUAL';
     badge.style.background = '#f0faf4';
     badge.style.color      = 'var(--green)';
     badge.style.border     = '1px solid rgba(47,133,90,0.3)';
-    note.textContent   = 'Semua INDC sudah terjual! USDT sudah masuk wallet kamu.';
+    note.textContent       = 'Semua INDC sudah terjual! USDT sudah masuk wallet kamu.';
     document.getElementById('posisiBatalBtn').style.display = 'none';
-  } else if (isPartial) {
-    badge.textContent  = '🟡 TERJUAL SEBAGIAN';
-    badge.style.background = '#fffbf0';
-    badge.style.color      = 'var(--gold)';
-    badge.style.border     = '1px solid rgba(200,146,42,0.3)';
-    note.textContent   = 'Sebagian INDC sudah terjual. Sisa menunggu pembeli berikutnya.';
   } else {
-    badge.textContent  = '⏳ MENUNGGU PEMBELI';
+    badge.textContent      = '⏳ MENUNGGU PEMBELI';
     badge.style.background = '#fffbf0';
     badge.style.color      = 'var(--gold)';
     badge.style.border     = '1px solid rgba(200,146,42,0.3)';
-    note.textContent   = 'INDC kamu sudah masuk pool dan menunggu pembeli. USDT otomatis masuk wallet begitu ada yang beli.';
+    note.textContent       = 'INDC kamu sudah masuk pool dan menunggu pembeli. USDT otomatis masuk wallet begitu ada yang beli.';
+    document.getElementById('posisiBatalBtn').style.display = 'block';
   }
 }
 
@@ -1469,7 +1463,7 @@ async function checkActiveListing() {
     if (has) {
       await loadListingStatus(mkt);
     } else {
-      updatePosisi(false, 0, 0, false);
+      updatePosisi(false, 0, 0);
     }
   } catch(e) { console.error('checkActiveListing error:', e); }
 }
@@ -1485,15 +1479,11 @@ async function loadListingStatus(mkt) {
     const isActive   = listing.active !== undefined ? listing.active : listing[3];
     console.log('indcRemain:', indcRemain, 'isActive:', isActive);
     if (!isActive) {
-      updatePosisi(false, 0, 0, false);
+      updatePosisi(false, 0, 0);
       return;
     }
     const usdtEst    = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
-    const maxList    = await mkt.maxListingIndc();
-    const maxListF   = parseFloat(ethers.formatUnits(maxList, INDC_DEC));
-    // Terjual sebagian hanya kalau sudah berkurang lebih dari 5% (bukan hanya fee 2%)
-    const isPartial  = indcRemain < maxListF * 0.95;
-    updatePosisi(true, indcRemain, usdtEst, isPartial);
+    updatePosisi(true, indcRemain, usdtEst);
   } catch(e) { console.error('loadListingStatus error:', e); }
 }
 
