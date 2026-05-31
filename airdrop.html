@@ -7,6 +7,86 @@
 <title>INDOCOIN — AIRDROP</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+
+const _fbApp = initializeApp({
+  apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain: "indocoin-network.firebaseapp.com",
+  databaseURL: "https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "indocoin-network",
+  storageBucket: "indocoin-network.firebasestorage.app",
+  messagingSenderId: "742922450154",
+  appId: "1:742922450154:web:97e0847e85bfe3e9f9d393"
+}, 'airdrop-app');
+
+const _fbDb = getDatabase(_fbApp);
+
+// Hitung hash SHA-256 dari gambar
+async function hashImage(base64) {
+  const raw = atob(base64.split(',')[1]);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const hashBuf = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Cek apakah hash sudah pernah dipakai dalam 7 hari
+async function checkHashExists(wallet, hash) {
+  try {
+    const snap = await get(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}`));
+    if (!snap.exists()) return false;
+    const data = snap.val();
+    const now = Date.now();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    for (const key of Object.keys(data)) {
+      const entry = data[key];
+      // Hapus yang sudah lebih dari 7 hari
+      if (now - entry.ts > sevenDays) {
+        await remove(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}/${key}`));
+        continue;
+      }
+      if (entry.hash === hash) return true;
+    }
+    return false;
+  } catch(e) { return false; }
+}
+
+// Simpan hash baru
+async function saveHash(wallet, hash) {
+  try {
+    const key = Date.now().toString();
+    await set(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}/${key}`), {
+      hash: hash,
+      ts: Date.now()
+    });
+  } catch(e) {}
+}
+
+// Validasi nama file mengandung tanggal hari ini
+function checkFileName(fileName) {
+  const now = new Date();
+  const y = now.getFullYear().toString();
+  const m = (now.getMonth()+1).toString().padStart(2,'0');
+  const d = now.getDate().toString().padStart(2,'0');
+  // Format umum: Screenshot_20260601, IMG_20260601, 2026-06-01, dll
+  const patterns = [
+    `${y}${m}${d}`,
+    `${y}-${m}-${d}`,
+    `${y}_${m}_${d}`,
+  ];
+  return patterns.some(p => fileName.includes(p));
+}
+
+// Export ke window agar bisa diakses dari script utama
+window._airdropFirebase = {
+  hashImage,
+  checkHashExists,
+  saveHash,
+  checkFileName
+};
+</script>
 <style>
 :root{
   --bg:#f5f5f0;--bg2:#ffffff;
@@ -347,6 +427,7 @@ const CONTRACT_ABI = [
 let userAddress = null;
 let selectedTaskId = null;
 let uploadedImg = null;
+let uploadedFileName = '';
 let cdInterval = null;
 
 // ── HELPERS ───────────────────────────────────────────────
@@ -459,9 +540,18 @@ function selectTask(id) {
 function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
+
+  // Validasi nama file — harus mengandung tanggal hari ini
+  if (window._airdropFirebase && !window._airdropFirebase.checkFileName(file.name)) {
+    setStatus('verifyStatus', '❌ Screenshot harus diambil hari ini. Pastikan nama file mengandung tanggal hari ini.', 'err');
+    document.getElementById('btnVerify').disabled = true;
+    return;
+  }
+
   const r = new FileReader();
   r.onload = (ev) => {
     uploadedImg = ev.target.result;
+    uploadedFileName = file.name;
     const prev = document.getElementById('uploadPreview');
     prev.src = uploadedImg; prev.style.display = 'block';
     document.getElementById('uploadHint').textContent = '✅ Screenshot siap diverifikasi';
@@ -474,18 +564,33 @@ async function verifySosmed() {
   if (!uploadedImg || uploadedImg.length < 5000) {
     setStatus('verifyStatus','❌ Screenshot tidak valid atau terlalu kecil','err'); return;
   }
+
   setStatus('verifyStatus','⏳ Memverifikasi screenshot...','info');
-  setTimeout(() => {
-    const wk = userAddress.toLowerCase();
-    // Tambah 5 ke pending balance sosmed gate
-    const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
-    localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
-    // Tandai gate done hari ini
-    localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
-    uploadedImg = null;
-    setStatus('verifyStatus','✅ +5 INDC masuk ke TERKUMPUL! 40 program terbuka!','ok');
-    setTimeout(() => showPrograms(), 1500);
-  }, 1200);
+
+  // Hash check — cegah foto daur ulang (7 hari)
+  if (window._airdropFirebase && userAddress) {
+    try {
+      const hash = await window._airdropFirebase.hashImage(uploadedImg);
+      const exists = await window._airdropFirebase.checkHashExists(userAddress, hash);
+      if (exists) {
+        setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru hari ini.','err');
+        return;
+      }
+      // Simpan hash baru
+      await window._airdropFirebase.saveHash(userAddress, hash);
+    } catch(e) { console.warn('Hash check skip:', e); }
+  }
+
+  const wk = userAddress.toLowerCase();
+  // Tambah 5 ke pending balance sosmed gate
+  const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
+  localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
+  // Tandai gate done hari ini
+  localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
+  uploadedImg = null;
+  uploadedFileName = '';
+  setStatus('verifyStatus','✅ +5 INDC masuk ke TERKUMPUL! 40 program terbuka!','ok');
+  setTimeout(() => showPrograms(), 1500);
 }
 
 // ── SHOW PROGRAMS ─────────────────────────────────────────
