@@ -330,7 +330,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 }
 .queue-wait {
   background:linear-gradient(90deg,var(--gold),var(--gold2)) !important;
-  width:18% !important;
+  width:0% !important;
 }
 </style>
 </head>
@@ -571,7 +571,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
           <div style="height:6px;background:var(--cream2);border-radius:99px;overflow:hidden;border:1px solid var(--border);">
             <div id="queueFill" style="height:100%;width:0%;border-radius:99px;transition:width 0.8s ease;"></div>
           </div>
-          <div id="queueInfo" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);text-align:center;">Menunggu pembeli aktif...</div>
+          <div id="queueInfo" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;">Menunggu pembeli aktif...</div>
         </div>
 
         <div id="posisiNote" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);text-align:center;margin-bottom:12px;line-height:1.5;"></div>
@@ -754,6 +754,7 @@ const MARKET_ABI = [
   "function hasVoted(address) view returns (bool)",
   "function listings(uint256) view returns (address seller, uint256 indcAmount, uint256 timestamp, bool active)",
   "function sellerListingId(address) view returns (uint256)",
+  "function getActiveListings(uint256 from, uint256 count) view returns (tuple(uint256 id, address seller, uint256 indcAmount, uint256 timestamp, bool active)[])",
   "function blacklisted(address) view returns (bool)",
   "function lastTxTime(address) view returns (uint256)",
 ];
@@ -764,6 +765,10 @@ const ERC20_ABI = [
 ];
 
 let _provider, _signer, _wallet, _market, _indcTk, _usdtTk;
+let _myListingId   = 0;   // listing ID milik wallet ini
+let _queuePosition = 0;   // posisi saya di antrian
+let _queueTotal    = 0;   // total penjual aktif
+let _queueIndcAhead = 0;  // total INDC di depan saya
 let _currentPrice = 0;
 let _histFilter   = 'all';
 let _allHistory   = [];
@@ -1474,11 +1479,21 @@ function _setQueueBar(state) {
 
   if (state === 'wait') {
     fill.classList.add('queue-wait');
+    fill.style.width = '0%';
     info.style.color = 'var(--text3)';
-    info.textContent = 'Menunggu pembeli aktif...';
+    // Tampilkan posisi & INDC di depan kalau sudah ada data
+    if (_queueTotal > 0 && _queuePosition > 0) {
+      const indcStr = _queueIndcAhead > 0 ? 'Estimasi menunggu: ~' + fmtN(_queueIndcAhead) + ' INDC lagi' : 'Menunggu pembeli aktif...';
+      info.innerHTML =
+        '<span>' + _queuePosition + '/' + _queueTotal + '</span>' +
+        '<span>' + indcStr + '</span>';
+    } else {
+      info.textContent = 'Menunggu pembeli aktif...';
+    }
 
   } else if (state === 'exec') {
     fill.classList.add('queue-exec');
+    // width diset dinamis dari updatePosisi berdasarkan progress nyata
     info.style.color = 'var(--green)';
     info.textContent = 'INDC kamu sedang terjual ✨';
 
@@ -1559,6 +1574,13 @@ function updatePosisi(hasListing, indcRemain, usdtEst) {
     note.textContent       = '';
     document.getElementById('posisiBatalBtn').style.display = 'block';
     _setQueueBar('exec');
+    // Hitung progress dinamis: berapa % sudah terjual dari jumlah awal
+    if (_listingOrigIndc > 0) {
+      const terjual  = _listingOrigIndc - indcRemain;
+      const pct      = Math.min(Math.max((terjual / _listingOrigIndc) * 100, 5), 99);
+      const fill     = document.getElementById('queueFill');
+      if (fill) fill.style.width = pct.toFixed(1) + '%';
+    }
   } else {
     badge.textContent      = '⏳ MENUNGGU';
     badge.style.background = '#fffbf0';
@@ -1833,6 +1855,7 @@ let _listingOrigIndc = 0;
 async function loadListingStatus(mkt) {
   try {
     const listingId  = await mkt.sellerListingId(_wallet);
+    _myListingId     = Number(listingId);
     const listing    = await mkt.listings(listingId);
     const indcRemain = parseFloat(ethers.formatUnits(listing.indcAmount || listing[1], INDC_DEC));
     const isActive   = listing.active !== undefined ? listing.active : listing[3];
@@ -1840,6 +1863,7 @@ async function loadListingStatus(mkt) {
     if (!isActive) {
       updatePosisi(false, 0, 0);
       _listingOrigIndc = 0;
+      _myListingId     = 0;
       return;
     }
 
@@ -1852,9 +1876,43 @@ async function loadListingStatus(mkt) {
       _prevQueueState = 'exec';
     }
 
+    // Hitung posisi antrian via getActiveListings
+    await _calcQueuePosition(mkt, _myListingId);
+
     const usdtEst = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
     updatePosisi(true, indcRemain, usdtEst);
   } catch(e) { console.error('loadListingStatus error:', e); }
+}
+
+async function _calcQueuePosition(mkt, myId) {
+  try {
+    // Ambil max 100 listing aktif dari awal
+    const actives = await mkt.getActiveListings(0, 100);
+    _queueTotal    = actives.length;
+
+    // Sort by ID ascending (FIFO — ID kecil = duluan)
+    const sorted = [...actives].sort((a, b) => Number(a.id) - Number(b.id));
+
+    let pos        = 0;
+    let indcAhead  = 0;
+    let foundSelf  = false;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const id = Number(sorted[i].id);
+      if (id === myId) {
+        pos       = i + 1; // posisi 1-based
+        foundSelf = true;
+        break;
+      }
+      // Akumulasi INDC di depan kita
+      indcAhead += parseFloat(ethers.formatUnits(sorted[i].indcAmount, INDC_DEC));
+    }
+
+    _queuePosition  = foundSelf ? pos : _queueTotal;
+    _queueIndcAhead = indcAhead;
+  } catch(e) {
+    console.error('_calcQueuePosition error:', e);
+  }
 }
 
 // ═══════════════════════════════════════════
