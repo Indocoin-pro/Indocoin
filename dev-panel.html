@@ -1303,11 +1303,15 @@ async function loadBonusIndcData(){
   const el = document.getElementById('bonusIndcList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat bonus INDC...</div></div>';
   try{
-    const fbUrl = 'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json?orderBy=%22type%22&equalTo=%22INDC%22';
-    const res = await fetch(fbUrl);
-    const raw = await res.json();
-    _bonusIndcData = raw || {};
-    renderBonusIndcList();
+    // Pakai Firebase SDK — bukan REST URL yang kena permission denied
+    if (typeof window._fbListenRequests === 'function') {
+      window._fbListenRequests(items => {
+        _bonusIndcData = items || {};
+        renderBonusIndcList();
+      });
+    } else {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Firebase belum siap</div></div>';
+    }
   }catch(e){
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Gagal memuat data</div></div>';
   }
