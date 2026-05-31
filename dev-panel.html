@@ -885,25 +885,28 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    // Coba Firebase dulu — lebih cepat
+    // Coba Firebase dulu — ambil semua USDT requests
     if (typeof window._fbListenRequests === 'function') {
       window._fbListenRequests(async (fbItems) => {
-        const usersFromFb = [...new Set(Object.values(fbItems).map(v => v.user?.toLowerCase()).filter(Boolean))];
-        
+        // Filter hanya type USDT (bukan INDC bonus)
+        const usdtUsers = [...new Set(
+          Object.values(fbItems)
+            .filter(v => v.type !== 'INDC' && v.user)
+            .map(v => v.user.toLowerCase())
+        )];
+
         _allRequests = [];
-        for(const user of usersFromFb){
+        for(const user of usdtUsers){
           try{
             const reqs = await _staking.getRequests(user);
             reqs.forEach((r, idx) => {
-              const indc = fromINDC(r.indcAmount);
-              const usdt = Number(r.usdtAmount) / 1000;
               _allRequests.push({
-                user     : user,
-                idx      : idx,
-                indc     : indc,
-                usdt     : usdt,
-                time     : Number(r.timestamp),
-                approved : r.approved,
+                user    : user,
+                idx     : idx,
+                indc    : fromINDC(r.indcAmount),
+                usdt    : Number(r.usdtAmount) / 1000,
+                time    : Number(r.timestamp),
+                approved: r.approved,
               });
             });
           }catch(e){ console.warn('Skip user', user, e); }
@@ -914,8 +917,7 @@ async function loadRequestsFromEvents(){
           return b.time - a.time;
         });
 
-        const pendingCount = _allRequests.filter(r => !r.approved).length;
-        document.getElementById('statPending').textContent = pendingCount;
+        document.getElementById('statPending').textContent = _allRequests.filter(r=>!r.approved).length;
         _selected.clear();
         renderList();
       });
