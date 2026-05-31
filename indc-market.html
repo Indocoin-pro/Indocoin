@@ -400,19 +400,24 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
         </div>
       </div>
 
-      <!-- Kanan: EMA -->
-      <div style="display:flex;align-items:center;gap:3px;">
-        <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);">EMA</span>
-        <button class="tf ema-btn" id="ema7"  onclick="toggleEma(7,this)"  style="color:#3b82f6;border-color:#3b82f6;padding:4px 7px;">7</button>
-        <button class="tf ema-btn" id="ema25" onclick="toggleEma(25,this)" style="color:#a855f7;border-color:#a855f7;padding:4px 7px;">25</button>
-        <button class="tf ema-btn" id="ema99" onclick="toggleEma(99,this)" style="color:#ef4444;border-color:#ef4444;padding:4px 7px;">99</button>
+      <!-- Kanan: EMA dropdown -->
+      <div style="display:flex;align-items:center;gap:3px;position:relative;">
+        <button id="emaDropBtn" onclick="toggleEmaDropdown()" class="tf" style="display:flex;align-items:center;gap:4px;padding:4px 8px;">
+          <span style="font-family:'DM Mono',monospace;font-size:8px;">EMA</span>
+          <span style="font-size:8px;">▼</span>
+        </button>
+        <div id="emaDropdown" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:50;overflow:hidden;min-width:80px;">
+          <div onclick="toggleEma(7,this)" id="emaOpt7"  class="ct-opt" style="color:#3b82f6;">● EMA 7</div>
+          <div onclick="toggleEma(25,this)" id="emaOpt25" class="ct-opt" style="color:#a855f7;">● EMA 25</div>
+          <div onclick="toggleEma(99,this)" id="emaOpt99" class="ct-opt" style="color:#ef4444;">● EMA 99</div>
+        </div>
       </div>
 
     </div>
 
     <div id="priceChartDiv" style="height:200px;position:relative;touch-action:none;">
       <canvas id="priceChart" style="touch-action:none;"></canvas>
-      <button onclick="resetZoom()" style="position:absolute;top:6px;right:6px;padding:3px 8px;font-family:'DM Mono',monospace;font-size:8px;background:rgba(200,146,42,0.15);border:1px solid rgba(200,146,42,0.3);border-radius:6px;color:#c8922a;cursor:pointer;">↺ Reset</button>
+      <button onclick="resetZoom()" style="position:absolute;top:6px;right:6px;width:26px;height:26px;font-size:16px;font-weight:900;background:rgba(200,146,42,0.15);border:1.5px solid rgba(200,146,42,0.3);border-radius:50%;color:#c8922a;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">↻</button>
     </div>
     <div class="chart-foot" style="margin-top:8px;">
       <span>Powered by indocoin.id</span>
@@ -1163,10 +1168,25 @@ function _updateChart() {
   _chart.update('none');
 }
 
-function toggleEma(period, btn) {
+function toggleEmaDropdown() {
+  const dd = document.getElementById('emaDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+// Tutup EMA dropdown kalau klik di luar
+document.addEventListener('click', e => {
+  const btn = document.getElementById('emaDropBtn');
+  const dd  = document.getElementById('emaDropdown');
+  if (dd && btn && !btn.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
+
+function toggleEma(period, el) {
   const idx = period === 7 ? 1 : period === 25 ? 2 : 3;
   _emaActive[period] = !_emaActive[period];
-  btn.classList.toggle('ema-active-' + period, _emaActive[period]);
+  // Update visual — bold kalau aktif
+  if (el) el.style.fontWeight = _emaActive[period] ? '900' : '400';
   if (_chart) {
     _chart.data.datasets[idx].hidden = !_emaActive[period];
     if (_emaActive[period]) _chart.data.datasets[idx].data = _calcEmaData(period);
@@ -1225,14 +1245,21 @@ function switchChartType(type) {
     _chart.config.type = 'candlestick';
     _chart.data.datasets[0].data = _buildOHLC();
     _chart.data.datasets[0].color = {
-      up: '#2f855a', down: '#e53e3e',
+      up: '#16a34a',
+      down: '#dc2626',
+      unchanged: '#c8922a',
+    };
+    _chart.data.datasets[0].borderColor = {
+      up: '#16a34a',
+      down: '#dc2626',
       unchanged: '#c8922a',
     };
   } else if (type === 'bar') {
     _chart.config.type = 'ohlc';
     _chart.data.datasets[0].data = _buildOHLC();
     _chart.data.datasets[0].color = {
-      up: '#2f855a', down: '#e53e3e',
+      up: '#16a34a',
+      down: '#dc2626',
       unchanged: '#c8922a',
     };
   } else if (type === 'area') {
