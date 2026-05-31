@@ -916,10 +916,11 @@ async function loadListedEvents(mkt) {
     const provider = _provider || await getBscProvider();
     const contract = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
     const latest   = await provider.getBlockNumber();
-    const from     = Math.max(0, latest - 5000); // 5000 blok terakhir ~4 jam
+    const from     = Math.max(0, latest - 50000); // 50000 blok ~41 jam
 
     const listedFilter = contract.filters.Listed();
     const listedEvents = await contract.queryFilter(listedFilter, from, latest);
+    console.log('Listed events:', listedEvents.length);
 
     // Gabungkan beli + jual, sort by timestamp terbaru
     const buys = _allHistory.map(h => ({
@@ -930,19 +931,24 @@ async function loadListedEvents(mkt) {
       timestamp:  Number(h.timestamp),
     }));
 
-    const sells = listedEvents.map(e => ({
-      type:      'jual',
-      wallet:    e.args.seller,
-      indcAmount: e.args.indcAmount,
-      usdtAmount: null,
-      timestamp:  Number(e.args.timestamp),
+    const sells = await Promise.all(listedEvents.map(async e => {
+      // Ambil timestamp dari block
+      const block = await provider.getBlock(e.blockNumber);
+      return {
+        type:      'jual',
+        wallet:    e.args.seller,
+        indcAmount: e.args.indcAmount,
+        usdtAmount: null,
+        timestamp:  block ? block.timestamp : Number(e.args.timestamp),
+      };
     }));
 
     _allCombined = [...buys, ...sells].sort((a, b) => b.timestamp - a.timestamp);
+    console.log('Combined history:', _allCombined.length);
     renderHistory();
   } catch(e) {
     console.error('loadListedEvents error:', e);
-    renderHistory(); // tetap render dengan data beli saja
+    renderHistory();
   }
 }
 
