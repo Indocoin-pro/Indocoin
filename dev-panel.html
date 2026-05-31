@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getDatabase, ref, onValue, update, query, orderByChild, get } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getDatabase, ref, onValue, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 const _fbApp = initializeApp({
   apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
   authDomain:"indocoin-network.firebaseapp.com",
@@ -885,57 +885,65 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    // Pakai RPC publik BSC — lebih reliable dari wallet provider
-    const BSC_RPC  = 'https://bsc-dataseed1.binance.org/';
-    const rpc      = new ethers.providers.JsonRpcProvider(BSC_RPC);
-    const staking  = new ethers.Contract(SC.STAKING, STAKING_ABI, rpc);
-    const filter       = staking.filters.RequestedUSDT();
-    const latestBlock  = await rpc.getBlockNumber();
-    const DEPLOY_BLOCK = latestBlock - 403_200; // 2 minggu terakhir
-    const CHUNK_SIZE   = 2_000;
+    const filter       = _staking.filters.RequestedUSDT();
+    const DEPLOY_BLOCK = 101_000_000; // 2 minggu terakhir
+    const CHUNK_SIZE   = 2_000;      // Max block per query (aman untuk public RPC)
 
+    // Ambil block terbaru
+    const latestBlock = await _provider.getBlockNumber();
+
+    // Query per chunk — gabung semua events
     const allEvents = [];
     for(let from = DEPLOY_BLOCK; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
       try{
-        const chunk = await staking.queryFilter(filter, from, to);
+        const chunk = await _staking.queryFilter(filter, from, to);
         allEvents.push(...chunk);
       }catch(e){
         console.warn(`Chunk ${from}-${to} gagal, skip:`, e.message);
       }
     }
 
+    // Kumpulkan unique users dari semua events
     const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
     const users   = Array.from(userSet);
-    _allRequests  = [];
 
+    _allRequests = [];
+
+    // Ambil semua request per user dari contract
     for(const user of users){
       try{
-        const reqs = await staking.getRequests(user);
+        const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
+          const indc = fromINDC(r.indcAmount);
+          const usdt = Number(r.usdtAmount) / 1000;
           _allRequests.push({
-            user    : user,
-            idx     : idx,
-            indc    : fromINDC(r.indcAmount),
-            usdt    : Number(r.usdtAmount) / 1000,
-            time    : Number(r.timestamp),
-            approved: r.approved,
+            user     : user,
+            idx      : idx,
+            indc     : indc,
+            usdt     : usdt,
+            time     : Number(r.timestamp),
+            approved : r.approved,
           });
         });
       }catch(e){ console.warn('Skip user', user, e); }
     }
 
+    // Sort: pending dulu, lalu terbaru
     _allRequests.sort((a,b) => {
       if(a.approved !== b.approved) return a.approved ? 1 : -1;
       return b.time - a.time;
     });
 
+    // Update counter pending
     const pendingCount = _allRequests.filter(r => !r.approved).length;
     document.getElementById('statPending').textContent = pendingCount;
+
     _selected.clear();
     renderList();
 
   }catch(e){
+    // Fallback: jika semua gagal, tampilkan form manual
     console.warn('Event query gagal, fallback ke manual:', e);
     document.getElementById('reqList').innerHTML = `
       <div class="empty-state">
@@ -948,7 +956,6 @@ async function loadRequestsFromEvents(){
       </div>`;
   }
 }
-
 
 async function loadManual(){
   const addr = document.getElementById('manualAddr').value.trim();
@@ -1296,15 +1303,11 @@ async function loadBonusIndcData(){
   const el = document.getElementById('bonusIndcList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat bonus INDC...</div></div>';
   try{
-    // Pakai Firebase SDK — bukan REST URL yang kena permission denied
-    if (typeof window._fbListenRequests === 'function') {
-      window._fbListenRequests(items => {
-        _bonusIndcData = items || {};
-        renderBonusIndcList();
-      });
-    } else {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Firebase belum siap</div></div>';
-    }
+    const fbUrl = 'https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app/usdt_requests.json?orderBy=%22type%22&equalTo=%22INDC%22';
+    const res = await fetch(fbUrl);
+    const raw = await res.json();
+    _bonusIndcData = raw || {};
+    renderBonusIndcList();
   }catch(e){
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div>Gagal memuat data</div></div>';
   }
