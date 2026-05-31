@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>INDC Market — INDOCOIN</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="lightweight-charts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
@@ -399,7 +400,9 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 
     </div>
 
-    <div id="priceChartDiv" style="height:200px;border-radius:8px;overflow:hidden;"></div>
+    <div id="priceChartDiv" style="height:200px;position:relative;">
+      <canvas id="priceChart"></canvas>
+    </div>
     <div class="chart-foot" style="margin-top:8px;">
       <span>Powered by indocoin.id</span>
       <span id="chartRangeLabel">1 Jam terakhir</span>
@@ -843,12 +846,8 @@ async function loadMarketData() {
           }
         });
         if (_currentPrice > 0) addChartPoint(_currentPrice);
-        if (_lwChart && _mainSeries && _chartData.prices.length > 0) {
-          const data = _buildSeriesData(_chartType);
-          if (data.length > 0) {
-            _mainSeries.setData(data);
-            _lwChart.timeScale().fitContent();
-          }
+        if (_chart && _chartData.prices.length > 0) {
+          _updateChart();
         }
       }
 
@@ -1002,10 +1001,9 @@ function switchHist(f) {
 //  CHART
 // ═══════════════════════════════════════════
 // ═══════════════════════════════════════════
-//  CHART — lightweight-charts TradingView
+//  CHART — Chart.js
 // ═══════════════════════════════════════════
-let _lwChart, _mainSeries;
-let _emaSeries  = {};
+let _chart;
 let _emaActive  = { 7:false, 25:false, 99:false };
 let _chartType  = 'line';
 let _chartTf    = '1H';
@@ -1014,100 +1012,76 @@ let _chartData  = { labels:[], prices:[] };
 const TF_LABELS = { '1H':'1 Jam terakhir','6H':'6 Jam terakhir','1D':'1 Hari terakhir','7D':'7 Hari terakhir' };
 
 function initChart() {
-  const container = document.getElementById('priceChartDiv');
-  _lwChart = LightweightCharts.createChart(container, {
-    width:  container.clientWidth,
-    height: 200,
-    layout: { background:{ color:'#ffffff' }, textColor:'#9a8c78' },
-    grid:   { vertLines:{ color:'rgba(200,146,42,0.05)' }, horzLines:{ color:'rgba(200,146,42,0.05)' } },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor:'rgba(200,146,42,0.15)', scaleMargins:{ top:0.1, bottom:0.1 } },
-    timeScale: { borderColor:'rgba(200,146,42,0.15)', timeVisible:true, secondsVisible:false },
-    handleScroll: true,
-    handleScale:  true,
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, 'rgba(200,146,42,0.2)');
+  grad.addColorStop(1, 'rgba(200,146,42,0)');
+
+  _chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Harga INDC',
+          data: [],
+          borderColor: '#c8922a',
+          borderWidth: 2,
+          backgroundColor: grad,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: '#c8922a',
+        },
+        { label: 'EMA 7',  data: [], borderColor: '#3b82f6', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
+        { label: 'EMA 25', data: [], borderColor: '#a855f7', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
+        { label: 'EMA 99', data: [], borderColor: '#ef4444', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          backgroundColor: '#1a1410',
+          titleColor: '#9a8c78',
+          bodyColor: '#f0b429',
+          titleFont: { family: 'DM Mono', size: 8 },
+          bodyFont: { family: 'Orbitron', size: 10, weight: 'bold' },
+          callbacks: {
+            title: items => new Date(items[0].parsed.x).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),
+            label: item => item.datasetIndex === 0 ? ' $'+item.parsed.y.toFixed(5) : item.dataset.label+': $'+item.parsed.y.toFixed(5)
+          },
+          padding: 8,
+          filter: item => item.parsed.y !== null,
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { displayFormats: { minute:'HH:mm', hour:'HH:mm', day:'dd/MM' } },
+          grid: { display: false },
+          ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', maxTicksLimit:5 },
+          border: { display: false }
+        },
+        y: {
+          position: 'right',
+          grid: { color:'rgba(200,146,42,0.06)' },
+          ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', callback: v=>'$'+v.toFixed(4), maxTicksLimit:4 },
+          border: { display: false }
+        }
+      },
+      interaction: { mode:'nearest', axis:'x', intersect:false }
+    }
   });
-
-  _createMainSeries('line');
-
-  window.addEventListener('resize', () => {
-    _lwChart.applyOptions({ width: container.clientWidth });
-  });
-}
-
-function _createMainSeries(type) {
-  if (_mainSeries) { _lwChart.removeSeries(_mainSeries); _mainSeries = null; }
-
-  const goldColor = '#c8922a';
-
-  if (type === 'candle') {
-    _mainSeries = _lwChart.addCandlestickSeries({
-      upColor:'#2f855a', downColor:'#e53e3e',
-      borderUpColor:'#2f855a', borderDownColor:'#e53e3e',
-      wickUpColor:'#2f855a', wickDownColor:'#e53e3e',
-    });
-  } else if (type === 'bar') {
-    _mainSeries = _lwChart.addBarSeries({
-      upColor:'#2f855a', downColor:'#e53e3e',
-    });
-  } else if (type === 'area') {
-    _mainSeries = _lwChart.addAreaSeries({
-      lineColor: goldColor,
-      topColor:  'rgba(200,146,42,0.25)',
-      bottomColor:'rgba(200,146,42,0)',
-      lineWidth: 2,
-    });
-  } else {
-    _mainSeries = _lwChart.addLineSeries({
-      color: goldColor, lineWidth: 2,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius:  4,
-      lastValueVisible: true,
-      priceLineVisible: true,
-    });
-  }
-
-  // Isi ulang data
-  const data = _buildSeriesData(type);
-  if (data.length > 0) _mainSeries.setData(data);
-
-  // Rebuild EMA
-  Object.keys(_emaActive).forEach(p => {
-    if (_emaActive[p]) { _removeEma(p); _addEma(parseInt(p)); }
-  });
-}
-
-function _buildSeriesData(type) {
-  const prices = _chartData.prices;
-  const labels = _chartData.labels;
-  if (prices.length === 0) return [];
-
-  if (type === 'candle' || type === 'bar') {
-    // Kelompokkan per interval waktu
-    const interval = _chartTf === '1H' ? 5 : _chartTf === '6H' ? 15 : _chartTf === '1D' ? 60 : 240; // menit
-    const buckets  = {};
-    prices.forEach((p, i) => {
-      const t   = labels[i].getTime();
-      const key = Math.floor(t / (interval * 60000)) * (interval * 60);
-      if (!buckets[key]) buckets[key] = [];
-      buckets[key].push(p);
-    });
-    return Object.entries(buckets).map(([t, vals]) => ({
-      time:  parseInt(t),
-      open:  vals[0],
-      high:  Math.max(...vals),
-      low:   Math.min(...vals),
-      close: vals[vals.length - 1],
-    })).sort((a,b) => a.time - b.time);
-  } else {
-    return prices.map((p, i) => ({
-      time:  Math.floor(labels[i].getTime() / 1000),
-      value: p,
-    })).filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time)
-       .sort((a,b) => a.time - b.time);
-  }
 }
 
 function addChartPoint(price) {
+  if (!_chart) return;
   const now = new Date();
   _chartData.labels.push(now);
   _chartData.prices.push(price);
@@ -1115,83 +1089,51 @@ function addChartPoint(price) {
     _chartData.labels.shift();
     _chartData.prices.shift();
   }
+  _updateChart();
 
-  if (!_lwChart || !_mainSeries) return;
-
-  const t = Math.floor(now.getTime() / 1000);
-
-  try {
-    if (_chartType === 'candle' || _chartType === 'bar') {
-      const data = _buildSeriesData(_chartType);
-      if (data.length > 0) _mainSeries.setData(data);
-    } else {
-      _mainSeries.update({ time: t, value: price });
-    }
-  } catch(e) {}
-
-  // Update EMA lines
-  Object.keys(_emaActive).forEach(p => {
-    if (_emaActive[p] && _emaSeries[p]) {
-      const emaData = _calcEma(parseInt(p));
-      try { _emaSeries[p].setData(emaData); } catch(e) {}
-    }
-  });
-
-  // Update perubahan harga di header
+  // Update harga 24J
   if (_chartData.prices.length > 1) {
     const first = _chartData.prices[0];
-    const last  = price;
-    const pct   = ((last - first) / first * 100).toFixed(2);
+    const pct   = ((price - first) / first * 100).toFixed(2);
     const el    = document.getElementById('chartPriceChg');
     el.textContent = (parseFloat(pct) >= 0 ? '▲ +' : '▼ ') + pct + '%';
     el.className   = 'chart-pchg ' + (parseFloat(pct) >= 0 ? 'up' : 'dn');
   }
 }
 
-// EMA calculation
-function _calcEma(period) {
+function _calcEmaData(period) {
   const prices = _chartData.prices;
   const labels = _chartData.labels;
   if (prices.length < period) return [];
   const k = 2 / (period + 1);
-  let ema  = prices.slice(0, period).reduce((a,b) => a+b, 0) / period;
+  let ema = prices.slice(0, period).reduce((a,b) => a+b, 0) / period;
   const result = [];
-  for (let i = period - 1; i < prices.length; i++) {
+  for (let i = 0; i < prices.length; i++) {
     if (i >= period) ema = prices[i] * k + ema * (1 - k);
-    result.push({
-      time:  Math.floor(labels[i].getTime() / 1000),
-      value: parseFloat(ema.toFixed(6)),
-    });
+    else if (i < period - 1) { result.push({ x: labels[i], y: null }); continue; }
+    result.push({ x: labels[i], y: parseFloat(ema.toFixed(6)) });
   }
-  return result.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time)
-               .sort((a,b) => a.time - b.time);
+  return result;
 }
 
-function _addEma(period) {
-  const colors = { 7:'#3b82f6', 25:'#a855f7', 99:'#ef4444' };
-  _emaSeries[period] = _lwChart.addLineSeries({
-    color: colors[period], lineWidth: 1,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
-    lastValueVisible: false, priceLineVisible: false,
-  });
-  const data = _calcEma(period);
-  if (data.length > 0) _emaSeries[period].setData(data);
+function _updateChart() {
+  if (!_chart) return;
+  _chart.data.labels = _chartData.labels;
+  _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
+  if (_emaActive[7])  _chart.data.datasets[1].data = _calcEmaData(7);
+  if (_emaActive[25]) _chart.data.datasets[2].data = _calcEmaData(25);
+  if (_emaActive[99]) _chart.data.datasets[3].data = _calcEmaData(99);
+  _chart.update('none');
 }
 
-function _removeEma(period) {
-  if (_emaSeries[period]) {
-    try { _lwChart.removeSeries(_emaSeries[period]); } catch(e) {}
-    delete _emaSeries[period];
-  }
-}
-
-let _votingActive = false;
-
-function handleVoteClick(yes) {
-  if (_votingActive) {
-    doVote(yes);
-  } else {
-    document.getElementById('voteLockedPopup').style.display = 'flex';
+function toggleEma(period, btn) {
+  const idx = period === 7 ? 1 : period === 25 ? 2 : 3;
+  _emaActive[period] = !_emaActive[period];
+  btn.classList.toggle('ema-active-' + period, _emaActive[period]);
+  if (_chart) {
+    _chart.data.datasets[idx].hidden = !_emaActive[period];
+    if (_emaActive[period]) _chart.data.datasets[idx].data = _calcEmaData(period);
+    _chart.update('none');
   }
 }
 
@@ -1206,34 +1148,29 @@ function selectChartType(type, label) {
   switchChartType(type);
 }
 
-// Tutup dropdown kalau klik di luar
-document.addEventListener('click', e => {
-  const btn = document.getElementById('chartTypeBtn');
-  const dd  = document.getElementById('chartDropdown');
-  if (dd && btn && !btn.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none';
-  }
-});
-
-function toggleEma(period, btn) {
-  _emaActive[period] = !_emaActive[period];
-  btn.classList.toggle('ema-active-' + period, _emaActive[period]);
-  if (_emaActive[period]) { _addEma(period); }
-  else { _removeEma(period); }
-}
-
 function switchChartType(type) {
   _chartType = type;
-  _createMainSeries(type);
+  if (!_chart) return;
+  // Chart.js — ganti type
+  const newType = (type === 'candle' || type === 'bar') ? 'bar' : type === 'area' ? 'line' : 'line';
+  _chart.config.type = newType;
+  if (type === 'area') {
+    _chart.data.datasets[0].fill = true;
+  } else if (type === 'line') {
+    _chart.data.datasets[0].fill = false;
+  } else {
+    _chart.data.datasets[0].fill = false;
+  }
+  _chart.update();
 }
 
 function switchTf(tf, btn) {
   _chartTf = tf;
-  document.querySelectorAll('.tf:not(.ema-btn):not([id^="ct"])').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"])').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('chartRangeLabel').textContent = TF_LABELS[tf];
   _chartData = { labels:[], prices:[] };
-  _createMainSeries(_chartType);
+  if (_chart) { _chart.data.labels = []; _chart.data.datasets.forEach(d => d.data = []); _chart.update(); }
   loadMarketData();
 }
 
