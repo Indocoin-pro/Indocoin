@@ -885,24 +885,28 @@ async function loadData(){
 
 async function loadRequestsFromEvents(){
   try{
-    // Baca dari Firebase langsung — cepat, tanpa scan blockchain
-    const snap = await get(query(ref(_fbDb, 'usdt_requests'), orderByChild('ts')));
-    if(!snap.exists()){
-      document.getElementById('statPending').textContent = '0';
-      _allRequests = [];
-      renderList();
-      return;
+    const filter       = _staking.filters.RequestedUSDT();
+    const latestBlock  = await _provider.getBlockNumber();
+    const MONTH_BLOCKS = 864_000; // ~1 bulan
+    const fromBlock    = Math.max(86_178_694, latestBlock - MONTH_BLOCKS);
+    const CHUNK_SIZE   = 50_000;
+
+    document.getElementById('reqList').innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat data...</div></div>';
+
+    const allEvents = [];
+    for(let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE){
+      const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
+      try{
+        const chunk = await _staking.queryFilter(filter, from, to);
+        allEvents.push(...chunk);
+      }catch(e){ console.warn(`Chunk ${from}-${to} gagal:`, e.message); }
     }
 
-    const fbItems = {};
-    snap.forEach(c => { fbItems[c.key] = { fbKey: c.key, ...c.val() }; });
-    
-    // Filter hanya type USDT
-    const usdtEntries = Object.values(fbItems).filter(v => v.type !== 'INDC' && v.user);
-    const userSet = [...new Set(usdtEntries.map(v => v.user.toLowerCase()))];
+    const userSet = new Set(allEvents.map(e => e.args.user.toLowerCase()));
+    const users   = Array.from(userSet);
+    _allRequests  = [];
 
-    _allRequests = [];
-    for(const user of userSet){
+    for(const user of users){
       try{
         const reqs = await _staking.getRequests(user);
         reqs.forEach((r, idx) => {
