@@ -314,6 +314,24 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .msg-vote.ok{background:rgba(104,211,145,0.1);color:var(--green2);border:1px solid rgba(104,211,145,0.2);}
 .msg-vote.err{background:rgba(252,129,129,0.1);color:var(--red2);border:1px solid rgba(252,129,129,0.2);}
 .msg-vote.inf{background:rgba(200,146,42,0.1);color:var(--gold2);border:1px solid rgba(200,146,42,0.2);}
+/* ANTRIAN BAR */
+@keyframes queuePulse {
+  0%,100%{ opacity:1; }
+  50%{ opacity:0.3; }
+}
+.queue-exec {
+  background:linear-gradient(90deg,#16a34a,#22c55e) !important;
+  width:92% !important;
+  animation: queuePulse 0.9s ease-in-out infinite !important;
+}
+.queue-done {
+  background:linear-gradient(90deg,#16a34a,#22c55e) !important;
+  width:100% !important;
+}
+.queue-wait {
+  background:linear-gradient(90deg,var(--gold),var(--gold2)) !important;
+  width:18% !important;
+}
 </style>
 </head>
 <body>
@@ -537,7 +555,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
           <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--text);letter-spacing:1px;">POSISI SAYA</div>
           <span id="posisiBadge" style="padding:4px 10px;border-radius:99px;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;background:#fffbf0;color:var(--gold);border:1px solid rgba(200,146,42,0.3);">⏳ MENUNGGU</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           <div style="background:var(--cream);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
             <span style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);display:block;margin-bottom:2px;" id="posisiIndc">0 INDC</span>
             <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);">INDC di Pool</span>
@@ -547,6 +565,15 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
             <span style="font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);">Estimasi USDT</span>
           </div>
         </div>
+
+        <!-- ANTRIAN BAR -->
+        <div style="margin-bottom:10px;">
+          <div style="height:6px;background:var(--cream2);border-radius:99px;overflow:hidden;border:1px solid var(--border);">
+            <div id="queueFill" style="height:100%;width:0%;border-radius:99px;transition:width 0.8s ease;"></div>
+          </div>
+          <div id="queueInfo" style="margin-top:5px;font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);text-align:center;">Menunggu pembeli aktif...</div>
+        </div>
+
         <div id="posisiNote" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);text-align:center;margin-bottom:12px;line-height:1.5;"></div>
         <button id="posisiBatalBtn" onclick="doCancel()" style="width:100%;padding:10px;background:transparent;border:1.5px solid rgba(197,48,48,0.3);border-radius:8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:9px;color:var(--red);display:none;">✕ BATAL JUAL</button>
       </div>
@@ -1433,34 +1460,116 @@ function switchTab3(tab) {
 // ═══════════════════════════════════════════
 //  POSISI TAB
 // ═══════════════════════════════════════════
+// Track state antrian sebelumnya untuk deteksi transisi
+let _prevQueueState = 'idle'; // 'idle' | 'wait' | 'exec' | 'done'
+let _doneResetTimer = null;
+
+function _setQueueBar(state) {
+  const fill = document.getElementById('queueFill');
+  const info = document.getElementById('queueInfo');
+  if (!fill || !info) return;
+
+  // Reset semua class dulu
+  fill.className = '';
+
+  if (state === 'wait') {
+    fill.classList.add('queue-wait');
+    info.style.color = 'var(--text3)';
+    info.textContent = 'Menunggu pembeli aktif...';
+
+  } else if (state === 'exec') {
+    fill.classList.add('queue-exec');
+    info.style.color = 'var(--green)';
+    info.textContent = 'INDC kamu sedang terjual ✨';
+
+  } else if (state === 'done') {
+    fill.classList.add('queue-done');
+    info.style.color = 'var(--green)';
+    info.textContent = '🎉 Semua INDC terjual! Siap jual lagi.';
+
+  } else {
+    // idle — kosong
+    fill.style.width = '0%';
+    fill.style.background = '';
+    info.style.color = 'var(--text3)';
+    info.textContent = 'Menunggu pembeli aktif...';
+  }
+
+  _prevQueueState = state;
+}
+
 function updatePosisi(hasListing, indcRemain, usdtEst) {
   if (!hasListing) {
+    // Cek apakah baru saja selesai (transisi dari exec/wait ke tidak ada listing)
+    if (_prevQueueState === 'exec' || _prevQueueState === 'wait') {
+      // Tampilkan state DONE sebentar sebelum reset ke idle
+      document.getElementById('posisiEmpty').style.display  = 'none';
+      document.getElementById('posisiActive').style.display = 'block';
+      document.getElementById('posisiIndc').textContent = '0 INDC';
+      document.getElementById('posisiUsdt').textContent = '$0.00';
+
+      const badge = document.getElementById('posisiBadge');
+      badge.textContent      = '✅ TERJUAL';
+      badge.style.background = '#f0faf4';
+      badge.style.color      = 'var(--green)';
+      badge.style.border     = '1px solid rgba(47,133,90,0.3)';
+      document.getElementById('posisiNote').textContent = '';
+      document.getElementById('posisiBatalBtn').style.display = 'none';
+      _setQueueBar('done');
+
+      // Reset ke idle setelah 3 detik
+      if (_doneResetTimer) clearTimeout(_doneResetTimer);
+      _doneResetTimer = setTimeout(() => {
+        document.getElementById('posisiEmpty').style.display  = 'block';
+        document.getElementById('posisiActive').style.display = 'none';
+        _setQueueBar('idle');
+        _prevQueueState = 'idle';
+      }, 3000);
+      return;
+    }
+
+    // Batal jual atau memang tidak ada listing
+    if (_doneResetTimer) clearTimeout(_doneResetTimer);
     document.getElementById('posisiEmpty').style.display  = 'block';
     document.getElementById('posisiActive').style.display = 'none';
+    _setQueueBar('idle');
+    _prevQueueState = 'idle';
     return;
   }
+
+  // Ada listing aktif
+  if (_doneResetTimer) clearTimeout(_doneResetTimer);
   document.getElementById('posisiEmpty').style.display  = 'none';
   document.getElementById('posisiActive').style.display = 'block';
-  document.getElementById('posisiIndc').textContent  = fmtN(indcRemain) + ' INDC';
-  document.getElementById('posisiUsdt').textContent  = '$' + usdtEst.toFixed(2);
+  document.getElementById('posisiIndc').textContent = fmtN(indcRemain) + ' INDC';
+  document.getElementById('posisiUsdt').textContent = '$' + usdtEst.toFixed(2);
 
   const badge = document.getElementById('posisiBadge');
   const note  = document.getElementById('posisiNote');
 
-  if (indcRemain <= 0) {
-    badge.textContent      = '✅ TERJUAL';
+  // Deteksi state: exec kalau indcRemain sudah berkurang dari listing awal
+  // Pakai _prevQueueState untuk track — kalau sebelumnya wait dan sekarang
+  // ada transaksi baru di history yang menyentuh listing ini → exec
+  // Cara simpel: kalau ada buy event baru di _allHistory setelah listing dibuat → exec
+  const isExec = _prevQueueState === 'exec' ||
+    (_allHistory.length > 0 && _prevQueueState !== 'idle');
+
+  if (isExec) {
+    badge.textContent      = '⚡ EKSEKUSI';
     badge.style.background = '#f0faf4';
     badge.style.color      = 'var(--green)';
     badge.style.border     = '1px solid rgba(47,133,90,0.3)';
-    note.textContent       = 'Semua INDC sudah terjual! USDT sudah masuk wallet kamu.';
-    document.getElementById('posisiBatalBtn').style.display = 'none';
+    note.textContent       = '';
+    document.getElementById('posisiBatalBtn').style.display = 'block';
+    _setQueueBar('exec');
   } else {
-    badge.textContent      = '⏳ MENUNGGU PEMBELI';
+    badge.textContent      = '⏳ MENUNGGU';
     badge.style.background = '#fffbf0';
     badge.style.color      = 'var(--gold)';
     badge.style.border     = '1px solid rgba(200,146,42,0.3)';
-    note.textContent       = 'INDC kamu sudah masuk pool dan menunggu pembeli. USDT otomatis masuk wallet begitu ada yang beli.';
+    note.textContent       = '';
     document.getElementById('posisiBatalBtn').style.display = 'block';
+    _setQueueBar('wait');
   }
 }
 
@@ -1666,6 +1775,8 @@ async function doList() {
     await tx.wait();
     showMsg('msgSell', '✅ INDC berhasil di-jual ke pool!', 'ok');
     document.getElementById('inpSellIndc').value = '';
+    _listingOrigIndc = 0;
+    _prevQueueState  = 'wait';
     await loadMarketData();
     checkActiveListing();
   } catch(e) {
@@ -1681,6 +1792,8 @@ async function doCancel() {
     const tx = await _market.cancelListing();
     await tx.wait();
     showMsg('msgSell', '✅ Jual dibatalkan.', 'ok');
+    _listingOrigIndc = 0;
+    _prevQueueState  = 'idle';
     await loadMarketData();
     checkActiveListing();
   } catch(e) {
@@ -1717,21 +1830,32 @@ async function checkActiveListing() {
   } catch(e) { console.error('checkActiveListing error:', e); }
 }
 
+// Simpan indcAmount saat pertama kali listing ditemukan
+let _listingOrigIndc = 0;
+
 async function loadListingStatus(mkt) {
   try {
     const listingId  = await mkt.sellerListingId(_wallet);
-    console.log('listingId:', listingId.toString());
-
     const listing    = await mkt.listings(listingId);
-    console.log('listing raw:', listing);
     const indcRemain = parseFloat(ethers.formatUnits(listing.indcAmount || listing[1], INDC_DEC));
     const isActive   = listing.active !== undefined ? listing.active : listing[3];
-    console.log('indcRemain:', indcRemain, 'isActive:', isActive);
+
     if (!isActive) {
       updatePosisi(false, 0, 0);
+      _listingOrigIndc = 0;
       return;
     }
-    const usdtEst    = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
+
+    // Simpan jumlah awal pertama kali terdeteksi
+    if (_listingOrigIndc === 0) _listingOrigIndc = indcRemain;
+
+    // Deteksi exec: indcRemain sudah berkurang dari jumlah awal
+    const partiallyFilled = _listingOrigIndc > 0 && indcRemain < _listingOrigIndc;
+    if (partiallyFilled && _prevQueueState !== 'exec') {
+      _prevQueueState = 'exec';
+    }
+
+    const usdtEst = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
     updatePosisi(true, indcRemain, usdtEst);
   } catch(e) { console.error('loadListingStatus error:', e); }
 }
