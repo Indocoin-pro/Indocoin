@@ -824,10 +824,21 @@ async function loadMarketData() {
       const count = total - from;
       try {
         const hist = await mkt.getTradeHistory(from, count);
-        hist.forEach(h => { volumeUsdt += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
         _allHistory = [...hist].reverse();
-        renderHistory();
-      } catch(e) {}
+        hist.forEach(h => { volumeUsdt += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+      } catch(e) { console.error('getTradeHistory error:', e); }
+      renderHistory();
+      // Isi chart dari data historis transaksi
+      if (_allHistory.length > 0 && _chartData.prices.length === 0) {
+        const sorted = [..._allHistory].reverse();
+        sorted.forEach(h => {
+          const price = parseFloat(ethers.formatUnits(h.price, 18));
+          const time  = new Date(Number(h.timestamp) * 1000);
+          _chartData.labels.push(time);
+          _chartData.prices.push(price);
+        });
+        addChartPoint(_currentPrice);
+      }
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
@@ -902,7 +913,7 @@ function renderHistory() {
   el.innerHTML = data.map(h => {
     const indc = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
     const usdt = parseFloat(ethers.formatUnits(h.usdtAmount, 18));
-    const dt   = new Date(h.timestamp.toNumber() * 1000)
+    const dt   = new Date(Number(h.timestamp) * 1000)
                   .toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
     return `
     <div class="hist-row">
