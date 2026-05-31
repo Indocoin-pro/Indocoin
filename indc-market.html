@@ -673,7 +673,24 @@ const MARKET_ADDR = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
 const INDC_ADDR   = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const USDT_ADDR   = '0x55d398326f99059fF775485246999027B3197955';
 const INDC_DEC    = 9;
-const BSC_RPC     = 'https://bsc-dataseed.binance.org/';
+const BSC_RPCS = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc-dataseed3.binance.org/',
+  'https://bsc-dataseed4.binance.org/',
+  'https://rpc.ankr.com/bsc',
+];
+
+async function getBscProvider() {
+  for (const rpc of BSC_RPCS) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      await p.getBlockNumber();
+      return p;
+    } catch(e) { continue; }
+  }
+  throw new Error('Semua RPC BSC tidak tersedia');
+}
 
 const MARKET_ABI = [
   "function currentPrice() view returns (uint256)",
@@ -728,7 +745,7 @@ async function connectWallet() {
     btn.classList.add('connected');
 
     // Cek blacklist
-    const rpc = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const rpc = await getBscProvider();
     const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const isBlacklisted = await mkt.blacklisted(_wallet);
     if (isBlacklisted) {
@@ -775,7 +792,7 @@ function submitAppeal() {
 // ═══════════════════════════════════════════
 async function loadMarketData() {
   try {
-    const rpc = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const rpc = await getBscProvider();
     const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const stats = await mkt.getMarketStats();
 
@@ -807,7 +824,7 @@ async function loadMarketData() {
       const from  = total > 50 ? total - 50 : 0;
       const count = total - from;
       try {
-        const rpc2 = new ethers.providers.JsonRpcProvider(BSC_RPC);
+        const rpc2 = await getBscProvider();
         const mkt2 = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc2);
         const hist = await mkt2.getTradeHistory(from, count);
         hist.forEach(h => { volumeUsdt += parseFloat(ethers.utils.formatUnits(h.usdtAmount, 18)); });
@@ -1323,7 +1340,7 @@ async function doBuy() {
 
   // Cek cooldown
   try {
-    const rpc  = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const rpc  = await getBscProvider();
     const mkt  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const last = await mkt.lastTxTime(_wallet);
     const next = last.toNumber() + 15 * 60;
@@ -1384,7 +1401,7 @@ async function doList() {
 
   // Cek cooldown
   try {
-    const rpc  = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const rpc  = await getBscProvider();
     const mkt  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const last = await mkt.lastTxTime(_wallet);
     const next = last.toNumber() + 15 * 60;
@@ -1452,7 +1469,7 @@ async function checkActiveListing() {
     return; 
   }
   try {
-    const rpc = new ethers.providers.JsonRpcProvider(BSC_RPC);
+    const rpc = await getBscProvider();
     const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
     const has = await mkt.hasActiveListing(_wallet);
     alert('DEBUG: wallet=' + _wallet.slice(0,8) + ' hasListing=' + has);
