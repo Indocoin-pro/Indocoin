@@ -894,8 +894,13 @@ async function loadRequestsFromEvents(){
     document.getElementById('reqList').innerHTML = '<div class="loading"><div class="spinner"></div><div>Memuat data...</div></div>';
 
     const allEvents = [];
+    const totalChunks = Math.ceil((latestBlock - fromBlock) / CHUNK_SIZE);
+    let doneChunks = 0;
+
     for(let from = fromBlock; from <= latestBlock; from += CHUNK_SIZE){
       const to = Math.min(from + CHUNK_SIZE - 1, latestBlock);
+      doneChunks++;
+      document.getElementById('reqList').innerHTML = `<div class="loading"><div class="spinner"></div><div>Scan block... ${doneChunks}/${totalChunks}</div></div>`;
       try{
         const chunk = await _staking.queryFilter(filter, from, to);
         allEvents.push(...chunk);
