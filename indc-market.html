@@ -335,7 +335,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
   <!-- HERO -->
   <div class="hero">
     <div class="hero-lbl">HARGA INDC SAAT INI</div>
-    <div class="hero-price"><span>$</span><span id="heroPrice">0.0200</span></div>
+    <div class="hero-price"><span>$</span><span id="heroPrice">0.0000</span></div>
     <div class="hero-live">LIVE · BSC · INDCMarket</div>
     <div class="hero-stats">
       <div class="hs"><span class="hs-val" id="statPool">0</span><span class="hs-lbl">POOL</span></div>
@@ -363,7 +363,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
     <div class="chart-head">
       <div class="card-title">Harga INDC</div>
       <div class="chart-pinfo">
-        <span class="chart-pval" id="chartPriceNow">$0.0200</span>
+        <span class="chart-pval" id="chartPriceNow">$0.0000</span>
         <span class="chart-pchg up" id="chartPriceChg">—</span>
       </div>
     </div>
@@ -447,7 +447,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
         <div class="prev-box">
           <div class="prev-row">
             <span class="prev-lbl">Harga</span>
-            <span class="prev-val" id="pvBuyPrice">$0.020</span>
+            <span class="prev-val" id="pvBuyPrice">$0.0000</span>
           </div>
           <div class="prev-row">
             <span class="prev-lbl">Fee 0.5%</span>
@@ -1029,12 +1029,96 @@ const TF_ORDER  = ['5M','15M','1H','6H','1D','7D'];
 const TF_LABELS = { '5M':'5 Menit terakhir','15M':'15 Menit terakhir','1H':'1 Jam terakhir','6H':'6 Jam terakhir','1D':'1 Hari terakhir','7D':'7 Hari terakhir' };
 let _tfIndex = 2;
 
-function initChart() {
-  const ctx = document.getElementById('priceChart').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 200);
-  grad.addColorStop(0, 'rgba(200,146,42,0.2)');
-  grad.addColorStop(1, 'rgba(200,146,42,0)');
+// ── Shared chart options (scales, zoom, dll) ──
+function _baseOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode:'nearest', axis:'x', intersect:false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index', intersect: false,
+        backgroundColor: '#1a1410',
+        titleColor: '#9a8c78',
+        bodyColor: '#f0b429',
+        titleFont: { family: 'DM Mono', size: 8 },
+        bodyFont: { family: 'Orbitron', size: 10, weight: 'bold' },
+        callbacks: {
+          title: items => {
+            const v = items[0].parsed.x ?? items[0].parsed._custom?.barStart;
+            return new Date(v).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+          },
+          label: item => {
+            if (item.datasetIndex === 0 && (_chartType === 'candle' || _chartType === 'bar')) {
+              const d = item.raw;
+              return [' O:$'+d.o.toFixed(5),' H:$'+d.h.toFixed(5),' L:$'+d.l.toFixed(5),' C:$'+d.c.toFixed(5)];
+            }
+            return item.datasetIndex === 0
+              ? ' $'+item.parsed.y.toFixed(5)
+              : item.dataset.label+': $'+item.parsed.y.toFixed(5);
+          }
+        },
+        padding: 8,
+        filter: item => item.parsed.y !== null,
+      },
+      zoom: {
+        pan: { enabled: true, mode: 'xy', threshold: 5 },
+        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
+      }
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: { displayFormats: { minute:'HH:mm', hour:'HH:mm', day:'dd/MM' } },
+        grid: { display: false },
+        ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', maxTicksLimit:5 },
+        border: { display: false }
+      },
+      y: {
+        position: 'right',
+        grid: { color:'rgba(200,146,42,0.06)' },
+        ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', callback: v=>'$'+v.toFixed(4), maxTicksLimit:4 },
+        border: { display: false },
+        grace: '10%'
+      }
+    },
+  };
+}
 
+// ── Buat canvas baru (destroy lama jika ada) ──
+function _makeCanvas() {
+  const wrap = document.getElementById('priceChartDiv');
+  const old  = document.getElementById('priceChart');
+  if (old) old.remove();
+  const c = document.createElement('canvas');
+  c.id = 'priceChart';
+  c.style.touchAction = 'none';
+  wrap.appendChild(c);
+  return c.getContext('2d');
+}
+
+function _makeGrad(ctx) {
+  const g = ctx.createLinearGradient(0, 0, 0, 200);
+  g.addColorStop(0, 'rgba(200,146,42,0.2)');
+  g.addColorStop(1, 'rgba(200,146,42,0)');
+  return g;
+}
+
+// ── EMA datasets (selalu ikut, hidden kecuali aktif) ──
+function _emaSets() {
+  return [
+    { label:'EMA 7',  data:[], borderColor:'#3b82f6', borderWidth:1.5, borderDash:[4,2], pointRadius:0, fill:false, hidden:!_emaActive[7]  },
+    { label:'EMA 25', data:[], borderColor:'#a855f7', borderWidth:1.5, borderDash:[4,2], pointRadius:0, fill:false, hidden:!_emaActive[25] },
+    { label:'EMA 99', data:[], borderColor:'#ef4444', borderWidth:1.5, borderDash:[4,2], pointRadius:0, fill:false, hidden:!_emaActive[99] },
+  ];
+}
+
+// ── Init pertama kali: selalu line ──
+function initChart() {
+  if (_chart) { _chart.destroy(); _chart = null; }
+  const ctx = _makeCanvas();
   _chart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1045,72 +1129,17 @@ function initChart() {
           data: [],
           borderColor: '#c8922a',
           borderWidth: 2,
-          backgroundColor: grad,
+          backgroundColor: _makeGrad(ctx),
           fill: true,
           tension: 0.4,
           pointRadius: 0,
           pointHoverRadius: 4,
           pointHoverBackgroundColor: '#c8922a',
         },
-        { label: 'EMA 7',  data: [], borderColor: '#3b82f6', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
-        { label: 'EMA 25', data: [], borderColor: '#a855f7', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
-        { label: 'EMA 99', data: [], borderColor: '#ef4444', borderWidth: 1.5, borderDash: [4,2], pointRadius: 0, fill: false, hidden: true },
+        ..._emaSets()
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 300 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          mode: 'index', intersect: false,
-          backgroundColor: '#1a1410',
-          titleColor: '#9a8c78',
-          bodyColor: '#f0b429',
-          titleFont: { family: 'DM Mono', size: 8 },
-          bodyFont: { family: 'Orbitron', size: 10, weight: 'bold' },
-          callbacks: {
-            title: items => new Date(items[0].parsed.x).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}),
-            label: item => item.datasetIndex === 0 ? ' $'+item.parsed.y.toFixed(5) : item.dataset.label+': $'+item.parsed.y.toFixed(5)
-          },
-          padding: 8,
-          filter: item => item.parsed.y !== null,
-        }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: { displayFormats: { minute:'HH:mm', hour:'HH:mm', day:'dd/MM' } },
-          grid: { display: false },
-          ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', maxTicksLimit:5 },
-          border: { display: false }
-        },
-        y: {
-          position: 'right',
-          grid: { color:'rgba(200,146,42,0.06)' },
-          ticks: { font:{family:'DM Mono',size:7}, color:'#9a8c78', callback: v=>'$'+v.toFixed(4), maxTicksLimit:4 },
-          border: { display: false },
-          grace: '10%'
-        }
-      },
-      interaction: { mode:'nearest', axis:'x', intersect:false },
-      plugins: {
-        legend: { display: false },
-        zoom: {
-          pan: {
-            enabled: true,
-            mode: 'xy',
-            threshold: 5,
-          },
-          zoom: {
-            wheel: { enabled: true },
-            pinch: { enabled: true },
-            mode: 'xy',
-          }
-        }
-      }
-    }
+    options: _baseOptions()
   });
 }
 
@@ -1121,6 +1150,8 @@ function resetZoom() {
 
 function addChartPoint(price) {
   if (!_chart) return;
+  // Untuk candle/bar, tidak tambah titik real-time ke _chartData
+  // supaya candle tidak flat — real-time tetap update line/area
   const now = new Date();
   _chartData.labels.push(now);
   _chartData.prices.push(price);
@@ -1128,7 +1159,10 @@ function addChartPoint(price) {
     _chartData.labels.shift();
     _chartData.prices.shift();
   }
-  _updateChart();
+  // Hanya update chart kalau sedang mode line/area
+  if (_chartType === 'line' || _chartType === 'area') {
+    _updateChart();
+  }
 
   // Update harga 24J
   if (_chartData.prices.length > 1) {
@@ -1185,7 +1219,6 @@ document.addEventListener('click', e => {
 function toggleEma(period, el) {
   const idx = period === 7 ? 1 : period === 25 ? 2 : 3;
   _emaActive[period] = !_emaActive[period];
-  // Update visual — bold kalau aktif
   if (el) el.style.fontWeight = _emaActive[period] ? '900' : '400';
   if (_chart) {
     _chart.data.datasets[idx].hidden = !_emaActive[period];
@@ -1215,64 +1248,129 @@ function selectChartType(type, label) {
   switchChartType(type);
 }
 
+// ── OHLC builder — sumber: _allHistory (on-chain) untuk candle/bar
+//    lebih akurat saat sepi karena hanya harga transaksi nyata
 function _buildOHLC() {
-  const prices = _chartData.prices;
-  const labels = _chartData.labels;
-  if (prices.length === 0) return [];
   const mins = { '5M':5,'15M':15,'1H':60,'6H':360,'1D':1440,'7D':10080 };
   const interval = (mins[_chartTf] || 60) * 60 * 1000;
   const buckets  = {};
-  prices.forEach((p, i) => {
-    const t = labels[i].getTime();
-    const key = Math.floor(t / interval) * interval;
+
+  // Prioritas: _allHistory (on-chain) kalau ada, fallback ke _chartData
+  const source = (_allHistory && _allHistory.length > 0)
+    ? _allHistory.map(h => ({
+        price: parseFloat(ethers.formatUnits(h.price, 18)),
+        time:  Number(h.timestamp) * 1000
+      })).filter(d => d.price > 0)
+    : _chartData.prices.map((p, i) => ({
+        price: p,
+        time:  _chartData.labels[i].getTime()
+      }));
+
+  if (source.length === 0) return [];
+
+  source.forEach(d => {
+    const key = Math.floor(d.time / interval) * interval;
     if (!buckets[key]) buckets[key] = [];
-    buckets[key].push(p);
+    buckets[key].push(d.price);
   });
-  return Object.entries(buckets).map(([t, vals]) => ({
-    x:     parseInt(t),
-    o:     vals[0],
-    h:     Math.max(...vals),
-    l:     Math.min(...vals),
-    c:     vals[vals.length - 1],
-  })).sort((a,b) => a.x - b.x);
+
+  const candles = Object.entries(buckets).map(([t, vals]) => ({
+    x: parseInt(t),
+    o: vals[0],
+    h: Math.max(...vals),
+    l: Math.min(...vals),
+    c: vals[vals.length - 1],
+  })).sort((a, b) => a.x - b.x);
+
+  return candles;
 }
 
+// ── Switch chart type — destroy + recreate agar tidak ada bug runtime ──
 function switchChartType(type) {
   _chartType = type;
-  if (!_chart) return;
+  if (_chart) { _chart.destroy(); _chart = null; }
+
+  const ctx   = _makeCanvas();
+  const ohlc  = _buildOHLC();
+  const enoughCandles = ohlc.length >= 2;
+
+  // Fallback ke line kalau candle/bar tapi data kurang
+  if ((type === 'candle' || type === 'bar') && !enoughCandles) {
+    // Tampilkan notif kecil
+    const foot = document.getElementById('chartRangeLabel');
+    const origText = foot.textContent;
+    foot.textContent = '⚠ Data belum cukup — tampil Line';
+    foot.style.color = 'var(--red)';
+    setTimeout(() => { foot.textContent = origText; foot.style.color = ''; }, 3000);
+    _chartType = 'line';
+    type = 'line';
+  }
 
   if (type === 'candle') {
-    _chart.config.type = 'candlestick';
-    _chart.data.datasets[0].data = _buildOHLC();
-    _chart.data.datasets[0].color = {
-      up: '#16a34a',
-      down: '#dc2626',
-      unchanged: '#c8922a',
-    };
-    _chart.data.datasets[0].borderColor = {
-      up: '#16a34a',
-      down: '#dc2626',
-      unchanged: '#c8922a',
-    };
+    _chart = new Chart(ctx, {
+      type: 'candlestick',
+      data: {
+        datasets: [
+          {
+            label: 'INDC',
+            data: ohlc,
+            color: { up:'#16a34a', down:'#dc2626', unchanged:'#c8922a' },
+            borderColor: { up:'#16a34a', down:'#dc2626', unchanged:'#c8922a' },
+          },
+          ..._emaSets()
+        ]
+      },
+      options: _baseOptions()
+    });
+
   } else if (type === 'bar') {
-    _chart.config.type = 'ohlc';
-    _chart.data.datasets[0].data = _buildOHLC();
-    _chart.data.datasets[0].color = {
-      up: '#16a34a',
-      down: '#dc2626',
-      unchanged: '#c8922a',
-    };
-  } else if (type === 'area') {
-    _chart.config.type = 'line';
-    _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
-    _chart.data.datasets[0].fill = true;
-    _chart.data.datasets[0].backgroundColor = 'rgba(200,146,42,0.15)';
+    _chart = new Chart(ctx, {
+      type: 'ohlc',
+      data: {
+        datasets: [
+          {
+            label: 'INDC',
+            data: ohlc,
+            color: { up:'#16a34a', down:'#dc2626', unchanged:'#c8922a' },
+          },
+          ..._emaSets()
+        ]
+      },
+      options: _baseOptions()
+    });
+
   } else {
-    _chart.config.type = 'line';
-    _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
-    _chart.data.datasets[0].fill = false;
+    // line atau area
+    const isArea = type === 'area';
+    const grad   = _makeGrad(ctx);
+    _chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Harga INDC',
+            data: _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p })),
+            borderColor: '#c8922a',
+            borderWidth: 2,
+            backgroundColor: isArea ? grad : 'transparent',
+            fill: isArea,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: '#c8922a',
+          },
+          ..._emaSets()
+        ]
+      },
+      options: _baseOptions()
+    });
   }
-  _chart.update();
+
+  // Reapply EMA data kalau ada yang aktif
+  if (_emaActive[7])  { _chart.data.datasets[1].hidden = false; _chart.data.datasets[1].data = _calcEmaData(7);  }
+  if (_emaActive[25]) { _chart.data.datasets[2].hidden = false; _chart.data.datasets[2].data = _calcEmaData(25); }
+  if (_emaActive[99]) { _chart.data.datasets[3].hidden = false; _chart.data.datasets[3].data = _calcEmaData(99); }
+  _chart.update('none');
 }
 
 function switchTf(tf, btn) {
