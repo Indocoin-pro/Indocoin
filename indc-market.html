@@ -1462,18 +1462,11 @@ async function doVote(yes) {
 }
 
 async function checkActiveListing() {
-  if (!_wallet) { 
-    alert('DEBUG: wallet null, skip');
-    return; 
-  }
-  if (!_provider) {
-    alert('DEBUG: provider null');
-    return;
-  }
+  if (!_wallet) return;
+  if (!_provider) return;
   try {
     const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _provider);
     const has = await mkt.hasActiveListing(_wallet);
-    alert('DEBUG: wallet=' + _wallet.slice(0,8) + ' hasListing=' + has);
     document.getElementById('btnList').style.display       = has ? 'none'  : 'block';
     document.getElementById('btnCancelList').style.display = has ? 'block' : 'none';
     if (has) {
@@ -1481,7 +1474,7 @@ async function checkActiveListing() {
     } else {
       updatePosisi(false, 0, 0, false);
     }
-  } catch(e) { alert('ERROR checkActiveListing: ' + e.message); }
+  } catch(e) { console.error('checkActiveListing error:', e); }
 }
 
 async function loadListingStatus(mkt) {
@@ -1501,7 +1494,8 @@ async function loadListingStatus(mkt) {
     const usdtEst    = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
     const maxList    = await mkt.maxListingIndc();
     const maxListF   = parseFloat(ethers.utils.formatUnits(maxList, INDC_DEC));
-    const isPartial  = indcRemain < maxListF * 0.98;
+    // Terjual sebagian hanya kalau sudah berkurang lebih dari 5% (bukan hanya fee 2%)
+    const isPartial  = indcRemain < maxListF * 0.95;
     updatePosisi(true, indcRemain, usdtEst, isPartial);
   } catch(e) { console.error('loadListingStatus error:', e); }
 }
