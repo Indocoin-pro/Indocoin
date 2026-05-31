@@ -250,13 +250,13 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .hist-row:last-child{border-bottom:none;}
 .hr-indc{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;display:block;}
 .hr-indc.buy{color:var(--green);}
-.hr-indc.sell{color:var(--gold);}
+.hr-indc.sell{color:var(--red);}
 .hr-badge{
   display:inline-block;padding:1px 5px;border-radius:3px;
   font-size:9px;font-family:'DM Mono',monospace;font-weight:700;margin-top:2px;
 }
 .hr-badge.buy{background:#f0faf4;color:var(--green);}
-.hr-badge.sell{background:#fffbf0;color:var(--gold);}
+.hr-badge.sell{background:#fff5f5;color:var(--red);}
 .hr-right{text-align:right;}
 .hr-usdt{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);display:block;}
 .hr-time{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);}
@@ -696,6 +696,8 @@ const MARKET_ABI = [
   "function currentPrice() view returns (uint256)",
   "function getMarketStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint256,uint256)",
   "function getTradeHistory(uint256,uint256) view returns (tuple(address buyer,uint256 indcAmount,uint256 usdtAmount,uint256 price,uint256 timestamp)[])",
+  "event Bought(address indexed buyer, uint256 indcAmount, uint256 usdtPaid, uint256 price)",
+  "event Listed(address indexed seller, uint256 listingId, uint256 indcAmount, uint256 timestamp)",
   "function hasActiveListing(address) view returns (bool)",
   "function maxListingIndc() view returns (uint256)",
   "function maxBuyIndc() view returns (uint256)",
@@ -719,6 +721,7 @@ let _provider, _signer, _wallet, _market, _indcTk, _usdtTk;
 let _currentPrice = 0;
 let _histFilter   = 'all';
 let _allHistory   = [];
+let _allCombined  = []; // gabungan beli + jual
 
 // ═══════════════════════════════════════════
 //  WALLET
@@ -844,6 +847,9 @@ async function loadMarketData() {
           if (data.length > 0) _mainSeries.setData(data);
         }
       }
+
+      // Load Listed events untuk riwayat jual
+      await loadListedEvents(mkt);
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
@@ -905,29 +911,70 @@ async function loadMarketData() {
 // ═══════════════════════════════════════════
 //  HISTORY
 // ═══════════════════════════════════════════
+async function loadListedEvents(mkt) {
+  try {
+    const provider = _provider || await getBscProvider();
+    const contract = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
+    const latest   = await provider.getBlockNumber();
+    const from     = Math.max(0, latest - 5000); // 5000 blok terakhir ~4 jam
+
+    const listedFilter = contract.filters.Listed();
+    const listedEvents = await contract.queryFilter(listedFilter, from, latest);
+
+    // Gabungkan beli + jual, sort by timestamp terbaru
+    const buys = _allHistory.map(h => ({
+      type:      'beli',
+      wallet:    h.buyer,
+      indcAmount: h.indcAmount,
+      usdtAmount: h.usdtAmount,
+      timestamp:  Number(h.timestamp),
+    }));
+
+    const sells = listedEvents.map(e => ({
+      type:      'jual',
+      wallet:    e.args.seller,
+      indcAmount: e.args.indcAmount,
+      usdtAmount: null,
+      timestamp:  Number(e.args.timestamp),
+    }));
+
+    _allCombined = [...buys, ...sells].sort((a, b) => b.timestamp - a.timestamp);
+    renderHistory();
+  } catch(e) {
+    console.error('loadListedEvents error:', e);
+    renderHistory(); // tetap render dengan data beli saja
+  }
+}
+
 function renderHistory() {
   const el   = document.getElementById('histList');
+  const source = _allCombined.length > 0 ? _allCombined : _allHistory.map(h => ({
+    type: 'beli', wallet: h.buyer, indcAmount: h.indcAmount,
+    usdtAmount: h.usdtAmount, timestamp: Number(h.timestamp)
+  }));
+
   const data = _histFilter === 'mine' && _wallet
-    ? _allHistory.filter(h => h.buyer.toLowerCase() === _wallet.toLowerCase())
-    : _allHistory;
+    ? source.filter(h => h.wallet && h.wallet.toLowerCase() === _wallet.toLowerCase())
+    : source;
 
   if (data.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     return;
   }
+
   el.innerHTML = data.map(h => {
-    const indc = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
-    const usdt = parseFloat(ethers.formatUnits(h.usdtAmount, 18));
-    const dt   = new Date(Number(h.timestamp) * 1000)
-                  .toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    const indc  = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
+    const usdt  = h.usdtAmount ? parseFloat(ethers.formatUnits(h.usdtAmount, 18)) : null;
+    const dt    = new Date(h.timestamp * 1000).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    const isBuy = h.type === 'beli';
     return `
     <div class="hist-row">
       <div>
-        <span class="hr-indc buy">+${fmtN(indc)}</span>
-        <span class="hr-badge buy">BELI</span>
+        <span class="hr-indc ${isBuy ? 'buy' : 'sell'}">${isBuy ? '+' : '-'}${fmtN(indc)}</span>
+        <span class="hr-badge ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'BELI' : 'JUAL'}</span>
       </div>
       <div class="hr-right">
-        <span class="hr-usdt">$${usdt.toFixed(1)}</span>
+        <span class="hr-usdt">${usdt !== null ? '$' + usdt.toFixed(1) : '—'}</span>
         <span class="hr-time">${dt}</span>
       </div>
     </div>`;
