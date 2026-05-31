@@ -6,7 +6,7 @@
 <title>INDC Market — INDOCOIN</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="lightweight-charts.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
   --gold:#c8922a;--gold2:#f0b429;--gold3:#faca57;
@@ -684,7 +684,7 @@ const BSC_RPCS = [
 async function getBscProvider() {
   for (const rpc of BSC_RPCS) {
     try {
-      const p = new ethers.providers.JsonRpcProvider(rpc);
+      const p = new ethers.JsonRpcProvider(rpc);
       await p.getBlockNumber();
       return p;
     } catch(e) { continue; }
@@ -726,15 +726,15 @@ let _allHistory   = [];
 async function connectWallet() {
   try {
     if (!window.ethereum) { alert('Install MetaMask / wallet dulu!'); return; }
-    _provider = new ethers.providers.Web3Provider(window.ethereum);
+    _provider = new ethers.BrowserProvider(window.ethereum);
     await _provider.send('eth_requestAccounts', []);
     const net = await _provider.getNetwork();
-    if (net.chainId !== 56) {
+    if (Number(net.chainId) !== 56) {
       try {
         await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:'0x38'}] });
       } catch(e) { alert('Ganti network ke BSC Mainnet!'); return; }
     }
-    _signer  = _provider.getSigner();
+    _signer  = await _provider.getSigner();
     _wallet  = await _signer.getAddress();
     _market  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _signer);
     _indcTk  = new ethers.Contract(INDC_ADDR,   ERC20_ABI,  _signer);
@@ -745,9 +745,8 @@ async function connectWallet() {
     btn.classList.add('connected');
 
     // Cek blacklist
-    const rpc = await getBscProvider();
-    const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
-    const isBlacklisted = await mkt.blacklisted(_wallet);
+    const mktCheck = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _provider);
+    const isBlacklisted = await mktCheck.blacklisted(_wallet);
     if (isBlacklisted) {
       showBlacklistPopup();
       return;
@@ -792,8 +791,8 @@ function submitAppeal() {
 // ═══════════════════════════════════════════
 async function loadMarketData() {
   try {
-    const rpc = await getBscProvider();
-    const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc);
+    const provider = _provider || await getBscProvider();
+    const mkt = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
     const stats = await mkt.getMarketStats();
 
     const price       = stats[0];
@@ -806,7 +805,7 @@ async function loadMarketData() {
     const vYes        = stats[9];
     const vNo         = stats[10];
 
-    _currentPrice = parseFloat(ethers.utils.formatUnits(price, 18));
+    _currentPrice = parseFloat(ethers.formatUnits(price, 18));
 
     // Hero
     document.getElementById('heroPrice').textContent     = _currentPrice.toFixed(5);
@@ -814,20 +813,18 @@ async function loadMarketData() {
     document.getElementById('pvBuyPrice').textContent    = '$' + _currentPrice.toFixed(5);
 
     // Stats
-    const poolF = parseFloat(ethers.utils.formatUnits(sellerPool, INDC_DEC));
+    const poolF = parseFloat(ethers.formatUnits(sellerPool, INDC_DEC));
     document.getElementById('statPool').textContent = fmtN(poolF) + ' INDC';
 
     // Volume — hitung total USDT dari history
-    const total = totalTrades.toNumber();
+    const total = Number(totalTrades);
     let volumeUsdt = 0;
     if (total > 0) {
       const from  = total > 50 ? total - 50 : 0;
       const count = total - from;
       try {
-        const rpc2 = await getBscProvider();
-        const mkt2 = new ethers.Contract(MARKET_ADDR, MARKET_ABI, rpc2);
-        const hist = await mkt2.getTradeHistory(from, count);
-        hist.forEach(h => { volumeUsdt += parseFloat(ethers.utils.formatUnits(h.usdtAmount, 18)); });
+        const hist = await mkt.getTradeHistory(from, count);
+        hist.forEach(h => { volumeUsdt += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
         _allHistory = [...hist].reverse();
         renderHistory();
       } catch(e) {}
@@ -849,19 +846,19 @@ async function loadMarketData() {
     }
 
     // Progress bar pool DEX
-    const progPct = (lpProgress.toNumber() / 100).toFixed(1);
+    const progPct = (Number(lpProgress) / 100).toFixed(1);
     document.getElementById('lpPct').textContent  = progPct + '%';
     document.getElementById('lpBar').style.width  = Math.min(100, parseFloat(progPct)) + '%';
 
     // Max beli
     const maxBuy     = await mkt.maxBuyIndc();
-    const maxBuyF    = parseFloat(ethers.utils.formatUnits(maxBuy, INDC_DEC));
+    const maxBuyF    = parseFloat(ethers.formatUnits(maxBuy, INDC_DEC));
     const maxBuyUsdt = maxBuyF * _currentPrice;
     document.getElementById('pvBuyMax').textContent = '$' + maxBuyUsdt.toFixed(2);
 
     // Max jual
     const maxList  = await mkt.maxListingIndc();
-    const maxListF = parseFloat(ethers.utils.formatUnits(maxList, INDC_DEC));
+    const maxListF = parseFloat(ethers.formatUnits(maxList, INDC_DEC));
     document.getElementById('pvSellMax').textContent = fmtN(maxListF) + ' INDC';
 
     // Voting card — selalu tampil, dinamis
@@ -903,8 +900,8 @@ function renderHistory() {
     return;
   }
   el.innerHTML = data.map(h => {
-    const indc = parseFloat(ethers.utils.formatUnits(h.indcAmount, INDC_DEC));
-    const usdt = parseFloat(ethers.utils.formatUnits(h.usdtAmount, 18));
+    const indc = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
+    const usdt = parseFloat(ethers.formatUnits(h.usdtAmount, 18));
     const dt   = new Date(h.timestamp.toNumber() * 1000)
                   .toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
     return `
@@ -1342,7 +1339,7 @@ async function doBuy() {
   try {
     const mkt  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _provider);
     const last = await mkt.lastTxTime(_wallet);
-    const next = last.toNumber() + 15 * 60;
+    const next = Number(last) + 15 * 60;
     const now  = Math.floor(Date.now() / 1000);
     if (now < next) {
       const sisa = next - now;
@@ -1352,7 +1349,7 @@ async function doBuy() {
 
     // Cek max beli 50% pool
     const maxBuy  = await mkt.maxBuyIndc();
-    const maxBuyF = parseFloat(ethers.utils.formatUnits(maxBuy, INDC_DEC));
+    const maxBuyF = parseFloat(ethers.formatUnits(maxBuy, INDC_DEC));
     const maxBuyUsdt = maxBuyF * _currentPrice;
     if (usdtF > maxBuyUsdt) {
       showMsg('msgBuy', 'Melebihi maks beli $' + maxBuyUsdt.toFixed(2), 'err');
@@ -1360,20 +1357,20 @@ async function doBuy() {
     }
   } catch(e) {}
 
-  const usdtAmt  = ethers.utils.parseUnits(usdtF.toFixed(6), 18);
+  const usdtAmt  = ethers.parseUnits(usdtF.toFixed(6), 18);
   showMsg('msgBuy', 'Cek allowance USDT...', 'inf');
 
   try {
     const allow = await _usdtTk.allowance(_wallet, MARKET_ADDR);
-    if (allow.lt(usdtAmt)) {
+    if (allow < usdtAmt) {
       showMsg('msgBuy', 'Approve USDT...', 'inf');
-      const tx = await _usdtTk.approve(MARKET_ADDR, ethers.constants.MaxUint256);
+      const tx = await _usdtTk.approve(MARKET_ADDR, ethers.MaxUint256);
       await tx.wait();
     }
     showMsg('msgBuy', 'Menunggu konfirmasi...', 'inf');
     // maxPrice = harga + 1% slippage
-    const priceBig = ethers.utils.parseUnits(_currentPrice.toFixed(18), 18);
-    const maxPrice = priceBig.mul(10100).div(10000);
+    const priceBig = ethers.parseUnits(_currentPrice.toFixed(18), 18);
+    const maxPrice = priceBig * 10100n / 10000n;
     const tx = await _market.buyIndc(usdtAmt, maxPrice);
     await tx.wait();
     showMsg('msgBuy', '✅ Berhasil beli INDC!', 'ok');
@@ -1402,7 +1399,7 @@ async function doList() {
   try {
     const mkt  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _provider);
     const last = await mkt.lastTxTime(_wallet);
-    const next = last.toNumber() + 15 * 60;
+    const next = Number(last) + 15 * 60;
     const now  = Math.floor(Date.now() / 1000);
     if (now < next) {
       const sisa = next - now;
@@ -1411,14 +1408,14 @@ async function doList() {
     }
   } catch(e) {}
 
-  const indcAmt = ethers.utils.parseUnits(Math.floor(indcF).toString(), INDC_DEC);
+  const indcAmt = ethers.parseUnits(Math.floor(indcF).toString(), INDC_DEC);
   showMsg('msgSell', 'Cek allowance INDC...', 'inf');
 
   try {
     const allow = await _indcTk.allowance(_wallet, MARKET_ADDR);
-    if (allow.lt(indcAmt)) {
+    if (allow < indcAmt) {
       showMsg('msgSell', 'Approve INDC...', 'inf');
-      const tx = await _indcTk.approve(MARKET_ADDR, ethers.constants.MaxUint256);
+      const tx = await _indcTk.approve(MARKET_ADDR, ethers.MaxUint256);
       await tx.wait();
     }
     showMsg('msgSell', 'Menunggu konfirmasi...', 'inf');
@@ -1484,7 +1481,7 @@ async function loadListingStatus(mkt) {
 
     const listing    = await mkt.listings(listingId);
     console.log('listing raw:', listing);
-    const indcRemain = parseFloat(ethers.utils.formatUnits(listing.indcAmount || listing[1], INDC_DEC));
+    const indcRemain = parseFloat(ethers.formatUnits(listing.indcAmount || listing[1], INDC_DEC));
     const isActive   = listing.active !== undefined ? listing.active : listing[3];
     console.log('indcRemain:', indcRemain, 'isActive:', isActive);
     if (!isActive) {
@@ -1493,7 +1490,7 @@ async function loadListingStatus(mkt) {
     }
     const usdtEst    = indcRemain * (_currentPrice > 0 ? _currentPrice : 0.020);
     const maxList    = await mkt.maxListingIndc();
-    const maxListF   = parseFloat(ethers.utils.formatUnits(maxList, INDC_DEC));
+    const maxListF   = parseFloat(ethers.formatUnits(maxList, INDC_DEC));
     // Terjual sebagian hanya kalau sudah berkurang lebih dari 5% (bukan hanya fee 2%)
     const isPartial  = indcRemain < maxListF * 0.95;
     updatePosisi(true, indcRemain, usdtEst, isPartial);
