@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <style>
 :root{
@@ -368,13 +369,19 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
     <!-- Chart Controls: TF | Dropdown | EMA — satu baris -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:4px;">
 
-      <!-- Kiri: Timeframe dengan navigasi panah -->
-      <div style="display:flex;align-items:center;gap:3px;">
+      <!-- Kiri: Timeframe dengan dropdown untuk sisanya -->
+      <div style="display:flex;align-items:center;gap:3px;position:relative;">
         <button class="tf" onclick="switchTf('5M',this)" id="tf5M">5M</button>
         <button class="tf" onclick="switchTf('15M',this)" id="tf15M">15M</button>
         <button class="tf active" onclick="switchTf('1H',this)" id="tf1H">1J</button>
-        <button class="tf" style="padding:4px 6px;font-size:10px;" onclick="tfPrev()">◀</button>
-        <button class="tf" style="padding:4px 6px;font-size:10px;" onclick="tfNext()">▶</button>
+        <div style="position:relative;">
+          <button id="tfMoreBtn" onclick="toggleTfDropdown()" class="tf" style="padding:4px 8px;">▼</button>
+          <div id="tfDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:50;overflow:hidden;min-width:70px;">
+            <div onclick="switchTfMore('6H','6J')" class="ct-opt">6J</div>
+            <div onclick="switchTfMore('1D','1H')" class="ct-opt">1H</div>
+            <div onclick="switchTfMore('7D','7H')" class="ct-opt">7H</div>
+          </div>
+        </div>
       </div>
 
       <!-- Tengah: Dropdown chart type -->
@@ -1121,8 +1128,11 @@ function _calcEmaData(period) {
 
 function _updateChart() {
   if (!_chart) return;
-  _chart.data.labels = _chartData.labels;
-  _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
+  if (_chartType === 'candle' || _chartType === 'bar') {
+    _chart.data.datasets[0].data = _buildOHLC();
+  } else {
+    _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
+  }
   if (_emaActive[7])  _chart.data.datasets[1].data = _calcEmaData(7);
   if (_emaActive[25]) _chart.data.datasets[2].data = _calcEmaData(25);
   if (_emaActive[99]) _chart.data.datasets[3].data = _calcEmaData(99);
@@ -1151,17 +1161,54 @@ function selectChartType(type, label) {
   switchChartType(type);
 }
 
+function _buildOHLC() {
+  const prices = _chartData.prices;
+  const labels = _chartData.labels;
+  if (prices.length === 0) return [];
+  const mins = { '5M':5,'15M':15,'1H':60,'6H':360,'1D':1440,'7D':10080 };
+  const interval = (mins[_chartTf] || 60) * 60 * 1000;
+  const buckets  = {};
+  prices.forEach((p, i) => {
+    const t = labels[i].getTime();
+    const key = Math.floor(t / interval) * interval;
+    if (!buckets[key]) buckets[key] = [];
+    buckets[key].push(p);
+  });
+  return Object.entries(buckets).map(([t, vals]) => ({
+    x:     parseInt(t),
+    o:     vals[0],
+    h:     Math.max(...vals),
+    l:     Math.min(...vals),
+    c:     vals[vals.length - 1],
+  })).sort((a,b) => a.x - b.x);
+}
+
 function switchChartType(type) {
   _chartType = type;
   if (!_chart) return;
-  // Chart.js — ganti type
-  const newType = (type === 'candle' || type === 'bar') ? 'bar' : type === 'area' ? 'line' : 'line';
-  _chart.config.type = newType;
-  if (type === 'area') {
+
+  if (type === 'candle') {
+    _chart.config.type = 'candlestick';
+    _chart.data.datasets[0].data = _buildOHLC();
+    _chart.data.datasets[0].color = {
+      up: '#2f855a', down: '#e53e3e',
+      unchanged: '#c8922a',
+    };
+  } else if (type === 'bar') {
+    _chart.config.type = 'ohlc';
+    _chart.data.datasets[0].data = _buildOHLC();
+    _chart.data.datasets[0].color = {
+      up: '#2f855a', down: '#e53e3e',
+      unchanged: '#c8922a',
+    };
+  } else if (type === 'area') {
+    _chart.config.type = 'line';
+    _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
     _chart.data.datasets[0].fill = true;
-  } else if (type === 'line') {
-    _chart.data.datasets[0].fill = false;
+    _chart.data.datasets[0].backgroundColor = 'rgba(200,146,42,0.15)';
   } else {
+    _chart.config.type = 'line';
+    _chart.data.datasets[0].data = _chartData.prices.map((p,i) => ({ x: _chartData.labels[i], y: p }));
     _chart.data.datasets[0].fill = false;
   }
   _chart.update();
@@ -1172,25 +1219,40 @@ function switchTf(tf, btn) {
   _tfIndex = TF_ORDER.indexOf(tf);
   document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"]):not([onclick^="tfP"]):not([onclick^="tfN"])').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // Reset tombol dropdown ke default kalau pilih dari tombol utama
+  if (btn && btn.id !== 'tfMoreBtn') {
+    const moreBtn = document.getElementById('tfMoreBtn');
+    if (moreBtn) moreBtn.textContent = '▼';
+  }
   document.getElementById('chartRangeLabel').textContent = TF_LABELS[tf] || tf;
   _chartData = { labels:[], prices:[] };
   if (_chart) { _chart.data.labels = []; _chart.data.datasets.forEach(d => d.data = []); _chart.update(); }
   loadMarketData();
 }
 
-function tfPrev() {
-  const newIdx = Math.max(0, _tfIndex - 1);
-  const tf = TF_ORDER[newIdx];
-  const btn = document.getElementById('tf' + tf) || null;
-  switchTf(tf, btn);
+function toggleTfDropdown() {
+  const dd = document.getElementById('tfDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 }
 
-function tfNext() {
-  const newIdx = Math.min(TF_ORDER.length - 1, _tfIndex + 1);
-  const tf = TF_ORDER[newIdx];
-  const btn = document.getElementById('tf' + tf) || null;
-  switchTf(tf, btn);
+function switchTfMore(tf, label) {
+  document.getElementById('tfDropdown').style.display = 'none';
+  // Update tombol ▼ jadi label yang dipilih
+  document.getElementById('tfMoreBtn').textContent = label + ' ▼';
+  // Hapus active dari semua tf button
+  document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"]):not(#tfMoreBtn)').forEach(b => b.classList.remove('active'));
+  document.getElementById('tfMoreBtn').classList.add('active');
+  switchTf(tf, null);
 }
+
+// Tutup tf dropdown kalau klik di luar
+document.addEventListener('click', e => {
+  const btn = document.getElementById('tfMoreBtn');
+  const dd  = document.getElementById('tfDropdown');
+  if (dd && btn && !btn.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
+  }
+});
 
 // ═══════════════════════════════════════════
 //  3 TABS
