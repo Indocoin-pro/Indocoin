@@ -836,15 +836,19 @@ async function loadMarketData() {
         const sorted = [..._allHistory].reverse();
         sorted.forEach(h => {
           const price = parseFloat(ethers.formatUnits(h.price, 18));
-          const time  = new Date(Number(h.timestamp) * 1000);
-          _chartData.labels.push(time);
-          _chartData.prices.push(price);
+          const timeMs = Number(h.timestamp) * 1000;
+          if (price > 0) {
+            _chartData.labels.push(new Date(timeMs));
+            _chartData.prices.push(price);
+          }
         });
-        addChartPoint(_currentPrice);
-        // Refresh chart dengan data baru
-        if (_lwChart && _mainSeries) {
+        if (_currentPrice > 0) addChartPoint(_currentPrice);
+        if (_lwChart && _mainSeries && _chartData.prices.length > 0) {
           const data = _buildSeriesData(_chartType);
-          if (data.length > 0) _mainSeries.setData(data);
+          if (data.length > 0) {
+            _mainSeries.setData(data);
+            _lwChart.timeScale().fitContent();
+          }
         }
       }
 
