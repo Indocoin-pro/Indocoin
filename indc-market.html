@@ -368,12 +368,13 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
     <!-- Chart Controls: TF | Dropdown | EMA — satu baris -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:4px;">
 
-      <!-- Kiri: Timeframe -->
-      <div style="display:flex;gap:4px;">
-        <button class="tf active" onclick="switchTf('1H',this)">1J</button>
-        <button class="tf" onclick="switchTf('6H',this)">6J</button>
-        <button class="tf" onclick="switchTf('1D',this)">1H</button>
-        <button class="tf" onclick="switchTf('7D',this)">7H</button>
+      <!-- Kiri: Timeframe dengan navigasi panah -->
+      <div style="display:flex;align-items:center;gap:3px;">
+        <button class="tf" onclick="switchTf('5M',this)" id="tf5M">5M</button>
+        <button class="tf" onclick="switchTf('15M',this)" id="tf15M">15M</button>
+        <button class="tf active" onclick="switchTf('1H',this)" id="tf1H">1J</button>
+        <button class="tf" style="padding:4px 6px;font-size:10px;" onclick="tfPrev()">◀</button>
+        <button class="tf" style="padding:4px 6px;font-size:10px;" onclick="tfNext()">▶</button>
       </div>
 
       <!-- Tengah: Dropdown chart type -->
@@ -1009,7 +1010,9 @@ let _chartType  = 'line';
 let _chartTf    = '1H';
 let _chartData  = { labels:[], prices:[] };
 
-const TF_LABELS = { '1H':'1 Jam terakhir','6H':'6 Jam terakhir','1D':'1 Hari terakhir','7D':'7 Hari terakhir' };
+const TF_ORDER  = ['5M','15M','1H','6H','1D','7D'];
+const TF_LABELS = { '5M':'5 Menit terakhir','15M':'15 Menit terakhir','1H':'1 Jam terakhir','6H':'6 Jam terakhir','1D':'1 Hari terakhir','7D':'7 Hari terakhir' };
+let _tfIndex = 2;
 
 function initChart() {
   const ctx = document.getElementById('priceChart').getContext('2d');
@@ -1166,12 +1169,27 @@ function switchChartType(type) {
 
 function switchTf(tf, btn) {
   _chartTf = tf;
-  document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"])').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('chartRangeLabel').textContent = TF_LABELS[tf];
+  _tfIndex = TF_ORDER.indexOf(tf);
+  document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"]):not([onclick^="tfP"]):not([onclick^="tfN"])').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('chartRangeLabel').textContent = TF_LABELS[tf] || tf;
   _chartData = { labels:[], prices:[] };
   if (_chart) { _chart.data.labels = []; _chart.data.datasets.forEach(d => d.data = []); _chart.update(); }
   loadMarketData();
+}
+
+function tfPrev() {
+  const newIdx = Math.max(0, _tfIndex - 1);
+  const tf = TF_ORDER[newIdx];
+  const btn = document.getElementById('tf' + tf) || null;
+  switchTf(tf, btn);
+}
+
+function tfNext() {
+  const newIdx = Math.min(TF_ORDER.length - 1, _tfIndex + 1);
+  const tf = TF_ORDER[newIdx];
+  const btn = document.getElementById('tf' + tf) || null;
+  switchTf(tf, btn);
 }
 
 // ═══════════════════════════════════════════
