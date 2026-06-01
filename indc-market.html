@@ -754,7 +754,7 @@ const MARKET_ABI = [
   "function hasVoted(address) view returns (bool)",
   "function listings(uint256) view returns (address seller, uint256 indcAmount, uint256 timestamp, bool active)",
   "function sellerListingId(address) view returns (uint256)",
-  "function getActiveListings(uint256 from, uint256 count) view returns (tuple(uint256 id, address seller, uint256 indcAmount, uint256 timestamp, bool active)[])",
+  "function getActiveListings(uint256 from, uint256 count) view returns (uint256[] ids, address[] sellers, uint256[] amounts, uint256[] timestamps, bool[] actives)",
   "function blacklisted(address) view returns (bool)",
   "function lastTxTime(address) view returns (uint256)",
 ];
@@ -1886,30 +1886,35 @@ async function loadListingStatus(mkt) {
 
 async function _calcQueuePosition(mkt, myId) {
   try {
-    // Ambil max 100 listing aktif dari awal
-    const actives = await mkt.getActiveListings(0, 100);
-    _queueTotal    = actives.length;
+    const result = await mkt.getActiveListings(0, 100);
+    // return: [ids[], sellers[], amounts[], timestamps[], actives[]]
+    const ids     = result[0] || result.ids     || [];
+    const amounts = result[2] || result.amounts || [];
 
-    // Sort by ID ascending (FIFO — ID kecil = duluan)
-    const sorted = [...actives].sort((a, b) => Number(a.id) - Number(b.id));
+    _queueTotal = ids.length;
 
-    let pos        = 0;
-    let indcAhead  = 0;
-    let foundSelf  = false;
+    // Sort index by ID ascending (FIFO)
+    const indices = Array.from({length: ids.length}, (_, i) => i)
+      .sort((a, b) => Number(ids[a]) - Number(ids[b]));
 
-    for (let i = 0; i < sorted.length; i++) {
-      const id = Number(sorted[i].id);
+    let pos       = 0;
+    let indcAhead = 0;
+    let foundSelf = false;
+
+    for (let i = 0; i < indices.length; i++) {
+      const idx = indices[i];
+      const id  = Number(ids[idx]);
       if (id === myId) {
-        pos       = i + 1; // posisi 1-based
+        pos       = i + 1;
         foundSelf = true;
         break;
       }
-      // Akumulasi INDC di depan kita
-      indcAhead += parseFloat(ethers.formatUnits(sorted[i].indcAmount, INDC_DEC));
+      indcAhead += parseFloat(ethers.formatUnits(amounts[idx], INDC_DEC));
     }
 
     _queuePosition  = foundSelf ? pos : _queueTotal;
     _queueIndcAhead = indcAhead;
+    console.log('Queue:', _queuePosition, '/', _queueTotal, 'ahead:', _queueIndcAhead);
   } catch(e) {
     console.error('_calcQueuePosition error:', e);
   }
