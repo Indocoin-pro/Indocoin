@@ -755,7 +755,7 @@ const MARKET_ABI = [
   "function hasVoted(address) view returns (bool)",
   "function listings(uint256) view returns (address seller, uint256 indcAmount, uint256 timestamp, bool active)",
   "function sellerListingId(address) view returns (uint256)",
-  "function getActiveListings(uint256 from, uint256 count) view returns (uint256[] ids, address[] sellers, uint256[] amounts, uint256[] timestamps, bool[] actives)",
+  "function getActiveListings(uint256 from, uint256 count) view returns (tuple(address seller, uint256 indcAmount, uint256 timestamp, bool active)[])",
   "function blacklisted(address) view returns (bool)",
   "function lastTxTime(address) view returns (uint256)",
 ];
@@ -1887,37 +1887,35 @@ async function loadListingStatus(mkt) {
 
 async function _calcQueuePosition(mkt, myId) {
   try {
-    const result = await mkt.getActiveListings(0, 100);
-    // return: [ids[], sellers[], amounts[], timestamps[], actives[]]
-    const ids     = result[0] || result.ids     || [];
-    const amounts = result[2] || result.amounts || [];
+    // getActiveListings return tuple[] — sorted by timestamp (FIFO)
+    const actives = await mkt.getActiveListings(0, 100);
+    _queueTotal = actives.length;
 
-    _queueTotal = ids.length;
-
-    // Sort index by ID ascending (FIFO)
-    const indices = Array.from({length: ids.length}, (_, i) => i)
-      .sort((a, b) => Number(ids[a]) - Number(ids[b]));
+    // Sort by timestamp ascending (FIFO — timestamp kecil = duluan)
+    const sorted = [...actives].sort((a, b) => Number(a.timestamp) - Number(b.timestamp));
 
     let pos       = 0;
     let indcAhead = 0;
     let foundSelf = false;
+    const myWallet = _wallet.toLowerCase();
 
-    for (let i = 0; i < indices.length; i++) {
-      const idx = indices[i];
-      const id  = Number(ids[idx]);
-      if (id === myId) {
+    for (let i = 0; i < sorted.length; i++) {
+      const item = sorted[i];
+      const seller = (item.seller || item[0] || '').toLowerCase();
+      if (seller === myWallet) {
         pos       = i + 1;
         foundSelf = true;
         break;
       }
-      indcAhead += parseFloat(ethers.formatUnits(amounts[idx], INDC_DEC));
+      indcAhead += parseFloat(ethers.formatUnits(item.indcAmount || item[1], INDC_DEC));
     }
 
     _queuePosition  = foundSelf ? pos : _queueTotal;
     _queueIndcAhead = indcAhead;
-    // DEBUG SEMENTARA — tampil di layar
+
+    // DEBUG sementara
     const dbg = document.getElementById('queueDebug');
-    if (dbg) dbg.textContent = 'Q:' + _queuePosition + '/' + _queueTotal + ' ahead:' + _queueIndcAhead.toFixed(0);
+    if (dbg) dbg.textContent = 'Q:' + _queuePosition + '/' + _queueTotal + ' ahead:' + Math.round(_queueIndcAhead);
   } catch(e) {
     const dbg = document.getElementById('queueDebug');
     if (dbg) dbg.textContent = 'ERR: ' + (e.message || e);
