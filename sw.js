@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "110.4";
+const VERSION = "110.5";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -101,6 +101,7 @@ const CACHE_FILES = [
   "/merchant-pay.html",
   "/merchant-qr.html",
   "/token-lock-tracker.html",
+  "/welcome.html",
   "/premium-games.html",
 ];
 
