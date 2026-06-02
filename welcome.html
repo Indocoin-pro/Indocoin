@@ -688,47 +688,52 @@ async function loadAll(){
 
 async function loadContractInfo(){
   const RPC_LIST = [
+    'https://bsc-dataseed.binance.org/',
     'https://bsc-dataseed1.binance.org/',
     'https://bsc-dataseed2.binance.org/',
     'https://bsc-dataseed3.binance.org/',
     'https://bsc-dataseed4.binance.org/',
     'https://rpc.ankr.com/bsc',
+    'https://bsc.publicnode.com',
+    'https://binance.llamarpc.com',
+    'https://1rpc.io/bnb',
   ];
-  let wRead = null;
   for(const rpc of RPC_LIST){
     try{
-      const p = new ethers.providers.StaticJsonRpcProvider(rpc,{chainId:56,name:'bnb'});
-      await p.getBlockNumber();
-      wRead = new ethers.Contract(SC.WELCOME, WELCOME_ABI, p);
-      break;
+      const p     = new ethers.providers.StaticJsonRpcProvider(rpc,{chainId:56,name:'bnb'});
+      const MARKET_READ_ABI = ["function currentPrice() view returns (uint256)"];
+      const mRead = new ethers.Contract(SC.MARKET, MARKET_READ_ABI, p);
+      const WELCOME_READ_ABI = [
+        "function rewardPool() view returns (uint256)",
+        "function totalLockedIndc() view returns (uint256)",
+        "function useDexOracle() view returns (bool)",
+      ];
+      const wRead = new ethers.Contract(SC.WELCOME, WELCOME_READ_ABI, p);
+
+      const [pool, locked, useDex, price] = await Promise.all([
+        wRead.rewardPool(),
+        wRead.totalLockedIndc(),
+        wRead.useDexOracle(),
+        mRead.currentPrice(),
+      ]);
+
+      const poolN   = fromI(pool,   SC.INDC_DEC);
+      const lockedN = fromI(locked, SC.INDC_DEC);
+      const priceN  = fromI(price,  18);
+      _indcPrice    = priceN > 0 ? priceN : 0.003;
+
+      const poolM = poolN >= 1e6 ? (poolN/1e6).toFixed(2)+'M' : poolN >= 1e3 ? (poolN/1e3).toFixed(1)+'K' : fmtI(poolN);
+      document.getElementById('rewardPoolDisp').textContent  = poolM+' INDC';
+      document.getElementById('indcPriceDisp').textContent   = '$'+_indcPrice.toFixed(5);
+      document.getElementById('indcPriceBanner').textContent = '$'+_indcPrice.toFixed(5);
+      document.getElementById('oracleSource').textContent    = useDex ? '🔵 PancakeSwap' : '🟡 INDC Market';
+      document.getElementById('poolBarVal').textContent      = poolM+' INDC';
+      const safetyPct = lockedN > 0 ? Math.min(100, Math.round((poolN/lockedN)*100)) : 100;
+      document.getElementById('poolFill').style.width = safetyPct+'%';
+      return; // berhasil, stop loop
     }catch(e){ continue; }
   }
-  if(!wRead){console.warn('Semua RPC gagal');return;}
-  try{
-    const [pool, locked, vip, price, isPaused, isStopped, useDex] = await Promise.all([
-      wRead.rewardPool(),
-      wRead.totalLockedIndc(),
-      wRead.vipPool(),
-      wRead.getIndcPrice(),
-      wRead.paused(),
-      wRead.globalStopped(),
-      wRead.useDexOracle(),
-    ]);
-
-    const poolN   = fromI(pool,   SC.INDC_DEC);
-    const lockedN = fromI(locked, SC.INDC_DEC);
-    const priceN  = fromI(price,  18);
-    _indcPrice    = priceN > 0 ? priceN : 0.003;
-
-    const poolM = poolN >= 1e6 ? (poolN/1e6).toFixed(2)+'M' : poolN >= 1e3 ? (poolN/1e3).toFixed(1)+'K' : fmtI(poolN);
-    document.getElementById('rewardPoolDisp').textContent  = poolM+' INDC';
-    document.getElementById('indcPriceDisp').textContent   = '$'+_indcPrice.toFixed(5);
-    document.getElementById('indcPriceBanner').textContent = '$'+_indcPrice.toFixed(5);
-    document.getElementById('oracleSource').textContent    = useDex ? '🔵 PancakeSwap' : '🟡 INDC Market';
-    document.getElementById('poolBarVal').textContent      = poolM+' INDC';
-    const safetyPct = lockedN > 0 ? Math.min(100, Math.round((poolN/lockedN)*100)) : 100;
-    document.getElementById('poolFill').style.width = safetyPct+'%';
-  }catch(e){console.error('loadContractInfo:',e);}
+  console.warn('Semua RPC gagal');
 }
 
 async function loadBalances(){
