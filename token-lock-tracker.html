@@ -950,9 +950,12 @@ async function loadWelcomePool() {
       indc.balanceOf(WELCOME_CA),
     ]);
 
-    const poolN    = parseFloat(ethers.utils.formatUnits(pool,        9));
-    const lockedN  = parseFloat(ethers.utils.formatUnits(locked,      9));
-    const balN     = parseFloat(ethers.utils.formatUnits(contractBal, 9));
+    const poolN   = parseFloat(ethers.utils.formatUnits(pool,        9));
+    const lockedN = parseFloat(ethers.utils.formatUnits(locked,      9));
+    const balN    = parseFloat(ethers.utils.formatUnits(contractBal, 9));
+
+    const safetyPct = lockedN > 0 ? Math.min(100, Math.round((poolN/lockedN)*100)) : 100;
+    const safetyColor = safetyPct >= 70 ? 'var(--green)' : safetyPct >= 40 ? 'var(--gold2)' : 'var(--red)';
 
     const fmt = n => n >= 1e6
       ? (n/1e6).toFixed(2) + ' M INDC'
@@ -971,13 +974,33 @@ async function loadWelcomePool() {
             <div class="lock-stat-lbl">TOTAL TERKUNCI</div>
             <div class="lock-stat-val">${fmt(lockedN)}</div>
           </div>
-          <div class="lock-stat">
-            <div class="lock-stat-lbl">SALDO KONTRAK</div>
-            <div class="lock-stat-val">${fmt(balN)}</div>
+        </div>
+        <div class="lock-stat" style="margin-bottom:10px;border-radius:8px;">
+          <div class="lock-stat-lbl">SALDO KONTRAK</div>
+          <div class="lock-stat-val">${fmt(balN)}</div>
+        </div>
+
+        <button class="toggle-btn" onclick="toggleDetail(this,'detW')" data-open="0">
+          LIHAT DETAIL ▼
+        </button>
+        <div id="detW" style="display:none;">
+          <div class="progress-wrap">
+            <div class="progress-label">
+              <span>🛡️ KEAMANAN DANA USER</span>
+              <span style="color:${safetyColor};font-weight:700;">${safetyPct}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${safetyPct}%;background:${safetyColor};"></div>
+            </div>
+          </div>
+          <div class="next-unlock">
+            <div><div class="nu-lbl">💰 REWARD POOL</div><div class="nu-val" style="font-size:10px">${fmt(poolN)}</div></div>
+            <div><div class="nu-lbl-r">🔒 TERKUNCI USER</div><div class="nu-val-r" style="font-size:10px">${fmt(lockedN)}</div></div>
           </div>
         </div>
+
         <div class="lock-contract">
-          Kontrak: <a href="https://bscscan.com/address/${WELCOME_CA}" target="_blank">${WELCOME_CA}</a>
+          CONTRACT: <a href="https://bscscan.com/address/${WELCOME_CA}#readContract" target="_blank">${WELCOME_CA}</a>
         </div>
       </div>`;
 
