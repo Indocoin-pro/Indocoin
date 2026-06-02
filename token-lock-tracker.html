@@ -261,6 +261,11 @@ h1 span{display:block;font-size:8.5px;color:var(--muted);font-weight:400;letter-
     <div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA POOL GAME...</div></div>
   </div>
 
+  <div id="sec-appW" class="sec-div">&#127963; INDOCOIN WELCOME &mdash; Pool Reward</div>
+  <div id="appW">
+    <div class="loading"><div class="spinner"></div><div class="loading-text">MEMUAT DATA WELCOME...</div></div>
+  </div>
+
   <div class="footer">
     <div class="total-lock">
       <div class="total-lock-lbl">TOTAL TOKEN TERKUNCI</div>
@@ -328,6 +333,19 @@ const STAKING_POOLS = [
   { name: 'Flexi Yield Staking',        addr: '0xc31ddfd5e703f094ac8af66832a8c1ec3a209952' },
   { name: 'Locked Diamond Staking',     addr: '0x858cece880f2ab7fdf8602148c61083c4a338373' },
   { name: 'Garuda Force Mission',       addr: '0xdfabc3159c8a195feced77069b8d4fb16deed667' },
+  { name: 'INDOCOIN WELCOME',           addr: '0xC52a6C6151B32Ae0e3D5f60ab58Af8439ea0690D' },
+];
+
+// ── INDOCOIN WELCOME CONTRACT ────────────────────────────────────
+const WELCOME_CA  = '0xC52a6C6151B32Ae0e3D5f60ab58Af8439ea0690D';
+const WELCOME_ABI = [
+  "function getContractInfo() view returns (uint256 rewardPool, uint256 totalLockedIndc, uint256 vipPool, uint256 indcPrice, bool paused, bool globalStopped)",
+  "function rewardRatePerDay() view returns (uint256)",
+  "function minDepositUsdt() view returns (uint256)",
+  "function maxDepositUsdt() view returns (uint256)",
+  "function checkpointInterval() view returns (uint256)",
+  "function useDexOracle() view returns (bool)",
+  "function welcomeScoreEnabled() view returns (bool)"
 ];
 const INDC_CA = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const ERC20_ABI = ["function balanceOf(address account) view returns (uint256)"];
@@ -914,6 +932,167 @@ async function loadGamePool() {
 
 
 
+// ── INDOCOIN WELCOME POOL LOADER ─────────────────────────────────
+async function loadWelcomePool() {
+  const el = document.getElementById('appW');
+  try {
+    const provider = await getProvider();
+    const welcome  = new ethers.Contract(WELCOME_CA, WELCOME_ABI, provider);
+    const indc     = new ethers.Contract(INDC_CA, ERC20_ABI, provider);
+
+    const [info, rate, minDep, maxDep, cpInterval, useDex, scoreEnabled, contractBal] =
+      await Promise.all([
+        welcome.getContractInfo(),
+        welcome.rewardRatePerDay(),
+        welcome.minDepositUsdt(),
+        welcome.maxDepositUsdt(),
+        welcome.checkpointInterval(),
+        welcome.useDexOracle(),
+        welcome.welcomeScoreEnabled(),
+        indc.balanceOf(WELCOME_CA)
+      ]);
+
+    const rewardPool    = parseFloat(ethers.utils.formatUnits(info.rewardPool,    9));
+    const totalLocked   = parseFloat(ethers.utils.formatUnits(info.totalLockedIndc, 9));
+    const vipPool       = parseFloat(ethers.utils.formatUnits(info.vipPool,       18));
+    const indcPrice     = parseFloat(ethers.utils.formatUnits(info.indcPrice,     18));
+    const contractIndcBal = parseFloat(ethers.utils.formatUnits(contractBal,      9));
+    const rewardRate    = Number(rate);
+    const cpDays        = Math.round(Number(cpInterval) / 86400);
+    const minU          = parseFloat(ethers.utils.formatUnits(minDep,  18));
+    const maxU          = parseFloat(ethers.utils.formatUnits(maxDep,  18));
+
+    // Safety ratio: berapa % pool masih aman
+    const safetyPct = totalLocked > 0
+      ? Math.min(100, Math.round((rewardPool / totalLocked) * 100))
+      : 100;
+    const safetyColor = safetyPct >= 70 ? 'var(--green)'
+                      : safetyPct >= 40 ? 'var(--gold2)'
+                      : 'var(--red)';
+    const statusLabel = info.globalStopped ? '🔴 DIHENTIKAN'
+                      : info.paused        ? '🟡 DIJEDA'
+                      :                     '🟢 AKTIF';
+
+    const fmt = n => n >= 1e6
+      ? (n/1e6).toFixed(2) + ' M'
+      : n >= 1e3
+      ? (n/1e3).toFixed(2) + ' K'
+      : n.toFixed(2);
+
+    const html = `
+      <div class="lock-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold3);letter-spacing:1px;">INDOCOIN WELCOME</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">Program Staking — Gerbang Ekosistem</div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;padding:4px 10px;background:rgba(0,0,0,0.4);border:1px solid rgba(200,146,42,0.2);border-radius:6px;">${statusLabel}</div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="lock-stats">
+          <div class="lock-stat">
+            <div>
+              <div class="lock-stat-lbl">REWARD POOL</div>
+              <div class="lock-stat-val" style="color:var(--gold3);">${fmt(rewardPool)} INDC</div>
+            </div>
+          </div>
+          <div class="lock-stat">
+            <div>
+              <div class="lock-stat-lbl">TOTAL TERKUNCI USER</div>
+              <div class="lock-stat-val">${fmt(totalLocked)} INDC</div>
+            </div>
+          </div>
+          <div class="lock-stat">
+            <div>
+              <div class="lock-stat-lbl">SALDO KONTRAK</div>
+              <div class="lock-stat-val">${fmt(contractIndcBal)} INDC</div>
+            </div>
+          </div>
+          <div class="lock-stat">
+            <div>
+              <div class="lock-stat-lbl">VIP POOL (USDT)</div>
+              <div class="lock-stat-val" style="color:var(--green);">$${fmt(vipPool)}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safety Bar -->
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>🛡️ KEAMANAN DANA USER</span>
+            <span style="color:${safetyColor};font-weight:700;">${safetyPct}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${safetyPct}%;background:linear-gradient(90deg,${safetyColor},${safetyColor});"></div>
+          </div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:4px;line-height:1.7;">
+            Pool reward ${safetyPct >= 100 ? 'mencukupi' : 'tersisa ' + safetyPct + '% dari'} total kewajiban user.<br>
+            Jika pool tidak cukup → otomatis stop & dana kembali ke Platform Wallet.
+          </div>
+        </div>
+
+        <!-- Parameter Info -->
+        <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(200,146,42,0.12);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:8px;color:var(--gold);letter-spacing:1px;margin-bottom:8px;">PARAMETER AKTIF</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Reward:</span>
+              <span style="color:var(--white);font-weight:700;"> ${rewardRate / 100}%/hari</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Checkpoint:</span>
+              <span style="color:var(--white);font-weight:700;"> ${cpDays} hari</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Min deposit:</span>
+              <span style="color:var(--white);font-weight:700;"> $${minU}</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Max deposit:</span>
+              <span style="color:var(--white);font-weight:700;"> $${maxU}</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Oracle:</span>
+              <span style="color:var(--white);font-weight:700;"> ${useDex ? 'PancakeSwap DEX' : 'INDC Market'}</span>
+            </div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;">
+              <span style="color:var(--muted);">Welcome Score:</span>
+              <span style="color:${scoreEnabled ? 'var(--green)' : 'var(--muted)'};font-weight:700;"> ${scoreEnabled ? 'AKTIF' : 'NON-AKTIF'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Harga INDC -->
+        <div class="next-unlock">
+          <div>
+            <div class="nu-lbl">HARGA INDC (ORACLE)</div>
+            <div class="nu-val">$${indcPrice.toFixed(6)}</div>
+          </div>
+          <div>
+            <div class="nu-lbl-r">SUMBER HARGA</div>
+            <div class="nu-val-r" style="font-size:10px;">${useDex ? '🔵 PancakeSwap' : '🟡 INDC Market'}</div>
+          </div>
+        </div>
+
+        <div class="lock-contract">
+          Kontrak: <a href="https://bscscan.com/address/${WELCOME_CA}" target="_blank">${WELCOME_CA}</a><br>
+          Data dibaca realtime dari blockchain BSC.
+        </div>
+      </div>`;
+
+    el.innerHTML = html;
+    updateTotalLocked('appW', info.totalLockedIndc);
+
+  } catch(e) {
+    console.error('loadWelcomePool:', e);
+    el.innerHTML = `
+      <div class="error">&#9888;&#65039; Gagal memuat data INDOCOIN WELCOME.<br>
+      ${e.message || 'Koneksi bermasalah'}</div>
+      <button class="refresh-btn" onclick="loadWelcomePool()">&#8635; COBA LAGI</button>`;
+  }
+}
+
 function loadAll() {
   loadLock(CONTRACT1, 'app',  '0');
   loadLock(CONTRACT2, 'app2', '2');
@@ -923,6 +1102,7 @@ function loadAll() {
   loadStakingPools();
   loadLPReserve();
   loadGamePool();
+  loadWelcomePool();
 }
 
 loadAll();
