@@ -369,6 +369,46 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     </div>
     </div>
 
+    <!-- ══ PLATFORM WALLET ══ -->
+    <div class="sec-hd">PLATFORM WALLET</div>
+    <div id="platformWalletCard" style="background:#141414;border-radius:12px;margin-bottom:14px;">
+      <!-- Total Saldo -->
+      <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border2);">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">TOTAL SALDO</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;color:var(--gold2);" id="pwTotalUSD">$0.00</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;" id="pwTotalIDR">≈ Rp 0</div>
+      </div>
+      <!-- Token List -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border2);">
+        <div style="width:36px;height:36px;border-radius:50%;background:#facc1522;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:#facc15;flex-shrink:0;">I</div>
+        <div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;">INDC</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">Indocoin · BEP-20</div>
+        </div>
+        <div style="text-align:right;margin-left:auto;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold2);" id="pwBalIndc">0 INDC</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;" id="pwBalIndcUsd">≈ $0.00</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:#26a17b22;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:900;color:#26a17b;flex-shrink:0;">T</div>
+        <div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;">USDT</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">Tether USD · BEP-20</div>
+        </div>
+        <div style="text-align:right;margin-left:auto;">
+          <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold2);" id="pwBalUsdt">0 USDT</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">stablecoin</div>
+        </div>
+      </div>
+      <!-- Tombol -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px;border-top:1px solid var(--border2);">
+        <button onclick="openModal('pwWithdraw')" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:8px;color:var(--muted2);cursor:pointer;letter-spacing:1px;font-family:'Share Tech Mono',monospace;">WITHDRAW</button>
+        <button onclick="openModal('pwProgram')" style="padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:8px;color:var(--muted2);cursor:pointer;letter-spacing:1px;font-family:'Share Tech Mono',monospace;">KE PROGRAM</button>
+      </div>
+    </div>
+    <!-- ══ END PLATFORM WALLET ══ -->
+
     <!-- WALLET AIRDROP -->
     <div class="sec-hd">WALLET AIRDROP</div>
     <div id="airdropWalletCard" style="display:none;background:#141414;border-radius:12px;">
@@ -2864,7 +2904,63 @@ async function doRewardClaim(progId) {
 // ══ END REWARD AGGREGATOR ══
 </script>
 
-<!-- POPUP BELI CRYPTO -->
+<!-- ══ PLATFORM WALLET SCRIPT ══ -->
+<script>
+const PW_WALLET   = '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF';
+const PW_INDC     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const PW_USDT     = '0x55d398326f99059fF775485246999027B3197955';
+const PW_MARKET   = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+
+const PW_ABI = [
+  "function getBalance(address user, address token) view returns (uint256)"
+];
+const PW_MARKET_ABI = [
+  "function currentPrice() view returns (uint256)"
+];
+const PW_ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)"
+];
+
+async function loadPlatformWallet() {
+  if (!window._provider || !window._wallet) return;
+  try {
+    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        window._provider);
+    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, window._provider);
+
+    const [indcBal, usdtBal, indcPrice] = await Promise.all([
+      pw.getBalance(window._wallet, PW_INDC),
+      pw.getBalance(window._wallet, PW_USDT),
+      market.currentPrice(),
+    ]);
+
+    const indc     = parseFloat(ethers.formatUnits(indcBal,  9));
+    const usdt     = parseFloat(ethers.formatUnits(usdtBal,  18));
+    const price    = parseFloat(ethers.formatUnits(indcPrice, 18));
+    const indcUsd  = indc * price;
+    const totalUsd = indcUsd + usdt;
+
+    // IDR rate dari halaman utama jika ada
+    const idrRate  = window._idrRate || 16500;
+    const totalIdr = totalUsd * idrRate;
+
+    const fmt2 = v => v.toLocaleString('id-ID', {maximumFractionDigits:2});
+    const fmtI = v => v.toLocaleString('id-ID', {maximumFractionDigits:0});
+
+    document.getElementById('pwTotalUSD').textContent  = '$' + fmt2(totalUsd);
+    document.getElementById('pwTotalIDR').textContent  = '≈ Rp ' + fmtI(totalIdr);
+    document.getElementById('pwBalIndc').textContent   = fmtI(indc) + ' INDC';
+    document.getElementById('pwBalIndcUsd').textContent= '≈ $' + fmt2(indcUsd);
+    document.getElementById('pwBalUsdt').textContent   = fmt2(usdt) + ' USDT';
+
+  } catch(e) {
+    console.warn('loadPlatformWallet:', e);
+  }
+}
+
+// Panggil setiap kali wallet connect
+document.addEventListener('walletConnected', loadPlatformWallet);
+setInterval(() => { if(window._wallet) loadPlatformWallet(); }, 30000);
+</script><!-- POPUP BELI CRYPTO -->
 <div id="transakComingSoon" onclick="if(event.target===this)this.style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;">
   <div style="background:#0d0b10;border:1px solid rgba(41,98,255,0.35);border-radius:18px;padding:30px 24px;width:85%;max-width:320px;text-align:center;box-shadow:0 0 50px rgba(41,98,255,0.15);">
