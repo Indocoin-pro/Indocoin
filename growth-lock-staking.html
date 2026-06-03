@@ -298,6 +298,22 @@ async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
     </div>
 
 
+  <!-- TOGGLE USDT / INDC -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <button id="btnModeUsdt" onclick="setMode('usdt')"
+      style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);cursor:pointer;transition:all 0.3s;
+      background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;
+      font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;">
+      MODAL USDT
+    </button>
+    <button id="btnModeIndc" onclick="setMode('indc')"
+      style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);cursor:pointer;transition:all 0.3s;
+      background:transparent;color:var(--muted);
+      font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;">
+      MODAL INDC
+    </button>
+  </div>
+
   <!-- PILIH OPSI -->
   <div class="opsi-tabs">
     <div class="opsi-tab active" onclick="switchOpsi(1)">
@@ -553,11 +569,16 @@ function calcReward(id, val, days, rate) {
    ════════════════════════════════════════════════════ */
 
 const SC = {
-  STAKING:  '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5',
-  USDT:     '0x55d398326f99059fF775485246999027B3197955',
-  INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  STAKING:      '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5', // USDT version
+  STAKING_INDC: '0x47a8B01e5fB8003c3cE499E126D5B6F6D34BBe4f', // INDC version
+  USDT:         '0x55d398326f99059fF775485246999027B3197955',
+  INDC:         '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  PLATFORM_WALLET: '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF',
   CHAIN_ID: 56,
 };
+
+// Mode aktif: 'usdt' atau 'indc'
+let _mode = 'usdt';
 
 const STAKING_ABI = [
   {"inputs":[{"internalType":"uint8","name":"optionId","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
@@ -660,19 +681,25 @@ async function approveUSDT(opsiId) {
   if(parseFloat(val) < 10){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
   const maxStake = {1:300, 2:500, 3:700, 4:1000};
   if(parseFloat(val) > maxStake[opsiId]){
-    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+' USDT untuk opsi ini','var(--red)'); return;
+    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+(_mode==='usdt'?' USDT':' USD setara INDC')+' untuk opsi ini','var(--red)'); return;
   }
   const btn = document.getElementById('btnApprove'+opsiId);
   btn.textContent = '⏳ Approving...'; btn.disabled = true;
   setMsg(opsiId, 'Menunggu konfirmasi approve...', 'var(--gold)');
   try {
-    const tx = await _usdt.approve(SC.STAKING, MAX_UINT);
+    let tx;
+    if (_mode === 'usdt') {
+      tx = await _usdt.approve(SC.STAKING, MAX_UINT);
+    } else {
+      tx = await _indc.approve(SC.STAKING_INDC, MAX_UINT);
+    }
     await tx.wait();
     btn.textContent = '✓ APPROVED';
     setMsg(opsiId, 'Approve berhasil! Sekarang bisa stake.', 'var(--gold2)');
     document.getElementById('btnStake'+opsiId).style.opacity = '1';
   } catch(e) {
-    btn.textContent = 'APPROVE USDT'; btn.disabled = false;
+    btn.textContent = _mode === 'usdt' ? 'APPROVE USDT' : 'APPROVE INDC';
+    btn.disabled = false;
     setMsg(opsiId, 'Approve dibatalkan: '+(e.reason||e.message||''), 'var(--red)');
   }
 }
@@ -943,6 +970,77 @@ setInterval(() => {
 setInterval(() => {
   if(_wallet && _staking) loadStakes();
 }, 30000);
+
+// ── MODE TOGGLE ──────────────────────────────────────────────────
+let _indcRiskAcknowledged = false;
+let _stakingIndc = null;
+
+const STAKING_INDC_ABI = [
+  "function stake(uint8 optionId, uint256 amount) external",
+  "function claimReward(uint256 stakeIndex) external",
+  "function claimPending(uint256 stakeIndex) external",
+  "function earlyUnstake(uint256 stakeIndex) external",
+  "function getUserStakes(address user) view returns (tuple(uint8 optionId,uint256 amount,uint256 indcReward,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool principalPending)[])",
+  "function getPendingReward(address user, uint256 stakeIndex) view returns (uint256 indcBack, uint256 indcReward, bool canClaim, bool isPending)",
+  "function estimateReward(uint8 optionId, uint256 amount) view returns (uint256 indcBack, uint256 indcRwd, bool poolSufficient)",
+  "function getMinMaxStake(uint8 optionId) view returns (uint256 minIndc, uint256 maxIndc, uint256 minUsd, uint256 maxUsd)",
+  "function getPoolInfo() view returns (uint256 indcBalance, uint256 indcPrincipalLocked, uint256 indcRewardPending, uint256 indcRefPending, uint256 indcExcess, bool stakingOpen)",
+  "function claimToPlatformWallet() view returns (bool)",
+];
+
+const PLATFORM_WALLET_ABI = [
+  "function getBalance(address user, address token) view returns (uint256)",
+];
+
+function setMode(mode) {
+  if (mode === 'indc' && !_indcRiskAcknowledged) {
+    // Tampilkan popup risiko dulu
+    document.getElementById('indcRiskPopup').style.display = 'flex';
+    return;
+  }
+  _mode = mode;
+  // Update button style
+  const btnUsdt = document.getElementById('btnModeUsdt');
+  const btnIndc = document.getElementById('btnModeIndc');
+  if (mode === 'usdt') {
+    btnUsdt.style.background = 'linear-gradient(135deg,var(--gold),var(--gold3))';
+    btnUsdt.style.color = '#000';
+    btnIndc.style.background = 'transparent';
+    btnIndc.style.color = 'var(--muted)';
+    
+    
+    // Switch ke kontrak USDT
+    if(_signer) _staking = new ethers.Contract(SC.STAKING, STAKING_ABI, _signer);
+  } else {
+    btnIndc.style.background = 'linear-gradient(135deg,#c94040,#e05050)';
+    btnIndc.style.color = '#fff';
+    btnUsdt.style.background = 'transparent';
+    btnUsdt.style.color = 'var(--muted)';
+    
+    
+    // Switch ke kontrak INDC
+    if(_signer) {
+      _staking = new ethers.Contract(SC.STAKING_INDC, STAKING_INDC_ABI, _signer);
+      _stakingIndc = _staking;
+    }
+  }
+  // Update label approve button
+  OPSI.forEach(o => {
+    const btn = document.getElementById('btnApprove'+o.id);
+    if(btn) btn.textContent = mode === 'usdt' ? 'APPROVE USDT' : 'APPROVE INDC';
+  });
+  // Reload stakes
+  if(_wallet) loadStakes();
+}
+
+function confirmIndcRisk() {
+  _indcRiskAcknowledged = true;
+  document.getElementById('indcRiskPopup').style.display = 'none';
+  setMode('indc');
+}
+
+window.setMode = setMode;
+window.confirmIndcRisk = confirmIndcRisk;
 </script>
 <script>
 if("serviceWorker" in navigator){
@@ -966,5 +1064,28 @@ if("serviceWorker" in navigator){
   <script src="airdrop-questions.js"></script>
   <script src="airdrop-widget.js"></script>
   <!-- ══════════════════════════════════ -->
+<!-- POPUP RISIKO INDC -->
+<div id="indcRiskPopup" style="display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#ffffff;border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:#c94040;letter-spacing:2px;margin-bottom:12px;">
+      PERHATIAN — MODAL INDC
+    </div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:14px;color:#333;line-height:1.7;margin-bottom:20px;">
+      Kamu memilih staking dengan modal <b style="color:#c8922a;">INDC</b>.<br><br>
+      Berbeda dengan USDT yang nilainya stabil, <b>nilai INDC dapat berfluktuasi</b> mengikuti kondisi market.
+      Modal kamu bisa naik atau turun nilainya.<br><br>
+      Dengan melanjutkan, kamu <b>memahami dan menerima risiko</b> ini sepenuhnya.
+    </div>
+    <button onclick="confirmIndcRisk()"
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#c94040,#e05050);
+      border:none;color:#fff;border-radius:10px;font-family:'Orbitron',sans-serif;
+      font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+      MENGERTI, LANJUT INDC
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
