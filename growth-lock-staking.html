@@ -426,7 +426,7 @@ function renderOpsi() {
     <div class="sec-div"> STAKE SEKARANG</div>
     <div class="form-card">
       <div class="input-row">
-        <div class="input-wrap"><input type="number" placeholder="Jumlah USDT (Min $10)" id="inp${o.id}"></div>
+        <div class="input-wrap"><input type="number" placeholder="Jumlah USDT (Min $10)" id="inp${o.id}" oninput="updateInputLabel(${o.id})"></div>
         <div class="usdt-bal"><span class="ubl">SALDO</span><span class="ubv" id="bal${o.id}">—</span></div>
       </div>
       <button class="btn-approve" id="btnApprove${o.id}" onclick="approveUSDT(${o.id})">APPROVE USDT</button>
@@ -437,7 +437,7 @@ function renderOpsi() {
     <!-- KALKULATOR -->
     <div class="sec-div">KALKULATOR REWARD</div>
     <div class="form-card">
-      <input class="calc-input" type="number" placeholder="Masukkan jumlah USDT..."
+      <input class="calc-input" type="number" id="calcInput" placeholder="Masukkan jumlah USDT..."
              oninput="calcReward(${o.id}, this.value, ${o.days}, ${o.rate})">
       <div class="calc-grid">
         <div class="calc-item"><div class="calc-val" id="cg${o.id}">$0</div><div class="calc-lbl">Nilai Reward (USD)</div></div>
@@ -553,15 +553,27 @@ function switchInner(opsi, tab) {
 /* ─ Kalkulator ─ */
 function calcReward(id, val, days, rate) {
   const u = parseFloat(val)||0;
-  const grossUsdt = u * rate * days;
-  const indcPrice = 0.003;
-  const indcAmt = grossUsdt / indcPrice;
-  const daily = u * rate;
-  const dailyIndc = daily / indcPrice;
-  document.getElementById('cg'+id).textContent = '$'+grossUsdt.toFixed(2);
-  document.getElementById('cn'+id).textContent = indcAmt.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC';
-  document.getElementById('cd'+id).textContent = dailyIndc.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC/hari';
-  document.getElementById('ct'+id).textContent = '$'+u.toFixed(2)+' USDT + '+indcAmt.toLocaleString('id-ID', {maximumFractionDigits:0})+' INDC';
+  if (_mode === 'usdt') {
+    // Mode USDT: input = USDT, reward = INDC
+    const grossUsdt = u * rate * days;
+    const indcPrice = window._indcPrice || 0.003;
+    const indcAmt   = grossUsdt / indcPrice;
+    const daily     = u * rate;
+    const dailyIndc = daily / indcPrice;
+    document.getElementById('cg'+id).textContent = '$'+grossUsdt.toFixed(2);
+    document.getElementById('cn'+id).textContent = indcAmt.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+    document.getElementById('cd'+id).textContent = dailyIndc.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC/hari';
+    document.getElementById('ct'+id).textContent = '$'+u.toFixed(2)+' USDT + '+indcAmt.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+  } else {
+    // Mode INDC: input = INDC langsung, reward = INDC
+    const rewardRateMap = {1:0.09, 2:0.45, 3:1.26, 4:3.65};
+    const totalReward   = u * (rewardRateMap[id] || rate * days);
+    const dailyReward   = totalReward / days;
+    document.getElementById('cg'+id).textContent = totalReward.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+    document.getElementById('cn'+id).textContent = totalReward.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+    document.getElementById('cd'+id).textContent = dailyReward.toLocaleString('id-ID',{maximumFractionDigits:2})+' INDC/hari';
+    document.getElementById('ct'+id).textContent = u.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC + '+totalReward.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
+  }
 }
 
 /* ════════════════════════════════════════════════════
@@ -569,11 +581,12 @@ function calcReward(id, val, days, rate) {
    ════════════════════════════════════════════════════ */
 
 const SC = {
-  STAKING:      '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5', // USDT version
-  STAKING_INDC: '0xc61D319ED218044AF833bA63F8E12BAF4D01814C', // INDC version
-  USDT:         '0x55d398326f99059fF775485246999027B3197955',
-  INDC:         '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
+  STAKING:         '0xcb9261633af02bec4ceb13be970b0b4d2462c8d5', // USDT version
+  STAKING_INDC:    '0xc61D319ED218044AF833bA63F8E12BAF4D01814C', // INDC version
+  USDT:            '0x55d398326f99059fF775485246999027B3197955',
+  INDC:            '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   PLATFORM_WALLET: '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF',
+  MARKET:          '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
   CHAIN_ID: 56,
 };
 
@@ -651,6 +664,13 @@ async function connectWallet() {
     const btn = document.getElementById('walletBtn');
     if(btn) btn.textContent = shortAddr(_wallet);
 
+    // Load harga INDC dari market
+    try {
+      const mkt = new ethers.Contract(SC.MARKET, ["function currentPrice() view returns (uint256)"], _provider);
+      const p = await mkt.currentPrice();
+      window._indcPrice = parseFloat(ethers.utils.formatUnits(p, 18));
+    } catch(e) { window._indcPrice = 0.003; }
+
     await loadBalances();
     OPSI.forEach(o => setMsg(o.id, 'Wallet terhubung. Masukkan jumlah & approve.', 'var(--gold2)'));
 
@@ -665,11 +685,22 @@ async function connectWallet() {
 async function loadBalances() {
   if(!_wallet||!_usdt) return;
   try {
-    const balUsdt = await _usdt.balanceOf(_wallet);
-    OPSI.forEach(o => {
-      const el = document.getElementById('bal'+o.id);
-      if(el) el.textContent = '$'+fmtUsdt(balUsdt);
-    });
+    if (_mode === 'usdt') {
+      const balUsdt = await _usdt.balanceOf(_wallet);
+      OPSI.forEach(o => {
+        const el = document.getElementById('bal'+o.id);
+        if(el) el.textContent = '$'+fmtUsdt(balUsdt)+' USDT';
+      });
+    } else {
+      // Tampilkan saldo INDC dari Platform Wallet
+      const pwAbi = ["function getBalance(address user, address token) view returns (uint256)"];
+      const pw = new ethers.Contract(SC.PLATFORM_WALLET, pwAbi, _provider);
+      const balIndc = await pw.getBalance(_wallet, SC.INDC);
+      OPSI.forEach(o => {
+        const el = document.getElementById('bal'+o.id);
+        if(el) el.textContent = fmtIndc(balIndc)+' INDC';
+      });
+    }
     await loadStakes();
   } catch(e){ console.error('loadBalances',e); }
 }
@@ -707,7 +738,7 @@ async function approveUSDT(opsiId) {
 async function doStake(opsiId) {
   if(!_wallet){ await connectWallet(); return; }
   const val = document.getElementById('inp'+opsiId).value;
-  if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah USDT terlebih dahulu','var(--red)'); return; }
+  if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah '+(_mode==='usdt'?'USDT':'INDC')+' terlebih dahulu','var(--red)'); return; }
 
   // Validasi min & max sesuai opsi
   const maxStake = {1:300, 2:500, 3:700, 4:1000};
@@ -1024,6 +1055,15 @@ function setMode(mode) {
       _stakingIndc = _staking;
     }
   }
+  // Update placeholder semua input
+  const label = mode === 'usdt' ? 'Jumlah USDT (Min $10)' : 'Jumlah INDC (Min $10)';
+  OPSI.forEach(o => {
+    const inp = document.getElementById('inp'+o.id);
+    if(inp) inp.placeholder = label;
+  });
+  const calcInp = document.getElementById('calcInput');
+  if(calcInp) calcInp.placeholder = mode === 'usdt' ? 'Masukkan jumlah USDT...' : 'Masukkan jumlah INDC...';
+
   // Update label approve button
   OPSI.forEach(o => {
     const btn = document.getElementById('btnApprove'+o.id);
