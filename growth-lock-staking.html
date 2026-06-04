@@ -717,10 +717,19 @@ async function approveUSDT(opsiId) {
   if(!_wallet){ await connectWallet(); return; }
   const val = document.getElementById('inp'+opsiId).value;
   if(!val || parseFloat(val) <= 0){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
-  if(parseFloat(val) < 10){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
+
   const maxStake = {1:300, 2:500, 3:700, 4:1000};
-  if(parseFloat(val) > maxStake[opsiId]){
-    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+(_mode==='usdt'?' USDT':' USD setara INDC')+' untuk opsi ini','var(--red)'); return;
+  const price    = window._indcPrice || 0.0046;
+
+  if (_mode === 'usdt') {
+    if(parseFloat(val) < 10){ showMinPopup(10, null, 'GROWTH LOCK STAKING'); return; }
+    if(parseFloat(val) > maxStake[opsiId]){
+      setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId]+' USDT untuk opsi ini','var(--red)'); return;
+    }
+  } else {
+    const usdVal = parseFloat(val) * price;
+    if(usdVal < 10){ setMsg(opsiId,'Minimum stake setara $10 (±'+(10/price).toFixed(0)+' INDC)','var(--red)'); return; }
+    if(usdVal > maxStake[opsiId]){ setMsg(opsiId,'Maksimum stake setara $'+maxStake[opsiId]+' (±'+(maxStake[opsiId]/price).toFixed(0)+' INDC)','var(--red)'); return; }
   }
   const btn = document.getElementById('btnApprove'+opsiId);
   btn.textContent = '⏳ Approving...'; btn.disabled = true;
@@ -748,13 +757,16 @@ async function doStake(opsiId) {
   const val = document.getElementById('inp'+opsiId).value;
   if(!val || parseFloat(val) <= 0){ setMsg(opsiId,'Masukkan jumlah '+(_mode==='usdt'?'USDT':'INDC')+' terlebih dahulu','var(--red)'); return; }
 
-  // Validasi min & max sesuai opsi
   const maxStake = {1:300, 2:500, 3:700, 4:1000};
-  if(parseFloat(val) < 10){
-    setMsg(opsiId,'Minimum stake $10 USDT','var(--red)'); return;
-  }
-  if(parseFloat(val) > maxStake[opsiId]){
-    setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId].toLocaleString()+' USDT untuk opsi ini','var(--red)'); return;
+  const price    = window._indcPrice || 0.0046;
+
+  if (_mode === 'usdt') {
+    if(parseFloat(val) < 10){ setMsg(opsiId,'Minimum stake $10 USDT','var(--red)'); return; }
+    if(parseFloat(val) > maxStake[opsiId]){ setMsg(opsiId,'Maksimum stake $'+maxStake[opsiId]+' USDT untuk opsi ini','var(--red)'); return; }
+  } else {
+    const usdVal = parseFloat(val) * price;
+    if(usdVal < 10){ setMsg(opsiId,'Minimum stake setara $10 (±'+(10/price).toFixed(0)+' INDC)','var(--red)'); return; }
+    if(usdVal > maxStake[opsiId]){ setMsg(opsiId,'Maksimum stake setara $'+maxStake[opsiId]+' (±'+(maxStake[opsiId]/price).toFixed(0)+' INDC)','var(--red)'); return; }
   }
   const btn = document.getElementById('btnStake'+opsiId);
   btn.textContent = '⏳ Staking...'; btn.disabled = true;
