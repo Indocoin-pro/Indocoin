@@ -417,7 +417,7 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
       <span class="nav-brand-sub">▸ WELCOME PROGRAM</span>
     </div>
   </div>
-  <div class="pool-badge"><span class="pool-dot"></span>OPEN</div>
+  <div class="pool-badge" id="walletBtn" onclick="connectWallet()" style="cursor:pointer;"><span class="pool-dot"></span>OPEN</div>
 </nav>
 
 <div class="main">
@@ -783,6 +783,9 @@ async function connectWallet(){
     _master   = new ethers.Contract(SC.MASTER,  MASTER_ABI,  _provider);
     setMsg('Wallet terhubung. Masukkan jumlah USDT.','var(--gold2)');
     document.getElementById('btnApproveUsdt').disabled = false;
+    // Update tombol OPEN → alamat wallet
+    const wBtn = document.getElementById('walletBtn');
+    if(wBtn) wBtn.innerHTML = shortAddr(_wallet);
     window.ethereum.on('accountsChanged',a=>{if(a[0]){_wallet=a[0];loadAll();}});
     window.ethereum.on('chainChanged',()=>location.reload());
     await loadAll();
@@ -844,15 +847,19 @@ async function loadContractInfo(){
 }
 
 async function loadBalances(){
-  if(!_wallet||!_usdt||!_welcome)return;
+  if(!_wallet||!_usdt)return;
   try{
-    const [uBal, pwBal] = await Promise.all([
-      _usdt.balanceOf(_wallet),
-      _welcome.platformBalance(_wallet),
-    ]);
-    document.getElementById('balUsdt').textContent  = fmtI(fromI(uBal, SC.USDT_DEC))+' USDT';
-    document.getElementById('pwBalance').textContent = fmtI(fromI(pwBal, SC.INDC_DEC))+' INDC';
-  }catch(e){console.error('loadBalances:',e);}
+    // Baca saldo USDT dari wallet langsung
+    const uBal = await _usdt.balanceOf(_wallet);
+    document.getElementById('balUsdt').textContent = fmtI(fromI(uBal, SC.USDT_DEC))+' USDT';
+  }catch(e){console.error('loadBalances USDT:',e);}
+  // Baca Platform Wallet balance jika welcome contract ada
+  if(!_welcome) return;
+  try{
+    const pwBal = await _welcome.platformBalance(_wallet);
+    const el = document.getElementById('pwBalance');
+    if(el) el.textContent = fmtI(fromI(pwBal, SC.INDC_DEC))+' INDC';
+  }catch(e){ console.warn('platformBalance tidak tersedia'); }
 }
 
 async function loadPositions(){
