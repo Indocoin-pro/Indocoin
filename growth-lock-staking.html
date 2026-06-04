@@ -437,13 +437,13 @@ function renderOpsi() {
     <!-- KALKULATOR -->
     <div class="sec-div">KALKULATOR REWARD</div>
     <div class="form-card">
-      <input class="calc-input" type="number" id="calcInput" placeholder="Masukkan jumlah USDT..."
+      <input class="calc-input" type="number" id="calcInput${o.id}" placeholder="Masukkan jumlah USDT..."
              oninput="calcReward(${o.id}, this.value, ${o.days}, ${o.rate})">
       <div class="calc-grid">
-        <div class="calc-item"><div class="calc-val" id="cg${o.id}">$0</div><div class="calc-lbl">Nilai Reward (USD)</div></div>
+        <div class="calc-item"><div class="calc-val" id="cg${o.id}">$0</div><div class="calc-lbl" id="cglbl${o.id}">Nilai Reward (USD)</div></div>
         <div class="calc-item"><div class="calc-val" id="cn${o.id}" style="color:var(--gold)">0 INDC</div><div class="calc-lbl">Reward INDC</div></div>
         <div class="calc-item"><div class="calc-val" id="cd${o.id}">0 INDC/hari</div><div class="calc-lbl">Per Hari</div></div>
-        <div class="calc-item"><div class="calc-val" style="color:var(--gold2)">$0.003</div><div class="calc-lbl">Harga INDC</div></div>
+        <div class="calc-item"><div class="calc-val" id="cprice${o.id}" style="color:var(--gold2)">$0.003</div><div class="calc-lbl">Harga INDC</div></div>
       </div>
       <div class="calc-total">
         <span>Total Diterima:</span>
@@ -553,22 +553,30 @@ function switchInner(opsi, tab) {
 /* ─ Kalkulator ─ */
 function calcReward(id, val, days, rate) {
   const u = parseFloat(val)||0;
+  const price = window._indcPrice || 0.003;
+
+  // Update harga INDC
+  const priceEl = document.getElementById('cprice'+id);
+  if(priceEl) priceEl.textContent = '$'+price.toFixed(5);
+
   if (_mode === 'usdt') {
     // Mode USDT: input = USDT, reward = INDC
     const grossUsdt = u * rate * days;
-    const indcPrice = window._indcPrice || 0.003;
-    const indcAmt   = grossUsdt / indcPrice;
-    const daily     = u * rate;
-    const dailyIndc = daily / indcPrice;
+    const indcAmt   = grossUsdt / price;
+    const dailyIndc = (u * rate) / price;
+    const glbl = document.getElementById('cglbl'+id);
+    if(glbl) glbl.textContent = 'Nilai Reward (USD)';
     document.getElementById('cg'+id).textContent = '$'+grossUsdt.toFixed(2);
     document.getElementById('cn'+id).textContent = indcAmt.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
     document.getElementById('cd'+id).textContent = dailyIndc.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC/hari';
     document.getElementById('ct'+id).textContent = '$'+u.toFixed(2)+' USDT + '+indcAmt.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
   } else {
     // Mode INDC: input = INDC langsung, reward = INDC
-    const rewardRateMap = {1:0.09, 2:0.45, 3:1.26, 4:3.65};
-    const totalReward   = u * (rewardRateMap[id] || rate * days);
-    const dailyReward   = totalReward / days;
+    const rateMap = {1:0.09, 2:0.45, 3:1.26, 4:3.65};
+    const totalReward = u * (rateMap[id] || rate * days);
+    const dailyReward = totalReward / days;
+    const glbl = document.getElementById('cglbl'+id);
+    if(glbl) glbl.textContent = 'Reward INDC';
     document.getElementById('cg'+id).textContent = totalReward.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
     document.getElementById('cn'+id).textContent = totalReward.toLocaleString('id-ID',{maximumFractionDigits:0})+' INDC';
     document.getElementById('cd'+id).textContent = dailyReward.toLocaleString('id-ID',{maximumFractionDigits:2})+' INDC/hari';
@@ -1058,11 +1066,11 @@ function setMode(mode) {
   // Update placeholder semua input
   const label = mode === 'usdt' ? 'Jumlah USDT (Min $10)' : 'Jumlah INDC (Min $10)';
   OPSI.forEach(o => {
-    const inp = document.getElementById('inp'+o.id);
-    if(inp) inp.placeholder = label;
+    const inp = document.getElementById('calcInput'+o.id);
+    if(inp) { inp.placeholder = label; inp.value = ''; }
+    // Reset kalkulator
+    calcReward(o.id, 0, o.days, o.rate);
   });
-  const calcInp = document.getElementById('calcInput');
-  if(calcInp) calcInp.placeholder = mode === 'usdt' ? 'Masukkan jumlah USDT...' : 'Masukkan jumlah INDC...';
 
   // Update label approve button
   OPSI.forEach(o => {
