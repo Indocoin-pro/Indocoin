@@ -426,7 +426,7 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
 <script src="wallet-bridge.js"></script>
 </head>
 <body>
-<div id="gateScreen">
+<div id="gateScreen" style="display:none;">
 
   <!-- KOTAK PUTIH KECIL -->
   <div style="background:#fff;border-radius:16px;padding:28px 24px;width:min(300px,85vw);text-align:center;position:relative;">
@@ -1508,21 +1508,35 @@ const ACCESS_ABI = [
 ];
 
 async function checkGate(){
-  if(!GATE_ACTIVE){ document.getElementById('gateScreen').style.display='none'; return; }
-  if(!window.ethereum) return;
+  if(!GATE_ACTIVE){ startSplash(); return; }
+  if(!window.ethereum){
+    // Wallet belum ada → tampil gate
+    document.getElementById('gateScreen').style.display='flex';
+    return;
+  }
   try{
     const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-    if(!accounts||!accounts.length) return;
+    if(!accounts||!accounts.length){
+      // Belum connect → tampil gate
+      document.getElementById('gateScreen').style.display='flex';
+      return;
+    }
     const p = new ethers.providers.Web3Provider(window.ethereum);
     const c = new ethers.Contract(SC.ACCESS, ACCESS_ABI, p);
     const fee = await c.accessFee();
     document.getElementById('gateFeeDisplay').textContent = parseFloat(ethers.utils.formatUnits(fee,18)).toFixed(1)+' USDT';
     const ok = await c.hasAccess(accounts[0]);
     if(ok){
-      document.getElementById('gateScreen').style.display='none';
+      // Sudah bayar → langsung splash
       startSplash();
+    } else {
+      // Belum bayar → tampil gate
+      document.getElementById('gateScreen').style.display='flex';
     }
-  }catch(e){ /* silent */ }
+  }catch(e){
+    // Error → tampil gate untuk safety
+    document.getElementById('gateScreen').style.display='flex';
+  }
 }
 
 async function doPayAccess(){
