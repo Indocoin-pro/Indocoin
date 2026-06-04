@@ -1104,9 +1104,18 @@ setInterval(loadContractInfo, 30000); // refresh tiap 30 detik
 
 document.addEventListener('DOMContentLoaded',function(){
   (async function(){
-    if(!window.ethereum)return;
-    const accounts=await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
-    if(accounts.length)await connectWallet();
+    if(!window.ethereum) return;
+    // Coba ambil akun yang sudah login (TokenPocket/Trust Wallet inject otomatis)
+    const accounts = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+    if(accounts.length){
+      await connectWallet();
+    } else {
+      // TokenPocket kadang butuh sedikit delay sebelum inject
+      setTimeout(async()=>{
+        const acc2 = await window.ethereum.request({method:'eth_accounts'}).catch(()=>[]);
+        if(acc2.length) await connectWallet();
+      }, 1000);
+    }
   })();
 });
 
