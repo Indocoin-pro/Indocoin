@@ -911,6 +911,18 @@ async function loadPositions(){
 /* ── APPROVE ── */
 async function approveUsdt(){
   if(!_wallet){await connectWallet();return;}
+  // Cek input
+  const val = parseFloat(document.getElementById('inpUsdt').value||'0');
+  if(!val || val <= 0){ setMsg('Masukkan jumlah USDT terlebih dahulu.','var(--red)'); return; }
+  // Cek saldo USDT
+  try{
+    const bal = await _usdt.balanceOf(_wallet);
+    const balN = fromI(bal, SC.USDT_DEC);
+    if(val > balN){
+      setMsg(`Saldo USDT tidak cukup! Saldo kamu: ${fmtI(balN)} USDT`,'var(--red)');
+      return;
+    }
+  }catch(e){ console.warn('Cek saldo gagal',e); }
   const btn = document.getElementById('btnApproveUsdt');
   btn.textContent='⏳ Approving USDT...';btn.disabled=true;
   setMsg('Menunggu konfirmasi approve USDT...','var(--gold)');
