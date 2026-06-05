@@ -1287,16 +1287,18 @@ function _buildOHLC() {
   const interval = (mins[_chartTf] || 60) * 60 * 1000;
   const buckets  = {};
 
-  // Prioritas: _allHistory (on-chain) kalau ada, fallback ke _chartData
-  const source = (_allHistory && _allHistory.length > 0)
-    ? _allHistory.map(h => ({
-        price: parseFloat(ethers.formatUnits(h.price, 18)),
-        time:  Number(h.timestamp) * 1000
-      })).filter(d => d.price > 0)
-    : _chartData.prices.map((p, i) => ({
-        price: p,
-        time:  _chartData.labels[i].getTime()
-      }));
+  // Prioritas: _chartPricePoints (beli+jual) → _allHistory → _chartData
+  const source = (_chartPricePoints && _chartPricePoints.length > 0)
+    ? _chartPricePoints
+    : (_allHistory && _allHistory.length > 0)
+      ? _allHistory.map(h => ({
+          price: parseFloat(ethers.formatUnits(h.price, 18)),
+          time:  Number(h.timestamp) * 1000
+        })).filter(d => d.price > 0)
+      : _chartData.prices.map((p, i) => ({
+          price: p,
+          time:  _chartData.labels[i].getTime()
+        }));
 
   if (source.length === 0) return [];
 
@@ -1324,11 +1326,10 @@ function switchChartType(type) {
 
   const ctx   = _makeCanvas();
   const ohlc  = _buildOHLC();
-  const enoughCandles = ohlc.length >= 2;
+  const enoughCandles = ohlc.length >= 1;
 
   // Fallback ke line kalau candle/bar tapi data kurang
   if ((type === 'candle' || type === 'bar') && !enoughCandles) {
-    // Tampilkan notif kecil
     const foot = document.getElementById('chartRangeLabel');
     const origText = foot.textContent;
     foot.textContent = '⚠ Data belum cukup — tampil Line';
