@@ -653,12 +653,11 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
     </div>
 
     <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.7;">
-      ℹ️ Proses: Approve USDT → Beli INDC di market → Approve INDC → Stake otomatis.<br>
+      ℹ️ Proses: Approve USDT → Stake otomatis (distribusi & beli INDC dilakukan onchain).<br>
     </div>
 
     <button class="btn-approve" id="btnApproveUsdt" onclick="approveUsdt()">① APPROVE USDT</button>
-    <button class="btn-approve" id="btnApproveIndc" onclick="approveIndc()" disabled>② APPROVE INDC</button>
-    <button class="btn-stake" id="btnBuyStake" onclick="doBuyAndStake()" disabled>③ BELI & STAKE INDC</button>
+    <button class="btn-stake" id="btnBuyStake" onclick="doStakeWithUsdt()" disabled>② BELI & STAKE INDC</button>
     <div class="status-msg" id="msgStake">Hubungkan wallet untuk mulai.</div>
   </div>
 
@@ -790,7 +789,7 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
 <script>
 /* ══ CONFIG ══ */
 const SC = {
-  WELCOME:    '0x73F117654A5A4Dd54DDaf829c02ab9009aF19D95',
+  WELCOME:    '0xE96A96fbf0DbF778Ce142aEae47254E94c440903',
   INDC:       '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   USDT:       '0x55d398326f99059fF775485246999027B3197955',
   MARKET:     '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
@@ -807,6 +806,7 @@ const SC = {
 const GATE_ACTIVE = true;
 
 const WELCOME_ABI = [
+  "function stakeWithUsdt(uint256 usdtAmount) external",
   "function stake(uint256 indcAmount, uint256 usdtEquiv) external",
   "function confirmCheckpoint(uint256 posIdx) external",
   "function claimReward(uint256 posIdx, uint8 claimType) external",
@@ -1038,10 +1038,8 @@ async function loadPositions(){
 /* ── APPROVE ── */
 async function approveUsdt(){
   if(!_wallet){await connectWallet();return;}
-  // Cek input
   const val = parseFloat(document.getElementById('inpUsdt').value||'0');
   if(!val || val <= 0){ setMsg('Masukkan jumlah USDT terlebih dahulu.','var(--red)'); return; }
-  // Cek saldo USDT
   try{
     const bal = await _usdt.balanceOf(_wallet);
     const balN = fromI(bal, SC.USDT_DEC);
@@ -1054,40 +1052,20 @@ async function approveUsdt(){
   btn.textContent='⏳ Approving USDT...';btn.disabled=true;
   setMsg('Menunggu konfirmasi approve USDT...','var(--gold)');
   try{
-    // Approve ke Market (untuk beli INDC)
-    const tx = await _usdt.approve(SC.MARKET, MAX_UINT);
+    // Approve USDT ke Welcome V2 saja — kontrak yang handle sisanya
+    const tx = await _usdt.approve(SC.WELCOME, MAX_UINT);
     await tx.wait();
-    // Approve ke Welcome (untuk depositVipPool)
-    const tx2 = await _usdt.approve(SC.WELCOME, MAX_UINT);
-    await tx2.wait();
     btn.textContent='✓ USDT APPROVED';
-    document.getElementById('btnApproveIndc').disabled=false;
-    setMsg('USDT approved! Sekarang approve INDC.','var(--gold2)');
+    document.getElementById('btnBuyStake').disabled=false;
+    setMsg('USDT approved! Sekarang klik Beli & Stake.','var(--gold2)');
   }catch(e){
     btn.textContent='① APPROVE USDT';btn.disabled=false;
     setMsg('Approve USDT dibatalkan.','var(--red)');
   }
 }
 
-async function approveIndc(){
-  if(!_wallet){await connectWallet();return;}
-  const btn = document.getElementById('btnApproveIndc');
-  btn.textContent='⏳ Approving INDC...';btn.disabled=true;
-  setMsg('Menunggu konfirmasi approve INDC...','var(--gold)');
-  try{
-    const tx = await _indc.approve(SC.WELCOME, MAX_UINT);
-    await tx.wait();
-    btn.textContent='✓ INDC APPROVED';
-    document.getElementById('btnBuyStake').disabled=false;
-    setMsg('INDC approved! Sekarang klik Beli & Stake.','var(--gold2)');
-  }catch(e){
-    btn.textContent='② APPROVE INDC';btn.disabled=false;
-    setMsg('Approve INDC dibatalkan.','var(--red)');
-  }
-}
-
-/* ── BELI & STAKE ── */
-async function doBuyAndStake(){
+/* ── STAKE WITH USDT — 1 transaksi ── */
+async function doStakeWithUsdt(){
   if(!_wallet){await connectWallet();return;}
   const usdtVal = parseFloat(document.getElementById('inpUsdt').value)||0;
   if(usdtVal < 1){setMsg('Minimum $1 USDT','var(--red)');return;}
@@ -1107,109 +1085,22 @@ async function doBuyAndStake(){
   btn.textContent='⏳ Memproses...';btn.disabled=true;
 
   try{
-    // ── Konstanta distribusi ──
-    const REF_PCT   = 0.13;   // 13% upline
-    const VIP_PCT   = 0.01;   // 1% VIP pool
-    const DEX_PCT   = 0.005;  // 0.5% DEX listing
-    const MKT_PCT   = 0.855;  // 85.5% beli INDC
-
-    // Level % referral sesuai ReferralMaster
-    const LEVEL_PCT = [0.03, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01];
-
-    // ── STEP 1: Baca upline 10 level dari ReferralMaster ──
-    setMsg('Langkah 1/4: Membaca data referral...','var(--gold)');
-    const uplines = [];
-    let current = _wallet;
-    for(let i=0; i<10; i++){
-      try{
-        const info = await _master.getUserInfo(current);
-        const registered = info[0];
-        const upline = info[1];
-        if(!registered || upline === ethers.constants.AddressZero) break;
-        uplines.push(upline);
-        current = upline;
-      }catch(e){ break; }
-    }
-
-    // ── STEP 2: Distribusi 13% ke upline ──
-    setMsg('Langkah 2/4: Distribusi komisi upline...','var(--gold)');
-    let totalRefPaid = 0;
-    for(let i=0; i<uplines.length; i++){
-      const pct = LEVEL_PCT[i] || 0;
-      const amt = usdtVal * pct;
-      if(amt <= 0) continue;
-      const amtWei = toI(amt.toFixed(6), SC.USDT_DEC);
-      try{
-        const tx = await _usdt.transfer(uplines[i], amtWei);
-        await tx.wait();
-        totalRefPaid += amt;
-      }catch(e){ console.warn(`Distribusi level ${i+1} gagal`, e); }
-    }
-    // Sisa 13% yang tidak ada upline → dev wallet
-    const refRemain = usdtVal * REF_PCT - totalRefPaid;
-    if(refRemain > 0.001){
-      try{
-        const tx = await _usdt.transfer(SC.DEV_WALLET, toI(refRemain.toFixed(6), SC.USDT_DEC));
-        await tx.wait();
-      }catch(e){ console.warn('Sisa ref ke dev gagal', e); }
-    }
-
-    // ── STEP 3: 1% VIP pool → depositVipPool() di Welcome ──
-    setMsg('Langkah 3/4: Distribusi pool VIP & DEX...','var(--gold)');
-    const vipAmt = usdtVal * VIP_PCT;
-    const dexAmt = usdtVal * DEX_PCT;
-
-    // 1% → VIP Dividend pool via Welcome contract
-    try{
-      const vipWei = toI(vipAmt.toFixed(6), SC.USDT_DEC);
-      // Approve Welcome contract untuk ambil USDT VIP
-      const txVip = await _welcome.depositVipPool(vipWei);
-      await txVip.wait();
-    }catch(e){ console.warn('VIP pool deposit gagal', e); }
-
-    // 0.5% → pool listing DEX via Market contract
-    try{
-      const dexWei = toI(dexAmt.toFixed(6), SC.USDT_DEC);
-      const txDex = await _usdt.transfer(SC.MARKET, dexWei);
-      await txDex.wait();
-    }catch(e){ console.warn('DEX pool transfer gagal', e); }
-
-    // ── STEP 4: 85.5% beli INDC di market ──
-    setMsg('Langkah 4/4: Membeli INDC di market...','var(--gold)');
-    const mktAmt = usdtVal * MKT_PCT;
-    const mktWei = toI(mktAmt.toFixed(6), SC.USDT_DEC);
-
-    // maxPrice: harga saat ini + 2% toleransi (dalam wei 18 decimal)
-    const livePrice = await _market.currentPrice();
-    const maxPrice  = livePrice.mul(102).div(100);
-
-    const indcBefore = await _indc.balanceOf(_wallet);
-    const tx1 = await _market.buyIndc(mktWei, maxPrice);
-    setMsg('Menunggu konfirmasi beli INDC...','var(--gold)');
-    await tx1.wait();
-
-    // Hitung INDC yang diterima
-    const indcAfter = await _indc.balanceOf(_wallet);
-    const indcReceived = indcAfter.sub(indcBefore);
-    if(indcReceived.lte(0)){
-      setMsg('Gagal: INDC tidak diterima dari market','var(--red)');
-      btn.textContent='③ BELI & STAKE INDC';btn.disabled=false;
-      return;
-    }
-
-    // ── STEP 5: Stake INDC ke Welcome ──
-    setMsg('Staking INDC...','var(--gold)');
+    setMsg('Menunggu konfirmasi stake...','var(--gold)');
     const usdtWei = toI(usdtVal.toFixed(6), SC.USDT_DEC);
-    const tx2 = await _welcome.stake(indcReceived, usdtWei);
-    await tx2.wait();
+
+    // 1 transaksi — kontrak handle semua distribusi onchain
+    const tx = await _welcome.stakeWithUsdt(usdtWei);
+    setMsg('Transaksi dikirim, menunggu konfirmasi blockchain...','var(--gold)');
+    await tx.wait();
 
     setMsg('✅ Berhasil! INDC sudah distake. Reward 1%/hari mulai berjalan.','var(--green)');
 
-    // Laporkan volume ke Aggregator → untuk progress VIP member
+    // Laporkan volume ke Aggregator
     try{
       const agg = new ethers.Contract(SC.AGGREGATOR, AGGREGATOR_ABI, _signer);
-      await agg.reportVolumeUSDT(_wallet, usdtWei, 1); // activityType 1 = stake
+      await agg.reportVolumeUSDT(_wallet, usdtWei, 1);
     }catch(e){ console.warn('Aggregator report gagal (tidak kritis):', e); }
+
     document.getElementById('inpUsdt').value='';
     calcStakePreview();
     await loadAll();
@@ -1217,7 +1108,7 @@ async function doBuyAndStake(){
     const msg = e.reason || e.data?.message || e.message || 'Transaksi dibatalkan';
     setMsg('Gagal: '+msg,'var(--red)');
   }finally{
-    btn.textContent='③ BELI & STAKE INDC';btn.disabled=false;
+    btn.textContent='② BELI & STAKE INDC';btn.disabled=false;
   }
 }
 
@@ -1309,8 +1200,7 @@ window.selectClaimType      = selectClaimType;
 window.confirmClaim         = confirmClaim;
 window.doConfirmCheckpoint  = doConfirmCheckpoint;
 window.approveUsdt          = approveUsdt;
-window.approveIndc          = approveIndc;
-window.doBuyAndStake        = doBuyAndStake;
+window.doStakeWithUsdt      = doStakeWithUsdt;
 window.setMaxUsdt           = setMaxUsdt;
 window.calcStakePreview     = calcStakePreview;
 window.calcPreview          = calcPreview;
