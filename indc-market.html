@@ -890,13 +890,10 @@ async function loadMarketData() {
             _chartData.prices.push(price);
           }
         });
-        if (_currentPrice > 0) addChartPoint(_currentPrice);
-        if (_chart && _chartData.prices.length > 0) {
-          _updateChart();
-        }
       }
 
-      // Load Listed events untuk riwayat jual
+      // Load Listed events — chart dirender di dalam loadListedEvents
+      // setelah _chartPricePoints terisi lengkap
       await loadListedEvents(mkt);
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
@@ -991,9 +988,12 @@ async function loadListedEvents(mkt) {
       } catch(err) {}
     }));
 
-    // Sort + tambah titik open $0.020
+    // Sort + tambah titik awal dari tanggal deploy kontrak Market (May 30 2026)
     pts.sort((a,b) => a.time - b.time);
-    if (pts.length > 0) pts.unshift({ price:0.020, time: pts[0].time - 3600000 });
+    const MARKET_DEPLOY_TIME = 1748596283 * 1000; // May 30 2026 09:11:23 UTC
+    pts.unshift({ price: 0.020, time: MARKET_DEPLOY_TIME });
+    // Tambah harga sekarang sebagai titik terakhir
+    if (_currentPrice > 0) pts.push({ price: _currentPrice, time: Date.now() });
     _chartPricePoints = pts;
 
     // Re-render chart setelah data lengkap
