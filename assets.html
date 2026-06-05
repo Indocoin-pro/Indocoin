@@ -691,10 +691,22 @@ async function loadWalletData() {
     usdtBalance   = parseFloat(ethers.formatUnits(usdtRaw, 18));
   } catch(e) { console.error("USDT error:", e); }
 
+  // Baca harga INDC live dari Market contract
+  let indcPrice = 0.003; // fallback
+  try {
+    const marketContract = new ethers.Contract(
+      "0xAA488c83Dbf3bDd93543559150a0180AB56BB42E",
+      ["function currentPrice() view returns (uint256)"],
+      provider
+    );
+    const priceRaw = await marketContract.currentPrice();
+    const priceVal = parseFloat(ethers.formatUnits(priceRaw, 18));
+    if (priceVal > 0) indcPrice = priceVal;
+  } catch(e) { console.error("INDC price error:", e); }
+
   // BNB price + kurs IDR dari CoinGecko
   let bnbPrice = 580;
   try {
-    // Fetch harga BNB sekarang + kurs IDR + histori 30 hari sekaligus
     const [rPrice, rHistory] = await Promise.all([
       fetch("https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr&include_24hr_change=true"),
       fetch("https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=30&interval=daily")
@@ -706,12 +718,11 @@ async function loadWalletData() {
     USD_TO_IDR = dPrice.binancecoin.idr / dPrice.binancecoin.usd;
     const chg  = dPrice.binancecoin.usd_24h_change || 0;
 
-    // Simpan histori harga untuk grafik
-    const priceHistory = dHistory.prices || []; // [[timestamp, price], ...]
+    const priceHistory = dHistory.prices || [];
 
-    updateUI(bnbPrice, 0.003, chg, priceHistory);
+    updateUI(bnbPrice, indcPrice, chg, priceHistory);
   } catch(e) {
-    updateUI(bnbPrice, 0.003, 0, []);
+    updateUI(bnbPrice, indcPrice, 0, []);
   }
 
   // Load Game Savings
