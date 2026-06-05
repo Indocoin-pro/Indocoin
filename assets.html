@@ -604,6 +604,28 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 </div>
 
+<!-- MODAL PLATFORM WALLET WITHDRAW -->
+<div class="aw-modal-overlay" id="modalPwWithdraw" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="aw-modal">
+    <div class="aw-modal-title">🏧 WITHDRAW PLATFORM WALLET<button class="aw-modal-close" onclick="document.getElementById('modalPwWithdraw').classList.remove('open')">✕</button></div>
+    <div class="aw-input-lbl">Jumlah INDC</div>
+    <input class="aw-input" id="pwWdAmt" type="number" placeholder="Jumlah INDC" min="1" step="1">
+    <div class="aw-limit-info">INDC akan dikirim ke wallet eksternal Anda</div>
+    <button class="aw-submit-btn gold" id="pwWdBtn" onclick="doPlatformWithdraw()">🏧 WITHDRAW KE WALLET</button>
+    <div class="aw-modal-status" id="pwWdStatus"></div>
+  </div>
+</div>
+
+<!-- MODAL PLATFORM WALLET KE PROGRAM -->
+<div class="aw-modal-overlay" id="modalPwProgram" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="aw-modal">
+    <div class="aw-modal-title">🚀 KE PROGRAM STAKING<button class="aw-modal-close" onclick="document.getElementById('modalPwProgram').classList.remove('open')">✕</button></div>
+    <div class="aw-input-lbl">Fitur ini segera hadir</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);padding:12px 0;line-height:1.7;">Transfer INDC dari Platform Wallet ke program staking lain akan segera tersedia.</div>
+    <button class="aw-submit-btn" onclick="document.getElementById('modalPwProgram').classList.remove('open')">TUTUP</button>
+  </div>
+</div>
+
 <!-- MODAL WITHDRAW -->
 <div class="aw-modal-overlay" id="modalWithdraw">
   <div class="aw-modal">
@@ -2911,6 +2933,40 @@ const PW_WALLET   = '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF';
 const PW_INDC     = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const PW_USDT     = '0x55d398326f99059fF775485246999027B3197955';
 const PW_MARKET   = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+
+// ABI Welcome V2 untuk withdraw platform wallet
+const PW_WELCOME_ABI = [
+  "function withdrawFromPlatform(uint256 amount) external"
+];
+const PW_WELCOME_CA = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
+
+async function doPlatformWithdraw() {
+  const amt = parseFloat(document.getElementById('pwWdAmt').value || '0');
+  if (!amt || amt <= 0) {
+    document.getElementById('pwWdStatus').textContent = '❌ Masukkan jumlah INDC';
+    document.getElementById('pwWdStatus').className = 'aw-modal-status err';
+    return;
+  }
+  const btn = document.getElementById('pwWdBtn');
+  btn.disabled = true; btn.textContent = '⏳ Memproses...';
+  document.getElementById('pwWdStatus').textContent = '⏳ Menunggu konfirmasi...';
+  document.getElementById('pwWdStatus').className = 'aw-modal-status info';
+  try {
+    const activeSigner = window._signer || signer;
+    const welcome = new ethers.Contract(PW_WELCOME_CA, PW_WELCOME_ABI, activeSigner);
+    const amtWei  = ethers.parseUnits(amt.toString(), 9);
+    const tx = await welcome.withdrawFromPlatform(amtWei);
+    await tx.wait();
+    document.getElementById('pwWdStatus').textContent = '✅ Berhasil! INDC sudah masuk wallet Anda.';
+    document.getElementById('pwWdStatus').className = 'aw-modal-status ok';
+    document.getElementById('pwWdAmt').value = '';
+    setTimeout(loadPlatformWallet, 1500);
+  } catch(e) {
+    document.getElementById('pwWdStatus').textContent = '❌ Gagal: ' + (e.reason || e.message || '');
+    document.getElementById('pwWdStatus').className = 'aw-modal-status err';
+    btn.disabled = false; btn.textContent = '🏧 WITHDRAW KE WALLET';
+  }
+}
 
 const PW_ABI = [
   "function getBalance(address user, address token) view returns (uint256)"
