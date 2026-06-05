@@ -329,6 +329,9 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
   width:0% !important;
 }
 </style>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -767,6 +770,60 @@ let _queuePosition = 0;   // posisi saya di antrian
 let _queueTotal    = 0;   // total penjual aktif
 let _queueIndcAhead = 0;  // total INDC di depan saya
 let _currentPrice = 0;
+
+// ── FIREBASE CONFIG ──────────────────────────────
+const FB_CONFIG = {
+  apiKey:            "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain:        "indocoin-network.firebaseapp.com",
+  databaseURL:       "https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "indocoin-network",
+  storageBucket:     "indocoin-network.firebasestorage.app",
+  messagingSenderId: "742922450154",
+  appId:             "1:742922450154:web:97e0847e85bfe3e9f9d393",
+};
+let _fbApp = null, _fbDb = null;
+
+function fbInit() {
+  try {
+    if (!firebase.apps.length) {
+      _fbApp = firebase.initializeApp(FB_CONFIG);
+    } else {
+      _fbApp = firebase.app();
+    }
+    _fbDb = firebase.database(_fbApp);
+    console.log('Firebase OK');
+  } catch(e) { console.warn('Firebase init error:', e); }
+}
+
+// Simpan harga ke Firebase
+async function fbSavePrice(price) {
+  if (!_fbDb || !price) return;
+  try {
+    const now = Date.now();
+    // Simpan per 5 menit — key = floor ke 5 menit
+    const key = Math.floor(now / 300000) * 300000;
+    await _fbDb.ref('indc_market_prices/' + key).set({
+      price: price,
+      time:  now,
+    });
+  } catch(e) { console.warn('fbSavePrice:', e); }
+}
+
+// Baca semua harga dari Firebase
+async function fbLoadPrices() {
+  if (!_fbDb) return [];
+  try {
+    const snap = await _fbDb.ref('indc_market_prices').once('value');
+    const data = snap.val();
+    if (!data) return [];
+    return Object.values(data)
+      .filter(d => d.price > 0)
+      .sort((a,b) => a.time - b.time);
+  } catch(e) {
+    console.warn('fbLoadPrices:', e);
+    return [];
+  }
+}
 let _histFilter   = 'all';
 let _allHistory   = [];
 let _allCombined  = []; // gabungan beli + jual
@@ -857,6 +914,7 @@ async function loadMarketData() {
     const vNo         = stats[10];
 
     _currentPrice = parseFloat(ethers.formatUnits(price, 18));
+    fbSavePrice(_currentPrice); // Simpan ke Firebase
 
     // Hero
     document.getElementById('heroPrice').textContent     = _currentPrice.toFixed(5);
@@ -891,6 +949,9 @@ async function loadMarketData() {
           }
         });
       }
+
+      // Load Firebase prices dulu
+      window._fbPrices = await fbLoadPrices();
 
       // Load Listed events — chart dirender di dalam loadListedEvents
       // setelah _chartPricePoints terisi lengkap
@@ -1194,7 +1255,14 @@ function _getOhlc() {
   // Kumpulkan semua titik harga nyata
   let rawPts = [];
 
-  // 1. Dari listed events (price points onchain)
+  // 1. Dari Firebase (data terkumpul dari semua user)
+  if (window._fbPrices && window._fbPrices.length > 0) {
+    window._fbPrices.forEach(p => {
+      if (p.price > 0) rawPts.push({ price: p.price, time: p.time });
+    });
+  }
+
+  // 2. Dari listed events (price points onchain)
   if (_chartPricePoints && _chartPricePoints.length > 0) {
     _chartPricePoints.forEach(p => {
       if (p.price > 0) rawPts.push({ price: p.price, time: p.time });
@@ -1924,6 +1992,7 @@ function showMsg2(id, txt, type) {
 //  INIT
 // ═══════════════════════════════════════════
 window.addEventListener('load', async () => {
+  fbInit();
   initChart();
 
   // Auto-connect dulu kalau wallet sudah pernah connect
