@@ -274,16 +274,11 @@
     const opts = document.getElementById(pfx+'-opts');
     if(!opts)return;
     opts.querySelectorAll('.aw-opt').forEach(o=>o.classList.add('disabled'));
-    // Disable semua opts soal lainnya juga agar tidak bisa dijawab saat salah
-    const otherPfx = type==='edu'?'aw-plat':'aw-edu';
-    const otherOpts = document.getElementById(otherPfx+'-opts');
-    if(otherOpts)otherOpts.querySelectorAll('.aw-opt').forEach(o=>o.classList.add('disabled'));
 
     const all=[...window.AIRDROP_QUESTIONS.level1,...window.AIRDROP_QUESTIONS.level2];
     const soal=all.find(s=>s.id===soalId);
     if(!soal)return;
 
-    // Cek jawaban dengan membalik shuffle: idx di tampilan → origIdx di soal.p
     const map = type==='edu'?eduShuffleMap:platShuffleMap;
     const origIdx = map ? map[idx] : idx;
     const benar = origIdx === soal.j;
@@ -291,16 +286,19 @@
     const clicked=document.getElementById(`aw-${type==='edu'?'e':'p'}-${idx}`);
     if(clicked)clicked.classList.add(benar?'correct':'wrong');
     if(!benar){
-      // Highlight posisi jawaban benar (setelah shuffle)
+      // Highlight jawaban benar
       const benarShufflePos = map ? map.indexOf(soal.j) : soal.j;
       const correctEl=document.getElementById(`aw-${type==='edu'?'e':'p'}-${benarShufflePos}`);
       if(correctEl)correctEl.classList.add('correct');
+      // Kunci soal lainnya juga
+      const otherPfx = type==='edu'?'aw-plat':'aw-edu';
+      const otherOpts = document.getElementById(otherPfx+'-opts');
+      if(otherOpts)otherOpts.querySelectorAll('.aw-opt').forEach(o=>o.classList.add('disabled'));
     }
     const resEl=document.getElementById(pfx+'-res');
     if(resEl){resEl.style.display='block';resEl.className='aw-result '+(benar?'ok':'fail');resEl.textContent=(benar?'✅ Benar! ':'❌ Salah. ')+soal.e;}
 
     if(!benar){
-      // Tandai gagal hari ini lalu tutup widget setelah beberapa detik
       markFailedToday();
       setTimeout(()=>{ hideWidget(); },3500);
       return;
