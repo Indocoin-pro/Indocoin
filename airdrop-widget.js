@@ -110,6 +110,21 @@
   let timerInterval=null, cdTimer=null;
   let currentEdu=null, currentPlat=null;
   let timerLeft=TIMER_SECONDS;
+  let eduShuffleMap=null, platShuffleMap=null;
+
+  function isFailedToday(){
+    if(!walletAddr)return false;
+    return localStorage.getItem('indc_failed_'+walletAddr.toLowerCase()+'_page_'+PAGE_ID+'_'+todayKey())==='1';
+  }
+  function markFailedToday(){
+    if(!walletAddr)return;
+    localStorage.setItem('indc_failed_'+walletAddr.toLowerCase()+'_page_'+PAGE_ID+'_'+todayKey(),'1');
+  }
+  function shuffleIndices(n){
+    const arr=[...Array(n).keys()];
+    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+    return arr;
+  }
 
   // ── LOAD QUESTIONS ────────────────────────────────────────
   function ensureQ(cb) {
@@ -174,6 +189,7 @@
   function renderMain() {
     if(!walletAddr){renderConnect();return;}
     if(isClaimedToday()){renderClaimed();return;}
+    if(isFailedToday()){renderFailed();return;}
     if(!currentEdu||!currentPlat) pickQuestions();
     if(!timerDone) renderTimer();
     else renderQuiz();
@@ -221,13 +237,15 @@
   function renderQuiz() {
     if(!currentEdu||!currentPlat){renderClaimed();return;}
     const L=['A','B','C','D'];
-    const eduOpts=currentEdu.p.map((o,i)=>`
+    eduShuffleMap=shuffleIndices(currentEdu.p.length);
+    platShuffleMap=shuffleIndices(currentPlat.p.length);
+    const eduOpts=eduShuffleMap.map((origIdx,i)=>`
       <div class="aw-opt" id="aw-e-${i}" onclick="window._awAns('edu',${currentEdu.id},${i})">
-        <span class="aw-opt-lbl">${L[i]}</span>${o}
+        <span class="aw-opt-lbl">${L[i]}</span>${currentEdu.p[origIdx]}
       </div>`).join('');
-    const platOpts=currentPlat.p.map((o,i)=>`
+    const platOpts=platShuffleMap.map((origIdx,i)=>`
       <div class="aw-opt" id="aw-p-${i}" onclick="window._awAns('plat',${currentPlat.id},${i})">
-        <span class="aw-opt-lbl">${L[i]}</span>${o}
+        <span class="aw-opt-lbl">${L[i]}</span>${currentPlat.p[origIdx]}
       </div>`).join('');
 
     setContent(`
@@ -256,20 +274,40 @@
     const opts = document.getElementById(pfx+'-opts');
     if(!opts)return;
     opts.querySelectorAll('.aw-opt').forEach(o=>o.classList.add('disabled'));
+    // Disable semua opts soal lainnya juga agar tidak bisa dijawab saat salah
+    const otherPfx = type==='edu'?'aw-plat':'aw-edu';
+    const otherOpts = document.getElementById(otherPfx+'-opts');
+    if(otherOpts)otherOpts.querySelectorAll('.aw-opt').forEach(o=>o.classList.add('disabled'));
+
     const all=[...window.AIRDROP_QUESTIONS.level1,...window.AIRDROP_QUESTIONS.level2];
     const soal=all.find(s=>s.id===soalId);
     if(!soal)return;
-    const benar=idx===soal.j;
+
+    // Cek jawaban dengan membalik shuffle: idx di tampilan → origIdx di soal.p
+    const map = type==='edu'?eduShuffleMap:platShuffleMap;
+    const origIdx = map ? map[idx] : idx;
+    const benar = origIdx === soal.j;
+
     const clicked=document.getElementById(`aw-${type==='edu'?'e':'p'}-${idx}`);
     if(clicked)clicked.classList.add(benar?'correct':'wrong');
     if(!benar){
-      const correctEl=document.getElementById(`aw-${type==='edu'?'e':'p'}-${soal.j}`);
+      // Highlight posisi jawaban benar (setelah shuffle)
+      const benarShufflePos = map ? map.indexOf(soal.j) : soal.j;
+      const correctEl=document.getElementById(`aw-${type==='edu'?'e':'p'}-${benarShufflePos}`);
       if(correctEl)correctEl.classList.add('correct');
     }
     const resEl=document.getElementById(pfx+'-res');
     if(resEl){resEl.style.display='block';resEl.className='aw-result '+(benar?'ok':'fail');resEl.textContent=(benar?'✅ Benar! ':'❌ Salah. ')+soal.e;}
-    if(type==='edu'){eduDone=benar;const st=document.getElementById('aw-st-edu');if(st){st.className='aw-step '+(benar?'done':'active');if(benar)st.textContent='📚 EDUKASI ✅';}}
-    if(type==='plat'){platDone=benar;const st=document.getElementById('aw-st-plat');if(st){st.className='aw-step '+(benar?'done':'active');if(benar)st.textContent='🏛 PLATFORM ✅';}}
+
+    if(!benar){
+      // Tandai gagal hari ini lalu tutup widget setelah beberapa detik
+      markFailedToday();
+      setTimeout(()=>{ hideWidget(); },3500);
+      return;
+    }
+
+    if(type==='edu'){eduDone=true;const st=document.getElementById('aw-st-edu');if(st){st.className='aw-step done';st.textContent='📚 EDUKASI ✅';}}
+    if(type==='plat'){platDone=true;const st=document.getElementById('aw-st-plat');if(st){st.className='aw-step done';st.textContent='🏛 PLATFORM ✅';}}
     const btn=document.getElementById('aw-btn-claim');
     if(btn)btn.disabled=!(eduDone&&platDone);
   };
@@ -292,6 +330,10 @@
       setAwStatus('❌ '+(e.message||'Gagal').slice(0,50),'err');
     }
   };
+
+  function renderFailed() {
+    hideWidget();
+  }
 
   function renderClaimed() {
     setContent(`
@@ -348,7 +390,7 @@
       if(addr){
         walletAddr=addr.toLowerCase();
         localStorage.setItem('indocoin_wallet',walletAddr);
-        if(isClaimedToday()){hideWidget();return;}
+        if(isClaimedToday()||isFailedToday()){hideWidget();return;}
         // Widget HANYA aktif jika datang dari airdrop.html (?airdrop=1)
         const params = new URLSearchParams(window.location.search);
         if(params.get('airdrop') !== '1'){hideWidget();return;}

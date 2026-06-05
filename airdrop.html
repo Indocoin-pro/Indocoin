@@ -232,6 +232,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   border-radius:4px;white-space:nowrap;flex-shrink:0;}
 .prog-badge.unclaimed{background:#fef3c7;border:1px solid #fcd34d;color:var(--gold);}
 .prog-badge.claimed{background:#d1fae5;border:1px solid #6ee7b7;color:var(--green);}
+.prog-item.failed{border-color:#fca5a5;background:#fff1f1;pointer-events:none;opacity:0.7;}
+.prog-badge.failed{background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;}
 
 .how-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;
   margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);}
@@ -441,6 +443,10 @@ function isClaimedToday(pageId) {
   if (!userAddress) return false;
   return localStorage.getItem('indc_claimed_' + userAddress + '_page_' + pageId + '_' + todayKey()) === '1';
 }
+function isFailedToday(pageId) {
+  if (!userAddress) return false;
+  return localStorage.getItem('indc_failed_' + userAddress.toLowerCase() + '_page_' + pageId + '_' + todayKey()) === '1';
+}
 
 // ── ROTASI 3 TUGAS PER HARI ───────────────────────────────
 // 14 tugas, siklus 5 hari (3+3+3+3+2), deterministik berdasarkan tanggal
@@ -598,19 +604,23 @@ function renderPrograms() {
   const icons = {Presale:'🚀',Staking:'💰',Trading:'📈',GameFi:'🎮',Platform:'⚙️',Loyalitas:'⭐'};
   PROGRAMS.forEach(p => {
     const claimed = isClaimedToday(p.id);
+    const failed  = !claimed && isFailedToday(p.id);
     if(claimed) todayCount++;
     if(p.cat !== lastCat) {
       lastCat = p.cat;
       html += `<div class="sec-div" style="margin-top:${html?'16px':'0'}">${icons[p.cat]||'•'} ${p.cat}</div>`;
     }
+    const itemClass = claimed ? 'claimed' : failed ? 'failed' : '';
+    const badgeClass = claimed ? 'claimed' : failed ? 'failed' : 'unclaimed';
+    const badgeText  = claimed ? '✅ CLAIMED' : failed ? '❌ TERKUNCI' : '1 INDC';
     html += `
-      <a href="${p.url}?airdrop=1" class="prog-item ${claimed?'claimed':''}">
+      <a href="${p.url}?airdrop=1" class="prog-item ${itemClass}">
         <div class="prog-icon">${p.icon}</div>
         <div class="prog-info">
           <div class="prog-name">${p.name}</div>
           <div class="prog-cat">${p.cat} · 1 INDC / hari</div>
         </div>
-        <div class="prog-badge ${claimed?'claimed':'unclaimed'}">${claimed?'✅ CLAIMED':'1 INDC'}</div>
+        <div class="prog-badge ${badgeClass}">${badgeText}</div>
       </a>`;
   });
   document.getElementById('progList').innerHTML = html;
