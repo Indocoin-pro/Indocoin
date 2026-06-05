@@ -661,6 +661,7 @@ async function connectWallet() {
     swapLoadTokens();
     showConnected();
     setTimeout(aapInit, 500);
+    setTimeout(loadPlatformWallet, 1000);
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -2922,14 +2923,17 @@ const PW_ERC20_ABI = [
 ];
 
 async function loadPlatformWallet() {
-  if (!window._provider || !window._wallet) return;
+  // Gunakan variabel wallet yang ada di assets.html
+  const activeWallet   = window._wallet   || userAddress;
+  const activeProvider = window._provider || provider;
+  if (!activeProvider || !activeWallet) return;
   try {
-    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        window._provider);
-    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, window._provider);
+    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        activeProvider);
+    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, activeProvider);
 
     const [indcBal, usdtBal, indcPrice] = await Promise.all([
-      pw.getBalance(window._wallet, PW_INDC),
-      pw.getBalance(window._wallet, PW_USDT),
+      pw.getBalance(activeWallet, PW_INDC),
+      pw.getBalance(activeWallet, PW_USDT),
       market.currentPrice(),
     ]);
 
@@ -2939,7 +2943,6 @@ async function loadPlatformWallet() {
     const indcUsd  = indc * price;
     const totalUsd = indcUsd + usdt;
 
-    // IDR rate dari halaman utama jika ada
     const idrRate  = window._idrRate || 16500;
     const totalIdr = totalUsd * idrRate;
 
