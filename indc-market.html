@@ -1023,10 +1023,21 @@ async function loadListedEvents(mkt) {
     const provider = _provider || await getBscProvider();
     const contract = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
     const latest   = await provider.getBlockNumber();
-    const from     = Math.max(0, latest - 50000);
+    const from     = Math.max(0, latest - 200000); // ~7 hari
 
-    const listedEvents = await contract.queryFilter(contract.filters.Listed(), from, latest);
-    console.log('Listed events:', listedEvents.length);
+    // Ambil listing aktif dari kontrak langsung (sama seperti getTradeHistory)
+    let listedEvents = [];
+    try {
+      const activeListings = await contract.getActiveListings(0, 100);
+      listedEvents = activeListings.map(l => ({
+        args: {
+          seller: l.seller,
+          indcAmount: l.indcAmount,
+          timestamp: l.timestamp,
+        }
+      }));
+    } catch(e) { console.warn('getActiveListings error:', e); }
+    console.log('Active listings:', listedEvents.length);
 
     // ── Bangun _chartPricePoints dari beli + jual ──
     const pts = [];
