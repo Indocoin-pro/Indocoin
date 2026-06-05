@@ -890,14 +890,17 @@ async function loadMarketData() {
             _chartData.prices.push(price);
           }
         });
-        if (_currentPrice > 0) addChartPoint(_currentPrice);
-        if (_chart && _chartData.prices.length > 0) {
-          _updateChart();
-        }
       }
 
-      // Load Listed events untuk riwayat jual
+      // Load Listed events — TUNGGU selesai sebelum render chart
       await loadListedEvents(mkt);
+
+      // Render chart SETELAH _chartPricePoints terisi
+      if (_currentPrice > 0) {
+        _chartData.labels.push(new Date());
+        _chartData.prices.push(_currentPrice);
+      }
+      if (_lwChart) _renderLwChart();
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
@@ -949,9 +952,6 @@ async function loadMarketData() {
 
     // Update posisi aktif kalau wallet sudah connect
     if (_wallet) checkActiveListing();
-
-    // Chart
-    addChartPoint(_currentPrice);
 
   } catch(e) { console.error('loadMarketData:', e); }
 }
