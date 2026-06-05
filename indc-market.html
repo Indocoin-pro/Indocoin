@@ -890,17 +890,14 @@ async function loadMarketData() {
             _chartData.prices.push(price);
           }
         });
+        if (_currentPrice > 0) addChartPoint(_currentPrice);
+        if (_chart && _chartData.prices.length > 0) {
+          _updateChart();
+        }
       }
 
-      // Load Listed events — TUNGGU selesai sebelum render chart
+      // Load Listed events untuk riwayat jual
       await loadListedEvents(mkt);
-
-      // Render chart SETELAH _chartPricePoints terisi
-      if (_currentPrice > 0) {
-        _chartData.labels.push(new Date());
-        _chartData.prices.push(_currentPrice);
-      }
-      if (_lwChart) _renderLwChart();
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
@@ -953,46 +950,73 @@ async function loadMarketData() {
     // Update posisi aktif kalau wallet sudah connect
     if (_wallet) checkActiveListing();
 
+    // Chart
+    addChartPoint(_currentPrice);
+
   } catch(e) { console.error('loadMarketData:', e); }
 }
 
 // ═══════════════════════════════════════════
 //  HISTORY
 // ═══════════════════════════════════════════
+let _chartPricePointsLoaded = false;
 async function loadListedEvents(mkt) {
   try {
     const provider = _provider || await getBscProvider();
     const contract = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
     const latest   = await provider.getBlockNumber();
-    const from     = Math.max(0, latest - 50000); // 50000 blok ~41 jam
+    const from     = Math.max(0, latest - 50000);
 
-    const listedFilter = contract.filters.Listed();
-    const listedEvents = await contract.queryFilter(listedFilter, from, latest);
+    const listedEvents = await contract.queryFilter(contract.filters.Listed(), from, latest);
     console.log('Listed events:', listedEvents.length);
 
-    // Gabungkan beli + jual, sort by timestamp terbaru
+    // ── Bangun _chartPricePoints dari beli + jual ──
+    const pts = [];
+
+    // 1. Dari tradeHistory (beli) — ada harga
+    _allHistory.forEach(h => {
+      const price = parseFloat(ethers.formatUnits(h.price, 18));
+      if (price > 0) pts.push({ price, time: Number(h.timestamp)*1000 });
+    });
+
+    // 2. Dari Listed events — baca currentPrice di block tsb
+    await Promise.all(listedEvents.map(async e => {
+      try {
+        const [block, priceRaw] = await Promise.all([
+          provider.getBlock(e.blockNumber),
+          contract.currentPrice({ blockTag: e.blockNumber })
+        ]);
+        const price = parseFloat(ethers.formatUnits(priceRaw, 18));
+        if (price > 0 && block) pts.push({ price, time: block.timestamp*1000 });
+      } catch(err) {}
+    }));
+
+    // Sort + tambah titik open $0.020
+    pts.sort((a,b) => a.time - b.time);
+    if (pts.length > 0) pts.unshift({ price:0.020, time: pts[0].time - 3600000 });
+    _chartPricePoints = pts;
+
+    // Re-render chart setelah data lengkap
+    if (_lwChart) _render();
+
+    // ── Riwayat tampilan ──
     const buys = _allHistory.map(h => ({
-      type:      'beli',
-      wallet:    h.buyer,
-      indcAmount: h.indcAmount,
-      usdtAmount: h.usdtAmount,
-      timestamp:  Number(h.timestamp),
+      type:'beli', wallet:h.buyer,
+      indcAmount:h.indcAmount, usdtAmount:h.usdtAmount,
+      timestamp: Number(h.timestamp),
     }));
 
     const sells = await Promise.all(listedEvents.map(async e => {
-      // Ambil timestamp dari block
       const block = await provider.getBlock(e.blockNumber);
       return {
-        type:      'jual',
-        wallet:    e.args.seller,
-        indcAmount: e.args.indcAmount,
-        usdtAmount: null,
-        timestamp:  block ? block.timestamp : Number(e.args.timestamp),
+        type:'jual', wallet:e.args.seller,
+        indcAmount:e.args.indcAmount, usdtAmount:null,
+        timestamp: block ? block.timestamp : Number(e.args.timestamp),
       };
     }));
 
-    _allCombined = [...buys, ...sells].sort((a, b) => b.timestamp - a.timestamp);
-    console.log('Combined history:', _allCombined.length);
+    _allCombined = [...buys, ...sells].sort((a,b) => b.timestamp - a.timestamp);
+    console.log('Combined:', _allCombined.length, 'PricePoints:', pts.length);
     renderHistory();
   } catch(e) {
     console.error('loadListedEvents error:', e);
@@ -1050,6 +1074,7 @@ function switchHist(f) {
 // ═══════════════════════════════════════════
 let _chart;
 let _emaActive  = { 7:false, 25:false, 99:false };
+let _chartPricePoints = [];
 let _chartType  = 'line';
 let _chartTf    = '1H';
 let _chartData  = { labels:[], prices:[] };
@@ -1117,270 +1142,181 @@ function _baseOptions() {
 }
 
 // ── Buat canvas baru (destroy lama jika ada) ──
-// ══════════════════════════════════════════════════════
-// LIGHTWEIGHT CHARTS — TradingView style
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════
+// LIGHTWEIGHT CHARTS ENGINE
+// ══════════════════════════════════════
+let _lwChart = null;
+let _lwSeries = null;
+let _lwEma7 = null, _lwEma25 = null, _lwEma99 = null;
 
-let _lwChart        = null;
-let _lwCandleSeries = null;
-let _lwLineSeries   = null;
-let _lwAreaSeries   = null;
-let _lwEma7         = null;
-let _lwEma25        = null;
-let _lwEma99        = null;
-
-function _destroyLwChart() {
-  if (_lwChart) { _lwChart.remove(); _lwChart = null; }
-  _lwCandleSeries = null;
-  _lwLineSeries   = null;
-  _lwAreaSeries   = null;
-  _lwEma7 = _lwEma25 = _lwEma99 = null;
+function _destroyLw() {
+  if (_lwChart) { try { _lwChart.remove(); } catch(e){} _lwChart = null; }
+  _lwSeries = _lwEma7 = _lwEma25 = _lwEma99 = null;
 }
 
-function _createLwChart() {
-  _destroyLwChart();
+function _initLw() {
+  _destroyLw();
   const wrap = document.getElementById('priceChartDiv');
   wrap.innerHTML = '';
   _lwChart = LightweightCharts.createChart(wrap, {
-    width:  wrap.clientWidth || 340,
+    width: wrap.clientWidth || 340,
     height: 200,
-    layout: {
-      background: { color: '#faf7f2' },
-      textColor:  '#8a7a62',
-      fontFamily: 'DM Mono, monospace',
-      fontSize:   10,
-    },
+    layout: { background:{color:'#faf7f2'}, textColor:'#8a7a62', fontSize:10 },
     grid: {
-      vertLines:  { color: 'rgba(200,146,42,0.08)' },
-      horzLines:  { color: 'rgba(200,146,42,0.08)' },
+      vertLines: { color:'rgba(200,146,42,0.08)' },
+      horzLines: { color:'rgba(200,146,42,0.08)' },
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: {
-      borderColor: 'rgba(200,146,42,0.2)',
-      scaleMargins: { top: 0.1, bottom: 0.1 },
-    },
-    timeScale: {
-      borderColor: 'rgba(200,146,42,0.2)',
-      timeVisible: true,
-      secondsVisible: false,
-    },
+    rightPriceScale: { borderColor:'rgba(200,146,42,0.2)', scaleMargins:{top:0.1,bottom:0.1} },
+    timeScale: { borderColor:'rgba(200,146,42,0.2)', timeVisible:true, secondsVisible:false },
     handleScroll: true,
-    handleScale:  true,
+    handleScale: true,
   });
-  // Resize observer
-  if (window._lwResizeObs) window._lwResizeObs.disconnect();
-  window._lwResizeObs = new ResizeObserver(() => {
+  if (window._lwObs) window._lwObs.disconnect();
+  window._lwObs = new ResizeObserver(() => {
     if (_lwChart) _lwChart.applyOptions({ width: wrap.clientWidth });
   });
-  window._lwResizeObs.observe(wrap);
+  window._lwObs.observe(wrap);
 }
 
-function _getOhlcData() {
+function _getOhlc() {
   const mins = { '5M':5,'15M':15,'1H':60,'6H':360,'7H':420,'1D':1440,'24H':1440,'7D':10080,'30D':43200 };
   const interval = (mins[_chartTf] || 60) * 60;
-  const buckets  = {};
+  const buckets = {};
 
-  const source = (_chartPricePoints && _chartPricePoints.length > 0)
+  const src = (_chartPricePoints && _chartPricePoints.length > 0)
     ? _chartPricePoints
     : (_allHistory && _allHistory.length > 0)
-      ? _allHistory.map(h => ({
-          price: parseFloat(ethers.formatUnits(h.price, 18)),
-          time:  Number(h.timestamp) * 1000
-        })).filter(d => d.price > 0)
-      : _chartData.prices.map((p,i) => ({ price:p, time: _chartData.labels[i].getTime() }));
+      ? _allHistory.map(h => ({ price: parseFloat(ethers.formatUnits(h.price,18)), time: Number(h.timestamp)*1000 })).filter(d=>d.price>0)
+      : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
 
-  if (source.length === 0) return [];
+  if (!src.length) return [];
 
-  source.forEach(d => {
-    const key = Math.floor(d.time / 1000 / interval) * interval;
+  src.forEach(d => {
+    const key = Math.floor(d.time/1000/interval)*interval;
     if (!buckets[key]) buckets[key] = [];
     buckets[key].push(d.price);
   });
 
-  return Object.entries(buckets).map(([t, vals]) => ({
-    time:  parseInt(t),
-    open:  vals[0],
-    high:  Math.max(...vals),
-    low:   Math.min(...vals),
-    close: vals[vals.length-1],
-  })).sort((a,b) => a.time - b.time);
+  return Object.entries(buckets).map(([t,v]) => ({
+    time: parseInt(t),
+    open: v[0], high: Math.max(...v), low: Math.min(...v), close: v[v.length-1]
+  })).sort((a,b)=>a.time-b.time);
 }
 
-function _getLineData() {
-  const source = (_chartPricePoints && _chartPricePoints.length > 0)
+function _getLine() {
+  const src = (_chartPricePoints && _chartPricePoints.length > 0)
     ? _chartPricePoints
-    : _chartData.prices.map((p,i) => ({ price:p, time: _chartData.labels[i].getTime() }));
-  return source
-    .filter(d => d.price > 0)
-    .map(d => ({ time: Math.floor((d.time||0) / 1000), value: d.price }))
-    .sort((a,b) => a.time - b.time)
-    .filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
+    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
+  const seen = new Set();
+  return src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+    .sort((a,b)=>a.time-b.time)
+    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
 }
 
-function _calcEmaLw(period, lineData) {
-  if (lineData.length < period) return [];
-  const k   = 2 / (period + 1);
-  let ema   = lineData.slice(0, period).reduce((a,b) => a + b.value, 0) / period;
-  return lineData.map((d, i) => {
-    if (i >= period) ema = d.value * k + ema * (1-k);
-    return { time: d.time, value: parseFloat(ema.toFixed(8)) };
+function _calcEmaLw(period, data) {
+  if (data.length < period) return [];
+  const k = 2/(period+1);
+  let ema = data.slice(0,period).reduce((a,b)=>a+b.value,0)/period;
+  return data.map((d,i) => {
+    if (i >= period) ema = d.value*k + ema*(1-k);
+    return { time:d.time, value: parseFloat(ema.toFixed(8)) };
   }).slice(period-1);
 }
 
-function initChart() {
-  _createLwChart();
-  _renderLwChart();
+function _applyEma(lineData) {
+  if (_emaActive[7]  && lineData.length>=7)  { _lwEma7  = _lwChart.addLineSeries({color:'#3b82f6',lineWidth:1,lineStyle:2}); _lwEma7.setData(_calcEmaLw(7,lineData));   }
+  if (_emaActive[25] && lineData.length>=25)  { _lwEma25 = _lwChart.addLineSeries({color:'#a855f7',lineWidth:1,lineStyle:2}); _lwEma25.setData(_calcEmaLw(25,lineData)); }
+  if (_emaActive[99] && lineData.length>=99)  { _lwEma99 = _lwChart.addLineSeries({color:'#ef4444',lineWidth:1,lineStyle:2}); _lwEma99.setData(_calcEmaLw(99,lineData)); }
 }
 
-function _renderLwChart() {
-  if (!_lwChart) _createLwChart();
-  // Clear old series
-  if (_lwCandleSeries) { try { _lwChart.removeSeries(_lwCandleSeries); } catch(e){} _lwCandleSeries = null; }
-  if (_lwLineSeries)   { try { _lwChart.removeSeries(_lwLineSeries);   } catch(e){} _lwLineSeries   = null; }
-  if (_lwAreaSeries)   { try { _lwChart.removeSeries(_lwAreaSeries);   } catch(e){} _lwAreaSeries   = null; }
-  if (_lwEma7)         { try { _lwChart.removeSeries(_lwEma7);         } catch(e){} _lwEma7         = null; }
-  if (_lwEma25)        { try { _lwChart.removeSeries(_lwEma25);        } catch(e){} _lwEma25        = null; }
-  if (_lwEma99)        { try { _lwChart.removeSeries(_lwEma99);        } catch(e){} _lwEma99        = null; }
+function _render() {
+  if (!_lwChart) _initLw();
+  // Hapus series lama
+  [_lwSeries,_lwEma7,_lwEma25,_lwEma99].forEach(s => { if(s) try { _lwChart.removeSeries(s); } catch(e){} });
+  _lwSeries = _lwEma7 = _lwEma25 = _lwEma99 = null;
 
   if (_chartType === 'candle' || _chartType === 'bar') {
-    const ohlc = _getOhlcData();
-    if (ohlc.length === 0) {
-      // Fallback line
-      _chartType = 'line';
-      _renderLwChart();
-      return;
-    }
-    _lwCandleSeries = _lwChart.addCandlestickSeries({
-      upColor:          '#c8922a',
-      downColor:        '#dc2626',
-      borderUpColor:    '#c8922a',
-      borderDownColor:  '#dc2626',
-      wickUpColor:      '#c8922a',
-      wickDownColor:    '#dc2626',
-      borderVisible:    true,
-      wickVisible:      true,
-      priceFormat:      { type:'price', precision:5, minMove:0.00001 },
+    const ohlc = _getOhlc();
+    if (!ohlc.length) { _chartType='line'; _render(); return; }
+    _lwSeries = _lwChart.addCandlestickSeries({
+      upColor:'#c8922a', downColor:'#dc2626',
+      borderUpColor:'#c8922a', borderDownColor:'#dc2626',
+      wickUpColor:'#c8922a', wickDownColor:'#dc2626',
+      priceFormat:{ type:'price', precision:5, minMove:0.00001 },
     });
-    _lwCandleSeries.setData(ohlc);
-
-    // EMA di atas candle
-    const lineData = ohlc.map(d => ({ time: d.time, value: d.close }));
-    _applyEmaLw(lineData);
-
+    _lwSeries.setData(ohlc);
+    _applyEma(ohlc.map(d=>({time:d.time,value:d.close})));
   } else if (_chartType === 'area') {
-    const lineData = _getLineData();
-    _lwAreaSeries = _lwChart.addAreaSeries({
-      lineColor:   '#c8922a',
-      topColor:    'rgba(200,146,42,0.25)',
-      bottomColor: 'rgba(200,146,42,0)',
-      lineWidth:   2,
-      priceFormat: { type:'price', precision:5, minMove:0.00001 },
+    const ld = _getLine();
+    _lwSeries = _lwChart.addAreaSeries({
+      lineColor:'#c8922a', topColor:'rgba(200,146,42,0.25)', bottomColor:'rgba(200,146,42,0)',
+      lineWidth:2, priceFormat:{ type:'price', precision:5, minMove:0.00001 },
     });
-    if (lineData.length > 0) _lwAreaSeries.setData(lineData);
-    _applyEmaLw(lineData);
-
+    if (ld.length) _lwSeries.setData(ld);
+    _applyEma(ld);
   } else {
-    // line (default)
-    const lineData = _getLineData();
-    _lwLineSeries = _lwChart.addLineSeries({
-      color:       '#c8922a',
-      lineWidth:   2,
-      priceFormat: { type:'price', precision:5, minMove:0.00001 },
-      crosshairMarkerVisible: true,
+    const ld = _getLine();
+    _lwSeries = _lwChart.addLineSeries({
+      color:'#c8922a', lineWidth:2,
+      priceFormat:{ type:'price', precision:5, minMove:0.00001 },
     });
-    if (lineData.length > 0) _lwLineSeries.setData(lineData);
-    _applyEmaLw(lineData);
+    if (ld.length) _lwSeries.setData(ld);
+    _applyEma(ld);
   }
-
   _lwChart.timeScale().fitContent();
 }
 
-function _applyEmaLw(lineData) {
-  if (_emaActive[7] && lineData.length >= 7) {
-    _lwEma7 = _lwChart.addLineSeries({ color:'#3b82f6', lineWidth:1, lineStyle:1 });
-    _lwEma7.setData(_calcEmaLw(7, lineData));
-  }
-  if (_emaActive[25] && lineData.length >= 25) {
-    _lwEma25 = _lwChart.addLineSeries({ color:'#a855f7', lineWidth:1, lineStyle:1 });
-    _lwEma25.setData(_calcEmaLw(25, lineData));
-  }
-  if (_emaActive[99] && lineData.length >= 99) {
-    _lwEma99 = _lwChart.addLineSeries({ color:'#ef4444', lineWidth:1, lineStyle:1 });
-    _lwEma99.setData(_calcEmaLw(99, lineData));
-  }
-}
-
-function resetZoom() {
-  if (_lwChart) _lwChart.timeScale().fitContent();
-}
+function initChart() { _initLw(); }
+function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
 
 function addChartPoint(price) {
   const now = new Date();
   _chartData.labels.push(now);
   _chartData.prices.push(price);
-  if (_chartData.labels.length > 500) {
-    _chartData.labels.shift();
-    _chartData.prices.shift();
-  }
-  // Update chart real-time
-  if (_lwChart) _renderLwChart();
-
+  if (_chartData.labels.length > 500) { _chartData.labels.shift(); _chartData.prices.shift(); }
+  if (_lwChart) _render();
   if (_chartData.prices.length > 1) {
-    const first = _chartData.prices[0];
-    const pct   = ((price - first) / first * 100).toFixed(2);
-    const el    = document.getElementById('chartPriceChg');
-    el.textContent = (parseFloat(pct) >= 0 ? '▲ +' : '▼ ') + pct + '%';
-    el.className   = 'chart-pchg ' + (parseFloat(pct) >= 0 ? 'up' : 'dn');
+    const pct = ((_chartData.prices[_chartData.prices.length-1] - _chartData.prices[0]) / _chartData.prices[0] * 100).toFixed(2);
+    const el  = document.getElementById('chartPriceChg');
+    el.textContent = (parseFloat(pct)>=0?'▲ +':'▼ ') + pct + '%';
+    el.className   = 'chart-pchg ' + (parseFloat(pct)>=0?'up':'dn');
   }
 }
 
-function _updateChart() {
-  if (_lwChart) _renderLwChart();
-}
+function _updateChart() { if (_lwChart) _render(); }
+function _buildOHLC()   { return _getOhlc(); }
 
 function toggleEmaDropdown() {
   const dd = document.getElementById('emaDropdown');
-  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  dd.style.display = dd.style.display==='none' ? 'block' : 'none';
 }
-
 document.addEventListener('click', e => {
-  const btn = document.getElementById('emaDropBtn');
-  const dd  = document.getElementById('emaDropdown');
-  if (dd && btn && !btn.contains(e.target) && !dd.contains(e.target)) {
-    dd.style.display = 'none';
-  }
+  const btn=document.getElementById('emaDropBtn'), dd=document.getElementById('emaDropdown');
+  if (dd&&btn&&!btn.contains(e.target)&&!dd.contains(e.target)) dd.style.display='none';
 });
-
 function toggleEma(period, el) {
   _emaActive[period] = !_emaActive[period];
-  if (el) el.style.fontWeight = _emaActive[period] ? '900' : '400';
-  if (_lwChart) _renderLwChart();
+  if (el) el.style.fontWeight = _emaActive[period]?'900':'400';
+  if (_lwChart) _render();
 }
-
 let _votingActive = false;
-
 function handleVoteClick(yes) {
-  if (_votingActive) {
-    doVote(yes);
-  } else {
-    document.getElementById('voteLockedPopup').style.display = 'flex';
-  }
+  if (_votingActive) doVote(yes);
+  else document.getElementById('voteLockedPopup').style.display='flex';
 }
-
 function toggleChartDropdown() {
-  const dd = document.getElementById('chartDropdown');
-  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  const dd=document.getElementById('chartDropdown');
+  dd.style.display=dd.style.display==='none'?'block':'none';
 }
-
 function selectChartType(type, label) {
   document.getElementById('chartTypeLabel').textContent = label;
   document.getElementById('chartDropdown').style.display = 'none';
   switchChartType(type);
 }
-
 function switchChartType(type) {
   _chartType = type;
-  if (_lwChart) _renderLwChart();
+  if (_lwChart) _render();
 }
 
 function switchTf(tf, btn) {
@@ -1388,14 +1324,14 @@ function switchTf(tf, btn) {
   _tfIndex = TF_ORDER.indexOf(tf);
   document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"]):not([onclick^="tfP"]):not([onclick^="tfN"])').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // Reset tombol dropdown ke default kalau pilih dari tombol utama
   if (btn && btn.id !== 'tfMoreBtn') {
     const moreBtn = document.getElementById('tfMoreBtn');
     if (moreBtn) moreBtn.textContent = '▼';
   }
   document.getElementById('chartRangeLabel').textContent = TF_LABELS[tf] || tf;
   _chartData = { labels:[], prices:[] };
-  _chartPricePoints = [];
-  if (_lwChart) { _destroyLwChart(); _createLwChart(); }
+  if (_chart) { _chart.data.labels = []; _chart.data.datasets.forEach(d => d.data = []); _chart.update(); }
   loadMarketData();
 }
 
