@@ -895,6 +895,9 @@ async function loadMarketData() {
       // Load Listed events — chart dirender di dalam loadListedEvents
       // setelah _chartPricePoints terisi lengkap
       await loadListedEvents(mkt);
+
+      // Re-render chart dengan harga terbaru
+      if (_lwChart) _render();
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
@@ -946,9 +949,6 @@ async function loadMarketData() {
 
     // Update posisi aktif kalau wallet sudah connect
     if (_wallet) checkActiveListing();
-
-    // Chart
-    addChartPoint(_currentPrice);
 
   } catch(e) { console.error('loadMarketData:', e); }
 }
@@ -1181,58 +1181,79 @@ function _initLw() {
 
 function _getOhlc() {
   const mins = { '5M':5,'15M':15,'1H':60,'6H':360,'7H':420,'1D':1440,'24H':1440,'7D':10080,'30D':43200 };
-  const interval = (mins[_chartTf] || 60) * 60;
+  const intervalSec = (mins[_chartTf] || 60) * 60;
+  const intervalMs  = intervalSec * 1000;
 
-  // Ambil semua titik harga
-  let src = (_chartPricePoints && _chartPricePoints.length > 0)
-    ? _chartPricePoints
-    : (_allHistory && _allHistory.length > 0)
-      ? _allHistory.map(h => ({ price: parseFloat(ethers.formatUnits(h.price,18)), time: Number(h.timestamp)*1000 })).filter(d=>d.price>0)
-      : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
-
-  if (!src.length) return [];
-  src = src.sort((a,b) => a.time - b.time);
-
-  // Interpolasi — isi titik harga di antara 2 titik nyata
-  // agar candle terlihat banyak dan rapat
-  const MARKET_DEPLOY = 1748596283 * 1000;
+  const MARKET_DEPLOY_MS = 1748596283000; // 30 Mei 2026
   const now = Date.now();
+
+  // Kumpulkan semua titik harga nyata
+  let rawPts = [];
+
+  // 1. Titik deploy (open price)
+  rawPts.push({ price: 0.020, time: MARKET_DEPLOY_MS });
+
+  // 2. Dari listed events (price points onchain)
+  if (_chartPricePoints && _chartPricePoints.length > 0) {
+    _chartPricePoints.forEach(p => {
+      if (p.price > 0) rawPts.push({ price: p.price, time: p.time });
+    });
+  }
+
+  // 3. Dari trade history (beli)
+  if (_allHistory && _allHistory.length > 0) {
+    _allHistory.forEach(h => {
+      const price = parseFloat(ethers.formatUnits(h.price, 18));
+      if (price > 0) rawPts.push({ price, time: Number(h.timestamp) * 1000 });
+    });
+  }
+
+  // 4. Harga sekarang sebagai titik terakhir
+  if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: now });
+
+  // Sort dan dedupe
+  rawPts.sort((a,b) => a.time - b.time);
+  rawPts = rawPts.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
+
+  if (rawPts.length < 2) return [];
+
+  // Interpolasi linear antar titik nyata
   const interpolated = [];
-
-  // Pastikan ada titik awal deploy
-  if (src[0].time > MARKET_DEPLOY) {
-    src.unshift({ price: 0.020, time: MARKET_DEPLOY });
-  }
-  // Pastikan ada titik akhir (harga sekarang)
-  if (_currentPrice > 0 && src[src.length-1].time < now - 60000) {
-    src.push({ price: _currentPrice, time: now });
-  }
-
-  // Interpolasi linear antar titik
-  for (let i = 0; i < src.length - 1; i++) {
-    const p1 = src[i], p2 = src[i+1];
-    const steps = Math.max(1, Math.round((p2.time - p1.time) / (interval * 1000)));
-    for (let s = 0; s <= steps; s++) {
-      const t = p1.time + (p2.time - p1.time) * s / steps;
-      const p = p1.price + (p2.price - p1.price) * s / steps;
-      // Tambah noise kecil agar candle tidak flat
-      const noise = (Math.random() - 0.5) * p * 0.002;
+  for (let i = 0; i < rawPts.length - 1; i++) {
+    const p1 = rawPts[i], p2 = rawPts[i+1];
+    const timeDiff = p2.time - p1.time;
+    const steps = Math.max(2, Math.floor(timeDiff / intervalMs));
+    for (let s = 0; s < steps; s++) {
+      const ratio = s / steps;
+      const t = p1.time + timeDiff * ratio;
+      const p = p1.price + (p2.price - p1.price) * ratio;
+      // Noise kecil untuk wick
+      const noise = (Math.sin(t * 0.001 + s) * 0.5 + Math.cos(t * 0.002) * 0.5) * p * 0.0015;
       interpolated.push({ price: p + noise, time: t });
     }
   }
+  // Titik terakhir
+  const last = rawPts[rawPts.length - 1];
+  interpolated.push({ price: last.price, time: last.time });
 
-  // Bucket ke candle
+  // Bucket ke candle OHLC
   const buckets = {};
   interpolated.forEach(d => {
-    const key = Math.floor(d.time/1000/interval)*interval;
+    const key = Math.floor(d.time / intervalMs) * intervalSec;
     if (!buckets[key]) buckets[key] = [];
     buckets[key].push(d.price);
   });
 
-  return Object.entries(buckets).map(([t,v]) => ({
-    time: parseInt(t),
-    open: v[0], high: Math.max(...v), low: Math.min(...v), close: v[v.length-1]
-  })).sort((a,b)=>a.time-b.time);
+  return Object.entries(buckets)
+    .map(([t, v]) => ({
+      time:  parseInt(t),
+      open:  v[0],
+      high:  Math.max(...v),
+      low:   Math.min(...v),
+      close: v[v.length - 1],
+    }))
+    .filter(c => c.high > c.low || c.open !== c.close)
+    .sort((a,b) => a.time - b.time);
 }
 
 function _getLine() {
@@ -1282,6 +1303,24 @@ function _render() {
       priceFormat:{ type:'price', precision:5, minMove:0.00001 },
     });
     _lwSeries.setData(ohlc);
+
+    // Garis baseline = harga awal deploy $0.020
+    const baselineSeries = _lwChart.addLineSeries({
+      color:     'rgba(200,146,42,0.6)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: 'Open $0.020',
+      priceFormat: { type:'price', precision:5, minMove:0.00001 },
+    });
+    const firstTime = ohlc[0]?.time || Math.floor(Date.now()/1000);
+    const lastTime  = ohlc[ohlc.length-1]?.time || Math.floor(Date.now()/1000);
+    baselineSeries.setData([
+      { time: firstTime, value: 0.020 },
+      { time: lastTime,  value: 0.020 },
+    ]);
+
     _applyEma(ohlc.map(d=>({time:d.time,value:d.close})));
   } else if (_chartType === 'area') {
     const ld = _getLine();
