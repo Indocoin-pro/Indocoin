@@ -825,7 +825,7 @@ const WELCOME_ABI = [
   "function usdtToIndc(uint256 usdtAmount) view returns (uint256)",
   "function depositVipPool(uint256 usdtAmount) external",
 ];
-const MARKET_ABI  = ["function buyIndc(uint256 usdtAmount, uint256 minIndc) external","function currentPrice() view returns (uint256)"];
+const MARKET_ABI  = ["function buyIndc(uint256 usdtAmount, uint256 maxPrice) external","function currentPrice() view returns (uint256)"];
 const ERC20_ABI   = [
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address,address) view returns (uint256)",
@@ -1178,10 +1178,13 @@ async function doBuyAndStake(){
     setMsg('Langkah 4/4: Membeli INDC di market...','var(--gold)');
     const mktAmt = usdtVal * MKT_PCT;
     const mktWei = toI(mktAmt.toFixed(6), SC.USDT_DEC);
-    const minIndc = ethers.BigNumber.from(0); // no slippage limit — price shown in UI
+
+    // maxPrice: harga saat ini + 2% toleransi (dalam wei 18 decimal)
+    const livePrice = await _market.currentPrice();
+    const maxPrice  = livePrice.mul(102).div(100);
 
     const indcBefore = await _indc.balanceOf(_wallet);
-    const tx1 = await _market.buyIndc(mktWei, minIndc);
+    const tx1 = await _market.buyIndc(mktWei, maxPrice);
     setMsg('Menunggu konfirmasi beli INDC...','var(--gold)');
     await tx1.wait();
 
