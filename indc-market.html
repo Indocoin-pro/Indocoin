@@ -1328,7 +1328,9 @@ function _getOhlc() {
     buckets[key].push(d.price);
   });
 
-  return Object.entries(buckets)
+  const maxBars = { '5M': 60, '15M': 60 };
+  const limit = maxBars[_chartTf] || 0;
+  const candles = Object.entries(buckets)
     .map(([t, v]) => ({
       time:  parseInt(t),
       open:  v[0],
@@ -1338,6 +1340,7 @@ function _getOhlc() {
     }))
     .filter(c => c.high > c.low || c.open !== c.close)
     .sort((a,b) => a.time - b.time);
+  return limit > 0 ? candles.slice(-limit) : candles;
 }
 
 function _getLine() {
