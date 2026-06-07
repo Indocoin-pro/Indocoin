@@ -1095,18 +1095,10 @@ async function doStakeWithUsdt(){
 
     setMsg('✅ Berhasil! INDC sudah distake. Reward 1%/hari mulai berjalan.','var(--green)');
 
-    // Laporkan volume ke Aggregator — telusuri upline sampai 10 level
+    // Laporkan volume ke Aggregator — contract otomatis distribusi ke 10 level upline
     try{
-      const agg    = new ethers.Contract(SC.AGGREGATOR, AGGREGATOR_ABI, _signer);
-      const master = new ethers.Contract(SC.MASTER, MASTER_ABI, _provider);
-      let current  = _wallet;
-      for(let i = 0; i < 10; i++){
-        const info   = await master.getUserInfo(current);
-        const upline = info[1]; // index 1 = upline address
-        if(!upline || upline === '0x0000000000000000000000000000000000000000') break;
-        await agg.reportVolumeUSDT(upline, usdtWei, 2); // activityType 2 = deposit
-        current = upline;
-      }
+      const agg = new ethers.Contract(SC.AGGREGATOR, AGGREGATOR_ABI, _signer);
+      await agg.reportVolumeUSDT(_wallet, usdtWei, 2); // activityType 2 = deposit
     }catch(e){ console.warn('Aggregator report gagal (tidak kritis):', e); }
 
     document.getElementById('inpUsdt').value='';

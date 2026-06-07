@@ -1819,18 +1819,10 @@ async function doBuy() {
     document.getElementById('inpBuyUsdt').value = '';
     await loadMarketData();
 
-    // Laporkan volume ke VIP Aggregator — telusuri upline sampai 10 level
+    // Laporkan volume ke VIP Aggregator — contract otomatis distribusi ke 10 level upline
     try {
-      const master = new ethers.Contract(MASTER_ADDR, MASTER_ABI_MKT, _provider);
-      const agg    = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI_MKT, _signer);
-      let current  = _wallet;
-      for (let i = 0; i < 10; i++) {
-        const info = await master.getUserInfo(current);
-        const upline = info[1]; // index 1 = upline address
-        if (!upline || upline === '0x0000000000000000000000000000000000000000') break;
-        await agg.reportVolumeUSDT(upline, usdtAmt, 2); // activityType 2 = market buy
-        current = upline;
-      }
+      const agg = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI_MKT, _signer);
+      await agg.reportVolumeUSDT(_wallet, usdtAmt, 3); // activityType 3 = trading
     } catch(e) { console.warn('VIP volume report gagal (tidak kritis):', e); }
   } catch(e) {
     showMsg('msgBuy', '❌ ' + (e.reason || e.message || 'Gagal'), 'err');
