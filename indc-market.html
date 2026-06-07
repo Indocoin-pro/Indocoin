@@ -715,10 +715,14 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 // ═══════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════
-const MARKET_ADDR = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
-const INDC_ADDR   = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
-const USDT_ADDR   = '0x55d398326f99059fF775485246999027B3197955';
-const INDC_DEC    = 9;
+const MARKET_ADDR      = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+const INDC_ADDR        = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const USDT_ADDR        = '0x55d398326f99059fF775485246999027B3197955';
+const MASTER_ADDR      = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
+const AGGREGATOR_ADDR  = '0xD4109384EB4086E37265ec71f11e443269bf5110';
+const INDC_DEC         = 9;
+const MASTER_ABI_MKT   = ["function getUserInfo(address) view returns (bool,address,uint256,uint256,uint256,uint8[])"];
+const AGGREGATOR_ABI_MKT = ["function reportVolumeUSDT(address user, uint256 usdtAmount, uint8 activityType) external"];
 const BSC_RPCS = [
   'https://bsc-dataseed1.binance.org/',
   'https://bsc-dataseed2.binance.org/',
@@ -1814,6 +1818,20 @@ async function doBuy() {
     showMsg('msgBuy', '✅ Berhasil beli INDC!', 'ok');
     document.getElementById('inpBuyUsdt').value = '';
     await loadMarketData();
+
+    // Laporkan volume ke VIP Aggregator — telusuri upline sampai 10 level
+    try {
+      const master = new ethers.Contract(MASTER_ADDR, MASTER_ABI_MKT, _provider);
+      const agg    = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI_MKT, _signer);
+      let current  = _wallet;
+      for (let i = 0; i < 10; i++) {
+        const info = await master.getUserInfo(current);
+        const upline = info[1]; // index 1 = upline address
+        if (!upline || upline === '0x0000000000000000000000000000000000000000') break;
+        await agg.reportVolumeUSDT(upline, usdtAmt, 2); // activityType 2 = market buy
+        current = upline;
+      }
+    } catch(e) { console.warn('VIP volume report gagal (tidak kritis):', e); }
   } catch(e) {
     showMsg('msgBuy', '❌ ' + (e.reason || e.message || 'Gagal'), 'err');
   }
