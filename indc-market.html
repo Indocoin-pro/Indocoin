@@ -1006,16 +1006,37 @@ async function loadMarketData() {
     }
     document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
 
-    // Harga 24J — bandingkan dengan titik pertama di chartData
-    if (_chartData.prices.length > 1) {
-      const first = _chartData.prices[0];
-      const last  = _currentPrice;
-      const pct   = ((last - first) / first * 100).toFixed(1);
-      const el    = document.getElementById('statProgress');
-      el.textContent = (parseFloat(pct) >= 0 ? '▲+' : '▼') + pct + '%';
-      el.style.color = parseFloat(pct) >= 0 ? 'var(--green)' : 'var(--red)';
-    } else {
-      document.getElementById('statProgress').textContent = '—';
+    // Harga 24J — ambil harga 24 jam lalu dari Firebase
+    try {
+      const db24 = firebase.database();
+      const now24 = Date.now();
+      const ms24ago = now24 - (24 * 60 * 60 * 1000);
+      // Cari key terdekat 24 jam lalu di indc_market_prices
+      const key24 = String(Math.floor(ms24ago / 300000) * 300000);
+      const snap24 = await db24.ref('indc_market_prices/' + key24).once('value');
+      const price24ago = snap24.val() ? snap24.val().close || snap24.val().open || null : null;
+      if (price24ago && _currentPrice > 0) {
+        const pct24 = ((_currentPrice - price24ago) / price24ago * 100).toFixed(1);
+        const el24  = document.getElementById('statProgress');
+        el24.textContent = (parseFloat(pct24) >= 0 ? '▲+' : '▼') + pct24 + '%';
+        el24.style.color = parseFloat(pct24) >= 0 ? 'var(--green)' : 'var(--red)';
+      } else if (_chartData.prices.length > 1) {
+        const first = _chartData.prices[0];
+        const pct   = ((_currentPrice - first) / first * 100).toFixed(1);
+        const el    = document.getElementById('statProgress');
+        el.textContent = (parseFloat(pct) >= 0 ? '▲+' : '▼') + pct + '%';
+        el.style.color = parseFloat(pct) >= 0 ? 'var(--green)' : 'var(--red)';
+      } else {
+        document.getElementById('statProgress').textContent = '—';
+      }
+    } catch(e) {
+      if (_chartData.prices.length > 1) {
+        const first = _chartData.prices[0];
+        const pct   = ((_currentPrice - first) / first * 100).toFixed(1);
+        const el    = document.getElementById('statProgress');
+        el.textContent = (parseFloat(pct) >= 0 ? '▲+' : '▼') + pct + '%';
+        el.style.color = parseFloat(pct) >= 0 ? 'var(--green)' : 'var(--red)';
+      }
     }
 
     // Progress bar pool DEX
