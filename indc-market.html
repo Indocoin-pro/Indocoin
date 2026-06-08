@@ -390,13 +390,12 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 
       <!-- Kiri: Timeframe dengan dropdown untuk sisanya -->
       <div style="display:flex;align-items:center;gap:3px;position:relative;">
-        <button class="tf" onclick="switchTf('5M',this)" id="tf5M">5M</button>
         <button class="tf" onclick="switchTf('15M',this)" id="tf15M">15M</button>
         <button class="tf active" onclick="switchTf('1H',this)" id="tf1H">1J</button>
+        <button class="tf" onclick="switchTf('6H',this)" id="tf6H">6J</button>
         <div style="position:relative;">
           <button id="tfMoreBtn" onclick="toggleTfDropdown()" class="tf" style="padding:4px 8px;">▼</button>
           <div id="tfDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:50;overflow:hidden;min-width:70px;">
-            <div onclick="switchTfMore('6H','6J')"  class="ct-opt">6J</div>
             <div onclick="switchTfMore('1D','1H')"  class="ct-opt">1H</div>
             <div onclick="switchTfMore('7H','7H')"  class="ct-opt">7H</div>
             <div onclick="switchTfMore('24H','24H')" class="ct-opt">24H</div>
@@ -929,7 +928,7 @@ async function loadMarketData() {
     const poolF = parseFloat(ethers.formatUnits(sellerPool, INDC_DEC));
     document.getElementById('statPool').textContent = fmtN(poolF) + ' INDC';
 
-    // Volume — hitung total USDT dari history
+    // Volume — akumulasi total dari Firebase + transaksi baru
     const total = Number(totalTrades);
     let volumeUsdt = 0;
     if (total > 0) {
@@ -938,7 +937,41 @@ async function loadMarketData() {
       try {
         const hist = await mkt.getTradeHistory(from, count);
         _allHistory = [...hist].reverse();
-        hist.forEach(h => { volumeUsdt += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+
+        // Hitung volume 50 transaksi terakhir
+        let recentVol = 0;
+        hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+
+        // Ambil akumulasi volume dari Firebase
+        try {
+          const db = firebase.database();
+          const volRef = db.ref('market/totalVolume');
+          const snap = await volRef.once('value');
+          const saved = snap.val() || { total: 0, lastTradeIndex: 0 };
+
+          // Kalau ada transaksi baru sejak terakhir disimpan
+          if (total > saved.lastTradeIndex) {
+            // Hitung volume transaksi baru saja
+            const newFrom = saved.lastTradeIndex;
+            const newCount = total - newFrom;
+            if (newCount > 0 && newCount <= 500) {
+              const newHist = await mkt.getTradeHistory(newFrom, Math.min(newCount, 50));
+              let addVol = 0;
+              newHist.forEach(h => { addVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+              const newTotal = saved.total + addVol;
+              await volRef.set({ total: newTotal, lastTradeIndex: total });
+              volumeUsdt = newTotal;
+            } else {
+              volumeUsdt = saved.total + recentVol;
+            }
+          } else {
+            volumeUsdt = saved.total;
+          }
+        } catch(e) {
+          // Firebase gagal — pakai volume 50 transaksi terakhir
+          volumeUsdt = recentVol;
+        }
+
       } catch(e) { console.error('getTradeHistory error:', e); }
       renderHistory();
       // Isi chart dari data historis transaksi
@@ -1642,7 +1675,6 @@ function updatePosisi(hasListing, indcRemain, usdtEst) {
     badge.style.background = '#f0faf4';
     badge.style.color      = 'var(--green)';
     badge.style.border     = '1px solid rgba(47,133,90,0.3)';
-    note.textContent       = '';
     document.getElementById('posisiBatalBtn').style.display = 'block';
     _setQueueBar('exec');
     // Hitung progress dinamis: berapa % sudah terjual dari jumlah awal
@@ -1651,6 +1683,8 @@ function updatePosisi(hasListing, indcRemain, usdtEst) {
       const pct      = Math.min(Math.max((terjual / _listingOrigIndc) * 100, 5), 99);
       const fill     = document.getElementById('queueFill');
       if (fill) fill.style.width = pct.toFixed(1) + '%';
+      // Tampilkan info terjual & sisa
+      note.innerHTML = `<span style="color:var(--green);font-size:10px;">✅ Terjual: ${fmtN(terjual)} INDC</span> &nbsp; <span style="color:var(--gold);font-size:10px;">⏳ Sisa: ${fmtN(indcRemain)} INDC</span>`;
     }
   } else {
     badge.textContent      = '⏳ MENUNGGU';
