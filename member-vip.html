@@ -676,40 +676,33 @@ async function renderMyDownlines() {
     const lb = document.querySelector('.sec-div:last-of-type') || document.getElementById('userDash');
     document.querySelector('.main').insertBefore(dlSec, document.getElementById('leaderboard').previousElementSibling);
   }
-  dlSec.innerHTML = `<div class="sec-div">👥 DOWNLINE VIP SAYA</div><div class="loading"><div class="spinner"></div>Memuat downline...</div>`;
-  try {
-    const rp = await getReadProvider();
-    const vc = new ethers.Contract(VIP_CA, VIP_ABI, rp);
-    const MASTER_ADDR = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
-    const MASTER_ABI_VIP = ['function getDirectDownlines(address) view returns (address[])'];
-    const masterContract = new ethers.Contract(MASTER_ADDR, MASTER_ABI_VIP, rp);
-    const dls = await masterContract.getDirectDownlines(myAddress);
-    if (!dls.length) {
-      dlSec.innerHTML += '<div class="alert alert-info" style="margin-top:-4px;">Belum ada downline VIP.</div>';
-      dlSec.querySelector('.loading').remove();
-      return;
-    }
-    const progs = await Promise.all(dls.map(a => vc.getUserProgress(a).catch(()=>null)));
-    let html = `<div class="sec-div">👥 DOWNLINE VIP SAYA</div>`;
-    dls.forEach((addr,i) => {
-      const p   = progs[i];
-      const vol = p ? Number(p.vol)/1e18 : 0;
-      const isQ = vol >= 20;
-      html += `
-        <div class="dl-item ${isQ?'qualified':'unqualified'}">
-          <div>
-            <div class="dl-addr">${shortAddr(addr)}</div>
-            <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-top:2px;">
-              Vol: $${vol.toLocaleString('id-ID',{maximumFractionDigits:1})} | ${p ? STATUS_NAME[Number(p.status)] : '—'}
-            </div>
-          </div>
-          <span class="dl-badge ${isQ?'q':'nq'}">${isQ?'✅ Qualified':'⏳ Belum'}</span>
-        </div>`;
-    });
-    dlSec.innerHTML = html;
-  } catch(e) {
-    dlSec.innerHTML = dlSec.innerHTML.replace(/<div class="loading">.*?<\/div>/s, '');
-  }
+  const programs = [
+    { no:'01', name:'Growth Lock Staking',       status:'live' },
+    { no:'02', name:'Dynamic Level Staking',      status:'live' },
+    { no:'03', name:'Flexi Yield Staking',        status:'live' },
+    { no:'04', name:'Boost Level Staking',        status:'live' },
+    { no:'05', name:'Locked Diamond Staking',     status:'live' },
+    { no:'06', name:'Auto Compound Staking',      status:'live' },
+    { no:'07', name:'Referral Power Staking',     status:'live' },
+    { no:'08', name:'Garuda Force Mission Staking',status:'live' },
+    { no:'09', name:'Point Vault Staking',        status:'live' },
+    { no:'10', name:'INDC Market',                status:'live' },
+    { no:'11', name:'Indocoin Welcome',           status:'live' },
+    { no:'12', name:'Segera Hadir',               status:'soon' },
+  ];
+  let html = `<div class="sec-div">🔗 PROGRAM TERHUBUNG KE AGGREGATOR</div>`;
+  programs.forEach(p => {
+    const isSoon = p.status === 'soon';
+    html += `
+      <div class="dl-item" style="opacity:${isSoon?'0.5':'1'}">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);">${p.no}</span>
+          <span style="font-size:13px;font-weight:600;">${p.name}</span>
+        </div>
+        <span class="dl-badge ${isSoon?'nq':'q'}">${isSoon?'🔜 Segera':'✅ Aktif'}</span>
+      </div>`;
+  });
+  dlSec.innerHTML = html;
 }
 
 // ── ACTIONS ────────────────────────────────────────────────
