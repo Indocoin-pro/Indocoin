@@ -951,20 +951,22 @@ async function loadMarketData() {
 
           // Kalau ada transaksi baru sejak terakhir disimpan
           if (total > saved.lastTradeIndex) {
-            // Hitung volume transaksi baru saja
+            // Hitung volume transaksi baru saja (dari lastTradeIndex sampai total)
             const newFrom = saved.lastTradeIndex;
             const newCount = total - newFrom;
-            if (newCount > 0 && newCount <= 500) {
-              const newHist = await mkt.getTradeHistory(newFrom, Math.min(newCount, 50));
-              let addVol = 0;
-              newHist.forEach(h => { addVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
-              const newTotal = saved.total + addVol;
-              await volRef.set({ total: newTotal, lastTradeIndex: total });
-              volumeUsdt = newTotal;
-            } else {
-              volumeUsdt = saved.total + recentVol;
+            let addVol = 0;
+            if (newCount > 0) {
+              try {
+                const newHist = await mkt.getTradeHistory(newFrom, Math.min(newCount, 100));
+                newHist.forEach(h => { addVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+              } catch(e) { console.warn('getTradeHistory new:', e); }
             }
+            const newTotal = saved.total + addVol;
+            // Update Firebase dengan total baru
+            await volRef.set({ total: newTotal, lastTradeIndex: total });
+            volumeUsdt = newTotal;
           } else {
+            // Tidak ada transaksi baru — pakai nilai Firebase
             volumeUsdt = saved.total;
           }
         } catch(e) {
