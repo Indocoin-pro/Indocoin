@@ -344,10 +344,19 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────
-const VIP_CA  = '0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf';
+const VIP_CA  = '0xB13A4274D7D3606bEa3782788A47D9c2a0f3c303'; // v2
+// CONTRACT LAMA (v1): 0xadC54AA88a187e1E5B5C1BE9fd9F63c0dB052Acf
 const INDC_CA = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const ENTRY   = ethers.utils.parseUnits('10000', 9);   // 10,000 INDC
 const TARGET  = ethers.BigNumber.from('50000').mul(ethers.BigNumber.from('10').pow(18)); // $50,000 USD
+
+// Offset volume historis per member (sebelum contract v2)
+const VOLUME_OFFSET = {
+  '0xc8e7ae3ea26d03a03e11caf37a71af9306b49608': 390, // member 9
+};
+function getOffset(addr) {
+  return VOLUME_OFFSET[addr.toLowerCase()] || 0;
+}
 
 const VIP_ABI = [
   'function register() external',
@@ -358,7 +367,6 @@ const VIP_ABI = [
   'function getStats() view returns (uint256 tot,uint256 act,uint256 pdl,uint256 psl,uint256 clm,uint256 ref,uint256 exp)',
   'function getMember(address) view returns (tuple(address wallet,uint256 entryAmount,uint256 bonusAmount,uint256 joinTime,uint256 activatedTime,uint256 expiredTime,uint256 progressUSD,uint256 volumeSnapshot,uint8 status,uint256 queueNumber,address upline))',
   'function getUserProgress(address) view returns (uint256 vol,uint256 pct,bool canClaim,uint8 status,uint256 qdl,uint256 exp,uint256 snap)',
-  'function getVipDownlines(address) view returns (address[])',
   'function getAllMembers() view returns (address[])',
 ];
 const INDC_ABI = [
@@ -586,8 +594,9 @@ async function renderDash(status, prog) {
 
   // ── ACTIVE ──
   } else if (status === 3) {
-    const pct     = Math.min(100, Number(prog.pct));
-    const vol     = Number(prog.vol) / 1e18;
+    const volRaw  = Number(prog.vol) / 1e18;
+    const vol     = volRaw + getOffset(myAddress);
+    const pct     = Math.min(100, Math.floor((vol / 50000) * 100));
     const expTs   = Number(prog.exp);
     const canClaim= prog.canClaim;
     html = `
@@ -671,7 +680,10 @@ async function renderMyDownlines() {
   try {
     const rp = await getReadProvider();
     const vc = new ethers.Contract(VIP_CA, VIP_ABI, rp);
-    const dls = await vipContract.getVipDownlines(myAddress);
+    const MASTER_ADDR = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
+    const MASTER_ABI_VIP = ['function getDirectDownlines(address) view returns (address[])'];
+    const masterContract = new ethers.Contract(MASTER_ADDR, MASTER_ABI_VIP, rp);
+    const dls = await masterContract.getDirectDownlines(myAddress);
     if (!dls.length) {
       dlSec.innerHTML += '<div class="alert alert-info" style="margin-top:-4px;">Belum ada downline VIP.</div>';
       dlSec.querySelector('.loading').remove();
