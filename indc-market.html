@@ -986,7 +986,6 @@ async function loadMarketData() {
     } else {
       document.getElementById('histList').innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
     }
-    document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
 
     // Harga 24J — dari chart data (tidak pakai Firebase agar tidak blocking)
     if (_chartData.prices.length > 1) {
@@ -1841,6 +1840,17 @@ async function doBuy() {
     await tx.wait();
     showMsg('msgBuy', '✅ Berhasil beli INDC!', 'ok');
     document.getElementById('inpBuyUsdt').value = '';
+
+    // Update totalVolume di Firebase
+    try {
+      const snap = await firebase.database().ref('market/totalVolume').once('value');
+      const saved = snap.val();
+      const prevTotal = (saved && saved.total) ? saved.total : 0;
+      const newTotal  = prevTotal + usdtF;
+      await firebase.database().ref('market/totalVolume').set({ total: newTotal });
+      document.getElementById('statTrades').textContent = '$' + fmtN(newTotal);
+    } catch(e) { console.warn('Update volume Firebase gagal:', e); }
+
     await loadMarketData();
 
     // Laporkan volume ke VIP Aggregator — contract otomatis distribusi ke 10 level upline
