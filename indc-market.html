@@ -1048,19 +1048,22 @@ async function loadListedEvents(mkt) {
     const latest   = await provider.getBlockNumber();
     const from     = Math.max(0, latest - 200000); // ~7 hari
 
-    // Ambil listing aktif dari kontrak langsung (sama seperti getTradeHistory)
+    // Ambil SEMUA riwayat jual dari event Listed (termasuk yang sudah terjual)
     let listedEvents = [];
     try {
-      const activeListings = await contract.getActiveListings(0, 100);
-      listedEvents = activeListings.map(l => ({
+      const filter = contract.filters.Listed();
+      const rawEvents = await contract.queryFilter(filter, from, 'latest');
+      listedEvents = rawEvents.map(e => ({
+        blockNumber: e.blockNumber,
         args: {
-          seller: l.seller,
-          indcAmount: l.indcAmount,
-          timestamp: l.timestamp,
+          seller:     e.args.seller,
+          listingId:  e.args.listingId,
+          indcAmount: e.args.indcAmount,
+          timestamp:  e.args.timestamp,
         }
       }));
-    } catch(e) { console.warn('getActiveListings error:', e); }
-    console.log('Active listings:', listedEvents.length);
+    } catch(e) { console.warn('queryFilter Listed error:', e); }
+    console.log('Listed events (semua riwayat jual):', listedEvents.length);
 
     // ── Bangun _chartPricePoints dari beli + jual ──
     const pts = [];
@@ -1437,7 +1440,6 @@ function _render() {
     if (ld.length) _lwSeries.setData(ld);
     _applyEma(ld);
   }
-  _lwChart.timeScale().fitContent();
   _lwChart.timeScale().scrollToRealTime();
 }
 
