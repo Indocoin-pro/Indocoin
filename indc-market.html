@@ -935,47 +935,46 @@ async function loadMarketData() {
     if (lastVol > 0) document.getElementById('statTrades').textContent = '$' + fmtN(lastVol);
 
     if (total > 0) {
-      const from  = total > 50 ? total - 50 : 0;
-      const count = total - from;
       try {
-        const hist = await mkt.getTradeHistory(from, count);
-        _allHistory = [...hist].reverse();
+        // Baca Firebase dulu untuk tahu lastTradeIndex
+        const snap = await firebase.database().ref('market/totalVolume').once('value');
+        const saved = snap.val() || {};
+        const savedTotal     = saved.total          || 0;
+        const lastTradeIndex = saved.lastTradeIndex || 0;
 
-        // Baca Firebase totalVolume + lastTradeIndex
-        try {
-          const snap = await firebase.database().ref('market/totalVolume').once('value');
-          const saved = snap.val() || {};
-          const savedTotal      = saved.total          || 0;
-          const lastTradeIndex  = saved.lastTradeIndex || 0;
+        volumeUsdt = savedTotal;
 
-          // Hitung volume dari trade baru saja (index > lastTradeIndex)
+        // Ambil hanya trade baru saja
+        if (total > lastTradeIndex) {
+          const from  = lastTradeIndex;
+          const count = total - from;
+          const hist  = await mkt.getTradeHistory(from, count);
+          _allHistory = [...hist].reverse();
+
+          // Tambah volume dari trade baru
           let addedVol = 0;
-          hist.forEach((h, i) => {
-            const tradeIndex = from + i;
-            if (tradeIndex >= lastTradeIndex) {
-              addedVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18));
-            }
-          });
+          hist.forEach(h => { addedVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
 
           volumeUsdt = savedTotal + addedVol;
 
-          // Update Firebase kalau ada trade baru
-          if (addedVol > 0) {
-            await firebase.database().ref('market/totalVolume').set({
-              total:          volumeUsdt,
-              lastTradeIndex: total,
-            });
-          }
-
-          document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
-        } catch(e) {
-          // Fallback: hitung dari 50 transaksi terakhir
-          let recentVol = 0;
-          hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
-          document.getElementById('statTrades').textContent = '$' + fmtN(recentVol);
+          // Simpan ke Firebase
+          await firebase.database().ref('market/totalVolume').set({
+            total:          volumeUsdt,
+            lastTradeIndex: total,
+          });
+        } else {
+          // Tidak ada trade baru, ambil 50 terakhir untuk riwayat tampilan saja
+          const from  = total > 50 ? total - 50 : 0;
+          const count = total - from;
+          const hist  = await mkt.getTradeHistory(from, count);
+          _allHistory = [...hist].reverse();
         }
 
-      } catch(e) { console.error('getTradeHistory error:', e); }
+        document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
+
+      } catch(e) {
+        console.error('getTradeHistory/volume error:', e);
+      }
       renderHistory();
       // Isi chart dari data historis transaksi
       if (_allHistory.length > 0 && _chartData.prices.length === 0) {
