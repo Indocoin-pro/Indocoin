@@ -945,40 +945,9 @@ async function loadMarketData() {
         let recentVol = 0;
         hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
 
-        // Tampilkan volume dari contract dulu — Firebase update di background
-        volumeUsdt = recentVol;
+        // Volume dari contract + offset Firebase (sudah diload saat init)
+        volumeUsdt = (window._fbVolumeOffset || 0) + recentVol;
         document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
-        setTimeout(async () => { try {
-          const db = firebase.database();
-          const volRef = db.ref('market/totalVolume');
-          const snap = await volRef.once('value');
-          const saved = snap.val() || { total: 0, lastTradeIndex: 0 };
-
-          // Kalau ada transaksi baru sejak terakhir disimpan
-          if (total > saved.lastTradeIndex) {
-            // Hitung volume transaksi baru saja (dari lastTradeIndex sampai total)
-            const newFrom = saved.lastTradeIndex;
-            const newCount = total - newFrom;
-            let addVol = 0;
-            if (newCount > 0) {
-              try {
-                const newHist = await mkt.getTradeHistory(newFrom, Math.min(newCount, 100));
-                newHist.forEach(h => { addVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
-              } catch(e) { console.warn('getTradeHistory new:', e); }
-            }
-            const newTotal = saved.total + addVol;
-            // Update Firebase dengan total baru
-            await volRef.set({ total: newTotal, lastTradeIndex: total });
-            volumeUsdt = newTotal;
-          } else {
-            // Tidak ada transaksi baru — pakai nilai Firebase
-            volumeUsdt = saved.total;
-          }
-          // Update tampilan langsung setelah Firebase selesai
-          document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
-        } catch(e) {
-          console.warn('Firebase volume error:', e);
-        }}, 0); // end setTimeout
 
       } catch(e) { console.error('getTradeHistory error:', e); }
       renderHistory();
@@ -2103,6 +2072,13 @@ function showMsg2(id, txt, type) {
 window.addEventListener('load', async () => {
   fbInit();
   initChart();
+  // Load volume offset dari Firebase sekali saja saat init
+  window._fbVolumeOffset = 0;
+  try {
+    const snap = await firebase.database().ref('market/totalVolume').once('value');
+    const saved = snap.val();
+    if (saved && saved.total) window._fbVolumeOffset = saved.total;
+  } catch(e) { console.warn('Firebase init volume:', e); }
 
   // Auto-connect dulu kalau wallet sudah pernah connect
   if (window.ethereum) {
