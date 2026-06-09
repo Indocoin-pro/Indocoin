@@ -945,8 +945,10 @@ async function loadMarketData() {
         let recentVol = 0;
         hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
 
-        // Ambil akumulasi volume dari Firebase
-        try {
+        // Tampilkan volume dari contract dulu — Firebase update di background
+        volumeUsdt = recentVol;
+        document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
+        setTimeout(async () => { try {
           const db = firebase.database();
           const volRef = db.ref('market/totalVolume');
           const snap = await volRef.once('value');
@@ -975,10 +977,8 @@ async function loadMarketData() {
           // Update tampilan langsung setelah Firebase selesai
           document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
         } catch(e) {
-          // Firebase gagal — pakai volume 50 transaksi terakhir
-          volumeUsdt = recentVol;
-          document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
-        }
+          console.warn('Firebase volume error:', e);
+        }}, 0); // end setTimeout
 
       } catch(e) { console.error('getTradeHistory error:', e); }
       renderHistory();
