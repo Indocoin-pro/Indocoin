@@ -928,12 +928,12 @@ async function loadMarketData() {
     const poolF = parseFloat(ethers.formatUnits(sellerPool, INDC_DEC));
     document.getElementById('statPool').textContent = fmtN(poolF) + ' INDC';
 
-    // Volume — akumulasi total dari Firebase + transaksi baru
+    // Volume — baca dari Firebase, update hanya trade baru
     const total = Number(totalTrades);
     let volumeUsdt = 0;
-    // Pakai nilai terakhir agar tidak flash ke $0
-    const lastVol = parseFloat(document.getElementById('statTrades').textContent.replace('$','').replace(',','').replace('K','000')) || 0;
+    const lastVol = parseFloat(document.getElementById('statTrades').textContent.replace('$','').replace(',','').replace('K','000').replace('K','')) || 0;
     if (lastVol > 0) document.getElementById('statTrades').textContent = '$' + fmtN(lastVol);
+
     if (total > 0) {
       const from  = total > 50 ? total - 50 : 0;
       const count = total - from;
@@ -941,22 +941,38 @@ async function loadMarketData() {
         const hist = await mkt.getTradeHistory(from, count);
         _allHistory = [...hist].reverse();
 
-        // Hitung volume 50 transaksi terakhir
-        let recentVol = 0;
-        hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
-
-        // Volume dari Firebase — tampil sekali, tidak timpa lagi
-        volumeUsdt = recentVol;
+        // Baca Firebase totalVolume + lastTradeIndex
         try {
-          firebase.database().ref('market/totalVolume').once('value').then(snap => {
-            const saved = snap.val();
-            if (saved && saved.total > recentVol) {
-              volumeUsdt = saved.total;
+          const snap = await firebase.database().ref('market/totalVolume').once('value');
+          const saved = snap.val() || {};
+          const savedTotal      = saved.total          || 0;
+          const lastTradeIndex  = saved.lastTradeIndex || 0;
+
+          // Hitung volume dari trade baru saja (index > lastTradeIndex)
+          let addedVol = 0;
+          hist.forEach((h, i) => {
+            const tradeIndex = from + i;
+            if (tradeIndex >= lastTradeIndex) {
+              addedVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18));
             }
-            document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
           });
-        } catch(e) {
+
+          volumeUsdt = savedTotal + addedVol;
+
+          // Update Firebase kalau ada trade baru
+          if (addedVol > 0) {
+            await firebase.database().ref('market/totalVolume').set({
+              total:          volumeUsdt,
+              lastTradeIndex: total,
+            });
+          }
+
           document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
+        } catch(e) {
+          // Fallback: hitung dari 50 transaksi terakhir
+          let recentVol = 0;
+          hist.forEach(h => { recentVol += parseFloat(ethers.formatUnits(h.usdtAmount, 18)); });
+          document.getElementById('statTrades').textContent = '$' + fmtN(recentVol);
         }
 
       } catch(e) { console.error('getTradeHistory error:', e); }
@@ -1840,17 +1856,6 @@ async function doBuy() {
     await tx.wait();
     showMsg('msgBuy', '✅ Berhasil beli INDC!', 'ok');
     document.getElementById('inpBuyUsdt').value = '';
-
-    // Update totalVolume di Firebase
-    try {
-      const snap = await firebase.database().ref('market/totalVolume').once('value');
-      const saved = snap.val();
-      const prevTotal = (saved && saved.total) ? saved.total : 0;
-      const newTotal  = prevTotal + usdtF;
-      await firebase.database().ref('market/totalVolume').set({ total: newTotal });
-      document.getElementById('statTrades').textContent = '$' + fmtN(newTotal);
-    } catch(e) { console.warn('Update volume Firebase gagal:', e); }
-
     await loadMarketData();
 
     // Laporkan volume ke VIP Aggregator — contract otomatis distribusi ke 10 level upline
