@@ -406,11 +406,7 @@ function daysLeft(ts) {
   const diff = Number(ts)*1000 - Date.now();
   if (diff<=0) return 'Expired';
   const d = Math.floor(diff/86400000);
-  const mo= Math.floor(d/30);
-  const yr= Math.floor(d/365);
-  if (yr>0) return yr+'thn '+(mo%12)+'bln lagi';
-  if (mo>0) return mo+'bln '+(d%30)+'hr lagi';
-  return d+'hr lagi';
+  return d.toLocaleString('id-ID') + ' hari lagi';
 }
 
 // ── LOAD POOL STATS ────────────────────────────────────────
@@ -600,30 +596,31 @@ async function renderDash(status, prog) {
     const expTs   = Number(prog.exp);
     const canClaim= prog.canClaim;
     html = `
-      <div class="user-card">
-        <span class="status-badge active"><span class="status-dot"></span>AKTIF</span>
-        <div class="reward-banner">
+      <div class="user-card" style="background:#fff;border:1px solid #e8e0cc;">
+        <div class="reward-banner" style="background:#fffbf0;border:1px solid #e8e0cc;">
           <div>
-            <div class="rw-lbl">VOLUME AKTIVITAS</div>
+            <div class="rw-lbl" style="color:#888;">VOLUME AKTIVITAS</div>
             <div class="rw-val">$${vol.toLocaleString('id-ID',{maximumFractionDigits:0})}</div>
           </div>
           <div style="text-align:right;">
-            <div class="rw-lbl">TARGET</div>
-            <div class="rw-val" style="color:var(--muted);">$50.000</div>
+            <div class="rw-lbl" style="color:#888;">TARGET</div>
+            <div class="rw-val" style="color:#ccc;">$50.000</div>
           </div>
         </div>
         <div class="cd-row">
-          <div><div class="cd-lbl">⏳ SISA WAKTU</div><div class="cd-val">${daysLeft(expTs)}</div></div>
-          <div><div class="cd-r-lbl">STATUS</div><div class="cd-r-val" style="color:var(--green);">AKTIF</div></div>
+          <div><div class="cd-lbl" style="color:#888;">📅 MASA AKTIF</div><div class="cd-val" style="color:#333;">${daysLeft(expTs)}</div></div>
+          <div><div class="cd-r-lbl" style="color:#888;">STATUS</div><div class="cd-r-val" style="color:#2e8a4f;">AKTIF</div></div>
         </div>
         <div class="prog-wrap">
-          <div class="prog-label"><span>PROGRESS MENUJU $50.000</span><span>${pct}%</span></div>
+          <div class="prog-label" style="color:#888;"><span>PROGRESS MENUJU $50.000</span><span>${pct}%</span></div>
           <div class="prog-bar"><div class="prog-fill ${pct>=100?'full':''}" style="width:${pct}%"></div></div>
         </div>
+        <div style="font-size:10px;color:#7ab8f5;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ⚡ Terus beraktivitas untuk capai target $50.000. Sisa: $${(50000-vol).toLocaleString('id-ID',{maximumFractionDigits:0})}
+        </div>
         ${canClaim
-          ? `<div class="alert alert-success">🎉 Target tercapai! Kamu bisa klaim sekarang.</div>
-             <button class="btn-main" onclick="doClaim()">🎁 KLAIM 1.010.000 INDC</button>`
-          : `<div class="alert alert-info">Terus beraktivitas untuk capai target $50.000. Sisa: $${(50000-vol).toLocaleString('id-ID',{maximumFractionDigits:0})}.</div>`
+          ? `<button class="btn-main" onclick="doClaim()" style="background:linear-gradient(135deg,#f0c040,#ff9800);color:#000;border:none;">🎁 KLAIM 1.010.000 INDC</button>`
+          : `<button class="btn-main" onclick="showClaimPopup()" style="background:linear-gradient(135deg,#f0c040,#ff9800);color:#000;border:none;">🎁 KLAIM 1.010.000 INDC</button>`
         }
         <div class="status-msg" id="actionMsg"></div>
       </div>`;
@@ -828,5 +825,20 @@ if("serviceWorker" in navigator){
 </script>
 <script src="airdrop-questions.js"></script>
 <script src="airdrop-widget.js"></script>
-</body>
+
+<!-- Popup Target Belum Tercapai -->
+<div id="claimPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;justify-content:center;align-items:center;">
+  <div style="background:#fff;color:#333;border-radius:16px;padding:28px 24px;max-width:300px;width:90%;text-align:center;">
+    <div style="font-size:36px;margin-bottom:10px;">⏳</div>
+    <div style="font-size:17px;font-weight:700;color:#333;margin-bottom:8px;">Target Belum Tercapai</div>
+    <div style="font-size:12px;color:#666;margin-bottom:20px;line-height:1.6;">Terus tingkatkan aktivitas downline untuk mencapai target $50.000 USD</div>
+    <button onclick="document.getElementById('claimPopupOverlay').style.display='none'" style="background:#1a3a1a;color:#4caf50;font-weight:700;padding:10px 28px;border:1px solid #2a5a2a;border-radius:10px;cursor:pointer;font-size:13px;">OK, Mengerti</button>
+  </div>
+</div>
+<script>
+function showClaimPopup() {
+  const el = document.getElementById('claimPopupOverlay');
+  if (el) el.style.display = 'flex';
+}
+</script></body>
 </html>
