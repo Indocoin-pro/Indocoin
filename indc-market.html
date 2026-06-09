@@ -1406,7 +1406,7 @@ function _getOhlc() {
 
   const maxBars = { '5M': 60, '15M': 60 };
   const limit = maxBars[_chartTf] || 0;
-  const candles = Object.entries(buckets)
+  let candles = Object.entries(buckets)
     .map(([t, v]) => ({
       time:  parseInt(t),
       open:  v[0],
@@ -1414,8 +1414,16 @@ function _getOhlc() {
       low:   Math.min(...v),
       close: v[v.length - 1],
     }))
-    .filter(c => c.high > c.low || c.open !== c.close)
     .sort((a,b) => a.time - b.time);
+
+  // Fix: open setiap candle = close candle sebelumnya agar tidak ada gap
+  for (let i = 1; i < candles.length; i++) {
+    candles[i].open = candles[i-1].close;
+    candles[i].high = Math.max(candles[i].high, candles[i].open, candles[i].close);
+    candles[i].low  = Math.min(candles[i].low,  candles[i].open, candles[i].close);
+  }
+
+  candles = candles.filter(c => c.high > 0 && c.low > 0);
   return limit > 0 ? candles.slice(-limit) : candles;
 }
 
