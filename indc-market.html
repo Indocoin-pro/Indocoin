@@ -1046,24 +1046,21 @@ async function loadListedEvents(mkt) {
     const provider = _provider || await getBscProvider();
     const contract = new ethers.Contract(MARKET_ADDR, MARKET_ABI, provider);
     const latest   = await provider.getBlockNumber();
-    const from     = Math.max(0, latest - 200000); // ~7 hari
+    const from     = Math.max(0, latest - 350000); // ~12 hari, cover sejak deploy
 
-    // Ambil SEMUA riwayat jual dari event Listed (termasuk yang sudah terjual)
+    // Ambil semua listing aktif — count 1000 agar tidak ada yang tertinggal
     let listedEvents = [];
     try {
-      const filter = contract.filters.Listed();
-      const rawEvents = await contract.queryFilter(filter, from, 'latest');
-      listedEvents = rawEvents.map(e => ({
-        blockNumber: e.blockNumber,
+      const activeListings = await contract.getActiveListings(0, 1000);
+      listedEvents = activeListings.map(l => ({
         args: {
-          seller:     e.args.seller,
-          listingId:  e.args.listingId,
-          indcAmount: e.args.indcAmount,
-          timestamp:  e.args.timestamp,
+          seller:     l.seller,
+          indcAmount: l.indcAmount,
+          timestamp:  l.timestamp,
         }
       }));
-    } catch(e) { console.warn('queryFilter Listed error:', e); }
-    console.log('Listed events (semua riwayat jual):', listedEvents.length);
+    } catch(e) { console.warn('getActiveListings error:', e); }
+    console.log('Active listings:', listedEvents.length);
 
     // ── Bangun _chartPricePoints dari beli + jual ──
     const pts = [];
@@ -1273,7 +1270,7 @@ function _initLw() {
       secondsVisible:false,
       barSpacing: 8,
       minBarSpacing: 3,
-      rightOffset: 12,
+      rightOffset: 20,
     },
     handleScroll: true,
     handleScale: true,
@@ -1993,7 +1990,7 @@ async function loadListingStatus(mkt) {
 async function _calcQueuePosition(mkt, myId) {
   try {
     // getActiveListings return tuple[] — sorted by timestamp (FIFO)
-    const actives = await mkt.getActiveListings(0, 100);
+    const actives = await mkt.getActiveListings(0, 1000);
     _queueTotal = actives.length;
 
     // Sort by timestamp ascending (FIFO — timestamp kecil = duluan)
