@@ -974,8 +974,8 @@ async function loadMarketData() {
         });
       }
 
-      // Load Firebase prices dulu
-      window._fbPrices = await fbLoadPrices();
+      // Load Firebase prices non-blocking
+      fbLoadPrices().then(p => { window._fbPrices = p; }).catch(()=>{});
 
       // Load Listed events — chart dirender di dalam loadListedEvents
       // setelah _chartPricePoints terisi lengkap
@@ -1048,7 +1048,7 @@ async function loadListedEvents(mkt) {
     const latest   = await provider.getBlockNumber();
     const from     = Math.max(0, latest - 200000); // ~7 hari
 
-    // Ambil listing dari kontrak
+    // Ambil listing aktif dari kontrak langsung (sama seperti getTradeHistory)
     let listedEvents = [];
     try {
       const activeListings = await contract.getActiveListings(0, 100);
@@ -1268,19 +1268,9 @@ function _initLw() {
       borderColor:'rgba(200,146,42,0.2)', 
       timeVisible:true, 
       secondsVisible:false,
-      barSpacing: 6,
+      barSpacing: 8,
       minBarSpacing: 3,
       rightOffset: 12,
-      tickMarkFormatter: (time, tickMarkType, locale) => {
-        const d = new Date(time * 1000);
-        const day = String(d.getDate()).padStart(2,'0');
-        const mon = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][d.getMonth()];
-        const hr  = String(d.getHours()).padStart(2,'0');
-        const min = String(d.getMinutes()).padStart(2,'0');
-        if (tickMarkType <= 1) return mon + ' ' + d.getFullYear();
-        if (tickMarkType == 2) return day + ' ' + mon;
-        return hr + ':' + min;
-      },
     },
     handleScroll: true,
     handleScale: true,
@@ -1363,7 +1353,7 @@ function _getOhlc() {
 
   const maxBars = { '5M': 60, '15M': 60 };
   const limit = maxBars[_chartTf] || 0;
-  let candles = Object.entries(buckets)
+  const candles = Object.entries(buckets)
     .map(([t, v]) => ({
       time:  parseInt(t),
       open:  v[0],
@@ -1371,16 +1361,8 @@ function _getOhlc() {
       low:   Math.min(...v),
       close: v[v.length - 1],
     }))
+    .filter(c => c.high > c.low || c.open !== c.close)
     .sort((a,b) => a.time - b.time);
-
-  // Fix: open setiap candle = close candle sebelumnya agar tidak ada gap
-  for (let i = 1; i < candles.length; i++) {
-    candles[i].open = candles[i-1].close;
-    candles[i].high = Math.max(candles[i].high, candles[i].open, candles[i].close);
-    candles[i].low  = Math.min(candles[i].low,  candles[i].open, candles[i].close);
-  }
-
-  candles = candles.filter(c => c.high > 0 && c.low > 0);
   return limit > 0 ? candles.slice(-limit) : candles;
 }
 
@@ -1449,6 +1431,7 @@ function _render() {
     if (ld.length) _lwSeries.setData(ld);
     _applyEma(ld);
   }
+  _lwChart.timeScale().fitContent();
   _lwChart.timeScale().scrollToRealTime();
 }
 
@@ -1678,6 +1661,7 @@ function updatePosisi(hasListing, indcRemain, usdtEst) {
     badge.style.background = '#f0faf4';
     badge.style.color      = 'var(--green)';
     badge.style.border     = '1px solid rgba(47,133,90,0.3)';
+    note.textContent       = '';
     document.getElementById('posisiBatalBtn').style.display = 'block';
     _setQueueBar('exec');
     // Hitung progress dinamis: berapa % sudah terjual dari jumlah awal
@@ -1686,8 +1670,6 @@ function updatePosisi(hasListing, indcRemain, usdtEst) {
       const pct      = Math.min(Math.max((terjual / _listingOrigIndc) * 100, 5), 99);
       const fill     = document.getElementById('queueFill');
       if (fill) fill.style.width = pct.toFixed(1) + '%';
-      // Tampilkan info terjual & sisa
-      note.innerHTML = `<span style="color:var(--green);font-size:10px;">✅ Terjual: ${fmtN(terjual)} INDC</span> &nbsp; <span style="color:var(--gold);font-size:10px;">⏳ Sisa: ${fmtN(indcRemain)} INDC</span>`;
     }
   } else {
     badge.textContent      = '⏳ MENUNGGU';
