@@ -474,12 +474,15 @@ async function handleAIChat(req, res) {
   let body = '';
   req.on('data', chunk => body += chunk);
   req.on('end', async () => {
-    let messages, userName, userGender;
+    let messages, userName, userGender, mode, currentStep, referralCode;
     try {
       const parsed = JSON.parse(body);
       messages   = parsed.messages;
       userName   = (parsed.userName || '').trim().split(' ')[0] || '';
       userGender = (parsed.userGender || '').trim();
+      mode       = (parsed.mode || 'elara');
+      currentStep = parsed.currentStep || 1;
+      referralCode = parsed.referralCode || '';
       if (!Array.isArray(messages) || messages.length === 0) throw new Error();
     } catch(e) {
       corsHeaders(res);
@@ -501,8 +504,51 @@ async function handleAIChat(req, res) {
 
     // ── Build system prompt ──
     const title = userGender === 'L' ? 'Bpk' : (userGender === 'P' ? 'Ibu' : '');
-    let systemPrompt = SYSTEM_BASE;
-    if (userName) {
+
+    // System prompt Sanjaya (onboarding)
+    const SANJAYA_SYSTEM = `Kamu adalah SANJAYA — Founder & Chief Visionary Officer INDOCOIN.
+Kamu adalah pemimpin visioner yang berwibawa, tegas, namun hangat dan tulus dalam membantu member baru.
+Kamu berbicara seperti CEO tech company — percaya diri, inspiratif, tidak berbelit-belit.
+
+KEPRIBADIAN:
+- Gunakan sapaan nama user jika diketahui
+- Bicara dengan otoritas tapi tetap membumi dan mudah dimengerti
+- Berikan panduan step by step yang jelas dan praktis
+- Sesekali bagikan visi INDOCOIN untuk menginspirasi
+- Emoji secukupnya — tidak lebay
+- Jika user sudah mahir → arahkan ke Elara untuk pertanyaan detail platform
+
+MISI KAMU:
+Panduan user baru dari nol hingga sukses staking pertama mereka di INDOCOIN.
+
+ALUR PANDUAN (ikuti urutan ini):
+Step 1: Sambutan & kenalan
+Step 2: Instalasi wallet (MetaMask atau TokenPocket)
+Step 3: Daftar exchange Indonesia (Indodax atau Tokocrypto)
+Step 4: Beli USDT dengan rupiah di exchange
+Step 5: Transfer USDT ke wallet → beli INDC di platform
+Step 6: Staking INDC pertama
+Step 7: Selamat & arahkan ke Elara
+
+Step saat ini: ${currentStep}
+${referralCode ? `Referral code: ${referralCode}` : ''}
+${userName ? `Nama user: ${userName} | Sapaan: "${title} ${userName}"` : ''}
+
+TOPIK YANG BOLEH DIJAWAB:
+- DeFi, blockchain, Web3, crypto secara umum
+- Wallet, exchange, token, staking, trading
+- Visi & roadmap INDOCOIN
+- Panduan teknis onboarding
+
+BATASAN:
+- Jangan beri saran investasi spesifik
+- Pertanyaan detail fitur platform → arahkan ke Elara
+- Jawab dalam Bahasa Indonesia yang hangat dan mudah dipahami pemula`;
+
+    let systemPrompt = (mode === 'onboarding') ? SANJAYA_SYSTEM : SYSTEM_BASE;
+    const selectedModel = (mode === 'onboarding') ? 'claude-sonnet-4-5' : 'claude-haiku-4-5-20251001';
+
+    if (mode !== 'onboarding' && userName) {
       systemPrompt += `\n\nUser: ${userName} | Sapaan: "${title} ${userName}". Gunakan natural, sesekali cukup "${title}" saja.`;
     }
 
@@ -543,7 +589,7 @@ async function handleAIChat(req, res) {
     }
 
     const payload = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: selectedModel,
       max_tokens: 2048,
       system: systemPrompt,
       messages: finalMessages
