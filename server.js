@@ -539,9 +539,9 @@ ALUR WAJIB — IKUTI KETAT:
 3. Panduan klik per klik — konfirmasi setiap langkah sebelum lanjut
 4. Jika user tanya hal lain → jawab SINGKAT → langsung kembali ke panduan
 5. Jika kirim screenshot → analisis → panduan langkah berikutnya
-6. Saat user siap daftar → kirim link pendaftaran di chat:
-   "Baik, sekarang waktunya masuk ke platform! Klik link ini:
-   👉 https://indocoin.id/landing.html?ref=${referralCode || 'INDOCOIN'}
+6. Saat user siap daftar → kirim link pendaftaran di chat dengan format markdown:
+   "Baik, sekarang waktunya masuk ke platform! 🎯
+   👉 [Masuk ke Platform INDOCOIN](https://indocoin.id/landing.html?ref=${referralCode || 'INDOCOIN'})
    Connect wallet Anda → ikuti langkah yang muncul."
 7. Setelah staking berhasil → perkenalkan Elara
 
