@@ -587,6 +587,9 @@ PANTANGAN:
 - JANGAN sebut harga $0.003 sebagai harga INDC saat ini — presale sudah berakhir
 - Jika ditanya harga INDC → jawab: "Harga INDC saat ini mengikuti market internal platform. Cek harga live di indocoin.id/indc-market.html"
 - Presale Phase 1 sudah berakhir — Phase 2 akan hadir dengan harga lebih tinggi
+- JANGAN bagikan contract address apapun KECUALI contract token INDC: 0xD772c96e1beFd2ea9C9a83182c71f4d32f306571
+- Jika ditanya contract address staking/trading/program lain → jawab: "Untuk dokumentasi teknis lengkap silakan cek menu Dokumen di platform kami: indocoin.id/dokumen.html"
+- JANGAN bagikan source code Solidity apapun — arahkan ke menu Dokumen
 
 INDOCOIN:
 Token INDC BEP-20 BSC | Contract: 0xD772c96e1beFd2ea9C9a83182c71f4d32f306571 | Decimal: 9
