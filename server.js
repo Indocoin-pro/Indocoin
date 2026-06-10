@@ -106,6 +106,48 @@ const FILE_MAP = {
   // ── Dokumen Global ──
   'whitepaper':  { html:null, pdf:'WhitePaper_INDOCOIN_2026_v2.pdf' },
   'marketing':   { html:null, pdf:'Marketing_Plan_Indocoin_2026_v4.pdf' },
+  // ── Welcome & Onboarding ──
+  'welcome':     { html:'welcome.html',     pdf:null },
+  // ── Market & Chart ──
+  'indc-market': { html:'indc-market.html', pdf:null },
+  'chart':       { html:'chart.html',       pdf:null },
+  // ── Agrikultur ──
+  'agrikultur':  { html:'agrikultur.html',  pdf:'blueprint_agrikultur.pdf' },
+  // ── Analytics & Info ──
+  'analytics':   { html:'analytics.html',   pdf:null },
+  'oracle-checker': { html:'oracle-checker.html', pdf:null },
+  'token-lock-tracker': { html:'token-lock-tracker.html', pdf:null },
+  // ── Merchant ──
+  'merchant':    { html:'merchant.html',    pdf:null },
+  'merchant-pay':{ html:'merchant-pay.html',pdf:null },
+  'merchant-qr': { html:'merchant-qr.html', pdf:null },
+  // ── Paid Ads ──
+  'paid-ads-register':     { html:'paid-ads-register.html',     pdf:null },
+  'paid-ads-seller':       { html:'paid-ads-seller.html',       pdf:null },
+  'paid-ads-store':        { html:'paid-ads-store.html',        pdf:null },
+  'paid-ads-banner-picker':{ html:'paid-ads-banner-picker.html',pdf:null },
+  'advertise':   { html:'advertise.html',   pdf:null },
+  'advertiser':  { html:'advertiser.html',  pdf:null },
+  // ── Game & Arena ──
+  'battle-arena':   { html:'battle-arena.html',   pdf:null },
+  'brainclash-history': { html:'brainclash-history.html', pdf:null },
+  'brainclash-room':    { html:'brainclash-room.html',    pdf:null },
+  'sanjaya-arena':  { html:'sanjaya-arena.html',  pdf:null },
+  'sanjaya-history':{ html:'sanjaya-history.html',pdf:null },
+  'sanjaya-race':   { html:'sanjaya-race.html',   pdf:null },
+  'sanjaya-rank':   { html:'sanjaya-rank.html',   pdf:null },
+  'sanjaya-result': { html:'sanjaya-result.html', pdf:null },
+  'pvp-duel':       { html:'pvp-duel.html',       pdf:null },
+  'permainan':      { html:'permainan.html',      pdf:null },
+  'premium-games':  { html:'premium-games.html',  pdf:null },
+  'indocoin-city':  { html:'indocoin-city.html',  pdf:null },
+  // ── Komunitas Tambahan ──
+  'promosi-indocoin': { html:'promosi-indocoin.html', pdf:null },
+  'guruku':           { html:'guruku.html',           pdf:null },
+  // ── Arbibot ──
+  'arbibot': { html:'arbibot.html', pdf:null },
+  // ── Stairway ──
+  'stairway-to-heaven': { html:'stairway-to-heaven.html', pdf:'StairwayToHeavenDokumen.pdf' },
 };
 
 // ─── Cache ────────────────────────────────────────────────────────────
@@ -237,6 +279,50 @@ function findRelevantKeys(query) {
     'marketing':         'marketing',
     'staking':           null,  // umum → cari semua staking
     'trading':           null,  // umum → cari semua trading
+    // Welcome
+    'welcome':           'welcome',
+    'program welcome':   'welcome',
+    'selamat datang':    'welcome',
+    // Market
+    'indc market':       'indc-market',
+    'market':            'indc-market',
+    'pasar':             'indc-market',
+    'beli indc':         'indc-market',
+    'jual indc':         'indc-market',
+    'chart':             'chart',
+    'grafik':            'chart',
+    // Agrikultur
+    'agrikultur':        'agrikultur',
+    'pertanian':         'agrikultur',
+    'digital farm':      'agrikultur',
+    // Analytics
+    'analytics':         'analytics',
+    'analitik':          'analytics',
+    'statistik':         'analytics',
+    // Merchant
+    'merchant':          'merchant',
+    'toko':              'merchant',
+    // Advertise
+    'advertise':         'advertise',
+    'advertiser':        'advertiser',
+    // Game tambahan
+    'battle arena':      'battle-arena',
+    'battle':            'battle-arena',
+    'pvp':               'pvp-duel',
+    'duel':              'pvp-duel',
+    'premium games':     'premium-games',
+    'premium':           'premium-games',
+    'permainan':         'permainan',
+    'indocoin city':     'indocoin-city',
+    'city':              'indocoin-city',
+    // Komunitas
+    'promosi':           'promosi-indocoin',
+    'guruku':            'guruku',
+    // Arbibot
+    'arbibot':           'arbibot',
+    'bot radar':         'arbibot',
+    // Stairway
+    'stairway to heaven':'stairway-to-heaven',
   };
 
   const found = new Set();
@@ -370,7 +456,10 @@ ATURAN:
 4. Tolak sopan pertanyaan di luar topik
 5. Jangan beri saran investasi
 6. Akhiri dengan kalimat mengundang pertanyaan lanjutan
-7. Sapaan nama hanya di pembuka/penutup, tidak di setiap kalimat`;
+7. Sapaan nama hanya di pembuka/penutup, tidak di setiap kalimat
+8. Jika ditanya fitur COMING SOON (Battle Arena, PVP Duel, Premium Games, IndoCoin City, Merchant, Advertise, Guruku, Arbibot) → jawab antusias bahwa fitur sedang dalam pengembangan dan akan segera hadir
+
+FITUR COMING SOON: Battle Arena, PVP Duel, Premium Games, IndoCoin City, Merchant, Advertise/Advertiser, Guruku, Promosi INDOCOIN, Oracle Checker, Token Lock Tracker, Analytics`;
 
 // ─── CORS ─────────────────────────────────────────────────────────────
 function corsHeaders(res, extra = {}) {
