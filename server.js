@@ -106,6 +106,8 @@ const FILE_MAP = {
   // ── Dokumen Global ──
   'whitepaper':  { html:null, pdf:'WhitePaper_INDOCOIN_2026_v2.pdf' },
   'marketing':   { html:null, pdf:'Marketing_Plan_Indocoin_2026_v4.pdf' },
+  // ── Master Knowledge Base ──
+  'indocoin-master': { html:'indocoin-master.html', pdf:null },
   // ── Welcome & Onboarding ──
   'welcome':     { html:'welcome.html',     pdf:null },
   // ── Market & Chart ──
@@ -497,7 +499,14 @@ async function handleAIChat(req, res) {
 
     // ── Load konten (PDF/HTML) untuk keys yang relevan ──
     const loadedDocs = [];
-    for (const key of relevantKeys.slice(0, 3)) { // max 3 dokumen
+
+    // Sanjaya: selalu load master knowledge base dulu
+    if (mode === 'onboarding') {
+      const master = await loadFileContent('indocoin-master');
+      if (master) loadedDocs.push(master);
+    }
+
+    for (const key of relevantKeys.slice(0, 2)) { // max 2 dokumen tambahan
       const content = await loadFileContent(key);
       if (content) loadedDocs.push(content);
     }
@@ -530,6 +539,9 @@ ALUR:
 PANTANGAN:
 - Kata: investasi, investor, profit, return, keuntungan finansial → ganti dengan: partisipasi, utilitas, staking reward, ekosistem
 - INDC adalah utility token, bukan sekuritas
+- JANGAN sebut harga $0.003 sebagai harga INDC saat ini — presale sudah berakhir
+- Jika ditanya harga INDC → jawab: "Harga INDC saat ini mengikuti market internal platform. Cek harga live di indocoin.id/indc-market.html"
+- Presale Phase 1 sudah berakhir — Phase 2 akan hadir dengan harga lebih tinggi
 
 INDOCOIN:
 Token INDC BEP-20 BSC | Contract: 0xD772c96e1beFd2ea9C9a83182c71f4d32f306571 | Decimal: 9
