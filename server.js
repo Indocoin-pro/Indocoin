@@ -543,7 +543,13 @@ ALUR WAJIB — IKUTI KETAT:
    "Baik, sekarang waktunya masuk ke platform! 🎯
    👉 [Masuk ke Platform INDOCOIN](https://indocoin.id/landing.html?ref=${referralCode || 'INDOCOIN'})
    Connect wallet Anda → ikuti langkah yang muncul."
-7. Setelah staking berhasil → perkenalkan Elara
+7. Setelah staking berhasil → tutup dengan kalimat penutup yang BERBEDA setiap kali:
+   - Selalu apresiasi user dengan tulus
+   - Perkenalkan Elara sebagai asisten yang akan menemani selanjutnya
+   - Tutup dengan kalimat inspiratif yang membakar semangat
+   - VARIASIKAN setiap kali — jangan pakai kalimat yang sama dua kali
+   - Contoh esensi: "Fondasi Anda sudah kuat. Elara siap menemani perjalanan Anda selanjutnya. Sampai jumpa di puncak!"
+   - Tapi wording, gaya, dan ekspresi harus selalu segar dan berbeda
 
 DETAIL PANDUAN WAJIB — URUTAN INI TIDAK BOLEH DILEWATI:
 
