@@ -438,7 +438,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
         <div id="styleDropMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:99;overflow:hidden;min-width:110px;">
           <div onclick="selectStyle('classic','Classic')" class="ct-opt" style="color:var(--gold);font-weight:700;">✓ Classic</div>
           <div onclick="selectStyle('gold','🥇 Gold')"    class="ct-opt">🥇 Gold</div>
-          <div onclick="selectStyle('whale','🐋 Whale')"  class="ct-opt">🐋 Whale</div>
+          <div onclick="selectStyle('whale','🌡️ Whale')"  class="ct-opt">🌡️ Whale</div>
           <div onclick="selectStyle('comet','☄️ Comet')"  class="ct-opt">☄️ Comet</div>
           <div onclick="selectStyle('neon','🌊 Neon')"    class="ct-opt">🌊 Neon</div>
           <div onclick="selectStyle('combo','⚡ Combo')"  class="ct-opt">⚡ Combo</div>
@@ -1389,6 +1389,7 @@ function _getOhlc() {
       high:  Math.max(...v),
       low:   Math.min(...v),
       close: v[v.length - 1],
+      volume: v.length, // jumlah titik harga = proxy volume
     }))
     .sort((a,b) => a.time - b.time);
 
@@ -1543,8 +1544,10 @@ function toggleStyleDrop() {
   dd.style.display=dd.style.display==='none'?'block':'none';
 }
 
+
 let _currentStyle = 'classic';
 let _cometSeries = null;
+let _volSeries = null;
 
 function selectStyle(style, label) {
   _currentStyle = style;
@@ -1572,10 +1575,31 @@ function applyStyle(style) {
     whale:   { upColor:'#26a69a', downColor:'#ef5350', borderUpColor:'#1a1a1a', borderDownColor:'#1a1a1a', wickUpColor:'#1a1a1a', wickDownColor:'#1a1a1a' },
     comet:   { upColor:'#26a69a', downColor:'#ef5350', borderUpColor:'#1a1a1a', borderDownColor:'#1a1a1a', wickUpColor:'#1a1a1a', wickDownColor:'#1a1a1a' },
     combo:   { upColor:'#C9A84C', downColor:'#7c2d12', borderUpColor:'#E8C97A', borderDownColor:'#991b1b', wickUpColor:'#C9A84C', wickDownColor:'#7c2d12' },
+    indc:    { upColor:'#06b6d4', downColor:'#ec4899', borderUpColor:'#06b6d4', borderDownColor:'#ec4899', wickUpColor:'#22d3ee', wickDownColor:'#f472b6' },
   };
 
   if (_chartType==='candle' || _chartType==='bar') {
     _lwSeries.applyOptions(styles[style] || styles.classic);
+  }
+
+  // Volume bar for Whale style
+  if (_volSeries) { try { _lwChart.removeSeries(_volSeries); } catch(e){} _volSeries = null; }
+  if (style === 'whale' && _lwChart) {
+    _volSeries = _lwChart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'vol',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    _lwChart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+    const ohlc = _getOhlc();
+    if (ohlc.length) {
+      _volSeries.setData(ohlc.map(d => ({
+        time: d.time,
+        value: d.volume || 1,
+        color: d.close >= d.open ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.4)',
+      })));
+    }
   }
 
   // Whale markers
