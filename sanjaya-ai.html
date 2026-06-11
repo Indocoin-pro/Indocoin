@@ -554,8 +554,6 @@ async function send(text){
       const t=typeof last?.content==='string'?last.content:'';
       if(t.length>1&&t.length<25&&!t.includes('?')){
         userName=t.trim().split(' ')[0];
-        // Tambah pesan shortcut setelah nama terdeteksi (variasi harian)
-        setTimeout(()=>addShortcutMsg(userName), 800);
       }
     }
 
@@ -619,6 +617,27 @@ function loadHistory() {
 }
 
 // Platform link dikirim Sanjaya lewat chat saat waktunya tepat
+
+// ── Cek pengalaman DeFi user ─────────────────────────────────────
+let _shortcutShown = false;
+function checkDeFiExperience(reply) {
+  if (_shortcutShown) return;
+  // Cek apakah reply dari Sanjaya sudah menjawab pertanyaan DeFi
+  // dan user kemungkinan sudah berpengalaman
+  const r = reply.toLowerCase();
+  const userMsgs = history.filter(m=>m.role==='user');
+  const lastUser = userMsgs[userMsgs.length-1];
+  const ut = typeof lastUser?.content==='string' ? lastUser.content.toLowerCase() : '';
+  
+  const sudahPernah = ['sudah','pernah','iya','ya','bisa','paham','tau','tahu',
+    'mengerti','berpengalaman','sering','familiar','biasa'].some(w=>ut.includes(w));
+  const tanyaDeFi = r.includes('defi') || r.includes('wallet') || r.includes('pertama kali');
+  
+  if (sudahPernah && tanyaDeFi) {
+    _shortcutShown = true;
+    setTimeout(()=>addShortcutMsg(userName), 600);
+  }
+}
 
 // ── Shortcut message (variasi harian) ──────────────────────────
 function addShortcutMsg(name) {
