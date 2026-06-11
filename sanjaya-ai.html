@@ -548,12 +548,14 @@ async function send(text){
     history.push({role:'assistant',content:reply});
   saveHistory();
 
-    // Deteksi nama user
+    // Deteksi nama user — jika terdeteksi, tambah pesan shortcut
     if(!userName && history.filter(m=>m.role==='user').length<=2){
       const last=history.filter(m=>m.role==='user').pop();
       const t=typeof last?.content==='string'?last.content:'';
       if(t.length>1&&t.length<25&&!t.includes('?')){
         userName=t.trim().split(' ')[0];
+        // Tambah pesan shortcut setelah nama terdeteksi (variasi harian)
+        setTimeout(()=>addShortcutMsg(userName), 800);
       }
     }
 
@@ -617,6 +619,32 @@ function loadHistory() {
 }
 
 // Platform link dikirim Sanjaya lewat chat saat waktunya tepat
+
+// ── Shortcut message (variasi harian) ──────────────────────────
+function addShortcutMsg(name) {
+  const title = userGender === 'L' ? 'Bpk' : userGender === 'P' ? 'Ibu' : '';
+  const sapaan = title ? title + ' ' + name : name;
+  const link = refCode
+    ? `[Masuk ke Platform INDOCOIN](https://indocoin.id/landing.html?ref=${refCode})`
+    : `[Masuk ke Platform INDOCOIN](https://indocoin.id/landing.html)`;
+
+  // Variasi berdasarkan hari (0=Minggu s/d 6=Sabtu)
+  const day = new Date().getDay();
+  const variants = [
+    `Satu hal sebelum kita mulai, ${sapaan} — bagi yang sudah berpengalaman di dunia DeFi, Anda bisa langsung melangkah:\n\n👉 ${link}\n\nNamun jika ingin saya dampingi, dengan senang hati saya siap. Sudah sejauh mana perjalanan DeFi Anda?`,
+    `${sapaan}, jika Anda sudah familiar dengan wallet dan ekosistem kripto, pintu platform sudah terbuka untuk Anda:\n\n👉 ${link}\n\nAtau biarkan saya yang memandu — tidak ada langkah yang terlalu kecil untuk kita bahas bersama. Dari mana kita mulai?`,
+    `Senang berkenalan, ${sapaan}! Untuk yang sudah siap, tidak perlu menunggu lama:\n\n👉 ${link}\n\nBagi yang ingin panduan lengkap, saya di sini. Sudah pernah menggunakan wallet crypto sebelumnya?`,
+    `${sapaan}, waktu adalah aset — bagi Anda yang sudah paham DeFi, langsung saja:\n\n👉 ${link}\n\nJika belum, tenang — saya akan pastikan setiap langkah Anda berjalan dengan benar. Sudah kenal dunia DeFi sebelumnya?`,
+    `Selamat bergabung, ${sapaan}! Sudah siap? Untuk yang berpengalaman:\n\n👉 ${link}\n\nUntuk yang baru memulai, saya adalah pemandu personal Anda. Mari kita mulai dari titik yang tepat — sudah sejauh mana?`,
+    `${sapaan}, bagi Anda yang sudah menguasai medan DeFi, satu klik sudah cukup:\n\n👉 ${link}\n\nBagi yang ingin dipandu dengan baik, saya pastikan tidak ada yang terlewat. Dari mana kita mulai perjalanan ini?`,
+    `Hebat bertemu Anda, ${sapaan}! Jika sudah mahir, langkah selanjutnya ada di sini:\n\n👉 ${link}\n\nJika baru pertama kali, justru ini momen terbaik — saya akan pandu Anda hingga tuntas. Sudah punya wallet crypto?`,
+  ];
+
+  const msg = variants[day];
+  addMsg('sanjaya', msg);
+  history.push({role:'assistant', content: msg});
+  saveHistory();
+}
 
 // ── Init ──────────────────────────────────────────────────────────────
 async function init(){
