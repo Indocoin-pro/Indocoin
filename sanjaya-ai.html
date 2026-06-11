@@ -489,9 +489,26 @@ function clearImg(){
 }
 
 // ── Send ──────────────────────────────────────────────────────────────
+// ── Deteksi seed phrase / private key ────────────────────────────
+function isSensitive(text) {
+  // Private key: 0x + 64 hex chars
+  if (/0x[0-9a-fA-F]{60,}/i.test(text)) return true;
+  // Seed phrase: 12+ kata pendek dipisah spasi
+  const words = text.trim().split(' ');
+  if (words.length >= 12 && words.length <= 24 && words.every(w => /^[a-z]{2,10}$/i.test(w))) return true;
+  return false;
+}
+
 async function send(text){
   text=text.trim();
   if((!text&&!pendingImg)||busy) return;
+
+  // Blokir seed phrase / private key
+  if (text && isSensitive(text)) {
+    // Tampilkan warning tanpa kirim ke server
+    addMsg('sanjaya', '⚠️ **Peringatan Keamanan!**\n\nSaya mendeteksi informasi sensitif. Pesan **tidak dikirim** demi keamanan Anda.\n\n🔒 **Jangan bagikan seed phrase atau private key ke siapapun** — termasuk tim INDOCOIN.\n\nApa yang bisa saya bantu selanjutnya?');
+    return;
+  }
   busy=true; setEnabled(false);
 
   const imgSrc=pendingImg;
