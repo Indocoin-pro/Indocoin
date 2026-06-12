@@ -322,7 +322,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
     <div class="form-card">
       <!-- Saldo INDC -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;">Saldo INDC di Wallet</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;">Saldo INDC di Platform Wallet</span>
         <span style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:var(--gold);" id="indcBalDisplay">—</span>
       </div>
       <div class="input-row">
@@ -798,13 +798,22 @@ async function loadData(){
     const pbLocked = document.getElementById('pbLocked');
     if(pbLocked) pbLocked.textContent = fmtNum(ethers.utils.formatUnits(pool.principalLocked,9))+' INDC';
 
-    // INDC balance user
-    const iBal = await indcC.balanceOf(myAddr);
-    const iBalFmt = fmtNum(ethers.utils.formatUnits(iBal,9));
-    const indcBalDisplay = document.getElementById('indcBalDisplay');
-    if(indcBalDisplay) indcBalDisplay.textContent = iBalFmt+' INDC';
-    const balDeposit = document.getElementById('balDeposit');
-    if(balDeposit) balDeposit.textContent = iBalFmt;
+    // INDC balance dari Platform Wallet (Fase 2)
+    try{
+      const pwC = new ethers.Contract(SC.PLATFORM_WALLET, PW_ABI, _provider||signer);
+      const pwBal = await pwC.getBalance(myAddr, SC.INDC);
+      const pwBalFmt = fmtNum(ethers.utils.formatUnits(pwBal,9));
+      const indcBalDisplay = document.getElementById('indcBalDisplay');
+      if(indcBalDisplay) indcBalDisplay.textContent = pwBalFmt+' INDC';
+      const balDeposit = document.getElementById('balDeposit');
+      if(balDeposit) balDeposit.textContent = pwBalFmt;
+    }catch(e){
+      // fallback ke wallet eksternal jika gagal
+      const iBal = await indcC.balanceOf(myAddr);
+      const iBalFmt = fmtNum(ethers.utils.formatUnits(iBal,9));
+      const balDeposit = document.getElementById('balDeposit');
+      if(balDeposit) balDeposit.textContent = iBalFmt;
+    }
 
     // Total compound balance
     try{
@@ -1058,7 +1067,8 @@ async function doDeposit(){
     const pwBal = await pwC.getBalance(myAddr, SC.INDC);
     const needed = toIndcWei(val);
     if(pwBal.lt(needed)){
-      showPopup('SALDO TIDAK CUKUP','Saldo INDC di Platform Wallet Anda tidak mencukupi.<br><br>Pastikan Anda memiliki cukup INDC di Platform Wallet.');
+      const msgEl = document.getElementById('msgDeposit');
+      if(msgEl) msgEl.textContent = '⚠ Saldo Platform Wallet tidak mencukupi. Klaim reward dari program lain dulu.';
       return;
     }
   }catch(e){}
