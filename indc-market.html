@@ -932,6 +932,13 @@ async function loadMarketData() {
     const vNo         = stats[10];
 
     _currentPrice = parseFloat(ethers.formatUnits(price, 18));
+    
+    // Guard: jika harga 0 atau invalid, skip update UI agar tidak flash kosong
+    if (!_currentPrice || _currentPrice <= 0) {
+      console.warn('loadMarketData: harga tidak valid, skip update UI');
+      return;
+    }
+    
     fbSavePrice(_currentPrice); // Simpan ke Firebase
 
     // Hero
@@ -2044,6 +2051,8 @@ async function doBuy() {
     await tx.wait();
     showMsg('msgBuy', '✅ Berhasil beli INDC!', 'ok');
     document.getElementById('inpBuyUsdt').value = '';
+    // Tunggu 4 detik agar blockchain terupdate sebelum reload data
+    await new Promise(r => setTimeout(r, 4000));
     await loadMarketData();
 
     // Laporkan volume ke VIP Aggregator — contract otomatis distribusi ke 10 level upline
@@ -2100,6 +2109,7 @@ async function doList() {
     document.getElementById('inpSellIndc').value = '';
     _listingOrigIndc = 0;
     _prevQueueState  = 'wait';
+    await new Promise(r => setTimeout(r, 4000));
     await loadMarketData();
     checkActiveListing();
   } catch(e) {
@@ -2118,6 +2128,7 @@ async function doCancel() {
     _listingOrigIndc = 0;
     _prevQueueState  = 'idle';
     _initIndcAhead   = -1;
+    await new Promise(r => setTimeout(r, 4000));
     await loadMarketData();
     checkActiveListing();
   } catch(e) {
@@ -2132,6 +2143,7 @@ async function doVote(yes) {
     const tx = await _market.vote(yes);
     await tx.wait();
     showMsg2('msgVote', '✅ Vote berhasil!', 'ok');
+    await new Promise(r => setTimeout(r, 3000));
     await loadMarketData();
   } catch(e) {
     showMsg2('msgVote', '❌ ' + (e.reason || e.message || 'Gagal'), 'err');
