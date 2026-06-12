@@ -1006,6 +1006,11 @@ async function loadPositions(){
       const nextCP  = new Date(Number(pos.nextCheckpointTime)*1000).toLocaleDateString('id-ID');
       const isCP    = pos.checkpointPending;
 
+      const cpTimestamp = Number(pos.nextCheckpointTime);
+      const nowSec = Math.floor(Date.now()/1000);
+      const secLeft = cpTimestamp - nowSec;
+      const isReadyNow = secLeft <= 0;
+
       html += `<div class="stake-item ${isCP?'checkpoint':''}">
         <div class="si-top">
           <span class="si-name">POSISI #${i+1}</span>
@@ -1015,7 +1020,17 @@ async function loadPositions(){
           <div><span class="si-lbl">MODAL STAKE</span><span class="si-val">${fmtI(staked)} INDC</span></div>
           <div style="text-align:right"><span class="si-lbl">REWARD PENDING</span><span class="si-val gold">${fmtI(reward)} INDC</span></div>
           <div><span class="si-lbl">MULAI</span><span class="si-val">${start}</span></div>
-          <div style="text-align:right"><span class="si-lbl">${isCP?'KONFIRMASI':'KONFIRMASI BERIKUT'}</span><span class="si-val">${nextCP}</span></div>
+          <div style="text-align:right">
+            <span class="si-lbl">${isCP?'KONFIRMASI':'KONFIRMASI BERIKUT'}</span>
+            <span class="si-val">${nextCP}</span>
+            <div style="margin-top:4px;">
+              <span data-cp-time="${cpTimestamp}" data-pos-idx="${i}"
+                style="font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;
+                color:${isCP||isReadyNow?'#ef4444':'#c8922a'};">
+                ${fmtCountdown(secLeft)}
+              </span>
+            </div>
+          </div>
         </div>
         <div class="reward-bar">
           <div class="rb-lbl">💰 TOTAL REWARD TERSEDIA</div>
@@ -1027,12 +1042,51 @@ async function loadPositions(){
           <div class="cp-lbl">⏸ KONFIRMASI — REWARD BEKU</div>
           <div class="cp-sub">Klik LANJUT untuk melanjutkan reward 7 hari berikutnya</div>
         </div>
-        <button class="btn-checkpoint" onclick="doConfirmCheckpoint(${i})">▶ LANJUT — AKTIFKAN KEMBALI</button>
-        `:`<button class="btn-claim" onclick="showClaimPopup(${i}, ${reward})" ${reward<=0?'disabled':''}>💰 KLAIM REWARD</button>`}
+        <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">▶ LANJUT — AKTIFKAN KEMBALI</button>
+        `:`
+        <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})"
+          style="display:${isReadyNow?'block':'none'};">
+          ▶ LANJUT — AKTIFKAN 7 HARI BERIKUTNYA
+        </button>
+        <button class="btn-claim" onclick="showClaimPopup(${i}, ${reward})" ${reward<=0?'disabled':''}>💰 KLAIM REWARD</button>
+        `}
       </div>`;
     }
     document.getElementById('posisiList').innerHTML = html;
+    startCpCountdowns();
   }catch(e){console.error('loadPositions:',e);}
+}
+
+/* ── Countdown helpers ── */
+function fmtCountdown(sec){
+  if(sec<=0) return '⏰ WAKTUNYA KONFIRMASI!';
+  const d=Math.floor(sec/86400), h=Math.floor((sec%86400)/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  if(d>0) return d+'h '+String(h).padStart(2,'0')+'j '+String(m).padStart(2,'0')+'m';
+  if(h>0) return h+'j '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'d';
+  return String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'d';
+}
+
+let _cpTimers = {};
+function startCpCountdowns(){
+  if(_cpTimers._interval) clearInterval(_cpTimers._interval);
+  _cpTimers._interval = setInterval(()=>{
+    const els = document.querySelectorAll('[data-cp-time]');
+    els.forEach(el=>{
+      const cpTime = parseInt(el.getAttribute('data-cp-time'));
+      const now = Math.floor(Date.now()/1000);
+      const left = cpTime - now;
+      el.textContent = fmtCountdown(left);
+      // Jika countdown habis → tampilkan tombol LANJUT
+      if(left <= 0){
+        el.style.color = '#ef4444';
+        el.style.fontWeight = '700';
+        const posIdx = el.getAttribute('data-pos-idx');
+        const btnId = 'btnLanjut_'+posIdx;
+        const btn = document.getElementById(btnId);
+        if(btn) btn.style.display = 'block';
+      }
+    });
+  }, 1000);
 }
 
 /* ── APPROVE ── */
