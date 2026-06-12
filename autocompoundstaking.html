@@ -800,19 +800,28 @@ async function loadData(){
 
     // INDC balance dari Platform Wallet (Fase 2)
     try{
-      const pwC = new ethers.Contract(SC.PLATFORM_WALLET, PW_ABI, _provider||signer);
+      const pwC = new ethers.Contract(SC.PLATFORM_WALLET, PW_ABI, signer);
       const pwBal = await pwC.getBalance(myAddr, SC.INDC);
       const pwBalFmt = fmtNum(ethers.utils.formatUnits(pwBal,9));
       const indcBalDisplay = document.getElementById('indcBalDisplay');
       if(indcBalDisplay) indcBalDisplay.textContent = pwBalFmt+' INDC';
       const balDeposit = document.getElementById('balDeposit');
       if(balDeposit) balDeposit.textContent = pwBalFmt;
+      // Disable deposit jika saldo 0
+      const btnDep = document.getElementById('btnDeposit');
+      if(btnDep){
+        if(pwBal.eq(0)){
+          btnDep.disabled = true;
+          const msgEl = document.getElementById('msgDeposit');
+          if(msgEl) msgEl.textContent = '⚠ Saldo Platform Wallet kosong. Klaim reward dari program staking lain dulu.';
+        } else {
+          btnDep.disabled = false;
+        }
+      }
     }catch(e){
-      // fallback ke wallet eksternal jika gagal
-      const iBal = await indcC.balanceOf(myAddr);
-      const iBalFmt = fmtNum(ethers.utils.formatUnits(iBal,9));
+      console.warn('Platform Wallet balance error:', e);
       const balDeposit = document.getElementById('balDeposit');
-      if(balDeposit) balDeposit.textContent = iBalFmt;
+      if(balDeposit) balDeposit.textContent = '0';
     }
 
     // Total compound balance
