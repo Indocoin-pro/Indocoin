@@ -202,6 +202,7 @@ function htmlToText(html) {
 
 // ─── Cari konten relevan berdasarkan query user ───────────────────────
 function findRelevantKeys(query) {
+  if (!query || typeof query !== 'string') return [];
   const q = query.toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ');
@@ -494,7 +495,7 @@ async function handleAIChat(req, res) {
 
     // ── Cari konten relevan ──
     const lastUserMsg = messages.filter(m => m.role === 'user').pop();
-    const query = lastUserMsg ? lastUserMsg.content : '';
+    const query = lastUserMsg ? (typeof lastUserMsg.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg.content)) : '';
     const relevantKeys = findRelevantKeys(query);
 
     // ── Load konten (PDF/HTML) untuk keys yang relevan ──
