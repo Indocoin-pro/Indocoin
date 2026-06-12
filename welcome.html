@@ -1168,27 +1168,72 @@ async function doStakeWithUsdt(){
 }
 
 /* ── CHECKPOINT ── */
-async function doConfirmCheckpoint(posIdx){
-  if(!_wallet)return;
+function doConfirmCheckpoint(posIdx){
+  if(!_wallet) return;
+  // Tampilkan popup pilihan reward dulu
+  showCheckpointPopup(posIdx);
+}
+
+async function showCheckpointPopup(posIdx){
+  // Ambil reward pending
+  let rewardAmt = '...';
+  try {
+    const pos = await _welcome.getPosition(_wallet, posIdx);
+    const reward = parseFloat(fromI(pos.reward.toString(), SC.INDC_DEC));
+    rewardAmt = fmtI(reward) + ' INDC';
+  } catch(e){}
+
+  const existing = document.getElementById('cpPopup');
+  if(existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'cpPopup';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;color:#333;text-align:center;">
+      <div style="font-size:20px;margin-bottom:8px;">⏰</div>
+      <div style="font-size:14px;font-weight:700;color:#333;margin-bottom:4px;">Konfirmasi 7 Hari</div>
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">Reward terkumpul:</div>
+      <div style="font-size:18px;font-weight:700;color:#c8922a;margin-bottom:16px;">${rewardAmt}</div>
+      <div style="font-size:12px;color:#555;margin-bottom:16px;">Pilih tujuan reward sebelum melanjutkan:</div>
+      <button onclick="processCheckpoint(${posIdx}, 0)" style="width:100%;background:linear-gradient(135deg,#c8922a,#a07020);color:#fff;border:none;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+        🔄 Compound ke Posisi
+      </button>
+      <button onclick="processCheckpoint(${posIdx}, 1)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        🏦 Platform Wallet
+      </button>
+      <button onclick="document.getElementById('cpPopup').remove()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:8px;">✕ Batal</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function processCheckpoint(posIdx, claimType){
+  document.getElementById('cpPopup')?.remove();
+  if(!_wallet) return;
   try{
-    // Step 1: Cek apakah checkpointPending sudah true
+    // Step 1: Cek checkpointPending
     const pos = await _welcome.getPosition(_wallet, posIdx);
     const cpPending = pos.checkpointPending;
 
     if(!cpPending){
-      // Perlu trigger dulu via claimReward(compound) agar checkpointPending = true
+      // Trigger checkpointPending via claimReward
       setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','var(--gold)');
-      const tx1 = await _welcome.claimReward(posIdx, 0); // compound
+      const tx1 = await _welcome.claimReward(posIdx, claimType);
       await tx1.wait();
       setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
     } else {
-      setMsg('⏳ Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
+      // Claim reward dulu sesuai pilihan
+      setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','var(--gold)');
+      const tx1 = await _welcome.claimReward(posIdx, claimType);
+      await tx1.wait();
+      setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
     }
 
     // Step 2: confirmCheckpoint
     const tx2 = await _welcome.confirmCheckpoint(posIdx);
     await tx2.wait();
-    setMsg('✓ Berhasil! Reward 7 hari berikutnya sudah aktif.','var(--green)');
+    setMsg('✓ Berhasil! Reward sudah diproses & 7 hari berikutnya aktif.','var(--green)');
     await loadAll();
   }catch(e){setMsg('Gagal: '+(e.reason||e.message||''),'var(--red)');}
 }
