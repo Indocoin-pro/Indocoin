@@ -1046,7 +1046,7 @@ async function loadPositions(){
         <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">▶ LANJUT — AKTIFKAN KEMBALI</button>
         `:`
         <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})"
-          style="display:${pos.checkpointPending?'block':'none'};">
+          style="display:${(pos.checkpointPending||isReadyNow)?'block':'none'};">
           ▶ LANJUT — AKTIFKAN 7 HARI BERIKUTNYA
         </button>
         <button class="btn-claim" onclick="showClaimPopup(${i}, ${reward})" ${reward<=0?'disabled':''}>💰 KLAIM REWARD</button>
@@ -1171,10 +1171,24 @@ async function doStakeWithUsdt(){
 async function doConfirmCheckpoint(posIdx){
   if(!_wallet)return;
   try{
-    setMsg('Memproses konfirmasi...','var(--gold)');
-    const tx = await _welcome.confirmCheckpoint(posIdx);
-    await tx.wait();
-    setMsg('✓ Konfirmasi berhasil! Reward berjalan kembali.','var(--green)');
+    // Step 1: Cek apakah checkpointPending sudah true
+    const pos = await _welcome.getPosition(_wallet, posIdx);
+    const cpPending = pos.checkpointPending;
+
+    if(!cpPending){
+      // Perlu trigger dulu via claimReward(compound) agar checkpointPending = true
+      setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','var(--gold)');
+      const tx1 = await _welcome.claimReward(posIdx, 0); // compound
+      await tx1.wait();
+      setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
+    } else {
+      setMsg('⏳ Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
+    }
+
+    // Step 2: confirmCheckpoint
+    const tx2 = await _welcome.confirmCheckpoint(posIdx);
+    await tx2.wait();
+    setMsg('✓ Berhasil! Reward 7 hari berikutnya sudah aktif.','var(--green)');
     await loadAll();
   }catch(e){setMsg('Gagal: '+(e.reason||e.message||''),'var(--red)');}
 }
