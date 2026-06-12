@@ -347,7 +347,7 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
           <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#c8922a;" id="estMaks">— hari</span>
         </div>
       </div>
-      <button class="btn-approve" id="btnApprove" onclick="doApprove()">✓ APPROVE INDC</button>
+      <button class="btn-approve" id="btnApprove" onclick="doApprove()" style="display:none">✓ APPROVE INDC</button>
       <button class="btn-stake" id="btnDeposit" onclick="doDeposit()">DEPOSIT SEKARANG</button>
       <div class="status-msg" id="msgDeposit">Hubungkan wallet untuk mulai deposit</div>
     </div>
@@ -524,10 +524,18 @@ input:focus,select:focus{border-color:rgba(255,255,255,0.85)!important;outline:n
    CONFIG — Auto Compound Staking
    ════════════════════════════════════════ */
 const SC = {
-  STAKING:  '0x99aAbacb9b57Df83d1539e250b799C6615207616',
+  STAKING_V2: '0x99aAbacb9b57Df83d1539e250b799C6615207616', // V2 - simpan untuk listing DEX
+  STAKING_V3: '0x2b2aed682DD8d444d6F18bbB7B21f77238151a62', // V3 - Platform Wallet (Fase 2)
+  STAKING:    '0x2b2aed682DD8d444d6F18bbB7B21f77238151a62', // aktif: V3
+  PLATFORM_WALLET: '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF',
   INDC:     '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   CHAIN:    56
 };
+
+// Platform Wallet ABI
+const PW_ABI = [
+  "function getBalance(address user, address token) view returns (uint256)",
+];
 
 const TIER_CONFIG = [
   { id:1, lockDays:30,  rate:0.002, rateLabel:'0.2%/hari', min:100,    max:50000,   penalty:3,  penaltyLabel:'3%'  },
@@ -538,9 +546,9 @@ const TIER_CONFIG = [
 
 const STAKING_ABI = [
   {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"deposit","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"claimNormal","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"earlyClaim","outputs":[],"stateMutability":"nonpayable","type":"function"},
-  {"inputs":[],"name":"claimAll","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"},{"internalType":"bool","name":"toPlatform","type":"bool"}],"name":"claimNormal","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"},{"internalType":"bool","name":"toPlatform","type":"bool"}],"name":"earlyClaim","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"bool","name":"toPlatform","type":"bool"}],"name":"claimAll","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"}],"name":"getUserPositions","outputs":[{"components":[{"internalType":"uint256","name":"principal","type":"uint256"},{"internalType":"uint256","name":"depositTime","type":"uint256"},{"internalType":"uint256","name":"unlockTime","type":"uint256"},{"internalType":"uint256","name":"lastUpdateTime","type":"uint256"},{"internalType":"uint256","name":"accruedIndc","type":"uint256"},{"internalType":"uint256","name":"ratePerSec","type":"uint256"},{"internalType":"uint256","name":"maxReward","type":"uint256"},{"internalType":"bool","name":"active","type":"bool"}],"internalType":"struct AutoCompoundStaking.StakeInfo[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getPositionDetail","outputs":[{"internalType":"uint256","name":"principal","type":"uint256"},{"internalType":"uint256","name":"accruedIndc","type":"uint256"},{"internalType":"uint256","name":"compoundBalance","type":"uint256"},{"internalType":"uint256","name":"depositTime","type":"uint256"},{"internalType":"uint256","name":"unlockTime","type":"uint256"},{"internalType":"uint256","name":"timeLeft","type":"uint256"},{"internalType":"uint256","name":"maxReward","type":"uint256"},{"internalType":"bool","name":"isUnlocked","type":"bool"},{"internalType":"bool","name":"isMaxReached","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getEarlyPenalty","outputs":[{"internalType":"uint256","name":"total","type":"uint256"},{"internalType":"uint256","name":"penalty","type":"uint256"},{"internalType":"uint256","name":"payout","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -550,7 +558,7 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"}],"name":"getPositionCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getClaimableCount","outputs":[{"internalType":"uint256","name":"count","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTotalCompoundBalance","outputs":[{"internalType":"uint256","name":"totalBalance","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"bool","name":"toPlatform","type":"bool"}],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRefBonusInfo","outputs":[{"internalType":"uint256","name":"pending","type":"uint256"},{"internalType":"uint256","name":"totalEarned","type":"uint256"}],"stateMutability":"view","type":"function"}
 ];
 
@@ -722,7 +730,7 @@ async function connectWallet(){
       signer   = provider.getSigner();
     }
     myAddr   = await signer.getAddress();
-    contract = new ethers.Contract(SC.STAKING, STAKING_ABI, signer);
+    await initContracts(signer);
     indcC    = new ethers.Contract(SC.INDC, ERC20_ABI, signer);
     const btn = document.getElementById('walletBtn');
     if(btn) btn.textContent = shortAddr(myAddr);
@@ -735,6 +743,51 @@ async function connectWallet(){
 }
 
 /* ── Load Data ── */
+// ── Popup pilihan tujuan claim (V3) ─────────────────────────────
+function showClaimPopup(version, tier, index, type) {
+  // Buat popup
+  const existing = document.getElementById('claimDestPopup');
+  if(existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'claimDestPopup';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;color:#333;text-align:center;">
+      <div style="font-size:20px;margin-bottom:10px;">💰</div>
+      <div style="font-size:14px;font-weight:700;color:#333;margin-bottom:6px;">Pilih Tujuan Withdrawal</div>
+      <div style="font-size:12px;color:#888;margin-bottom:20px;line-height:1.6;">
+        Kemana hasil claim Anda akan dikirim?
+      </div>
+      <button onclick="confirmClaim('${version}',${tier},${index},'${type}',true)" style="width:100%;background:linear-gradient(135deg,#c8922a,#a07020);color:#fff;border:none;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+        🏦 Platform Wallet
+      </button>
+      <button onclick="confirmClaim('${version}',${tier},${index},'${type}',false)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        👛 Wallet Eksternal
+      </button>
+      <button onclick="document.getElementById('claimDestPopup').remove()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:8px;">✕ Batal</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function confirmClaim(version, tier, index, type, toPlatform) {
+  document.getElementById('claimDestPopup')?.remove();
+  if(type === 'normal') {
+    await doClaim(version, tier, index, toPlatform);
+  } else {
+    await doEarlyClaim(version, tier, index, toPlatform);
+  }
+}
+
+// ── Load positions dari V2 dan V3 ──────────────────────────────
+let contractV2 = null;
+
+async function initContracts(signerOrProvider) {
+  contract   = new ethers.Contract(SC.STAKING_V3, STAKING_ABI, signerOrProvider);
+  contractV2 = new ethers.Contract(SC.STAKING_V2, STAKING_ABI, signerOrProvider);
+}
+
 async function loadData(){
   if(!contract||!myAddr) return;
   try{
@@ -776,87 +829,113 @@ async function loadData(){
   }catch(e){ console.warn('loadData:', e); }
 }
 
-/* ── Load All Positions ── */
+/* ── Render 1 position card ── */
+function renderCard(p, t, i, version, posisiList) {
+  const now = Math.floor(Date.now()/1000);
+  const principal = parseFloat(ethers.utils.formatUnits(p.principal,9));
+  const accrued   = parseFloat(ethers.utils.formatUnits(p.accruedIndc,9));
+  const maxRew    = parseFloat(ethers.utils.formatUnits(p.maxReward,9));
+  const unlockTime = parseInt(p.unlockTime.toString());
+  const timeLeft  = Math.max(0, unlockTime - now);
+  const isUnlocked = timeLeft === 0;
+  const roiPct    = Math.min(100, (accrued/maxRew)*100);
+  const isMaxed   = accrued >= maxRew;
+  const tc        = TIER_CONFIG[t-1];
+
+  let compBal = principal + accrued;
+  if(!isMaxed && p.active){
+    const elapsed = now - parseInt(p.lastUpdateTime.toString());
+    const base = principal + accrued;
+    const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
+    compBal = Math.min(principal + maxRew, principal + accrued + newR);
+  }
+
+  const statusLabel = isMaxed ? 'MAX REACHED' : isUnlocked ? 'UNLOCKED' : 'LOCKED';
+  const statusClass = isMaxed ? 'maxed' : isUnlocked ? 'unlocked' : 'locked';
+  const vBadge = version === 'v2'
+    ? '<span style="font-size:9px;background:rgba(100,100,100,0.3);color:#aaa;padding:2px 6px;border-radius:4px;margin-left:4px;">V2</span>'
+    : '<span style="font-size:9px;background:rgba(201,168,76,0.2);color:var(--gold);padding:2px 6px;border-radius:4px;margin-left:4px;">V3</span>';
+
+  // Claim buttons — V2: langsung ke wallet, V3: popup pilihan
+  const claimBtn = version === 'v2'
+    ? `<button class="btn-claim" onclick="doClaim('${version}',${t},${i})">⚡ CLAIM SEKARANG</button>`
+    : `<button class="btn-claim" onclick="showClaimPopup('${version}',${t},${i},'normal')">⚡ CLAIM SEKARANG</button>`;
+  const earlyBtn = version === 'v2'
+    ? `<button class="btn-early" onclick="doEarlyClaim('${version}',${t},${i})">⚠ EARLY CLAIM (Penalti ${tc.penaltyLabel})</button>`
+    : `<button class="btn-early" onclick="showClaimPopup('${version}',${t},${i},'early')">⚠ EARLY CLAIM (Penalti ${tc.penaltyLabel})</button>`;
+
+  const card = document.createElement('div');
+  card.className = 'pos-card';
+  card.id = `pos_${version}_${t}_${i}`;
+  card.innerHTML = `
+    <div class="pos-header">
+      <span class="pos-tier-badge">OPSI ${t} · #${i+1} ${vBadge}</span>
+      <span class="pos-status ${statusClass}">${statusLabel}</span>
+    </div>
+    <div class="pos-grid">
+      <div class="pos-item">
+        <div class="pos-val">${fmtNum(principal)} INDC</div>
+        <div class="pos-lbl">Principal</div>
+      </div>
+      <div class="pos-item">
+        <div class="pos-val" id="compBal_${version}_${t}_${i}" style="color:var(--gold)">${fmtNum(compBal)} INDC</div>
+        <div class="pos-lbl">Saldo Compound</div>
+      </div>
+    </div>
+    <div class="roi-bar-wrap">
+      <div class="roi-bar-label">
+        <span>ROI Progress</span>
+        <strong id="roiPct_${version}_${t}_${i}">${roiPct.toFixed(1)}%</strong>
+      </div>
+      <div class="roi-bar-bg"><div class="roi-bar-fill" id="roiFill_${version}_${t}_${i}" style="width:${roiPct}%"></div></div>
+    </div>
+    <div class="countdown-box">
+      <div class="countdown-val" id="cd_${version}_${t}_${i}">${fmtCountdown(timeLeft)}</div>
+      <div class="countdown-lbl">${isUnlocked ? 'SIAP CLAIM' : 'SISA WAKTU LOCK'}</div>
+    </div>
+    ${isUnlocked || isMaxed ? claimBtn : ''}
+    ${!isUnlocked ? earlyBtn : ''}
+  `;
+  posisiList.appendChild(card);
+}
+
+/* ── Load All Positions (V2 + V3) ── */
 async function loadPositions(){
-  if(!contract||!myAddr) return;
+  if(!myAddr) return;
   const posisiList = document.getElementById('posisiList');
   const posisiSection = document.getElementById('posisiSection');
   if(!posisiList||!posisiSection) return;
 
   posisiList.innerHTML='';
   let totalPositions = 0;
-  const now = Math.floor(Date.now()/1000);
 
-  for(let t=1;t<=4;t++){
-    try{
-      const positions = await contract.getUserPositions(myAddr, t);
-      positionsCache[t] = positions;
-      for(let i=0;i<positions.length;i++){
-        const p = positions[i];
-        if(!p.active) continue;
-        totalPositions++;
-
-        const principal = parseFloat(ethers.utils.formatUnits(p.principal,9));
-        const accrued   = parseFloat(ethers.utils.formatUnits(p.accruedIndc,9));
-        const maxRew    = parseFloat(ethers.utils.formatUnits(p.maxReward,9));
-        const unlockTime = parseInt(p.unlockTime.toString());
-        const timeLeft  = Math.max(0, unlockTime - now);
-        const isUnlocked = timeLeft === 0;
-        const roiPct    = Math.min(100, (accrued/maxRew)*100);
-        const isMaxed   = accrued >= maxRew;
-        const tc        = TIER_CONFIG[t-1];
-
-        // Compound balance real-time (estimate)
-        let compBal = principal + accrued;
-        if(!isMaxed && p.active){
-          const elapsed = now - parseInt(p.lastUpdateTime.toString());
-          const base = principal + accrued;
-          const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
-          compBal = Math.min(principal + maxRew, principal + accrued + newR);
+  // Load V2 positions (claim ke wallet eksternal saja)
+  if(contractV2){
+    for(let t=1;t<=4;t++){
+      try{
+        const positions = await contractV2.getUserPositions(myAddr, t);
+        for(let i=0;i<positions.length;i++){
+          if(!positions[i].active) continue;
+          totalPositions++;
+          renderCard(positions[i], t, i, 'v2', posisiList);
         }
+      }catch(e){}
+    }
+  }
 
-        const statusLabel = isMaxed ? 'MAX REACHED' : isUnlocked ? 'UNLOCKED' : 'LOCKED';
-        const statusClass = isMaxed ? 'maxed' : isUnlocked ? 'unlocked' : 'locked';
-
-        const card = document.createElement('div');
-        card.className = 'pos-card';
-        card.id = `pos_${t}_${i}`;
-        card.innerHTML = `
-          <div class="pos-header">
-            <span class="pos-tier-badge">OPSI ${t} · #${i+1}</span>
-            <span class="pos-status ${statusClass}">${statusLabel}</span>
-          </div>
-          <div class="pos-grid">
-            <div class="pos-item">
-              <div class="pos-val">${fmtNum(principal)} INDC</div>
-              <div class="pos-lbl">Principal</div>
-            </div>
-            <div class="pos-item">
-              <div class="pos-val" id="compBal_${t}_${i}" style="color:var(--gold)">${fmtNum(compBal)} INDC</div>
-              <div class="pos-lbl">Saldo Compound</div>
-            </div>
-          </div>
-          <div class="roi-bar-wrap">
-            <div class="roi-bar-label">
-              <span>ROI Progress</span>
-              <strong id="roiPct_${t}_${i}">${roiPct.toFixed(1)}%</strong>
-            </div>
-            <div class="roi-bar-bg"><div class="roi-bar-fill" id="roiFill_${t}_${i}" style="width:${roiPct}%"></div></div>
-          </div>
-          <div class="countdown-box">
-            <div class="countdown-val" id="cd_${t}_${i}">${fmtCountdown(timeLeft)}</div>
-            <div class="countdown-lbl">${isUnlocked ? 'SIAP CLAIM' : 'SISA WAKTU LOCK'}</div>
-          </div>
-          ${isUnlocked || isMaxed ? `
-            <button class="btn-claim" onclick="doClaim(${t},${i})">⚡ CLAIM SEKARANG</button>
-          ` : ''}
-          ${!isUnlocked ? `
-            <button class="btn-early" onclick="doEarlyClaim(${t},${i})">⚠ EARLY CLAIM (Penalti ${tc.penaltyLabel})</button>
-          ` : ''}
-        `;
-        posisiList.appendChild(card);
-      }
-    }catch(e){ console.warn('loadPositions tier',t,':',e); }
+  // Load V3 positions (claim bisa ke wallet atau Platform Wallet)
+  if(contract){
+    for(let t=1;t<=4;t++){
+      try{
+        const positions = await contract.getUserPositions(myAddr, t);
+        positionsCache[t] = positions;
+        for(let i=0;i<positions.length;i++){
+          if(!positions[i].active) continue;
+          totalPositions++;
+          renderCard(positions[i], t, i, 'v3', posisiList);
+        }
+      }catch(e){ console.warn('loadPositions V3 tier',t,':',e); }
+    }
   }
 
   posisiSection.style.display = totalPositions>0 ? 'block' : 'none';
@@ -934,7 +1013,7 @@ async function doClaimRefBonus() {
   const orig = btn.textContent;
   try {
     btn.textContent = '⏳'; btn.disabled = true;
-    const tx = await sc.claimRefBonus();
+    const tx = await sc.claimRefBonus(false);
     await tx.wait();
     btn.textContent = '✅';
     setTimeout(() => { btn.textContent = orig; }, 2000);
@@ -945,30 +1024,10 @@ async function doClaimRefBonus() {
 }
 
 
-/* ── APPROVE INDC ── */
+/* ── APPROVE INDC (V2 - disembunyikan sementara, aktifkan kembali setelah listing DEX) ── */
 async function doApprove(){
-  if(!myAddr){ await connectWallet(); return; }
-  const val = parseFloat(document.getElementById('inpDeposit').value)||0;
-  const tc  = TIER_CONFIG[selectedTier-1];
-  if(val<=0){ showToast('Masukkan jumlah INDC','var(--red)'); return; }
-  if(val<tc.min){
-    showPopup('KURANG DARI MINIMUM','Min deposit OPSI '+selectedTier+' adalah<br><b style="color:#f5f0e8;">'+fmtNum(tc.min)+' INDC</b>');
-    return;
-  }
-  if(val>tc.max){
-    showPopup('MELEBIHI MAKSIMUM','Max deposit OPSI '+selectedTier+' adalah<br><b style="color:#f5f0e8;">'+fmtNum(tc.max)+' INDC</b>');
-    return;
-  }
-  try{
-    const msgEl = document.getElementById('msgDeposit');
-    if(msgEl) msgEl.textContent='Approve INDC... (konfirmasi MetaMask)';
-    const amt = toIndcWei(val);
-    const tx  = await indcC.approve(SC.STAKING, MAX_UINT);
-    if(msgEl) msgEl.textContent='Menunggu konfirmasi...';
-    await tx.wait();
-    if(msgEl) msgEl.textContent='✓ Approve berhasil! Klik DEPOSIT SEKARANG';
-    showToast('✓ Approve INDC berhasil!','var(--gold2)');
-  }catch(e){ const msgEl=document.getElementById('msgDeposit'); if(msgEl) msgEl.textContent='Error: '+e.message; }
+  // V3: tidak perlu approve — deposit langsung dari Platform Wallet
+  showToast('Deposit langsung dari Platform Wallet — tidak perlu Approve','var(--gold2)');
 }
 
 /* ── DEPOSIT ── */
@@ -993,18 +1052,19 @@ async function doDeposit(){
       return;
     }
   }catch(e){}
-  // Cek allowance
+  // Cek saldo Platform Wallet
   try{
-    const allow = await indcC.allowance(myAddr, SC.STAKING);
+    const pwC = new ethers.Contract(SC.PLATFORM_WALLET, PW_ABI, signer);
+    const pwBal = await pwC.getBalance(myAddr, SC.INDC);
     const needed = toIndcWei(val);
-    if(allow.lt(needed)){
-      showPopup('BELUM APPROVE','Klik APPROVE INDC terlebih dahulu sebelum deposit.');
+    if(pwBal.lt(needed)){
+      showPopup('SALDO TIDAK CUKUP','Saldo INDC di Platform Wallet Anda tidak mencukupi.<br><br>Pastikan Anda memiliki cukup INDC di Platform Wallet.');
       return;
     }
   }catch(e){}
   try{
     const msgEl = document.getElementById('msgDeposit');
-    if(msgEl) msgEl.textContent='Proses deposit... (konfirmasi MetaMask)';
+    if(msgEl) msgEl.textContent='Proses deposit dari Platform Wallet... (konfirmasi MetaMask)';
     const amt = toIndcWei(val);
     const tx  = await contract.deposit(selectedTier, amt);
     if(msgEl) msgEl.textContent='Menunggu konfirmasi blockchain...';
@@ -1019,11 +1079,14 @@ async function doDeposit(){
 }
 
 /* ── CLAIM ── */
-async function doClaim(tier, index){
+async function doClaim(version='v3', tier, index, toPlatform=false){
   if(!contract) return;
   try{
     showToast('Proses claim...','var(--gold2)');
-    const tx = await contract.claimNormal(tier, index);
+    const c = (version === 'v2') ? contractV2 : contract;
+    const tx = (version === 'v2')
+      ? await c.claimNormal(tier, index)
+      : await c.claimNormal(tier, index, toPlatform);
     await tx.wait();
     showToast('✓ Claim berhasil! INDC dikirim ke wallet','var(--gold2)');
     await loadData();
@@ -1031,7 +1094,7 @@ async function doClaim(tier, index){
 }
 
 /* ── EARLY CLAIM ── */
-async function doEarlyClaim(tier, index){
+async function doEarlyClaim(version='v3', tier, index, toPlatform=false){
   if(!contract) return;
   try{
     // Tampilkan estimasi penalti dulu
@@ -1063,7 +1126,10 @@ async function doEarlyClaim(tier, index){
 async function confirmEarlyClaim(tier, index){
   try{
     showToast('Proses early claim...','var(--gold2)');
-    const tx = await contract.earlyClaim(tier, index);
+    const c = (version === 'v2') ? contractV2 : contract;
+    const tx = (version === 'v2')
+      ? await c.earlyClaim(tier, index)
+      : await c.earlyClaim(tier, index, toPlatform);
     await tx.wait();
     showToast('✓ Early claim berhasil!','var(--gold2)');
     await loadData();
@@ -1075,7 +1141,7 @@ async function doClaimAll(){
   if(!contract) return;
   try{
     showToast('Proses claim semua...','var(--gold2)');
-    const tx = await contract.claimAll();
+    const tx = await contract.claimAll(false);
     await tx.wait();
     showToast('✓ Semua posisi berhasil di-claim!','var(--gold2)');
     await loadData();
