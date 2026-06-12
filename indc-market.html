@@ -1145,6 +1145,8 @@ async function loadListedEvents(mkt) {
   }
 }
 
+let _lastHistoryHash = '';
+
 function renderHistory() {
   const el   = document.getElementById('histList');
   const source = _allCombined.length > 0 ? _allCombined : _allHistory.map(h => ({
@@ -1155,6 +1157,11 @@ function renderHistory() {
   const data = _histFilter === 'mine' && _wallet
     ? source.filter(h => h.wallet && h.wallet.toLowerCase() === _wallet.toLowerCase())
     : source;
+
+  // Cek apakah data berubah — jika sama, skip render
+  const newHash = data.length + '_' + (data[0]?.timestamp||'') + '_' + (data[data.length-1]?.timestamp||'');
+  if (newHash === _lastHistoryHash && el.innerHTML.length > 100) return;
+  _lastHistoryHash = newHash;
 
   if (data.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:20px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--text3);">Belum ada transaksi</div>';
@@ -1428,15 +1435,45 @@ function _applyEma(lineData) {
   if (_emaActive[99] && lineData.length>=99)  { _lwEma99 = _lwChart.addLineSeries({color:'#ef4444',lineWidth:1,lineStyle:2}); _lwEma99.setData(_calcEmaLw(99,lineData)); }
 }
 
+// Track current series type to avoid unnecessary recreate
+let _currentSeriesType = null;
+
 function _render() {
   if (!_lwChart) _initLw();
-  // Hapus series lama
+
+  const targetType = (_chartType === 'candle' || _chartType === 'bar') ? 'candle' :
+                     (_chartType === 'area') ? 'area' : 'line';
+
+  // Jika tipe sama dan series sudah ada → update data saja tanpa recreate
+  if (_lwSeries && _currentSeriesType === targetType) {
+    try {
+      if (targetType === 'candle') {
+        const ohlc = _getOhlc();
+        if (ohlc.length) {
+          _lwSeries.setData(ohlc);
+          _applyEma(ohlc.map(d=>({time:d.time,value:d.close})));
+          if (_currentStyle) applyStyle(_currentStyle);
+        }
+      } else {
+        const ld = _getLine();
+        if (ld.length) {
+          _lwSeries.setData(ld);
+          _applyEma(ld);
+        }
+      }
+      return; // tidak perlu recreate
+    } catch(e) {
+      // Jika gagal update → fall through ke recreate
+    }
+  }
+
+  // Recreate series jika tipe berubah atau belum ada
   [_lwSeries,_lwEma7,_lwEma25,_lwEma99].forEach(s => { if(s) try { _lwChart.removeSeries(s); } catch(e){} });
   _lwSeries = _lwEma7 = _lwEma25 = _lwEma99 = null;
 
-  if (_chartType === 'candle' || _chartType === 'bar') {
+  if (targetType === 'candle') {
     const ohlc = _getOhlc();
-    if (!ohlc.length) { _chartType='line'; _render(); return; }
+    if (!ohlc.length) { _chartType='line'; _currentSeriesType=null; _render(); return; }
     _lwSeries = _lwChart.addCandlestickSeries({
       upColor:         '#26a69a',
       downColor:       '#ef5350',
@@ -1451,7 +1488,7 @@ function _render() {
     _lwSeries.setData(ohlc);
     _applyEma(ohlc.map(d=>({time:d.time,value:d.close})));
     if (_currentStyle) setTimeout(()=>applyStyle(_currentStyle), 100);
-  } else if (_chartType === 'area') {
+  } else if (targetType === 'area') {
     const ld = _getLine();
     _lwSeries = _lwChart.addAreaSeries({
       lineColor:'#c8922a', topColor:'rgba(200,146,42,0.25)', bottomColor:'rgba(200,146,42,0)',
@@ -1468,6 +1505,8 @@ function _render() {
     if (ld.length) _lwSeries.setData(ld);
     _applyEma(ld);
   }
+
+  _currentSeriesType = targetType;
   _lwChart.timeScale().scrollToRealTime();
 }
 
@@ -2210,8 +2249,8 @@ function showMsg2(id, txt, type) {
 // ═══════════════════════════════════════════
 window.addEventListener('load', async () => {
   fbInit();
-  initChart();
-
+  // Init chart TANPA render dulu — chart akan dirender setelah data siap
+  _initLw();
 
   // Auto-connect dulu kalau wallet sudah pernah connect
   if (window.ethereum) {
