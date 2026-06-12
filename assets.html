@@ -683,7 +683,7 @@ async function connectWallet() {
     swapLoadTokens();
     showConnected();
     setTimeout(aapInit, 500);
-    setTimeout(loadPlatformWallet, 1000);
+    loadPlatformWallet(); // load paralel tanpa delay
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -2960,7 +2960,7 @@ async function doPlatformWithdraw() {
     document.getElementById('pwWdStatus').textContent = '✅ Berhasil! INDC sudah masuk wallet Anda.';
     document.getElementById('pwWdStatus').className = 'aw-modal-status ok';
     document.getElementById('pwWdAmt').value = '';
-    setTimeout(loadPlatformWallet, 1500);
+    loadPlatformWallet();
   } catch(e) {
     document.getElementById('pwWdStatus').textContent = '❌ Gagal: ' + (e.reason || e.message || '');
     document.getElementById('pwWdStatus').className = 'aw-modal-status err';
@@ -2979,12 +2979,13 @@ const PW_ERC20_ABI = [
 ];
 
 async function loadPlatformWallet() {
-  const activeWallet   = userAddress;
-  const activeProvider = provider;
-  if (!activeProvider || !activeWallet) return;
+  const activeWallet = userAddress;
+  if (!activeWallet) return;
+  // Pakai public RPC agar lebih cepat
+  const publicRpc = new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
   try {
-    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        activeProvider);
-    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, activeProvider);
+    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        publicRpc);
+    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, publicRpc);
 
     const [indcBal, usdtBal, indcPrice] = await Promise.all([
       pw.getBalance(activeWallet, PW_INDC),
