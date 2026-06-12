@@ -671,7 +671,12 @@ Kuasai semua program: Welcome Staking, Flexi Yield, Dynamic Level, Growth Lock, 
             context: 'Dokumen resmi fitur Indocoin. Gunakan isi dokumen ini untuk menjawab.'
           }));
           // Tambah pertanyaan user sebagai text terakhir
-          contentParts.push({ type: 'text', text: msg.content });
+          if (Array.isArray(msg.content)) {
+            // Content sudah array (ada gambar) — gabungkan
+            contentParts.push(...msg.content);
+          } else {
+            contentParts.push({ type: 'text', text: msg.content || '' });
+          }
           return { role: 'user', content: contentParts };
         }
         return msg;
