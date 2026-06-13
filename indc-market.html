@@ -1227,7 +1227,7 @@ function switchHist(f) {
 let _chart;
 let _emaActive  = { 7:false, 25:false, 99:false };
 let _chartPricePoints = [];
-let _chartType  = 'line';
+let _chartType  = 'area';
 let _chartTf    = '1H';
 let _chartData  = { labels:[], prices:[] };
 
@@ -1437,10 +1437,25 @@ function _getLine() {
   const src = (_chartPricePoints && _chartPricePoints.length > 0)
     ? _chartPricePoints
     : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
+
+  // Filter sesuai window timeframe — sama seperti _getOhlc
+  const tfWindowMs = {
+    '5M':5*60*1000,'15M':15*60*1000,'1H':60*60*1000,
+    '6H':6*60*60*1000,'7H':7*60*60*1000,'1D':24*60*60*1000,
+    '24H':24*60*60*1000,'7D':7*24*60*60*1000,'30D':30*24*60*60*1000
+  };
+  const windowMs = tfWindowMs[_chartTf] || 60*60*1000;
+  const nowMs = Date.now();
+  const startMs = nowMs - windowMs;
+
   const seen = new Set();
-  return src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+  const all = src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
     .sort((a,b)=>a.time-b.time)
     .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
+
+  // Filter window — jika hasil filter kosong, tampilkan semua
+  const filtered = all.filter(d => d.time * 1000 >= startMs);
+  return filtered.length >= 2 ? filtered : all;
 }
 
 function _calcEmaLw(period, data) {
