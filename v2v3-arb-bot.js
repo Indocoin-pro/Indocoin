@@ -45,8 +45,8 @@ const CONFIG = {
   V3_FEE_TIERS: [100, 500, 2500, 10000],
 
   AMOUNT_IN_USDT   : '500',     // jumlah pinjam per percobaan
-  MIN_PROFIT_USD   : 1.0,        // minimal $1 profit
-  MIN_PROFIT_PCT   : 0.008,      // min 0.8% (cover fee swap V2 0.25% + V3 + flash + slippage)
+  MIN_PROFIT_USD   : 1.20,       // minimal profit (bersih $0.30 setelah gas)
+  MIN_PROFIT_PCT   : 0.003,      // min 0.3% (cover fee swap + flash + slippage)
   MAX_PROFIT_PCT   : 0.05,       // > 5% = palsu/halusinasi
   SCAN_INTERVAL    : 15,         // detik
   EXECUTE_MODE     : false,      // false = simulasi (cek peluang dulu)

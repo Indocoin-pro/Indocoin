@@ -68,10 +68,10 @@ const CONFIG = {
     { tokenIn: 'WBNB', tokenOut: 'INDC',  amountIn: '1'    },
   ],
 
-  MIN_PROFIT_PCT : 0.005,   // 0.5% minimum profit setelah flash loan fee
+  MIN_PROFIT_PCT : 0.003,   // 0.3% minimum profit setelah flash loan fee
   MAX_PROFIT_PCT : 0.05,    // 5% maksimum — lebih dari ini = likuiditas tipis/harga palsu
   FLASH_FEE_PCT  : 0.0001,  // 0.01% flash loan fee PancakeSwap V3
-  GAS_BUFFER_USD : 0.5,     // $0.50 buffer gas
+  GAS_BUFFER_USD : 1.20,    // $1.20 buffer gas (bersih $0.30 setelah gas)
   SCAN_INTERVAL  : 5,       // 5 detik — lebih kompetitif
   MAX_TRADE_USD  : 2000,
   COOLDOWN_MS    : 35000,

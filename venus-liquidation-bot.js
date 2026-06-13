@@ -39,7 +39,7 @@ const CONFIG = {
   PANCAKE_ROUTER: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
 
   // Setting
-  MIN_PROFIT_USD     : 5,
+  MIN_PROFIT_USD     : 1.50, // bersih $0.60 setelah gas
   MAX_REPAY_USD      : 1000,
   SCAN_INTERVAL      : 15,         // detik — cek health factor
   INDEX_INTERVAL     : 3600,       // detik — scan borrower baru tiap 1 jam

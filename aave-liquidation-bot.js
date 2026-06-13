@@ -33,7 +33,7 @@ const CONFIG = {
 
   // Setting
   MIN_HEALTH_FACTOR : 1.0,
-  MIN_PROFIT_USD    : 5,
+  MIN_PROFIT_USD    : 1.50, // bersih $0.60 setelah gas
   SCAN_INTERVAL     : 15,         // detik
   INDEX_INTERVAL    : 3600,       // re-index tiap 1 jam
   INDEX_BLOCKS_BACK : 300000,     // ~10 hari blok BSC

@@ -58,7 +58,7 @@ const CONFIG = {
   ],
 
   AMOUNT_IN_USDT   : '300',   // jumlah pinjam per percobaan
-  MIN_PROFIT_USD   : 0.5,     // minimal profit
+  MIN_PROFIT_USD   : 1.20,    // minimal profit (bersih $0.30 setelah gas)
   MAX_PROFIT_PCT   : 0.05,    // > 5% = palsu, skip
   SCAN_INTERVAL    : 20,      // detik (banyak kombinasi)
   COOLDOWN_AFTER_TX: 30,      // detik setelah eksekusi
