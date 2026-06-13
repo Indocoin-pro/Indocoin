@@ -1558,36 +1558,42 @@ function _updateHLMarkers() {
   // Hapus marker lama
   wrap.querySelectorAll('.hl-marker').forEach(e => e.remove());
 
-  // Ambil data sesuai tipe chart
-  let pts = [];
-  if (_chartType === 'candle' || _chartType === 'bar') {
-    const ohlc = _getOhlc();
-    if (ohlc.length < 2) return;
-    pts = ohlc.map(c => ({ price: c.high, time: c.time }));
-    const lows = ohlc.map(c => ({ price: c.low, time: c.time }));
-    const highPt = pts.reduce((a,b) => a.price > b.price ? a : b);
-    const lowPt  = lows.reduce((a,b) => a.price < b.price ? a : b);
-    _placeMarker(wrap, highPt.price, 'H', 'hl-high');
-    _placeMarker(wrap, lowPt.price,  'L', 'hl-low');
-  } else {
-    const ld = _getLine();
-    if (ld.length < 2) return;
-    const highPt = ld.reduce((a,b) => a.value > b.value ? a : b);
-    const lowPt  = ld.reduce((a,b) => a.value < b.value ? a : b);
-    _placeMarker(wrap, highPt.value, 'H', 'hl-high');
-    _placeMarker(wrap, lowPt.value,  'L', 'hl-low');
-  }
+  // Gunakan line data (sudah difilter window timeframe) untuk cari H/L
+  const ld = _getLine();
+  if (ld.length < 2) return;
+
+  // Filter hanya dalam window timeframe aktif
+  const tfWindowMs = {
+    '5M':5*60*1000,'15M':15*60*1000,'1H':60*60*1000,
+    '6H':6*60*60*1000,'7H':7*60*60*1000,'1D':24*60*60*1000,
+    '24H':24*60*60*1000,'7D':7*24*60*60*1000,'30D':30*24*60*60*1000
+  };
+  const windowMs = tfWindowMs[_chartTf] || 60*60*1000;
+  const nowSec = Math.floor(Date.now()/1000);
+  const startSec = nowSec - Math.floor(windowMs/1000);
+  const filtered = ld.filter(d => d.time >= startSec);
+  const pts = filtered.length >= 2 ? filtered : ld;
+
+  const highPt = pts.reduce((a,b) => a.value > b.value ? a : b);
+  const lowPt  = pts.reduce((a,b) => a.value < b.value ? a : b);
+
+  _placeMarker(wrap, highPt.value, 'H', 'hl-high');
+  _placeMarker(wrap, lowPt.value,  'L', 'hl-low');
 }
 
 function _placeMarker(wrap, price, label, cls) {
   if (!_lwSeries || price <= 0) return;
   try {
-    const y = _lwSeries.priceToCoordinate(price);
-    if (y === null || y === undefined) return;
     const el = document.createElement('div');
     el.className = 'hl-marker ' + cls;
     el.textContent = label + ' $' + price.toFixed(5);
-    el.style.top  = Math.max(2, y - 10) + 'px';
+    // H selalu di atas (top), L selalu di bawah (bottom) — tidak mengikuti koordinat harga
+    if (label === 'H') {
+      el.style.top  = '4px';
+    } else {
+      el.style.bottom = '22px'; // di atas label waktu
+      el.style.top = 'auto';
+    }
     el.style.left = '4px';
     wrap.style.position = 'relative';
     wrap.appendChild(el);
