@@ -2980,7 +2980,24 @@ async function loadPlatformWallet() {
   const activeWallet = userAddress;
   if (!activeWallet) return;
   // Pakai public RPC agar lebih cepat
-  const publicRpc = new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org');
+  // Multi-RPC fallback agar tidak loading lama
+  const BSC_RPCS_PW = [
+    'https://bsc-dataseed1.binance.org/',
+    'https://bsc-dataseed2.binance.org/',
+    'https://bsc-dataseed3.binance.org/',
+    'https://bsc-dataseed4.binance.org/',
+    'https://rpc.ankr.com/bsc',
+  ];
+  let publicRpc = null;
+  for (const rpc of BSC_RPCS_PW) {
+    try {
+      const p = new ethers.JsonRpcProvider(rpc);
+      await Promise.race([p.getBlockNumber(), new Promise((_,r) => setTimeout(() => r('timeout'), 3000))]);
+      publicRpc = p;
+      break;
+    } catch(e) { continue; }
+  }
+  if (!publicRpc) publicRpc = new ethers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
   try {
     const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        publicRpc);
     const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, publicRpc);
