@@ -1434,33 +1434,13 @@ function _getOhlc() {
 }
 
 function _getLine() {
-  const now = Date.now();
-  let rawPts = [];
-
-  // 1. Firebase prices
-  if (window._fbPrices && window._fbPrices.length > 0) {
-    window._fbPrices.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
-  }
-  // 2. _chartPricePoints (onchain listed events)
-  if (_chartPricePoints && _chartPricePoints.length > 0) {
-    _chartPricePoints.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
-  }
-  // 3. Harga sekarang
-  if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: now });
-
-  // Exclude titik deploy awal (harga 0.020)
-  rawPts = rawPts.filter(p => Math.abs(p.price - 0.020) > 0.0001);
-
-  // Sort + dedupe
-  rawPts.sort((a,b) => a.time - b.time);
-
-  // Convert ke format LW (detik)
+  const src = (_chartPricePoints && _chartPricePoints.length > 0)
+    ? _chartPricePoints
+    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
   const seen = new Set();
-  const all = rawPts.map(d => ({ time: Math.floor(d.time / 1000), value: d.price }))
-    .filter(d => { if (seen.has(d.time)) return false; seen.add(d.time); return true; });
-
-  if (all.length === 0) return [];
-  return all;
+  return src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+    .sort((a,b)=>a.time-b.time)
+    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
 }
 
 function _calcEmaLw(period, data) {
