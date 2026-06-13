@@ -118,6 +118,9 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 .chart-pinfo{text-align:right;}
 .chart-pval{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--green);display:block;}
+.hl-marker{position:absolute;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;pointer-events:none;z-index:10;letter-spacing:0.5px;white-space:nowrap;}
+.hl-high{color:#26a69a;background:rgba(38,166,154,0.12);border:1px solid rgba(38,166,154,0.3);}
+.hl-low{color:#ef5350;background:rgba(239,83,80,0.12);border:1px solid rgba(239,83,80,0.3);}
 .chart-pchg{font-family:'DM Mono',monospace;font-size:9px;}
 .chart-pchg.up{color:var(--green);}
 .chart-pchg.dn{color:var(--red);}
@@ -1494,6 +1497,7 @@ function _render() {
           _applyEma(ld);
         }
       }
+      setTimeout(_updateHLMarkers, 50);
       return; // tidak perlu recreate
     } catch(e) {
       // Jika gagal update → fall through ke recreate
@@ -1541,10 +1545,54 @@ function _render() {
 
   _currentSeriesType = targetType;
   _lwChart.timeScale().scrollToRealTime();
+  setTimeout(_updateHLMarkers, 50);
 }
 
 function initChart() { _initLw(); }
 function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
+
+function _updateHLMarkers() {
+  const wrap = document.getElementById('priceChartDiv');
+  if (!wrap || !_lwChart) return;
+
+  // Hapus marker lama
+  wrap.querySelectorAll('.hl-marker').forEach(e => e.remove());
+
+  // Ambil data sesuai tipe chart
+  let pts = [];
+  if (_chartType === 'candle' || _chartType === 'bar') {
+    const ohlc = _getOhlc();
+    if (ohlc.length < 2) return;
+    pts = ohlc.map(c => ({ price: c.high, time: c.time }));
+    const lows = ohlc.map(c => ({ price: c.low, time: c.time }));
+    const highPt = pts.reduce((a,b) => a.price > b.price ? a : b);
+    const lowPt  = lows.reduce((a,b) => a.price < b.price ? a : b);
+    _placeMarker(wrap, highPt.price, 'H', 'hl-high');
+    _placeMarker(wrap, lowPt.price,  'L', 'hl-low');
+  } else {
+    const ld = _getLine();
+    if (ld.length < 2) return;
+    const highPt = ld.reduce((a,b) => a.value > b.value ? a : b);
+    const lowPt  = ld.reduce((a,b) => a.value < b.value ? a : b);
+    _placeMarker(wrap, highPt.value, 'H', 'hl-high');
+    _placeMarker(wrap, lowPt.value,  'L', 'hl-low');
+  }
+}
+
+function _placeMarker(wrap, price, label, cls) {
+  if (!_lwSeries || price <= 0) return;
+  try {
+    const y = _lwSeries.priceToCoordinate(price);
+    if (y === null || y === undefined) return;
+    const el = document.createElement('div');
+    el.className = 'hl-marker ' + cls;
+    el.textContent = label + ' $' + price.toFixed(5);
+    el.style.top  = Math.max(2, y - 10) + 'px';
+    el.style.left = '4px';
+    wrap.style.position = 'relative';
+    wrap.appendChild(el);
+  } catch(e) {}
+}
 
 function addChartPoint(price) {
   const now = new Date();
