@@ -1378,18 +1378,6 @@ function _getOhlc() {
   // 4. Harga sekarang sebagai titik terakhir
   if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: now });
 
-  // Filter rawPts sesuai window timeframe — hindari spike dari data jauh
-  const tfWindowMs = {
-    '5M': 5*60*1000, '15M': 15*60*1000, '1H': 60*60*1000,
-    '6H': 6*60*60*1000, '7H': 7*60*60*1000, '1D': 24*60*60*1000,
-    '24H': 24*60*60*1000, '7D': 7*24*60*60*1000, '30D': 30*24*60*60*1000
-  };
-  const windowMs = tfWindowMs[_chartTf] || 60*60*1000;
-  // Selalu sertakan titik awal 1 interval sebelum window untuk kontinuitas garis
-  const windowStart = now - windowMs - intervalMs;
-  rawPts = rawPts.filter(p => p.time >= windowStart);
-  if (rawPts.length === 0) rawPts = [{ price: _currentPrice || 0.01437, time: now - windowMs }, { price: _currentPrice || 0.01437, time: now }];
-
   // Sort dan dedupe
   rawPts.sort((a,b) => a.time - b.time);
   rawPts = rawPts.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
