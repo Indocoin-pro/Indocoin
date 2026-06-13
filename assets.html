@@ -683,7 +683,6 @@ async function connectWallet() {
     swapLoadTokens();
     showConnected();
     setTimeout(aapInit, 500);
-    loadPlatformWallet(); // load paralel tanpa delay
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -748,8 +747,9 @@ async function loadWalletData() {
     updateUI(bnbPrice, indcPrice, 0, []);
   }
 
-  // Load Game Savings
+  // Load Game Savings + Platform Wallet paralel
   loadSavingsBalance();
+  loadPlatformWallet();
 }
 
 function updateUI(bnbPrice, indcPrice, bnbChg, priceHistory=[]) {
@@ -2979,28 +2979,10 @@ const PW_ERC20_ABI = [
 async function loadPlatformWallet() {
   const activeWallet = userAddress;
   if (!activeWallet) return;
-  // Pakai public RPC agar lebih cepat
-  // Multi-RPC fallback agar tidak loading lama
-  const BSC_RPCS_PW = [
-    'https://bsc-dataseed1.binance.org/',
-    'https://bsc-dataseed2.binance.org/',
-    'https://bsc-dataseed3.binance.org/',
-    'https://bsc-dataseed4.binance.org/',
-    'https://rpc.ankr.com/bsc',
-  ];
-  let publicRpc = null;
-  for (const rpc of BSC_RPCS_PW) {
-    try {
-      const p = new ethers.JsonRpcProvider(rpc);
-      await Promise.race([p.getBlockNumber(), new Promise((_,r) => setTimeout(() => r('timeout'), 3000))]);
-      publicRpc = p;
-      break;
-    } catch(e) { continue; }
-  }
-  if (!publicRpc) publicRpc = new ethers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
+  // Pakai provider wallet langsung — sama seperti loadWalletData()
   try {
-    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        publicRpc);
-    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, publicRpc);
+    const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        provider);
+    const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, provider);
 
     const [indcBal, usdtBal, indcPrice] = await Promise.all([
       pw.getBalance(activeWallet, PW_INDC),
@@ -3027,7 +3009,32 @@ async function loadPlatformWallet() {
     document.getElementById('pwBalUsdt').textContent   = fmt2(usdt) + ' USDT';
 
   } catch(e) {
-    console.warn('loadPlatformWallet:', e);
+    console.warn('loadPlatformWallet error:', e.message || e);
+    // Fallback: coba pakai signer langsung
+    try {
+      if (!window._signer && !signer) return;
+      const activeSigner = window._signer || signer;
+      const pw     = new ethers.Contract(PW_WALLET,  PW_ABI,        activeSigner);
+      const market = new ethers.Contract(PW_MARKET,  PW_MARKET_ABI, activeSigner);
+      const [indcBal, usdtBal, indcPrice] = await Promise.all([
+        pw.getBalance(activeWallet, PW_INDC),
+        pw.getBalance(activeWallet, PW_USDT),
+        market.currentPrice(),
+      ]);
+      const indc    = parseFloat(ethers.formatUnits(indcBal,  9));
+      const usdt    = parseFloat(ethers.formatUnits(usdtBal,  18));
+      const price   = parseFloat(ethers.formatUnits(indcPrice, 18));
+      const indcUsd = indc * price;
+      const totalUsd= indcUsd + usdt;
+      const idrRate = window._idrRate || 16500;
+      const fmt2 = v => v.toLocaleString('id-ID', {maximumFractionDigits:2});
+      const fmtI = v => v.toLocaleString('id-ID', {maximumFractionDigits:0});
+      document.getElementById('pwTotalUSD').textContent  = '$' + fmt2(totalUsd);
+      document.getElementById('pwTotalIDR').textContent  = '≈ Rp ' + fmtI(totalUsd * idrRate);
+      document.getElementById('pwBalIndc').textContent   = fmtI(indc) + ' INDC';
+      document.getElementById('pwBalIndcUsd').textContent= '≈ $' + fmt2(indcUsd);
+      document.getElementById('pwBalUsdt').textContent   = fmt2(usdt) + ' USDT';
+    } catch(e2) { console.warn('loadPlatformWallet fallback gagal:', e2.message || e2); }
   }
 }
 
