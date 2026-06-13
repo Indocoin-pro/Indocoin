@@ -902,6 +902,10 @@ footer {
   border-radius: 6px;
   white-space: nowrap;
 }
+@keyframes rcSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
 </style>
 <script src="wallet-bridge.js"></script>
 </head>
@@ -1650,9 +1654,28 @@ function setLang(lang) {
     localStorage.setItem('indocoin_ref', decodeURIComponent(ref));
   }
 
-  // Jika ada ref → SELALU redirect ke Sanjaya
+  // Jika ada ref → tampilkan popup pilihan
   if (ref && action === 'signup') {
-    window.location.href = 'sanjaya-ai.html?ref=' + encodeURIComponent(ref);
+    window.addEventListener('load', () => {
+      const overlay = document.createElement('div');
+      overlay.id = 'refChoiceOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+      overlay.innerHTML = `
+        <div style="background:#ffffff;border-radius:20px 20px 0 0;padding:32px 24px 40px;width:100%;max-width:420px;text-align:center;animation:rcSlideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both;">
+          <div style="width:40px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 24px;"></div>
+          <div style="font-size:20px;font-weight:800;color:#111;margin-bottom:8px;letter-spacing:0.3px;">🦅 Selamat Datang di INDOCOIN</div>
+          <div style="font-size:13px;color:#666;margin-bottom:28px;line-height:1.5;">Kamu diundang bergabung. Mau mulai dengan cara apa?</div>
+          <button onclick="window.location.href='sanjaya-ai.html?ref=${encodeURIComponent(ref)}'" style="display:block;width:100%;padding:16px 20px;background:#f5c842;border:none;border-radius:14px;cursor:pointer;margin-bottom:12px;text-align:left;">
+            <span style="font-size:15px;font-weight:700;color:#1a1a1a;display:block;margin-bottom:3px;">🤖 Dipandu Sanjaya AI</span>
+            <span style="font-size:11px;color:#5a4a00;">Panduan langkah demi langkah</span>
+          </button>
+          <button onclick="document.getElementById('refChoiceOverlay').remove();if(typeof showSignUp==='function')showSignUp();" style="display:block;width:100%;padding:16px 20px;background:#ffffff;border:1.5px solid #d0d0d0;border-radius:14px;cursor:pointer;text-align:left;">
+            <span style="font-size:15px;font-weight:700;color:#1a1a1a;display:block;margin-bottom:3px;">✍️ Daftar Mandiri</span>
+            <span style="font-size:11px;color:#888;">Saya sudah paham caranya</span>
+          </button>
+        </div>`;
+      document.body.appendChild(overlay);
+    });
     return;
   }
 
