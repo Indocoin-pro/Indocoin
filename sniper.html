@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>INDOCOIN — Sniper Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080808;--bg2:#111;--bg3:#1a1a1a;
+  --gold:#c8922a;--gold2:#e8a830;--gold3:#f5c842;
+  --green:#22c55e;--red:#ef4444;--blue:#3b82f6;
+  --muted:#6b7280;--muted2:#9ca3af;
+  --border:rgba(200,146,42,0.18);
+  --text:#f5f0e8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+.topbar{background:rgba(10,15,30,0.97);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-title{font-family:'Orbitron',sans-serif;font-size:13px;color:var(--gold2);letter-spacing:2px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.container{padding:16px;max-width:480px;margin:0 auto;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+.sec-hd{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--gold);letter-spacing:3px;margin:20px 0 10px;display:flex;align-items:center;gap:10px;}
+.sec-hd::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat-box{background:var(--bg3);border-radius:8px;padding:12px;text-align:center;}
+.stat-label{font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.stat-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:var(--gold2);}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.btn{width:100%;padding:13px;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:8px;}
+.btn-gold{background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;}
+.btn-red{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:var(--red);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted2);}
+.input-row{margin-bottom:10px;}
+.input-label{font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+.inp{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.toggle-label{font-size:9px;color:var(--muted2);letter-spacing:1px;}
+.toggle{width:40px;height:22px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;position:relative;cursor:pointer;transition:background .3s;}
+.toggle.on{background:var(--gold);}
+.toggle::after{content:'';width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .3s;}
+.toggle.on::after{left:20px;}
+.trade-row{padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:10px;}
+.trade-sym{color:var(--gold2);font-weight:700;}
+.trade-pl.profit{color:var(--green);}
+.trade-pl.loss{color:var(--red);}
+.posisi-row{background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:8px;font-size:10px;}
+.posisi-sym{color:var(--gold2);font-size:12px;font-weight:700;margin-bottom:4px;}
+.log-box{background:#000;border-radius:8px;padding:10px;height:200px;overflow-y:auto;font-size:9px;color:#4ade80;line-height:1.6;}
+.msg{font-size:10px;padding:8px;border-radius:6px;margin-bottom:8px;text-align:center;}
+.msg.ok{background:rgba(34,197,94,0.1);color:var(--green);}
+.msg.err{background:rgba(239,68,68,0.1);color:var(--red);}
+.msg.inf{background:rgba(59,130,246,0.1);color:var(--blue);}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:700;}
+.badge-green{background:rgba(34,197,94,0.15);color:var(--green);}
+.badge-red{background:rgba(239,68,68,0.15);color:var(--red);}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">⚡ SNIPER BOT</div>
+  <div style="font-size:9px;color:var(--muted2);">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusTxt">LOADING...</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- STATS -->
+  <div class="sec-hd">STATISTIK</div>
+  <div class="stat-grid">
+    <div class="stat-box">
+      <div class="stat-label">SALDO BOT</div>
+      <div class="stat-val" id="statSaldo">$—</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">TOTAL TRADE</div>
+      <div class="stat-val" id="statTrade">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">TOTAL PROFIT</div>
+      <div class="stat-val green" id="statProfit">$—</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">TOTAL LOSS</div>
+      <div class="stat-val red" id="statLoss">$—</div>
+    </div>
+  </div>
+
+  <!-- SNIPER WALLET -->
+  <div class="sec-hd">SNIPER WALLET</div>
+  <div class="card">
+    <div class="stat-grid" style="margin-bottom:12px;">
+      <div class="stat-box">
+        <div class="stat-label">SALDO AKTIF</div>
+        <div class="stat-val" id="vaultSaldo">$—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">SEDANG TRADING</div>
+        <div class="stat-val" id="vaultAktif">$—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">TOTAL PROFIT</div>
+        <div class="stat-val green" id="vaultProfit">$—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">TOTAL LOSS</div>
+        <div class="stat-val red" id="vaultLoss">$—</div>
+      </div>
+    </div>
+    <div class="input-row">
+      <div class="input-label">DEPOSIT USDT</div>
+      <input class="inp" type="number" id="inpDeposit" placeholder="Min $3" step="1" min="3">
+    </div>
+    <div id="msgDeposit"></div>
+    <button class="btn btn-gold" onclick="doDeposit()">💰 DEPOSIT</button>
+    <div class="input-row" style="margin-top:10px;">
+      <div class="input-label">WITHDRAW USDT</div>
+      <input class="inp" type="number" id="inpWithdraw" placeholder="Jumlah withdraw" step="1" min="1">
+    </div>
+    <div id="msgWithdraw"></div>
+    <button class="btn btn-outline" onclick="doWithdraw()">📤 WITHDRAW</button>
+  </div>
+
+  <!-- KONTROL BOT -->
+  <div class="sec-hd">KONTROL</div>
+  <div class="card">
+    <div class="toggle-row">
+      <div class="toggle-label">STATUS BOT</div>
+      <div class="toggle" id="toggleBot" onclick="toggleBot()"></div>
+    </div>
+    <div style="height:10px;"></div>
+    <button class="btn btn-gold" onclick="loadStats()">🔄 REFRESH DATA</button>
+    <button class="btn btn-outline" onclick="loadLog()">📋 LIHAT LOG</button>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="sec-hd">KONFIGURASI</div>
+  <div class="card">
+    <div class="input-row">
+      <div class="input-label">MODAL PER SIKLUS (USDT)</div>
+      <input class="inp" type="number" id="cfgModal" step="0.1" min="1">
+    </div>
+    <div class="input-row">
+      <div class="input-label">TARGET PROFIT (%)</div>
+      <input class="inp" type="number" id="cfgTarget" step="1" min="1">
+    </div>
+    <div class="input-row">
+      <div class="input-label">STOP LOSS (%)</div>
+      <input class="inp" type="number" id="cfgStopLoss" step="1" min="1">
+    </div>
+    <div class="input-row">
+      <div class="input-label">TRAILING STOP (%)</div>
+      <input class="inp" type="number" id="cfgTrailing" step="1" min="1">
+    </div>
+    <div class="input-row">
+      <div class="input-label">MIN LIKUIDITAS (USD)</div>
+      <input class="inp" type="number" id="cfgLiq" step="100" min="100">
+    </div>
+    <div class="input-row">
+      <div class="input-label">MIN UMUR CONTRACT (MENIT)</div>
+      <input class="inp" type="number" id="cfgUmur" step="1" min="0">
+    </div>
+    <div id="msgConfig"></div>
+    <button class="btn btn-gold" onclick="simpanConfig()">💾 SIMPAN CONFIG</button>
+  </div>
+
+  <!-- BLACKLIST -->
+  <div class="sec-hd">BLACKLIST TOKEN</div>
+  <div class="card">
+    <div class="input-row">
+      <div class="input-label">TOKEN ADDRESS</div>
+      <input class="inp" type="text" id="inpBlacklist" placeholder="0x...">
+    </div>
+    <div id="msgBlacklist"></div>
+    <button class="btn btn-red" onclick="tambahBlacklist()">🚫 TAMBAH BLACKLIST</button>
+    <div id="blacklistList" style="margin-top:10px;font-size:9px;color:var(--muted);"></div>
+  </div>
+
+  <!-- POSISI AKTIF -->
+  <div class="sec-hd">POSISI AKTIF</div>
+  <div id="posisiContainer">
+    <div style="font-size:10px;color:var(--muted);text-align:center;padding:20px;">Tidak ada posisi aktif</div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="sec-hd">HISTORY TRADE</div>
+  <div class="card" id="historyContainer">
+    <div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Belum ada trade</div>
+  </div>
+
+  <!-- LOG -->
+  <div class="sec-hd" id="logSection" style="display:none;">LOG BOT</div>
+  <div class="card" id="logContainer" style="display:none;">
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+</div>
+
+<script>
+const API    = 'https://sniper.indocoin.id';
+const SECRET = 'INDOCOIN_SNIPER_2026';
+const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SECRET}` };
+
+async function loadStats() {
+  try {
+    const res  = await fetch(`${API}/stats`);
+    const data = await res.json();
+    if (!data.ok) return;
+    const d = data.data;
+
+    // Status
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusTxt');
+    dot.style.background = d.aktif ? 'var(--green)' : 'var(--red)';
+    txt.textContent      = d.aktif ? 'AKTIF' : 'NONAKTIF';
+
+    // Toggle
+    const toggle = document.getElementById('toggleBot');
+    toggle.classList.toggle('on', d.aktif);
+
+    // Stats
+    document.getElementById('statSaldo').textContent  = `$${d.saldoBot.toFixed(2)}`;
+    document.getElementById('statTrade').textContent  = d.totalTrade;
+    document.getElementById('statProfit').textContent = `$${d.totalProfit.toFixed(4)}`;
+    document.getElementById('statLoss').textContent   = `$${d.totalLoss.toFixed(4)}`;
+
+    // Config
+    if (d.config) {
+      const b = d.config.bot;
+      document.getElementById('cfgModal').value    = b.modalPerSiklus;
+      document.getElementById('cfgTarget').value   = b.targetProfitPct;
+      document.getElementById('cfgStopLoss').value = b.stopLossPct;
+      document.getElementById('cfgTrailing').value = b.trailingStopPct;
+      document.getElementById('cfgLiq').value      = b.minLikuiditasUSD;
+      document.getElementById('cfgUmur').value     = b.minUmurMenit;
+
+      // Blacklist
+      const bl = d.config.filter?.blacklistToken || [];
+      document.getElementById('blacklistList').innerHTML =
+        bl.map(t => `<div style="margin-bottom:2px;">• ${t}</div>`).join('');
+    }
+
+    // Posisi aktif
+    renderPosisi(d.posisiAktif || []);
+
+    // History
+    renderHistory(d.historyTrade || []);
+
+  } catch(e) {
+    document.getElementById('statusTxt').textContent = 'OFFLINE';
+    document.getElementById('statusDot').style.background = 'var(--red)';
+  }
+}
+
+function renderPosisi(list) {
+  const el = document.getElementById('posisiContainer');
+  if (!list.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:20px;">Tidak ada posisi aktif</div>';
+    return;
+  }
+  el.innerHTML = list.map(p => {
+    const durasi = Math.floor((Date.now() - p.waktuBeli) / 60000);
+    return `
+      <div class="posisi-row">
+        <div class="posisi-sym">${p.symbol || '???'}</div>
+        <div style="color:var(--muted2);">Modal: $${p.modal} | Beli: $${p.hargaBeli?.toFixed(8) || '—'}</div>
+        <div style="color:var(--muted);">Durasi: ${durasi} menit | Puncak: $${(p.puncak||0).toFixed(4)}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px;">${p.tokenAddress}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderHistory(list) {
+  const el = document.getElementById('historyContainer');
+  if (!list.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:10px;">Belum ada trade</div>';
+    return;
+  }
+  const rows = [...list].reverse().slice(0, 20).map(t => {
+    const plClass = t.pl >= 0 ? 'profit' : 'loss';
+    const plSign  = t.pl >= 0 ? '+' : '';
+    const tgl     = new Date(t.waktuJual).toLocaleString('id-ID', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+    return `
+      <div class="trade-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="trade-sym">${t.symbol || '???'}</span>
+          <span class="trade-pl ${plClass}">${plSign}$${t.pl.toFixed(4)} (${plSign}${t.profitPct.toFixed(2)}%)</span>
+        </div>
+        <div style="color:var(--muted);font-size:9px;margin-top:2px;">${t.alasan} | ${tgl}</div>
+      </div>`;
+  }).join('');
+  el.innerHTML = rows;
+}
+
+async function toggleBot() {
+  try {
+    const res  = await fetch(`${API}/toggle`, { method: 'POST', headers });
+    const data = await res.json();
+    if (data.ok) await loadStats();
+  } catch(e) { alert('Gagal toggle bot'); }
+}
+
+async function simpanConfig() {
+  const msg = document.getElementById('msgConfig');
+  try {
+    const body = {
+      bot: {
+        modalPerSiklus   : parseFloat(document.getElementById('cfgModal').value),
+        targetProfitPct  : parseFloat(document.getElementById('cfgTarget').value),
+        stopLossPct      : parseFloat(document.getElementById('cfgStopLoss').value),
+        trailingStopPct  : parseFloat(document.getElementById('cfgTrailing').value),
+        minLikuiditasUSD : parseFloat(document.getElementById('cfgLiq').value),
+        minUmurMenit     : parseFloat(document.getElementById('cfgUmur').value),
+      }
+    };
+    const res  = await fetch(`${API}/config`, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await res.json();
+    msg.innerHTML = `<div class="msg ${data.ok ? 'ok' : 'err'}">${data.ok ? '✅ Config tersimpan' : '❌ ' + data.error}</div>`;
+    if (data.ok) setTimeout(() => msg.innerHTML = '', 3000);
+  } catch(e) {
+    msg.innerHTML = `<div class="msg err">❌ Gagal simpan config</div>`;
+  }
+}
+
+async function tambahBlacklist() {
+  const token = document.getElementById('inpBlacklist').value.trim();
+  const msg   = document.getElementById('msgBlacklist');
+  if (!token.startsWith('0x')) {
+    msg.innerHTML = '<div class="msg err">❌ Address tidak valid</div>';
+    return;
+  }
+  try {
+    const res  = await fetch(`${API}/blacklist`, { method: 'POST', headers, body: JSON.stringify({ token }) });
+    const data = await res.json();
+    msg.innerHTML = `<div class="msg ${data.ok ? 'ok' : 'err'}">${data.ok ? '✅ Ditambahkan ke blacklist' : '❌ ' + data.error}</div>`;
+    if (data.ok) {
+      document.getElementById('inpBlacklist').value = '';
+      setTimeout(() => { msg.innerHTML = ''; loadStats(); }, 2000);
+    }
+  } catch(e) {
+    msg.innerHTML = '<div class="msg err">❌ Gagal tambah blacklist</div>';
+  }
+}
+
+async function loadLog() {
+  try {
+    const sec = document.getElementById('logSection');
+    const con = document.getElementById('logContainer');
+    sec.style.display = 'flex';
+    con.style.display = 'block';
+    const res  = await fetch(`${API}/log`, { headers });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('logBox').innerHTML =
+        data.log.map(l => `<div>${l}</div>`).join('');
+      document.getElementById('logBox').scrollTop = 99999;
+    }
+  } catch(e) { alert('Gagal load log'); }
+}
+
+// ── Vault Functions ──────────────────────────────────────────────────────────
+const VAULT_CA = 'DEPLOY_DULU_ISI_NANTI';
+const USDT_CA  = '0x55d398326f99059fF775485246999027B3197955';
+const VAULT_ABI = [
+  'function deposit(uint256 amount) external',
+  'function withdraw(uint256 amount) external',
+  'function getUserInfo(address user) external view returns (uint256,uint256,uint256,uint256,uint256,uint256,bool)',
+  'function getGlobalStats() external view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)'
+];
+const ERC20_ABI = [
+  'function approve(address,uint256) returns (bool)',
+  'function allowance(address,address) view returns (uint256)'
+];
+
+let _provider, _signer, _wallet;
+
+async function connectWallet() {
+  if (!window.ethereum) { alert('Install wallet dulu!'); return; }
+  _provider = new ethers.BrowserProvider(window.ethereum);
+  _signer   = await _provider.getSigner();
+  _wallet   = await _signer.getAddress();
+  await loadVaultInfo();
+}
+
+async function loadVaultInfo() {
+  if (!_signer || VAULT_CA === 'DEPLOY_DULU_ISI_NANTI') return;
+  try {
+    const vault = new ethers.Contract(VAULT_CA, VAULT_ABI, _provider);
+    const info  = await vault.getUserInfo(_wallet);
+    document.getElementById('vaultSaldo').textContent  = `$${parseFloat(ethers.formatUnits(info[0], 18)).toFixed(2)}`;
+    document.getElementById('vaultAktif').textContent  = `$${parseFloat(ethers.formatUnits(info[1], 18)).toFixed(2)}`;
+    document.getElementById('vaultProfit').textContent = `$${parseFloat(ethers.formatUnits(info[3], 18)).toFixed(4)}`;
+    document.getElementById('vaultLoss').textContent   = `$${parseFloat(ethers.formatUnits(info[4], 18)).toFixed(4)}`;
+  } catch(e) { console.warn('loadVaultInfo:', e.message); }
+}
+
+async function doDeposit() {
+  if (!_signer) { await connectWallet(); return; }
+  const amt = parseFloat(document.getElementById('inpDeposit').value || 0);
+  const msg = document.getElementById('msgDeposit');
+  if (amt < 3) { msg.innerHTML = '<div class="msg err">❌ Minimum deposit $3</div>'; return; }
+  try {
+    msg.innerHTML = '<div class="msg inf">⏳ Approve USDT...</div>';
+    const usdt  = new ethers.Contract(USDT_CA, ERC20_ABI, _signer);
+    const vault = new ethers.Contract(VAULT_CA, VAULT_ABI, _signer);
+    const amtWei = ethers.parseUnits(amt.toFixed(6), 18);
+    const allow  = await usdt.allowance(_wallet, VAULT_CA);
+    if (allow < amtWei) {
+      const txA = await usdt.approve(VAULT_CA, ethers.MaxUint256);
+      await txA.wait();
+    }
+    msg.innerHTML = '<div class="msg inf">⏳ Deposit...</div>';
+    const tx = await vault.deposit(amtWei);
+    await tx.wait();
+    msg.innerHTML = '<div class="msg ok">✅ Deposit berhasil!</div>';
+    document.getElementById('inpDeposit').value = '';
+    setTimeout(() => { msg.innerHTML = ''; loadVaultInfo(); }, 2000);
+  } catch(e) {
+    msg.innerHTML = `<div class="msg err">❌ ${e.reason || e.message}</div>`;
+  }
+}
+
+async function doWithdraw() {
+  if (!_signer) { await connectWallet(); return; }
+  const amt = parseFloat(document.getElementById('inpWithdraw').value || 0);
+  const msg = document.getElementById('msgWithdraw');
+  if (amt <= 0) { msg.innerHTML = '<div class="msg err">❌ Masukkan jumlah</div>'; return; }
+  try {
+    msg.innerHTML = '<div class="msg inf">⏳ Withdraw...</div>';
+    const vault  = new ethers.Contract(VAULT_CA, VAULT_ABI, _signer);
+    const amtWei = ethers.parseUnits(amt.toFixed(6), 18);
+    const tx     = await vault.withdraw(amtWei);
+    await tx.wait();
+    msg.innerHTML = '<div class="msg ok">✅ Withdraw berhasil!</div>';
+    document.getElementById('inpWithdraw').value = '';
+    setTimeout(() => { msg.innerHTML = ''; loadVaultInfo(); }, 2000);
+  } catch(e) {
+    msg.innerHTML = `<div class="msg err">❌ ${e.reason || e.message}</div>`;
+  }
+}
+
+// Auto refresh setiap 10 detik
+loadStats();
+setInterval(loadStats, 10000);
+</script>
+</body>
+</html>
