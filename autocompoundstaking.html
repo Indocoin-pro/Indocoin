@@ -9,32 +9,58 @@
 <title>INDOCOIN — Auto Compound Staking</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
-// ── Upstream Bonus Hook ──────────────────────────────────────
-const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
-const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
-const RM_CA="0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
-const RM_ABI=["function getUserInfo(address _user) external view returns (bool registered,address upline,uint256 joinTime,uint256 totalRefBonus,uint256 totalDownlineCount,uint8[] memory programs)"];
-
-async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
+// ── ActivityBonus: Downstream Bonus (V1 + V2) ──────────────────────────────
+const ACTIVITY_BONUS_CA_V1 = "0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_CA_V2 = "0xf65fcabCb22D219D61441e9B8d4dA1c4856F1740";
+const ACTIVITY_BONUS_ABI   = ["function recordActivity(address actor,uint256 usdtAmount,string memory indicator,address[] calldata recipients) external"];
+const RM_CA_AB             = "0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const RM_ABI_AB            = ["function getDirectDownlines(address _user) external view returns (address[])"];
+const MARKET_CA_AB         = "0xAA488c83Dbf3bDd93543559150a0180AB56BB42E";
+const MARKET_ABI_AB        = ["function currentPrice() view returns (uint256)"];
+async function recordDownstreamBonus(actor, indcAmount, indicator, signerRef) {
   try {
-    const rm = new ethers.Contract(RM_CA, RM_ABI, signerRef);
-    const downlines = [];
-    let current = buyer;
-    for(let i=0;i<10;i++){
-      try{
-        const info = await rm.getUserInfo(current);
-        if(!info.registered||info.upline===ethers.constants.AddressZero) break;
-        downlines.push(info.upline);
-        current = info.upline;
-      }catch(e){break;}
+    // Konversi INDC → USDT menggunakan harga oracle Market (fallback $0.003)
+    let indcPriceUsdt = 0.003;
+    try {
+      const mkt = new ethers.Contract(MARKET_CA_AB, MARKET_ABI_AB, signerRef);
+      const priceRaw = await mkt.currentPrice(); // USDT per INDC, dec 18
+      indcPriceUsdt = parseFloat(ethers.formatUnits(priceRaw, 18));
+    } catch(e) {}
+    const usdtAmount = indcAmount * indcPriceUsdt;
+
+    const rm = new ethers.Contract(RM_CA_AB, RM_ABI_AB, signerRef);
+    const recipients = [];
+    const queue = [actor];
+    const visited = new Set([actor.toLowerCase()]);
+    while (queue.length > 0 && recipients.length < 10) {
+      const current = queue.shift();
+      let children = [];
+      try { children = await rm.getDirectDownlines(current); } catch(e) { continue; }
+      for (const c of children) {
+        if (recipients.length >= 10) break;
+        const cl = c.toLowerCase();
+        if (visited.has(cl) || cl === "0x0000000000000000000000000000000000000000") continue;
+        visited.add(cl);
+        recipients.push(c);
+        queue.push(c);
+      }
     }
-    if(downlines.length===0) return;
-    const ab = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signerRef);
-    const tx = await ab.recordActivity(buyer, ethers.utils.parseUnits(usdtAmount.toString(),18), "staking_indc", downlines);
-    await tx.wait();
-    console.log("Upstream bonus recorded:", downlines.length, "uplines");
-  } catch(e){ console.warn("Upstream bonus (non-critical):", e.message); }
+    if (recipients.length === 0) return;
+    const usdtWei = ethers.parseUnits(usdtAmount.toFixed(6), 18);
+    try {
+      const abV1 = new ethers.Contract(ACTIVITY_BONUS_CA_V1, ACTIVITY_BONUS_ABI, signerRef);
+      const tx1  = await abV1.recordActivity(actor, usdtWei, indicator, recipients);
+      await tx1.wait();
+    } catch(e) { console.warn("ActivityBonus V1 (non-critical):", e.message); }
+    try {
+      const abV2 = new ethers.Contract(ACTIVITY_BONUS_CA_V2, ACTIVITY_BONUS_ABI, signerRef);
+      const tx2  = await abV2.recordActivity(actor, usdtWei, indicator, recipients);
+      await tx2.wait();
+    } catch(e) { console.warn("ActivityBonus V2 (non-critical):", e.message); }
+    console.log("Downstream bonus recorded:", recipients.length, "recipients, usdtAmount:", usdtAmount.toFixed(4));
+  } catch(e) { console.warn("recordDownstreamBonus (non-critical):", e.message); }
 }
+// ───────────────────────────────────────────────────────────────────────────
 
 </script>
 <style>
@@ -1090,7 +1116,7 @@ async function doDeposit(){
     await tx.wait();
     if(msgEl) msgEl.textContent='✓ Deposit berhasil!';
     showToast('✓ Deposit INDC berhasil!','var(--gold2)');
-    try{ const wa=await signer.getAddress(); recordUpstreamBonus(wa,parseFloat(val||0),signer); }catch(e){}
+    try{ const wa=await signer.getAddress(); recordDownstreamBonus(wa,parseFloat(val||0),"staking_indc",signer); }catch(e){}
     document.getElementById('inpDeposit').value='';
     document.getElementById('estimasiBox').style.display='none';
     await loadData();

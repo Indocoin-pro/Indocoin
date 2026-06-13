@@ -214,32 +214,47 @@ input:focus, select:focus, textarea:focus {
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js">
-// ── Upstream Bonus Hook ──────────────────────────────────────
-const ACTIVITY_BONUS_CA="0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
-const ACTIVITY_BONUS_ABI=["function recordActivity(address upline,uint256 usdtAmount,string memory indicator,address[] calldata downlines) external"];
-const RM_CA="0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
-const RM_ABI=["function getUserInfo(address _user) external view returns (bool registered,address upline,uint256 joinTime,uint256 totalRefBonus,uint256 totalDownlineCount,uint8[] memory programs)"];
-
-async function recordUpstreamBonus(buyer, usdtAmount, signerRef) {
+// ── ActivityBonus: Downstream Bonus (V1 + V2) ──────────────────────────────
+const ACTIVITY_BONUS_CA_V1 = "0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
+const ACTIVITY_BONUS_CA_V2 = "0xf65fcabCb22D219D61441e9B8d4dA1c4856F1740";
+const ACTIVITY_BONUS_ABI   = ["function recordActivity(address actor,uint256 usdtAmount,string memory indicator,address[] calldata recipients) external"];
+const RM_CA_AB             = "0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const RM_ABI_AB            = ["function getDirectDownlines(address _user) external view returns (address[])"];
+async function recordDownstreamBonus(actor, usdtAmount, indicator, signerRef) {
   try {
-    const rm = new ethers.Contract(RM_CA, RM_ABI, signerRef);
-    const downlines = [];
-    let current = buyer;
-    for(let i=0;i<10;i++){
-      try{
-        const info = await rm.getUserInfo(current);
-        if(!info.registered||info.upline===ethers.constants.AddressZero) break;
-        downlines.push(info.upline);
-        current = info.upline;
-      }catch(e){break;}
+    const rm = new ethers.Contract(RM_CA_AB, RM_ABI_AB, signerRef);
+    const recipients = [];
+    const queue = [actor];
+    const visited = new Set([actor.toLowerCase()]);
+    while (queue.length > 0 && recipients.length < 10) {
+      const current = queue.shift();
+      let children = [];
+      try { children = await rm.getDirectDownlines(current); } catch(e) { continue; }
+      for (const c of children) {
+        if (recipients.length >= 10) break;
+        const cl = c.toLowerCase();
+        if (visited.has(cl) || cl === "0x0000000000000000000000000000000000000000") continue;
+        visited.add(cl);
+        recipients.push(c);
+        queue.push(c);
+      }
     }
-    if(downlines.length===0) return;
-    const ab = new ethers.Contract(ACTIVITY_BONUS_CA, ACTIVITY_BONUS_ABI, signerRef);
-    const tx = await ab.recordActivity(buyer, ethers.utils.parseUnits(usdtAmount.toString(),18), "staking_usdt", downlines);
-    await tx.wait();
-    console.log("Upstream bonus recorded:", downlines.length, "uplines");
-  } catch(e){ console.warn("Upstream bonus (non-critical):", e.message); }
+    if (recipients.length === 0) return;
+    const usdtWei = ethers.parseUnits(usdtAmount.toFixed(6), 18);
+    try {
+      const abV1 = new ethers.Contract(ACTIVITY_BONUS_CA_V1, ACTIVITY_BONUS_ABI, signerRef);
+      const tx1  = await abV1.recordActivity(actor, usdtWei, indicator, recipients);
+      await tx1.wait();
+    } catch(e) { console.warn("ActivityBonus V1 (non-critical):", e.message); }
+    try {
+      const abV2 = new ethers.Contract(ACTIVITY_BONUS_CA_V2, ACTIVITY_BONUS_ABI, signerRef);
+      const tx2  = await abV2.recordActivity(actor, usdtWei, indicator, recipients);
+      await tx2.wait();
+    } catch(e) { console.warn("ActivityBonus V2 (non-critical):", e.message); }
+    console.log("Downstream bonus recorded:", recipients.length, "recipients");
+  } catch(e) { console.warn("recordDownstreamBonus (non-critical):", e.message); }
 }
+// ───────────────────────────────────────────────────────────────────────────
 
 </script>
 <script src="wallet-bridge.js"></script>
@@ -791,7 +806,7 @@ async function doStake(opsiId) {
     setMsg(opsiId, '✓ Stake berhasil! '+indcAmt+' INDC reward terkunci untukmu.', 'var(--gold2)');
     document.getElementById('inp'+opsiId).value = '';
     await loadBalances();
-    try{ const wa=await _signer.getAddress(); recordUpstreamBonus(wa, parseFloat(document.getElementById('inp'+opsiId).value||0), _signer); }catch(e){}
+    try{ const wa=await _signer.getAddress(); recordDownstreamBonus(wa, parseFloat(document.getElementById('inp'+opsiId).value||0), "staking_usdt", _signer); }catch(e){}
   } catch(e) {
     setMsg(opsiId, 'Stake gagal: '+(e.reason||e.message||''), 'var(--red)');
   } finally {
