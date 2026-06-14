@@ -105,11 +105,17 @@ document.getElementById('btnScan').onclick = async () => {
   log('Mulai scan event Staked dari Welcome V2...');
 
   try {
-    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, _provider);
+    // Provider khusus untuk scan (RPC wallet sering limit 25 block/query)
+    const scanProvider = new ethers.providers.JsonRpcProvider(
+      'https://bsc-rpc.publicnode.com',
+      { chainId: 56, name: 'bnb' }
+    );
+
+    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, scanProvider);
     const agg     = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _provider);
 
-    const latestBlock = await _provider.getBlockNumber();
-    const CHUNK = 5000; // batas aman per query untuk RPC publik
+    const latestBlock = await scanProvider.getBlockNumber();
+    const CHUNK = 2000; // aman untuk publicnode
     const LOOKBACK_BLOCKS = 250000; // ~9 hari di BSC (3 detik/block)
     let fromBlock = Math.max(0, latestBlock - LOOKBACK_BLOCKS);
 
@@ -118,13 +124,23 @@ document.getElementById('btnScan').onclick = async () => {
     while (start <= latestBlock) {
       const end = Math.min(start + CHUNK, latestBlock);
       log(`Scan block ${start} → ${end}...`);
-      try {
-        const filter = welcome.filters.Staked();
-        const events = await welcome.queryFilter(filter, start, end);
-        allEvents = allEvents.concat(events);
-      } catch(e) {
-        log('⚠️ Chunk gagal, skip: ' + (e.message || e));
+      let retries = 0;
+      while (retries < 3) {
+        try {
+          const filter = welcome.filters.Staked();
+          const events = await welcome.queryFilter(filter, start, end);
+          allEvents = allEvents.concat(events);
+          break;
+        } catch(e) {
+          retries++;
+          if (retries >= 3) {
+            log('⚠️ Chunk gagal setelah 3x retry, skip: ' + (e.message || e));
+          } else {
+            await new Promise(r => setTimeout(r, 800));
+          }
+        }
       }
+      await new Promise(r => setTimeout(r, 200)); // hindari rate limit
       start = end + 1;
     }
 
