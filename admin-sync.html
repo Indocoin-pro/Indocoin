@@ -124,20 +124,39 @@ document.getElementById('btnScan').onclick = async () => {
     _groups = [];
 
     for (const upline of uplines) {
-      log(`Cek downline dari ${upline}...`);
-      let downlines = [];
-      try {
-        downlines = await refMaster.getDirectDownlines(upline);
-      } catch(e) {
-        log(`⚠️ Gagal ambil downline ${upline}: ` + (e.message || e));
-        continue;
+      log(`Cek seluruh pohon downline dari ${upline} (sampai 10 level)...`);
+
+      // BFS rekursif sampai 10 level
+      let allDownlines = []; // [{addr, level}]
+      let currentLevel = [upline];
+      let visited = new Set([upline.toLowerCase()]);
+
+      for (let level = 1; level <= 10; level++) {
+        if (currentLevel.length === 0) break;
+        let nextLevel = [];
+        for (const addr of currentLevel) {
+          try {
+            const dls = await refMaster.getDirectDownlines(addr);
+            for (const dl of dls) {
+              if (visited.has(dl.toLowerCase())) continue;
+              visited.add(dl.toLowerCase());
+              allDownlines.push({ addr: dl, level });
+              nextLevel.push(dl);
+            }
+          } catch(e) {
+            log(`  ⚠️ Gagal ambil downline ${addr}: ` + (e.message || e));
+          }
+        }
+        log(`  Level ${level}: ${nextLevel.length} downline baru`);
+        currentLevel = nextLevel;
       }
 
-      log(`  → ${downlines.length} downline ditemukan`);
+      log(`  → Total ${allDownlines.length} downline di seluruh pohon`);
 
       const group = { upline, downlines: [] };
 
-      for (const dl of downlines) {
+      for (const item of allDownlines) {
+        const dl = item.addr;
         let total = ethers.BigNumber.from(0);
         try {
           const count = await welcome.getPositionCount(dl);
@@ -156,6 +175,7 @@ document.getElementById('btnScan').onclick = async () => {
 
         group.downlines.push({
           user: dl,
+          level: item.level,
           total: total,
           synced: currentVol.gt(0),
           currentVol: currentVol
@@ -190,7 +210,7 @@ function renderTable() {
     container.appendChild(grpDiv);
 
     const table = document.createElement('table');
-    table.innerHTML = `<thead><tr><th>Downline</th><th>Total USDT</th><th>Status</th><th>Aksi</th></tr></thead><tbody></tbody>`;
+    table.innerHTML = `<thead><tr><th>Lv</th><th>Downline</th><th>Total USDT</th><th>Status</th><th>Aksi</th></tr></thead><tbody></tbody>`;
     const body = table.querySelector('tbody');
 
     for (const row of group.downlines) {
@@ -199,6 +219,7 @@ function renderTable() {
       const totalUsd = ethers.utils.formatUnits(row.total, 18);
       const tr = document.createElement('tr');
       tr.innerHTML = `
+        <td>${row.level}</td>
         <td class="addr">${row.user}</td>
         <td>$${parseFloat(totalUsd).toFixed(2)}</td>
         <td class="${row.synced ? 'ok' : 'pending'}">${row.synced ? '✅ Sudah' : '⏳ Belum'}</td>
