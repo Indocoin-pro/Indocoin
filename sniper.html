@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>INDOCOIN — Sniper Bot</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#080808;--bg2:#111;--bg3:#1a1a1a;
@@ -62,9 +62,34 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .hero{padding:24px 16px 8px;text-align:center;}
 .hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:5px 14px;font-size:8px;letter-spacing:2px;color:var(--green);font-family:'Orbitron',sans-serif;margin-bottom:14px;}
 .hero-badge-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
-.hero-title{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:900;letter-spacing:2px;color:var(--text);}
+.hero-title{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:800;letter-spacing:1px;color:var(--text);position:relative;}
 .hero-title span{color:var(--gold2);}
-.hero-tagline{font-size:9px;letter-spacing:3px;color:var(--gold);margin:8px 0 12px;font-family:'Orbitron',sans-serif;}
+.hero-title::before, .hero-title::after{
+  content:attr(data-text);
+  position:absolute;top:0;left:0;width:100%;
+  background:inherit;
+}
+.hero-title::before{
+  color:var(--green);z-index:-1;
+  animation:glitch1 3.5s infinite linear alternate-reverse;
+}
+.hero-title::after{
+  color:var(--red);z-index:-2;
+  animation:glitch2 3.5s infinite linear alternate-reverse;
+}
+@keyframes glitch1{
+  0%,90%,100%{clip-path:inset(0 0 0 0);transform:translate(0);}
+  91%{clip-path:inset(10% 0 60% 0);transform:translate(-2px,1px);}
+  93%{clip-path:inset(60% 0 5% 0);transform:translate(2px,-1px);}
+  95%{clip-path:inset(30% 0 40% 0);transform:translate(-1px,0);}
+}
+@keyframes glitch2{
+  0%,90%,100%{clip-path:inset(0 0 0 0);transform:translate(0);}
+  92%{clip-path:inset(50% 0 20% 0);transform:translate(2px,0);}
+  94%{clip-path:inset(15% 0 70% 0);transform:translate(-2px,1px);}
+  96%{clip-path:inset(70% 0 10% 0);transform:translate(1px,-1px);}
+}
+.hero-tagline{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--gold);margin:8px 0 12px;}
 .hero-desc{font-size:11px;color:var(--muted2);line-height:1.7;max-width:380px;margin:0 auto;}
 
 /* ── FADE UP ── */
@@ -97,10 +122,91 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:7px;color:var(--muted2);text-decoration:none;letter-spacing:1px;font-family:'Orbitron',sans-serif;}
 .bnav-item.active{color:var(--gold);}
 .bnav-icon{font-size:20px;}
+
+/* ── GRID BACKGROUND ── */
+.grid-bg{
+  position:fixed;inset:0;z-index:0;
+  background-image:
+    linear-gradient(rgba(34,197,94,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events:none;
+}
+
+/* ── SCAN LINE ── */
+.scanline{
+  position:fixed;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(34,197,94,0.6),transparent);
+  z-index:1;pointer-events:none;
+  animation:scanMove 4s linear infinite;
+}
+@keyframes scanMove{0%{top:0%}100%{top:100%}}
+
+/* ── HUD FRAME (corner brackets, reusable) ── */
+.hud-frame{position:relative;}
+.hud-frame::before, .hud-frame::after,
+.hud-frame .corner-tr, .hud-frame .corner-bl{
+  content:'';position:absolute;width:14px;height:14px;border:2px solid currentColor;
+}
+.hud-frame::before{ top:2px;left:2px; border-right:none; border-bottom:none; }
+.hud-frame::after{ bottom:2px;right:2px; border-left:none; border-top:none; }
+.hud-frame .corner-tr{ top:2px;right:2px; border-left:none; border-bottom:none; }
+.hud-frame .corner-bl{ bottom:2px;left:2px; border-right:none; border-top:none; }
+.hud-green{color:var(--green);}
+
+/* ── RADAR ── */
+.radar-bg{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.02) 60%, transparent 100%);border:1px solid rgba(34,197,94,0.25);}
+.radar-ring{position:absolute;border:1px solid rgba(34,197,94,0.15);border-radius:50%;}
+.radar-ring.r1{inset:18%;}
+.radar-ring.r2{inset:36%;}
+.radar-cross{position:absolute;inset:0;}
+.radar-cross::before, .radar-cross::after{content:'';position:absolute;background:rgba(34,197,94,0.12);}
+.radar-cross::before{left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);}
+.radar-cross::after{top:50%;left:0;right:0;height:1px;transform:translateY(-50%);}
+.radar-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg, rgba(34,197,94,0.35) 0deg, transparent 40deg, transparent 360deg);animation:sweep 3s linear infinite;}
+@keyframes sweep{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.radar-center{position:absolute;top:50%;left:50%;width:8px;height:8px;background:var(--green);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 10px var(--green);}
+.token-target{position:absolute;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1.5px solid var(--gold2);box-shadow:0 0 8px rgba(232,168,48,0.5);animation:tokenBlink 2.4s ease-in-out infinite;overflow:hidden;}
+.token-target img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+@keyframes tokenBlink{
+  0%,100%{opacity:0.35;transform:scale(0.9);box-shadow:0 0 4px rgba(232,168,48,0.3);}
+  50%{opacity:1;transform:scale(1.08);box-shadow:0 0 14px rgba(232,168,48,0.8);}
+}
+
+/* ── COMBO CARD: RADAR + TARGET TERDETEKSI ── */
+.combo-card{position:relative;background:var(--bg2);border-radius:12px;padding:14px;box-shadow:0 0 16px rgba(34,197,94,0.10);}
+.combo-row{display:flex;gap:14px;align-items:center;}
+.combo-radar{position:relative;width:110px;height:110px;flex-shrink:0;}
+.combo-info{flex:1;min-width:0;}
+.detected-head{display:flex;justify-content:space-between;align-items:center;}
+.detected-name{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold2);font-weight:700;letter-spacing:1px;}
+.detected-tag{font-size:8px;color:var(--green);background:rgba(34,197,94,0.12);padding:2px 8px;border-radius:4px;letter-spacing:1px;}
+.detected-price{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--text);}
+.detected-price span{font-size:10px;color:var(--green);margin-left:6px;}
+.mini-chart{height:32px;position:relative;overflow:hidden;}
+.mini-chart svg{width:100%;height:100%;display:block;}
+.mini-chart path.line{fill:none;stroke:var(--green);stroke-width:1.5;stroke-dasharray:300;animation:drawLine 2s ease-in-out infinite alternate;}
+@keyframes drawLine{0%{stroke-dashoffset:300;}100%{stroke-dashoffset:0;}}
+.mini-chart path.fill{fill:rgba(34,197,94,0.08);stroke:none;}
+
+/* ── TERMINAL LOG ── */
+.terminal{position:relative;background:#000;border-radius:10px;padding:12px;font-size:9px;color:var(--green);line-height:1.8;text-align:left;height:120px;overflow:hidden;box-shadow:inset 0 0 20px rgba(34,197,94,0.05);}
+.terminal .ln{opacity:0;animation:typeIn 0.4s ease forwards;}
+.terminal .ln:nth-child(1){animation-delay:0.2s;}
+.terminal .ln:nth-child(2){animation-delay:0.8s;}
+.terminal .ln:nth-child(3){animation-delay:1.4s;}
+.terminal .ln:nth-child(4){animation-delay:2.0s;}
+.terminal .ln:nth-child(5){animation-delay:2.6s;}
+.terminal .ln .gold{color:var(--gold2);}
+.terminal .ln .muted{color:var(--muted);}
+@keyframes typeIn{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:translateX(0);}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 </head>
 <body>
+
+<div class="grid-bg"></div>
+<div class="scanline"></div>
 
 <div class="topbar">
   <div class="topbar-title">⚡ SNIPER BOT</div>
@@ -121,10 +227,56 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       <span class="hero-badge-dot"></span>
       SCANNING 5 DEX · 24 JAM
     </div>
-    <div class="hero-title">SNIPER<span>BOT</span></div>
-    <div class="hero-tagline">— OTOMATIS · CEPAT · TRANSPARAN —</div>
-    <div class="hero-desc">Bot snipe token baru otomatis di PancakeSwap V2/V3, BiSwap, ApeSwap & BabySwap. Deposit USDT ke vault, bot eksekusi trading, hasil masuk otomatis ke saldomu.</div>
+    <div class="hero-title" data-text="&gt;_SNIPERBOT"><span style="color:var(--green);">&gt;_</span>SNIPER<span>BOT</span></div>
+    <div class="hero-tagline">scan() · precise() · autonomous()</div>
   </div>
+
+  <!-- COMBO: RADAR + TARGET TERDETEKSI -->
+  <div class="combo-card hud-frame hud-green fade-up">
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="combo-row">
+      <div class="combo-radar">
+        <div class="radar-bg"></div>
+        <div class="radar-ring r1"></div>
+        <div class="radar-ring r2"></div>
+        <div class="radar-cross"></div>
+        <div class="radar-sweep"></div>
+        <div class="radar-center"></div>
+        <div class="token-target" style="top:10%;left:60%;animation-delay:0s;"><img src="https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/smartchain/info/logo.png" alt="BNB"></div>
+        <div class="token-target" style="top:62%;left:10%;animation-delay:0.6s;"><img src="https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/smartchain/assets/0x55d398326f99059fF775485246999027B3197955/logo.png" alt="USDT"></div>
+        <div class="token-target" style="top:68%;left:62%;animation-delay:1.2s;"><img src="https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains/smartchain/assets/0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82/logo.png" alt="CAKE"></div>
+      </div>
+      <div class="combo-info">
+        <div class="detected-head" style="margin-bottom:6px;">
+          <div class="detected-name">🦄 UNICAT/USDT</div>
+          <div class="detected-tag">LIVE</div>
+        </div>
+        <div class="detected-price" style="margin-bottom:6px;">$0.00004821 <span>+12.4%</span></div>
+        <div class="mini-chart">
+          <svg viewBox="0 0 300 46" preserveAspectRatio="none">
+            <path class="fill" d="M0,40 L20,35 L40,38 L60,28 L80,32 L100,20 L120,24 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4 L300,46 L0,46 Z"/>
+            <path class="line" d="M0,40 L20,35 L40,38 L60,28 L80,32 L100,20 L120,24 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE FEED TERMINAL -->
+  <div class="sec-hd">📡 LIVE FEED</div>
+  <div class="terminal hud-frame hud-green fade-up">
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="ln"><span class="muted">[08:44:12]</span> <span class="gold">SCAN</span> PancakeV2 → pool 0x7a3f...e21b</div>
+    <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">DETECT</span> UNICAT/USDT liq=$8.2k</div>
+    <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">CHECK</span> honeypot=false tax=0%</div>
+    <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">BUY</span> $3.00 → 62,184 UNICAT</div>
+    <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">TRACK</span> entry=$0.0000429 target=+30%</div>
+  </div>
+
+  <!-- DESKRIPSI -->
+  <div class="hero-desc fade-up" style="text-align:center;margin:18px auto;">Bot snipe token baru otomatis di PancakeSwap V2/V3, BiSwap, ApeSwap & BabySwap. Deposit USDT ke vault, bot eksekusi trading, hasil masuk otomatis ke saldomu.</div>
 
   <!-- STATS -->
   <div class="sec-hd">STATISTIK</div>
@@ -148,8 +300,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 
 
-  <!-- SNIPER WALLET -->
-  <div class="sec-hd">SNIPER WALLET</div>
+  <!-- VAULT ACCESS -->
+  <div class="sec-hd">VAULT ACCESS</div>
   <div class="card">
     <div class="stat-grid" style="margin-bottom:12px;">
       <div class="stat-box">
