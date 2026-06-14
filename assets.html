@@ -463,9 +463,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
           <div style="font-size:8px;color:#ef4444;margin-top:4px;" id="sniperLoss">Loss: $0.00</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:12px 14px;gap:10px;">
-        <button id="snBtnDeposit" onclick="snToggle('deposit')" style="padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">DEPOSIT</button>
-        <button id="snBtnWithdraw" onclick="snToggle('withdraw')" style="padding:12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;">WITHDRAW</button>
+      <div style="padding:12px 14px;">
+        <a href="sniper.html" style="display:block;text-align:center;padding:12px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b4400,var(--gold2));color:#080808;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;text-decoration:none;">🎯 BUKA SNIPER BOT</a>
       </div>
     </div>
 
@@ -3092,11 +3091,24 @@ function awToggle(action) {
   openModal(action);
 }
 
-function snToggle(action) {
-  setBtn(document.getElementById('snBtnDeposit'),  action === 'deposit');
-  setBtn(document.getElementById('snBtnWithdraw'), action === 'withdraw');
-  if (action === 'deposit') openModal('sniperDeposit');
-  else openModal('sniperWithdraw');
+// ── SNIPER VAULT (read-only) ────────────────────────────────────────────────
+const SNIPER_VAULT_CA = '0xaEd8B0C5c8A0B0AF8d8E9B3Cf44EC20Cb1101CDe';
+const SNIPER_VAULT_ABI = [
+  'function getUserInfo(address user) external view returns (uint256,uint256,uint256,uint256,uint256,uint256,bool)'
+];
+
+async function loadSniperVaultInfo() {
+  if (!userAddress || !provider) return;
+  try {
+    const vault = new ethers.Contract(SNIPER_VAULT_CA, SNIPER_VAULT_ABI, provider);
+    const info  = await vault.getUserInfo(userAddress);
+    const fmt2 = v => parseFloat(ethers.formatUnits(v, 18)).toFixed(2);
+    const fmt4 = v => parseFloat(ethers.formatUnits(v, 18)).toFixed(4);
+    document.getElementById('sniperSaldo').textContent  = `$${fmt2(info[0])}`;
+    document.getElementById('sniperAktif').textContent  = `Trading: $${fmt2(info[1])}`;
+    document.getElementById('sniperProfit').textContent = `$${fmt4(info[3])}`;
+    document.getElementById('sniperLoss').textContent   = `Loss: $${fmt4(info[4])}`;
+  } catch(e) { console.warn('loadSniperVaultInfo:', e.message || e); }
 }
 
 function gwToggle(action) {
@@ -3107,7 +3119,9 @@ function gwToggle(action) {
 }
 // ─────────────────────────────────────────────────────────────────────────
 document.addEventListener('walletConnected', loadPlatformWallet);
+document.addEventListener('walletConnected', loadSniperVaultInfo);
 setInterval(() => { if(userAddress) loadPlatformWallet(); }, 30000);
+setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 </script>
 
 <!-- POPUP BELI CRYPTO -->
