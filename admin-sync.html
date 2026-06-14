@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Sync — VIP Volume</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Share Tech Mono',monospace,sans-serif;background:#0b0b0b;color:#f0e8d8;padding:14px;font-size:13px;}
+  h1{font-size:16px;color:#f0b429;margin-bottom:4px;}
+  .sub{color:#888;font-size:11px;margin-bottom:16px;}
+  .card{background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:14px;margin-bottom:12px;}
+  .btn{background:linear-gradient(135deg,#c8922a,#f0b429);color:#000;font-weight:700;border:none;border-radius:8px;padding:10px 18px;font-size:12px;cursor:pointer;letter-spacing:1px;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-sm{padding:6px 12px;font-size:10px;border-radius:6px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;}
+  th,td{border-bottom:1px solid #2a2a2a;padding:6px 4px;text-align:left;word-break:break-all;}
+  th{color:#f0b429;font-weight:700;}
+  .ok{color:#22c55e;}
+  .pending{color:#f97316;}
+  .err{color:#ef4444;}
+  .addr{font-size:10px;color:#9ca3af;}
+  #log{background:#000;border:1px solid #2a2a2a;border-radius:8px;padding:10px;font-size:10px;height:140px;overflow-y:auto;margin-top:10px;line-height:1.6;}
+  .status-line{margin-bottom:8px;font-size:11px;color:#ccc;}
+</style>
+</head>
+<body>
+
+<h1>🔧 ADMIN SYNC — VIP VOLUME</h1>
+<div class="sub">Catch-up volume staking ke Aggregator (sekali jalan untuk transaksi historis)</div>
+
+<div class="card">
+  <button class="btn" id="btnConnect">Connect Wallet (Dev)</button>
+  <div class="status-line" id="walletStatus">Belum connect</div>
+</div>
+
+<div class="card">
+  <button class="btn" id="btnScan" disabled>1. Scan History Staking</button>
+  <div class="status-line" id="scanStatus">Belum di-scan</div>
+</div>
+
+<div class="card" id="resultCard" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span id="resultSummary"></span>
+    <button class="btn btn-sm" id="btnSyncAll">SYNC SEMUA YANG BELUM</button>
+  </div>
+  <table id="resultTable">
+    <thead>
+      <tr><th>User</th><th>Total USDT</th><th>Status</th><th>Aksi</th></tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="status-line" style="margin-bottom:4px;">📋 LOG</div>
+  <div id="log"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script>
+const WELCOME_ADDR     = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
+const AGGREGATOR_ADDR  = '0xD4109384EB4086E37265ec71f11e443269bf5110';
+const RPC_URL          = 'https://bsc-dataseed.binance.org/';
+
+const WELCOME_ABI = [
+  "event Staked(address indexed user, uint256 indcAmount, uint256 usdtEquivalent, uint256 positionIndex)"
+];
+const AGGREGATOR_ABI = [
+  "function getUserVolume(address user) external view returns (uint256)",
+  "function reportVolumeUSDT(address user, uint256 usdtAmount, uint8 activityType) external"
+];
+
+let _provider, _signer, _wallet;
+let _readProvider = new ethers.providers.JsonRpcProvider(RPC_URL);
+let _userData = []; // [{user, total, synced, status}]
+
+function log(msg) {
+  const el = document.getElementById('log');
+  const time = new Date().toLocaleTimeString('id-ID');
+  el.innerHTML += `[${time}] ${msg}<br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('btnConnect').onclick = async () => {
+  if (!window.ethereum) { log('❌ Wallet tidak ditemukan (gunakan browser wallet/TrustWallet/MetaMask)'); return; }
+  try {
+    _provider = new ethers.providers.Web3Provider(window.ethereum);
+    await _provider.send("eth_requestAccounts", []);
+    _signer = _provider.getSigner();
+    _wallet = await _signer.getAddress();
+    document.getElementById('walletStatus').innerHTML = `✅ Connected: ${_wallet}`;
+    document.getElementById('btnScan').disabled = false;
+    log('Wallet connected: ' + _wallet);
+  } catch(e) {
+    log('❌ Connect gagal: ' + (e.message || e));
+  }
+};
+
+document.getElementById('btnScan').onclick = async () => {
+  const btn = document.getElementById('btnScan');
+  btn.disabled = true;
+  document.getElementById('scanStatus').textContent = '⏳ Mengambil data blockchain...';
+  log('Mulai scan event Staked dari Welcome V2...');
+
+  try {
+    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, _readProvider);
+    const agg     = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _readProvider);
+
+    const latestBlock = await _readProvider.getBlockNumber();
+    const CHUNK = 5000; // batas aman per query untuk RPC publik
+    const LOOKBACK_BLOCKS = 250000; // ~9 hari di BSC (3 detik/block)
+    let fromBlock = Math.max(0, latestBlock - LOOKBACK_BLOCKS);
+
+    let allEvents = [];
+    let start = fromBlock;
+    while (start <= latestBlock) {
+      const end = Math.min(start + CHUNK, latestBlock);
+      log(`Scan block ${start} → ${end}...`);
+      try {
+        const filter = welcome.filters.Staked();
+        const events = await welcome.queryFilter(filter, start, end);
+        allEvents = allEvents.concat(events);
+      } catch(e) {
+        log('⚠️ Chunk gagal, skip: ' + (e.message || e));
+      }
+      start = end + 1;
+    }
+
+    log(`Total event Staked ditemukan: ${allEvents.length}`);
+
+    // Group per user
+    const totals = {};
+    for (const ev of allEvents) {
+      const user = ev.args.user;
+      const usdt = ev.args.usdtEquivalent;
+      if (!totals[user]) totals[user] = ethers.BigNumber.from(0);
+      totals[user] = totals[user].add(usdt);
+    }
+
+    const users = Object.keys(totals);
+    log(`User unik: ${users.length}. Cek status sync di Aggregator...`);
+
+    _userData = [];
+    for (const user of users) {
+      let currentVol = ethers.BigNumber.from(0);
+      try {
+        currentVol = await agg.getUserVolume(user);
+      } catch(e) { /* ignore */ }
+
+      _userData.push({
+        user: user,
+        total: totals[user],
+        synced: currentVol.gt(0),
+        currentVol: currentVol
+      });
+    }
+
+    renderTable();
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('scanStatus').textContent = `✅ Selesai. ${users.length} user ditemukan.`;
+    log('Scan selesai.');
+
+  } catch(e) {
+    log('❌ Scan gagal: ' + (e.message || e));
+    document.getElementById('scanStatus').textContent = '❌ Gagal, lihat log.';
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+function renderTable() {
+  const body = document.getElementById('resultBody');
+  body.innerHTML = '';
+  let unsyncedCount = 0;
+
+  for (const row of _userData) {
+    if (!row.synced) unsyncedCount++;
+    const tr = document.createElement('tr');
+    const totalUsd = ethers.utils.formatUnits(row.total, 18);
+    tr.innerHTML = `
+      <td class="addr">${row.user}</td>
+      <td>$${parseFloat(totalUsd).toFixed(2)}</td>
+      <td class="${row.synced ? 'ok' : 'pending'}">${row.synced ? '✅ Sudah sync' : '⏳ Belum'}</td>
+      <td><button class="btn btn-sm" data-user="${row.user}" ${row.synced ? 'disabled' : ''}>Sync</button></td>
+    `;
+    body.appendChild(tr);
+  }
+
+  document.getElementById('resultSummary').textContent =
+    `${_userData.length} user total, ${unsyncedCount} belum sync`;
+
+  // Bind individual sync buttons
+  body.querySelectorAll('button[data-user]').forEach(btn => {
+    btn.onclick = () => syncUser(btn.dataset.user, btn);
+  });
+}
+
+async function syncUser(userAddr, btnEl) {
+  const row = _userData.find(r => r.user.toLowerCase() === userAddr.toLowerCase());
+  if (!row) return;
+
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '...'; }
+  log(`Sync ${userAddr} — $${ethers.utils.formatUnits(row.total, 18)}...`);
+
+  try {
+    const agg = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _signer);
+    const tx = await agg.reportVolumeUSDT(userAddr, row.total, 2);
+    log(`Tx terkirim: ${tx.hash} — menunggu konfirmasi...`);
+    await tx.wait();
+    log(`✅ Sukses: ${userAddr}`);
+    row.synced = true;
+    renderTable();
+  } catch(e) {
+    log(`❌ Gagal untuk ${userAddr}: ` + (e.reason || e.message || e));
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Sync'; }
+  }
+}
+
+document.getElementById('btnSyncAll').onclick = async () => {
+  const unsynced = _userData.filter(r => !r.synced);
+  if (unsynced.length === 0) { log('Semua sudah sync.'); return; }
+
+  log(`Mulai sync ${unsynced.length} user secara berurutan...`);
+  for (const row of unsynced) {
+    await syncUser(row.user);
+    await new Promise(r => setTimeout(r, 1000)); // delay antar tx
+  }
+  log('🎉 Sync semua selesai.');
+};
+</script>
+</body>
+</html>
