@@ -61,7 +61,6 @@
 <script>
 const WELCOME_ADDR     = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
 const AGGREGATOR_ADDR  = '0xD4109384EB4086E37265ec71f11e443269bf5110';
-const RPC_URL          = 'https://bsc-dataseed.binance.org/';
 
 const WELCOME_ABI = [
   "event Staked(address indexed user, uint256 indcAmount, uint256 usdtEquivalent, uint256 positionIndex)"
@@ -72,7 +71,6 @@ const AGGREGATOR_ABI = [
 ];
 
 let _provider, _signer, _wallet;
-let _readProvider = new ethers.providers.JsonRpcProvider(RPC_URL);
 let _userData = []; // [{user, total, synced, status}]
 
 function log(msg) {
@@ -104,10 +102,10 @@ document.getElementById('btnScan').onclick = async () => {
   log('Mulai scan event Staked dari Welcome V2...');
 
   try {
-    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, _readProvider);
-    const agg     = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _readProvider);
+    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, _provider);
+    const agg     = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _provider);
 
-    const latestBlock = await _readProvider.getBlockNumber();
+    const latestBlock = await _provider.getBlockNumber();
     const CHUNK = 5000; // batas aman per query untuk RPC publik
     const LOOKBACK_BLOCKS = 250000; // ~9 hari di BSC (3 detik/block)
     let fromBlock = Math.max(0, latestBlock - LOOKBACK_BLOCKS);
