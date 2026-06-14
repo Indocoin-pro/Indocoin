@@ -191,15 +191,23 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
 /* ── TERMINAL LOG ── */
 .terminal{position:relative;background:#000;border-radius:10px;padding:12px;font-size:9px;color:var(--green);line-height:1.8;text-align:left;height:120px;overflow:hidden;box-shadow:inset 0 0 20px rgba(34,197,94,0.05);}
+.terminal-scroll{animation:termScroll 12s ease-in-out infinite;}
 .terminal .ln{opacity:0;animation:typeIn 0.4s ease forwards;}
 .terminal .ln:nth-child(1){animation-delay:0.2s;}
 .terminal .ln:nth-child(2){animation-delay:0.8s;}
 .terminal .ln:nth-child(3){animation-delay:1.4s;}
 .terminal .ln:nth-child(4){animation-delay:2.0s;}
 .terminal .ln:nth-child(5){animation-delay:2.6s;}
+.terminal .ln:nth-child(6){animation-delay:3.2s;}
+.terminal .ln:nth-child(7){animation-delay:3.8s;}
+.terminal .ln:nth-child(8){animation-delay:4.4s;}
 .terminal .ln .gold{color:var(--gold2);}
 .terminal .ln .muted{color:var(--muted);}
 @keyframes typeIn{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:translateX(0);}}
+@keyframes termScroll{
+  0%, 35%   { transform: translateY(0); }
+  65%, 100% { transform: translateY(-66px); }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 </head>
@@ -249,12 +257,12 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       </div>
       <div class="combo-info">
         <div class="detected-head" style="margin-bottom:6px;">
-          <div class="detected-name">🦄 UNICAT/USDT</div>
-          <div class="detected-tag">LIVE</div>
+          <div class="detected-name" id="liveTokenName">🦄 UNICAT/USDT</div>
+          <div class="detected-tag" id="liveTag">DEMO</div>
         </div>
-        <div class="detected-price" style="margin-bottom:6px;">$0.00004821 <span>+12.4%</span></div>
+        <div class="detected-price" style="margin-bottom:6px;" id="livePrice">$0.00004821 <span id="livePct">+12.4%</span></div>
         <div class="mini-chart">
-          <svg viewBox="0 0 300 46" preserveAspectRatio="none">
+          <svg viewBox="0 0 300 46" preserveAspectRatio="none" id="liveChartSvg">
             <path class="fill" d="M0,40 L20,35 L40,38 L60,28 L80,32 L100,20 L120,24 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4 L300,46 L0,46 Z"/>
             <path class="line" d="M0,40 L20,35 L40,38 L60,28 L80,32 L100,20 L120,24 L140,15 L160,18 L180,10 L200,14 L220,8 L240,12 L260,6 L280,9 L300,4"/>
           </svg>
@@ -265,14 +273,19 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
   <!-- LIVE FEED TERMINAL -->
   <div class="sec-hd">📡 LIVE FEED</div>
-  <div class="terminal hud-frame hud-green fade-up">
+  <div class="terminal hud-frame hud-green fade-up" id="liveFeedTerminal">
     <div class="corner-tr"></div>
     <div class="corner-bl"></div>
-    <div class="ln"><span class="muted">[08:44:12]</span> <span class="gold">SCAN</span> PancakeV2 → pool 0x7a3f...e21b</div>
-    <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">DETECT</span> UNICAT/USDT liq=$8.2k</div>
-    <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">CHECK</span> honeypot=false tax=0%</div>
-    <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">BUY</span> $3.00 → 62,184 UNICAT</div>
-    <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">TRACK</span> entry=$0.0000429 target=+30%</div>
+    <div class="terminal-scroll">
+      <div class="ln"><span class="muted">[08:44:11]</span> <span class="gold">SCAN</span> PancakeV2 → pool 0x7a3f...e21b</div>
+      <div class="ln"><span class="muted">[08:44:11]</span> <span class="gold">FILTER</span> blacklist=clear honeypot=false</div>
+      <div class="ln"><span class="muted">[08:44:12]</span> <span class="gold">FILTER</span> liq=$12.4k (min $10k) umur=18m (min 15m)</div>
+      <div class="ln"><span class="muted">[08:44:12]</span> <span class="gold">FILTER</span> owner=renounced mint=locked</div>
+      <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">FILTER</span> LP locked=87% (min 50%) ✓ AMAN</div>
+      <div class="ln"><span class="muted">[08:44:13]</span> <span class="gold">DETECT</span> UNICAT/USDT lolos semua filter</div>
+      <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">BUY</span> $3.00 → 62,184 UNICAT</div>
+      <div class="ln"><span class="muted">[08:44:14]</span> <span class="gold">TRACK</span> entry=$0.0000429 target=+30%</div>
+    </div>
   </div>
 
   <!-- DESKRIPSI -->
@@ -543,6 +556,9 @@ async function loadStats() {
     // Posisi aktif
     renderPosisi(d.posisiAktif || []);
 
+    // Live target (combo card + live feed) - hanya update jika ada posisi aktif
+    updateLiveTarget(d.posisiAktif || []);
+
     // History
     renderHistory(d.historyTrade || []);
 
@@ -568,6 +584,69 @@ function renderPosisi(list) {
         <div style="font-size:8px;color:var(--muted);margin-top:2px;">${p.tokenAddress}</div>
       </div>`;
   }).join('');
+}
+
+// ── Update Combo Card + Live Feed dari posisi aktif ─────────────────────────
+function updateLiveTarget(posisiList) {
+  if (!posisiList.length) return; // tidak ada posisi aktif, biarkan demo tetap tampil
+
+  // Pilih posisi dengan priceHistory terbanyak (paling aktif dipantau)
+  const posisi = posisiList.reduce((a, b) =>
+    ((b.priceHistory?.length || 0) > (a.priceHistory?.length || 0)) ? b : a
+  );
+
+  const history = posisi.priceHistory || [];
+  if (!history.length) return; // belum ada data harga, biarkan demo tetap tampil
+
+  const latest = history[history.length - 1];
+
+  // Update nama token + tag
+  document.getElementById('liveTokenName').textContent = `🎯 ${posisi.symbol || '???'}/USDT`;
+  document.getElementById('liveTag').textContent = 'LIVE';
+  document.getElementById('liveTag').style.color = 'var(--green)';
+
+  // Update harga + persentase
+  const pct = latest.profitPct || 0;
+  const pctSign = pct >= 0 ? '+' : '';
+  document.getElementById('livePrice').innerHTML =
+    `$${latest.price.toFixed(8)} <span id="livePct" style="color:${pct >= 0 ? 'var(--green)' : 'var(--red)'};">${pctSign}${pct.toFixed(1)}%</span>`;
+
+  // Update mini-chart dari priceHistory
+  if (history.length >= 2) {
+    const prices = history.map(h => h.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = (max - min) || 1;
+    const n = prices.length;
+
+    const points = prices.map((p, i) => {
+      const x = (i / (n - 1)) * 300;
+      const y = 44 - ((p - min) / range) * 40; // 4-44 range, invert y
+      return [x, y];
+    });
+
+    const lineD = points.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt[0].toFixed(1)},${pt[1].toFixed(1)}`).join(' ');
+    const fillD = lineD + ` L${points[points.length-1][0].toFixed(1)},46 L0,46 Z`;
+
+    const svg = document.getElementById('liveChartSvg');
+    svg.querySelector('path.line').setAttribute('d', lineD);
+    svg.querySelector('path.fill').setAttribute('d', fillD);
+
+    // Warna chart sesuai profit/loss
+    const chartColor = pct >= 0 ? 'var(--green)' : 'var(--red)';
+    svg.querySelector('path.line').style.stroke = chartColor;
+  }
+
+  // Update LIVE FEED terminal dari history terbaru (5 entri terakhir)
+  const feedEl = document.getElementById('liveFeedTerminal');
+  const recent = history.slice(-5);
+  const lines = recent.map(h => {
+    const time = new Date(h.t).toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const pl   = h.profitPct >= 0 ? '+' : '';
+    return `<div class="ln"><span class="muted">[${time}]</span> <span class="gold">TRACK</span> ${posisi.symbol} $${h.price.toFixed(8)} | P/L ${pl}${h.profitPct.toFixed(2)}%</div>`;
+  }).join('');
+
+  feedEl.innerHTML = '<div class="corner-tr"></div><div class="corner-bl"></div>' + lines;
 }
 
 function renderHistory(list) {
