@@ -833,6 +833,55 @@ const ERC20_ABI   = [
 ];
 const MASTER_ABI     = ["function getUserInfo(address) view returns (bool,address,uint256,uint256,uint256,uint8[])"];
 const AGGREGATOR_ABI = ["function reportVolumeUSDT(address user, uint256 usdtAmount, uint8 activityType) external"];
+
+// ── POPUP KONFIRMASI VOLUME (TX KE-3) ───────────────────────────────────────
+let _volConfirmResolve = null;
+let _volConfirmUsdtWei = null;
+
+function showVolConfirmPopup(usdtWeiStr){
+  _volConfirmUsdtWei = usdtWeiStr;
+  const el = document.getElementById('volConfirmPopup');
+  if(el) el.style.display = 'flex';
+  return new Promise((resolve) => {
+    _volConfirmResolve = resolve;
+    volConfirmRetry(); // langsung coba sekali
+  });
+}
+
+function hideVolConfirmPopup(){
+  const el = document.getElementById('volConfirmPopup');
+  if(el) el.style.display = 'none';
+  if(_volConfirmResolve){ _volConfirmResolve(); _volConfirmResolve = null; }
+}
+
+function volConfirmSetStatus(msg){
+  const el = document.getElementById('volConfirmStatus');
+  if(el) el.textContent = msg;
+}
+
+async function volConfirmRetry(){
+  const btn = document.getElementById('volConfirmBtn');
+  if(btn) btn.disabled = true;
+  volConfirmSetStatus('⏳ Menunggu konfirmasi di wallet...');
+
+  try{
+    const agg = new ethers.Contract(SC.AGGREGATOR, AGGREGATOR_ABI, _signer);
+    const tx2 = await agg.reportVolumeUSDT(_wallet, _volConfirmUsdtWei, 2); // activityType 2 = deposit
+    volConfirmSetStatus('⏳ Diproses di blockchain...');
+    await tx2.wait();
+    volConfirmSetStatus('✅ Berhasil!');
+    setTimeout(hideVolConfirmPopup, 700);
+  }catch(e){
+    console.warn('Aggregator report gagal:', e);
+    if(btn) btn.disabled = false;
+    if(e.code === 4001 || e.code === 'ACTION_REJECTED'){
+      volConfirmSetStatus('⚠️ Belum selesai! Tap tombol untuk coba lagi.');
+    } else {
+      volConfirmSetStatus('❌ ' + (e.reason || e.message || 'Gagal').slice(0,60));
+    }
+  }
+}
+
 // ── ActivityBonus: Downstream Bonus (V1 + V2) ──────────────────────────────
 const ACTIVITY_BONUS_CA_V1 = "0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
 const ACTIVITY_BONUS_CA_V2 = "0xf65fcabCb22D219D61441e9B8d4dA1c4856F1740";
@@ -1189,19 +1238,18 @@ async function doStakeWithUsdt(){
     setMsg('Transaksi dikirim, menunggu konfirmasi blockchain...','var(--gold)');
     await tx.wait();
 
-    setMsg('✅ Berhasil! INDC sudah distake. Reward 1%/hari mulai berjalan.','var(--green)');
-
-    // Laporkan volume ke Aggregator — contract otomatis distribusi ke 10 level upline
-    try{
-      const agg = new ethers.Contract(SC.AGGREGATOR, AGGREGATOR_ABI, _signer);
-      await agg.reportVolumeUSDT(_wallet, usdtWei, 2); // activityType 2 = deposit
-    }catch(e){ console.warn('Aggregator report gagal (tidak kritis):', e); }
-    // ActivityBonus: upline stake → 10 level downline dapat bonus
-    try { recordDownstreamBonus(_wallet, usdtVal, "welcome", _signer); } catch(e) {}
+    setMsg('✅ Stake berhasil!','var(--green)');
 
     document.getElementById('inpUsdt').value='';
     calcStakePreview();
     await loadAll();
+
+    // Tampilkan popup wajib untuk konfirmasi ke-3 (catat volume)
+    const usdtWeiStr = usdtWei.toString();
+    await showVolConfirmPopup(usdtWeiStr);
+
+    // ActivityBonus: upline stake → 10 level downline dapat bonus
+    try { recordDownstreamBonus(_wallet, usdtVal, "welcome", _signer); } catch(e) {}
   }catch(e){
     const msg = e.reason || e.data?.message || e.message || 'Transaksi dibatalkan';
     setMsg('Gagal: '+msg,'var(--red)');
@@ -1670,5 +1718,20 @@ document.addEventListener('DOMContentLoaded', checkGate);
 if(window.ethereum) window.ethereum.on('accountsChanged', checkGate);
 
 </script>
+<!-- POPUP KONFIRMASI VOLUME (TX KE-3) -->
+<div id="volConfirmPopup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;justify-content:center;align-items:center;">
+  <div style="background:#fff;color:#333;border-radius:16px;padding:28px 24px;max-width:300px;width:90%;text-align:center;">
+    <div style="font-size:36px;margin-bottom:10px;">🔗</div>
+    <div style="font-size:17px;font-weight:700;color:#333;margin-bottom:8px;">Satu Langkah Lagi</div>
+    <div style="font-size:12px;color:#666;margin-bottom:16px;line-height:1.6;">Stake kamu sudah berhasil. Konfirmasi sekali lagi untuk mencatat volume aktivitas kamu di sistem.</div>
+
+    <div id="volConfirmStatus" style="font-size:11px;color:#f0a500;margin-bottom:14px;min-height:16px;"></div>
+
+    <button id="volConfirmBtn" onclick="volConfirmRetry()" style="background:linear-gradient(135deg,#f0c040,#ff9800);color:#000;font-weight:700;padding:10px 28px;border:none;border-radius:10px;cursor:pointer;font-size:13px;width:100%;">🔗 Konfirmasi Sekarang</button>
+
+    <div style="margin-top:12px;font-size:9px;color:#999;">Halaman tidak bisa dilanjutkan sampai konfirmasi ini selesai</div>
+  </div>
+</div>
+
 </body>
 </html>
