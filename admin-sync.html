@@ -13,6 +13,7 @@
   .btn{background:linear-gradient(135deg,#c8922a,#f0b429);color:#000;font-weight:700;border:none;border-radius:8px;padding:10px 18px;font-size:12px;cursor:pointer;letter-spacing:1px;}
   .btn:disabled{opacity:0.4;cursor:not-allowed;}
   .btn-sm{padding:6px 12px;font-size:10px;border-radius:6px;}
+  textarea{width:100%;background:#000;color:#f0e8d8;border:1px solid #333;border-radius:6px;padding:8px;font-family:monospace;font-size:11px;min-height:90px;margin-top:8px;}
   table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;}
   th,td{border-bottom:1px solid #2a2a2a;padding:6px 4px;text-align:left;word-break:break-all;}
   th{color:#f0b429;font-weight:700;}
@@ -20,6 +21,7 @@
   .pending{color:#f97316;}
   .err{color:#ef4444;}
   .addr{font-size:10px;color:#9ca3af;}
+  .grp{font-size:11px;color:#f0b429;font-weight:700;margin-top:10px;}
   #log{background:#000;border:1px solid #2a2a2a;border-radius:8px;padding:10px;font-size:10px;height:140px;overflow-y:auto;margin-top:10px;line-height:1.6;}
   .status-line{margin-bottom:8px;font-size:11px;color:#ccc;}
 </style>
@@ -27,7 +29,7 @@
 <body>
 
 <h1>🔧 ADMIN SYNC — VIP VOLUME</h1>
-<div class="sub">Catch-up volume staking ke Aggregator (sekali jalan untuk transaksi historis)</div>
+<div class="sub">Catch-up volume staking downline ke Aggregator (per upline VIP)</div>
 
 <div class="card">
   <button class="btn" id="btnConnect">Connect Wallet (Dev)</button>
@@ -35,7 +37,9 @@
 </div>
 
 <div class="card">
-  <button class="btn" id="btnScan" disabled>1. Scan History Staking</button>
+  <div class="status-line">Masukkan address upline VIP (1 per baris, max 10):</div>
+  <textarea id="inpUplines" placeholder="0x.....&#10;0x.....&#10;0x.....&#10;0x....."></textarea>
+  <button class="btn" id="btnScan" disabled style="margin-top:8px;">1. Cek Downline & Volume</button>
   <div class="status-line" id="scanStatus">Belum di-scan</div>
 </div>
 
@@ -44,12 +48,7 @@
     <span id="resultSummary"></span>
     <button class="btn btn-sm" id="btnSyncAll">SYNC SEMUA YANG BELUM</button>
   </div>
-  <table id="resultTable">
-    <thead>
-      <tr><th>User</th><th>Total USDT</th><th>Status</th><th>Aksi</th></tr>
-    </thead>
-    <tbody id="resultBody"></tbody>
-  </table>
+  <div id="resultContainer"></div>
 </div>
 
 <div class="card">
@@ -61,17 +60,22 @@
 <script>
 const WELCOME_ADDR     = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
 const AGGREGATOR_ADDR  = '0xD4109384EB4086E37265ec71f11e443269bf5110';
+const REFMASTER_ADDR   = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
 
 const WELCOME_ABI = [
-  "event Staked(address indexed user, uint256 indcAmount, uint256 usdtEquivalent, uint256 positionIndex)"
+  "function getPositionCount(address user) external view returns (uint256)",
+  "function getPosition(address user, uint256 idx) external view returns (uint256 indcStaked, uint256 usdtEquivalent, uint256 startTime, uint256 lastCheckpoint, uint256 reward, bool active, bool checkpointPending, uint256 nextCheckpointTime)"
 ];
 const AGGREGATOR_ABI = [
   "function getUserVolume(address user) external view returns (uint256)",
   "function reportVolumeUSDT(address user, uint256 usdtAmount, uint8 activityType) external"
 ];
+const REFMASTER_ABI = [
+  "function getDirectDownlines(address _user) external view returns (address[] memory)"
+];
 
 let _provider, _signer, _wallet;
-let _userData = []; // [{user, total, synced, status}]
+let _groups = []; // [{upline, downlines: [{user, total, synced}]}]
 
 function log(msg) {
   const el = document.getElementById('log');
@@ -81,12 +85,9 @@ function log(msg) {
 }
 
 document.getElementById('btnConnect').onclick = async () => {
-  if (!window.ethereum) { log('❌ Wallet tidak ditemukan (gunakan browser wallet/TrustWallet/MetaMask)'); return; }
+  if (!window.ethereum) { log('❌ Wallet tidak ditemukan'); return; }
   try {
-    _provider = new ethers.providers.Web3Provider(window.ethereum, {
-      name: 'bnb',
-      chainId: 56
-    });
+    _provider = new ethers.providers.Web3Provider(window.ethereum, { name: 'bnb', chainId: 56 });
     await _provider.send("eth_requestAccounts", []);
     _signer = _provider.getSigner();
     _wallet = await _signer.getAddress();
@@ -101,85 +102,76 @@ document.getElementById('btnConnect').onclick = async () => {
 document.getElementById('btnScan').onclick = async () => {
   const btn = document.getElementById('btnScan');
   btn.disabled = true;
-  document.getElementById('scanStatus').textContent = '⏳ Mengambil data blockchain...';
-  log('Mulai scan event Staked dari Welcome V2...');
+  document.getElementById('scanStatus').textContent = '⏳ Mengambil data...';
 
   try {
-    // Provider khusus untuk scan (RPC wallet sering limit 25 block/query)
-    const scanProvider = new ethers.providers.JsonRpcProvider(
-      'https://bsc-rpc.publicnode.com',
-      { chainId: 56, name: 'bnb' }
-    );
+    const raw = document.getElementById('inpUplines').value.trim();
+    const uplines = raw.split('\n').map(s => s.trim()).filter(s => s.length === 42 && s.startsWith('0x'));
 
-    const welcome = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, scanProvider);
-    const agg     = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _provider);
-
-    const latestBlock = await scanProvider.getBlockNumber();
-    const CHUNK = 2000; // aman untuk publicnode
-    const LOOKBACK_BLOCKS = 250000; // ~9 hari di BSC (3 detik/block)
-    let fromBlock = Math.max(0, latestBlock - LOOKBACK_BLOCKS);
-
-    let allEvents = [];
-    let start = fromBlock;
-    while (start <= latestBlock) {
-      const end = Math.min(start + CHUNK, latestBlock);
-      log(`Scan block ${start} → ${end}...`);
-      let retries = 0;
-      while (retries < 3) {
-        try {
-          const filter = welcome.filters.Staked();
-          const events = await welcome.queryFilter(filter, start, end);
-          allEvents = allEvents.concat(events);
-          break;
-        } catch(e) {
-          retries++;
-          if (retries >= 3) {
-            log('⚠️ Chunk gagal setelah 3x retry, skip: ' + (e.message || e));
-          } else {
-            await new Promise(r => setTimeout(r, 800));
-          }
-        }
-      }
-      await new Promise(r => setTimeout(r, 200)); // hindari rate limit
-      start = end + 1;
+    if (uplines.length === 0) {
+      log('❌ Tidak ada address valid di input.');
+      document.getElementById('scanStatus').textContent = '❌ Input kosong/tidak valid.';
+      btn.disabled = false;
+      return;
     }
 
-    log(`Total event Staked ditemukan: ${allEvents.length}`);
+    log(`Memproses ${uplines.length} upline...`);
 
-    // Group per user
-    const totals = {};
-    for (const ev of allEvents) {
-      const user = ev.args.user;
-      const usdt = ev.args.usdtEquivalent;
-      if (!totals[user]) totals[user] = ethers.BigNumber.from(0);
-      totals[user] = totals[user].add(usdt);
-    }
+    const refMaster = new ethers.Contract(REFMASTER_ADDR, REFMASTER_ABI, _provider);
+    const welcome   = new ethers.Contract(WELCOME_ADDR, WELCOME_ABI, _provider);
+    const agg       = new ethers.Contract(AGGREGATOR_ADDR, AGGREGATOR_ABI, _provider);
 
-    const users = Object.keys(totals);
-    log(`User unik: ${users.length}. Cek status sync di Aggregator...`);
+    _groups = [];
 
-    _userData = [];
-    for (const user of users) {
-      let currentVol = ethers.BigNumber.from(0);
+    for (const upline of uplines) {
+      log(`Cek downline dari ${upline}...`);
+      let downlines = [];
       try {
-        currentVol = await agg.getUserVolume(user);
-      } catch(e) { /* ignore */ }
+        downlines = await refMaster.getDirectDownlines(upline);
+      } catch(e) {
+        log(`⚠️ Gagal ambil downline ${upline}: ` + (e.message || e));
+        continue;
+      }
 
-      _userData.push({
-        user: user,
-        total: totals[user],
-        synced: currentVol.gt(0),
-        currentVol: currentVol
-      });
+      log(`  → ${downlines.length} downline ditemukan`);
+
+      const group = { upline, downlines: [] };
+
+      for (const dl of downlines) {
+        let total = ethers.BigNumber.from(0);
+        try {
+          const count = await welcome.getPositionCount(dl);
+          for (let i = 0; i < count; i++) {
+            const pos = await welcome.getPosition(dl, i);
+            total = total.add(pos.usdtEquivalent);
+          }
+        } catch(e) {
+          log(`  ⚠️ Gagal ambil posisi ${dl}: ` + (e.message || e));
+        }
+
+        let currentVol = ethers.BigNumber.from(0);
+        try {
+          currentVol = await agg.getUserVolume(dl);
+        } catch(e) { /* ignore */ }
+
+        group.downlines.push({
+          user: dl,
+          total: total,
+          synced: currentVol.gt(0),
+          currentVol: currentVol
+        });
+      }
+
+      _groups.push(group);
     }
 
     renderTable();
     document.getElementById('resultCard').style.display = 'block';
-    document.getElementById('scanStatus').textContent = `✅ Selesai. ${users.length} user ditemukan.`;
+    document.getElementById('scanStatus').textContent = `✅ Selesai.`;
     log('Scan selesai.');
 
   } catch(e) {
-    log('❌ Scan gagal: ' + (e.message || e));
+    log('❌ Gagal: ' + (e.message || e));
     document.getElementById('scanStatus').textContent = '❌ Gagal, lihat log.';
   } finally {
     btn.disabled = false;
@@ -187,35 +179,53 @@ document.getElementById('btnScan').onclick = async () => {
 };
 
 function renderTable() {
-  const body = document.getElementById('resultBody');
-  body.innerHTML = '';
-  let unsyncedCount = 0;
+  const container = document.getElementById('resultContainer');
+  container.innerHTML = '';
+  let totalDL = 0, unsyncedCount = 0;
 
-  for (const row of _userData) {
-    if (!row.synced) unsyncedCount++;
-    const tr = document.createElement('tr');
-    const totalUsd = ethers.utils.formatUnits(row.total, 18);
-    tr.innerHTML = `
-      <td class="addr">${row.user}</td>
-      <td>$${parseFloat(totalUsd).toFixed(2)}</td>
-      <td class="${row.synced ? 'ok' : 'pending'}">${row.synced ? '✅ Sudah sync' : '⏳ Belum'}</td>
-      <td><button class="btn btn-sm" data-user="${row.user}" ${row.synced ? 'disabled' : ''}>Sync</button></td>
-    `;
-    body.appendChild(tr);
+  for (const group of _groups) {
+    const grpDiv = document.createElement('div');
+    grpDiv.className = 'grp';
+    grpDiv.textContent = `Upline: ${group.upline} (${group.downlines.length} downline)`;
+    container.appendChild(grpDiv);
+
+    const table = document.createElement('table');
+    table.innerHTML = `<thead><tr><th>Downline</th><th>Total USDT</th><th>Status</th><th>Aksi</th></tr></thead><tbody></tbody>`;
+    const body = table.querySelector('tbody');
+
+    for (const row of group.downlines) {
+      totalDL++;
+      if (!row.synced) unsyncedCount++;
+      const totalUsd = ethers.utils.formatUnits(row.total, 18);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="addr">${row.user}</td>
+        <td>$${parseFloat(totalUsd).toFixed(2)}</td>
+        <td class="${row.synced ? 'ok' : 'pending'}">${row.synced ? '✅ Sudah' : '⏳ Belum'}</td>
+        <td><button class="btn btn-sm" data-user="${row.user}" ${row.synced || row.total.isZero() ? 'disabled' : ''}>Sync</button></td>
+      `;
+      body.appendChild(tr);
+    }
+
+    table.appendChild(body);
+    container.appendChild(table);
   }
 
   document.getElementById('resultSummary').textContent =
-    `${_userData.length} user total, ${unsyncedCount} belum sync`;
+    `${totalDL} downline total, ${unsyncedCount} belum sync`;
 
-  // Bind individual sync buttons
-  body.querySelectorAll('button[data-user]').forEach(btn => {
+  container.querySelectorAll('button[data-user]').forEach(btn => {
     btn.onclick = () => syncUser(btn.dataset.user, btn);
   });
 }
 
 async function syncUser(userAddr, btnEl) {
-  const row = _userData.find(r => r.user.toLowerCase() === userAddr.toLowerCase());
-  if (!row) return;
+  let row = null;
+  for (const g of _groups) {
+    row = g.downlines.find(r => r.user.toLowerCase() === userAddr.toLowerCase());
+    if (row) break;
+  }
+  if (!row || row.total.isZero()) return;
 
   if (btnEl) { btnEl.disabled = true; btnEl.textContent = '...'; }
   log(`Sync ${userAddr} — $${ethers.utils.formatUnits(row.total, 18)}...`);
@@ -235,13 +245,18 @@ async function syncUser(userAddr, btnEl) {
 }
 
 document.getElementById('btnSyncAll').onclick = async () => {
-  const unsynced = _userData.filter(r => !r.synced);
-  if (unsynced.length === 0) { log('Semua sudah sync.'); return; }
+  let allUnsynced = [];
+  for (const g of _groups) {
+    for (const row of g.downlines) {
+      if (!row.synced && !row.total.isZero()) allUnsynced.push(row);
+    }
+  }
+  if (allUnsynced.length === 0) { log('Tidak ada yang perlu disync.'); return; }
 
-  log(`Mulai sync ${unsynced.length} user secara berurutan...`);
-  for (const row of unsynced) {
+  log(`Mulai sync ${allUnsynced.length} downline secara berurutan...`);
+  for (const row of allUnsynced) {
     await syncUser(row.user);
-    await new Promise(r => setTimeout(r, 1000)); // delay antar tx
+    await new Promise(r => setTimeout(r, 1000));
   }
   log('🎉 Sync semua selesai.');
 };
