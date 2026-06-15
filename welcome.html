@@ -832,7 +832,6 @@ const ERC20_ABI   = [
   "function approve(address,uint256) returns (bool)",
 ];
 const MASTER_ABI     = ["function getUserInfo(address) view returns (bool,address,uint256,uint256,uint256,uint8[])"];
-const AGGREGATOR_ABI = ["function reportVolumeUSDT(address user, uint256 usdtAmount, uint8 activityType) external"];
 
 // ── ActivityBonus: Downstream Bonus (V1 + V2) ──────────────────────────────
 const ACTIVITY_BONUS_CA_V1 = "0x29ab1c5c076dc870a25ebcfa10f5829373bee461";
@@ -1251,22 +1250,19 @@ async function processCheckpoint(posIdx, claimType){
   document.getElementById('cpPopup')?.remove();
   if(!_wallet) return;
   try{
-    // Step 1: Cek checkpointPending
+    // Step 1: Cek apakah masih ada reward yang belum diklaim
     const pos = await _welcome.getPosition(_wallet, posIdx);
-    const cpPending = pos.checkpointPending;
+    const hasReward = pos.reward && pos.reward.gt && pos.reward.gt(0);
 
-    if(!cpPending){
-      // Trigger checkpointPending via claimReward
+    if(hasReward){
+      // Masih ada reward — klaim dulu
       setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','var(--gold)');
       const tx1 = await _welcome.claimReward(posIdx, claimType);
       await tx1.wait();
       setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
     } else {
-      // Claim reward dulu sesuai pilihan
-      setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','var(--gold)');
-      const tx1 = await _welcome.claimReward(posIdx, claimType);
-      await tx1.wait();
-      setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
+      // Reward sudah 0 (sudah pernah diklaim) — langsung lanjut ke konfirmasi
+      setMsg('⏳ Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','var(--gold)');
     }
 
     // Step 2: confirmCheckpoint
