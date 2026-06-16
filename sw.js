@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "129.0";
+const VERSION = "129.1";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -50,6 +50,7 @@ const CACHE_FILES = [
   "/kontribusi.html",
   "/solidaritas.html",
   "/dokumen.html",
+  "/panel-mitra",
   "/prediksi.html",
   "/presale.html",
   "/profile.html",
