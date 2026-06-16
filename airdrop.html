@@ -32,36 +32,28 @@ async function hashImage(base64) {
   return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// Cek apakah hash sudah pernah dipakai dalam 7 hari
+// Cek apakah hash sudah pernah dipakai dalam 7 hari — GLOBAL (lintas wallet)
+// Disimpan per-hash, bukan per-wallet, supaya foto yang sama dari wallet lain pun terdeteksi.
 async function checkHashExists(wallet, hash) {
-  try {
-    const snap = await get(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}`));
-    if (!snap.exists()) return false;
-    const data = snap.val();
-    const now = Date.now();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000;
-    for (const key of Object.keys(data)) {
-      const entry = data[key];
-      // Hapus yang sudah lebih dari 7 hari
-      if (now - entry.ts > sevenDays) {
-        await remove(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}/${key}`));
-        continue;
-      }
-      if (entry.hash === hash) return true;
-    }
+  const snap = await get(ref(_fbDb, `airdrop_hashes/${hash}`));
+  if (!snap.exists()) return false;
+  const entry = snap.val();
+  const now = Date.now();
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  if (now - entry.ts > sevenDays) {
+    // Sudah lebih dari 7 hari — hapus, anggap belum pernah dipakai
+    await remove(ref(_fbDb, `airdrop_hashes/${hash}`));
     return false;
-  } catch(e) { return false; }
+  }
+  return true; // hash ini sudah pernah dipakai (oleh wallet manapun) dalam 7 hari terakhir
 }
 
-// Simpan hash baru
+// Simpan hash baru — GLOBAL, key = hash itu sendiri
 async function saveHash(wallet, hash) {
-  try {
-    const key = Date.now().toString();
-    await set(ref(_fbDb, `airdrop_hashes/${wallet.toLowerCase()}/${key}`), {
-      hash: hash,
-      ts: Date.now()
-    });
-  } catch(e) {}
+  await set(ref(_fbDb, `airdrop_hashes/${hash}`), {
+    wallet: wallet.toLowerCase(),
+    ts: Date.now()
+  });
 }
 
 // Validasi nama file mengandung tanggal hari ini
@@ -79,12 +71,26 @@ function checkFileName(fileName) {
   return patterns.some(p => fileName.includes(p));
 }
 
+// Catat submission yang dicurigai (nama file / dimensi tidak match) untuk review manual.
+// TIDAK PERNAH menolak upload — hanya untuk audit trail di admin panel nanti.
+async function flagSuspicious(wallet, hash, fileName) {
+  try {
+    const key = Date.now().toString();
+    await set(ref(_fbDb, `airdrop_flagged/${wallet.toLowerCase()}/${key}`), {
+      hash: hash,
+      fileName: fileName || '',
+      ts: Date.now()
+    });
+  } catch(e) {}
+}
+
 // Export ke window agar bisa diakses dari script utama
 window._airdropFirebase = {
   hashImage,
   checkHashExists,
   saveHash,
-  checkFileName
+  checkFileName,
+  flagSuspicious
 };
 </script>
 <style>
@@ -541,11 +547,32 @@ function selectTask(id) {
   }
 }
 
+// Cek dimensi gambar vs ukuran screen device — sinyal "foto dari foto"
+// (bukan blocking, hanya menurunkan confidence score)
+function checkImageDims(base64) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      const sw = window.screen.width * (window.devicePixelRatio || 1);
+      const sh = window.screen.height * (window.devicePixelRatio || 1);
+      // Toleransi 15% — screenshot asli biasanya match persis/dekat dgn resolusi device
+      const wDiff = Math.abs(iw - sw) / sw;
+      const hDiff = Math.abs(ih - sh) / sh;
+      const wDiffRot = Math.abs(iw - sh) / sh; // jaga-jaga orientasi landscape
+      const hDiffRot = Math.abs(ih - sw) / sw;
+      const matches = (wDiff < 0.15 && hDiff < 0.15) || (wDiffRot < 0.15 && hDiffRot < 0.15);
+      resolve({ matches, iw, ih, sw, sh });
+    };
+    img.onerror = () => resolve({ matches: null, iw:0, ih:0, sw:0, sh:0 });
+    img.src = base64;
+  });
+}
+
 function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  // Nama file tidak divalidasi — andalkan hash check saja
   const r = new FileReader();
   r.onload = (ev) => {
     uploadedImg = ev.target.result;
@@ -565,18 +592,49 @@ async function verifySosmed() {
 
   setStatus('verifyStatus','⏳ Memverifikasi screenshot...','info');
 
-  // Hash check — cegah foto daur ulang (7 hari)
-  if (window._airdropFirebase && userAddress) {
-    try {
-      const hash = await window._airdropFirebase.hashImage(uploadedImg);
-      const exists = await window._airdropFirebase.checkHashExists(userAddress, hash);
-      if (exists) {
-        setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru hari ini.','err');
-        return;
-      }
-      // Simpan hash baru
-      await window._airdropFirebase.saveHash(userAddress, hash);
-    } catch(e) { console.warn('Hash check skip:', e); }
+  // ── Sinyal non-blocking (tidak pernah menolak upload, hanya dicatat) ──
+  let suspicious = false;
+
+  // Sinyal 1: nama file mengandung tanggal hari ini? (info saja, banyak HP rename file saat di-share)
+  try {
+    const fnameOk = window._airdropFirebase ? window._airdropFirebase.checkFileName(uploadedFileName) : true;
+    if (!fnameOk) suspicious = true; // tidak reject, hanya tandai
+  } catch(e) {}
+
+  // Sinyal 2: dimensi gambar cocok dengan resolusi screen device ini?
+  try {
+    const dims = await checkImageDims(uploadedImg);
+    if (dims.matches === false) suspicious = true; // kemungkinan foto-dari-foto/device lain
+  } catch(e) {}
+
+  // Hash check — satu-satunya pengecekan yang BENAR-BENAR menolak (cegah foto daur ulang, 7 hari)
+  // FAIL-CLOSED: kalau pengecekan ini gagal/error (koneksi lemot, dll), TOLAK dan minta coba lagi.
+  // Jangan pernah diam-diam meloloskan submission saat validasi gagal dijalankan.
+  if (!window._airdropFirebase || !userAddress) {
+    setStatus('verifyStatus','❌ Gagal memuat sistem verifikasi. Coba lagi sebentar.','err');
+    return;
+  }
+  let hash;
+  try {
+    hash = await window._airdropFirebase.hashImage(uploadedImg);
+    const exists = await window._airdropFirebase.checkHashExists(userAddress, hash);
+    if (exists) {
+      setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru hari ini.','err');
+      return;
+    }
+  } catch(e) {
+    console.warn('Hash check error:', e);
+    setStatus('verifyStatus','❌ Gagal memverifikasi screenshot. Coba upload ulang atau gunakan screenshot lain.','err');
+    return;
+  }
+  try {
+    // Simpan hash baru, sertakan flag suspicious untuk review manual nanti (bukan untuk blocking realtime)
+    await window._airdropFirebase.saveHash(userAddress, hash);
+    if (suspicious) {
+      await window._airdropFirebase.flagSuspicious(userAddress, hash, uploadedFileName);
+    }
+  } catch(e) {
+    console.warn('Save hash/flag error (non-blocking):', e);
   }
 
   const wk = userAddress.toLowerCase();
