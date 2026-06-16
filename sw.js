@@ -11,7 +11,7 @@ const CACHE_NAME = "indocoin-v" + VERSION;
 const CACHE_FILES = [
   "/",
   "/index.html",
-  "indocoin-master",
+  "/indocoin-master",
   "/indc-market.html",
   "/dashboard.html",
   "/indocoin-city.html",
