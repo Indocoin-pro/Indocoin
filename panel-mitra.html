@@ -134,6 +134,45 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .form-input:focus{border-color:var(--gold);}
 select.form-input option{background:var(--white);}
 
+/* PICKER BUTTON (replaces native select) */
+.picker-btn{
+  width:100%;background:var(--cream);border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 12px;
+  font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;transition:border-color 0.2s;
+}
+.picker-btn:active{border-color:var(--gold);}
+.picker-arrow{color:var(--text3);font-size:14px;}
+
+/* PICKER MODAL */
+#picker-modal{
+  position:fixed;inset:0;background:rgba(26,20,16,0.5);
+  display:none;align-items:flex-end;justify-content:center;z-index:300;
+}
+#picker-modal.show{display:flex;}
+.picker-sheet{
+  background:var(--white);border-radius:18px 18px 0 0;
+  width:100%;max-width:480px;max-height:70vh;overflow-y:auto;
+  padding:16px;animation:slideUp 0.25s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.picker-header{
+  font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  color:var(--text);letter-spacing:1px;margin-bottom:12px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.picker-close{font-size:18px;color:var(--text3);cursor:pointer;padding:4px 8px;}
+.picker-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 8px;border-bottom:1px solid var(--border2);
+  cursor:pointer;
+}
+.picker-item:active{background:var(--cream);}
+.picker-item:last-child{border-bottom:none;}
+.picker-item-addr{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);}
+.picker-item-info{text-align:right;}
+
 /* BUTTONS */
 .btn{
   padding:10px 16px;border-radius:var(--radius-sm);border:none;
@@ -323,7 +362,9 @@ select.form-input option{background:var(--white);}
     <div class="tab-pane active" id="pane-entry">
       <div class="form-group">
         <label class="form-label">Pilih Proxy</label>
-        <select class="form-input" id="sel-proxy"><option value="">— Memuat... —</option></select>
+        <div class="picker-btn" id="sel-proxy" onclick="openPicker('proxy')">
+          <span id="sel-proxy-label">— Pilih proxy —</span><span class="picker-arrow">⌄</span>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Jumlah INDC</label>
@@ -367,7 +408,9 @@ select.form-input option{background:var(--white);}
       <div class="divider"></div>
       <div class="form-group">
         <label class="form-label">Alokasikan INDC ke Proxy</label>
-        <select class="form-input" id="sel-alloc" style="margin-bottom:8px;"><option value="">— Pilih proxy —</option></select>
+        <div class="picker-btn" id="sel-alloc" onclick="openPicker('alloc')" style="margin-bottom:8px;">
+          <span id="sel-alloc-label">— Pilih proxy —</span><span class="picker-arrow">⌄</span>
+        </div>
         <input type="number" class="form-input" id="inp-alloc" placeholder="Jumlah INDC">
         <button class="btn btn-gold" onclick="allocateIndc()" style="margin-top:6px;">ALOKASIKAN</button>
       </div>
@@ -399,6 +442,17 @@ select.form-input option{background:var(--white);}
     </div>
   </div>
 
+</div>
+
+<!-- PICKER MODAL -->
+<div id="picker-modal" onclick="if(event.target===this)closePicker()">
+  <div class="picker-sheet">
+    <div class="picker-header">
+      <span>PILIH PROXY</span>
+      <span class="picker-close" onclick="closePicker()">✕</span>
+    </div>
+    <div id="picker-list"></div>
+  </div>
 </div>
 
 <!-- TOAST -->
@@ -539,12 +593,40 @@ function renderProxies(){
   `).join('');
 }
 
+let selectedProxy = { proxy: '', alloc: '' };
+
 function populateSelects(){
-  const opts = '<option value="">— Pilih proxy —</option>' + proxies.map((p,i)=>
-    `<option value="${p.addr}">#${i+1} ${p.addr.slice(0,8)}...${p.addr.slice(-6)} — ${fmt(p.indc,INDC_D,0)} INDC ${p.active?'⏳':'✅'}</option>`
-  ).join('');
-  document.getElementById('sel-proxy').innerHTML = opts;
-  document.getElementById('sel-alloc').innerHTML = opts;
+  renderPickerList();
+}
+
+function openPicker(target){
+  window._pickerTarget = target;
+  renderPickerList();
+  document.getElementById('picker-modal').classList.add('show');
+}
+function closePicker(){
+  document.getElementById('picker-modal').classList.remove('show');
+}
+function renderPickerList(){
+  const list = document.getElementById('picker-list');
+  if(!proxies.length){ list.innerHTML='<div style="text-align:center;padding:20px;font-family:DM Mono,monospace;font-size:11px;color:var(--text3);">Belum ada proxy terdaftar.</div>'; return; }
+  list.innerHTML = proxies.map((p,i)=>`
+    <div class="picker-item" onclick="pickProxy('${p.addr}', ${i})">
+      <div>
+        <div class="picker-item-addr">#${i+1} ${p.addr.slice(0,8)}...${p.addr.slice(-6)}</div>
+      </div>
+      <div class="picker-item-info">
+        <span class="badge ${p.active?'badge-active':'badge-idle'}">${p.active?'⏳ AKTIF':'✅ SIAP'}</span>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-top:3px;">${fmt(p.indc,INDC_D,0)} INDC</div>
+      </div>
+    </div>
+  `).join('');
+}
+function pickProxy(addr, idx){
+  const target = window._pickerTarget;
+  selectedProxy[target] = addr;
+  document.getElementById('sel-'+target+'-label').textContent = `#${idx+1} ${addr.slice(0,8)}...${addr.slice(-6)}`;
+  closePicker();
 }
 
 function renderPending(lsAct,lsProp,lsProxy,lsAmt,wdAct,wdProp){
@@ -588,7 +670,7 @@ function renderPending(lsAct,lsProp,lsProxy,lsAmt,wdAct,wdProp){
 }
 
 async function proposeListSell(){
-  const proxy=document.getElementById('sel-proxy').value;
+  const proxy=selectedProxy.proxy;
   const amt=document.getElementById('inp-indc').value;
   if(!proxy||!amt){ toast('Pilih proxy dan isi jumlah INDC','error'); return; }
   try{
@@ -645,7 +727,7 @@ async function forwardAll(){
   loadData();
 }
 async function allocateIndc(){
-  const proxy=document.getElementById('sel-alloc').value;
+  const proxy=selectedProxy.alloc;
   const amt=document.getElementById('inp-alloc').value;
   if(!proxy||!amt){ toast('Pilih proxy dan isi jumlah','error'); return; }
   try{
