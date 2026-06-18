@@ -32,20 +32,12 @@ async function hashImage(base64) {
   return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// Cek apakah hash sudah pernah dipakai dalam 7 hari — GLOBAL (lintas wallet)
+// Cek apakah hash sudah PERNAH dipakai — GLOBAL (lintas wallet), PERMANEN (tidak ada kadaluarsa).
 // Disimpan per-hash, bukan per-wallet, supaya foto yang sama dari wallet lain pun terdeteksi.
 async function checkHashExists(wallet, hash) {
   const snap = await get(ref(_fbDb, `airdrop_hashes/${hash}`));
   if (!snap.exists()) return false;
-  const entry = snap.val();
-  const now = Date.now();
-  const sevenDays = 7 * 24 * 60 * 60 * 1000;
-  if (now - entry.ts > sevenDays) {
-    // Sudah lebih dari 7 hari — hapus, anggap belum pernah dipakai
-    await remove(ref(_fbDb, `airdrop_hashes/${hash}`));
-    return false;
-  }
-  return true; // hash ini sudah pernah dipakai (oleh wallet manapun) dalam 7 hari terakhir
+  return true; // hash ini sudah pernah dipakai (oleh wallet manapun), kapan pun — permanen
 }
 
 // Simpan hash baru — GLOBAL, key = hash itu sendiri
