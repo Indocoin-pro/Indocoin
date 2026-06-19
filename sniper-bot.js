@@ -154,7 +154,7 @@ async function cekUmurContract(tokenAddress, provider, config) {
     // Ambil block deploy via eth_getCode tidak langsung, pakai logs
     // Approx: cek creation tx via BSCScan API
     const res = await axios.get(
-      `https://api.bscscan.com/api?module=account&action=txlist&address=${tokenAddress}&startblock=0&endblock=99999999&page=1&offset=1&sort=asc&apikey=YourApiKeyToken`,
+      `https://api.bscscan.com/api?module=account&action=txlist&address=${tokenAddress}&startblock=0&endblock=99999999&page=1&offset=1&sort=asc&apikey=${process.env.BSCSCAN_API_KEY}`,
       { timeout: 5000 }
     );
     if (res.data.result && res.data.result.length > 0) {
