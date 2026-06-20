@@ -908,15 +908,18 @@ function renderCard(p, t, i, version, posisiList) {
   const isMaxed   = accrued >= maxRew;
   const tc        = TIER_CONFIG[t-1];
 
+  const depositTime = parseInt(p.depositTime.toString());
+  const totalDurasi = parseInt(p.unlockTime.toString()) - depositTime;
+  const elapsed2    = now - depositTime;
+  const roiPct      = isUnlocked ? 100 : Math.min(99.9, (elapsed2 / totalDurasi) * 100);
+
   let compBal = principal + accrued;
   if(!isMaxed && p.active){
-    const elapsed = now - parseInt(p.lastUpdateTime.toString());
+    const elapsedSec = now - parseInt(p.lastUpdateTime.toString());
     const base = principal + accrued;
-    const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
+    const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsedSec;
     compBal = Math.min(principal + maxRew, principal + accrued + newR);
   }
-  // ROI berdasarkan compBal live, bukan accrued di contract
-  const roiPct = maxRew > 0 ? Math.min(100, ((compBal - principal) / maxRew) * 100) : 0;
 
   const statusLabel = isMaxed ? 'MAX REACHED' : isUnlocked ? 'UNLOCKED' : 'LOCKED';
   const statusClass = isMaxed ? 'maxed' : isUnlocked ? 'unlocked' : 'locked';
@@ -1033,13 +1036,19 @@ function startLiveUpdate(){
           const cdEl = document.getElementById(`cd_${ver}_${t}_${i}`);
           if(cdEl) cdEl.textContent = fmtCountdown(timeLeft);
 
-          // Update compound balance live
+          // Update compound balance & ROI live
           if(!isMaxed){
             const elapsed = now - parseInt(p.lastUpdateTime.toString());
             const base = principal + accrued;
             const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
             const compBal = Math.min(principal + maxRew, principal + accrued + newR);
-            const roiPct = maxRew > 0 ? Math.min(100, ((compBal-principal)/maxRew)*100) : 0;
+
+            // ROI berdasarkan hitungan hari, bukan ratePerSec
+            const dTime  = parseInt(p.depositTime.toString());
+            const uTime  = parseInt(p.unlockTime.toString());
+            const tDur   = uTime - dTime;
+            const isUnlk = timeLeft === 0;
+            const roiPct = isUnlk ? 100 : Math.min(99.9, ((now - dTime) / tDur) * 100);
 
             const cbEl = document.getElementById(`compBal_${ver}_${t}_${i}`);
             if(cbEl) cbEl.textContent = fmtNum(compBal)+' INDC';
