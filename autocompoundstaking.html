@@ -588,6 +588,20 @@ const STAKING_ABI = [
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getRefBonusInfo","outputs":[{"internalType":"uint256","name":"pending","type":"uint256"},{"internalType":"uint256","name":"totalEarned","type":"uint256"}],"stateMutability":"view","type":"function"}
 ];
 
+// ABI khusus V2 (tidak ada parameter toPlatform)
+const STAKING_ABI_V2 = [
+  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"claimNormal","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"earlyClaim","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"claimAll","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"claimRefBonus","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"}],"name":"getUserPositions","outputs":[{"components":[{"internalType":"uint256","name":"principal","type":"uint256"},{"internalType":"uint256","name":"depositTime","type":"uint256"},{"internalType":"uint256","name":"unlockTime","type":"uint256"},{"internalType":"uint256","name":"lastUpdateTime","type":"uint256"},{"internalType":"uint256","name":"accruedIndc","type":"uint256"},{"internalType":"uint256","name":"ratePerSec","type":"uint256"},{"internalType":"uint256","name":"maxReward","type":"uint256"},{"internalType":"bool","name":"active","type":"bool"}],"internalType":"struct AutoCompoundStaking.StakeInfo[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getPositionDetail","outputs":[{"internalType":"uint256","name":"principal","type":"uint256"},{"internalType":"uint256","name":"accruedIndc","type":"uint256"},{"internalType":"uint256","name":"compoundBalance","type":"uint256"},{"internalType":"uint256","name":"depositTime","type":"uint256"},{"internalType":"uint256","name":"unlockTime","type":"uint256"},{"internalType":"uint256","name":"timeLeft","type":"uint256"},{"internalType":"uint256","name":"maxReward","type":"uint256"},{"internalType":"bool","name":"isUnlocked","type":"bool"},{"internalType":"bool","name":"isMaxReached","type":"bool"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getEarlyPenalty","outputs":[{"internalType":"uint256","name":"total","type":"uint256"},{"internalType":"uint256","name":"penalty","type":"uint256"},{"internalType":"uint256","name":"payout","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint8","name":"tier","type":"uint8"}],"name":"getPositionCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getClaimableCount","outputs":[{"internalType":"uint256","name":"count","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTotalCompoundBalance","outputs":[{"internalType":"uint256","name":"totalBalance","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+
 const ERC20_ABI = [
   {"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -771,7 +785,13 @@ async function connectWallet(){
 /* ── Load Data ── */
 // ── Popup pilihan tujuan claim (V3) ─────────────────────────────
 function showClaimPopup(version, tier, index, type) {
-  // Buat popup
+  // V2: tidak ada pilihan tujuan, langsung claim ke wallet external
+  if(version === 'v2') {
+    if(type === 'normal') doClaim(version, tier, index, false);
+    else doEarlyClaim(version, tier, index, false);
+    return;
+  }
+  // V3: tampilkan popup pilihan tujuan
   const existing = document.getElementById('claimDestPopup');
   if(existing) existing.remove();
 
@@ -811,7 +831,7 @@ let contractV2 = null;
 
 async function initContracts(signerOrProvider) {
   contract   = new ethers.Contract(SC.STAKING_V3, STAKING_ABI, signerOrProvider);
-  contractV2 = new ethers.Contract(SC.STAKING_V2, STAKING_ABI, signerOrProvider);
+  contractV2 = new ethers.Contract(SC.STAKING_V2, STAKING_ABI_V2, signerOrProvider);
 }
 
 async function loadData(){
@@ -1129,11 +1149,15 @@ async function doClaim(version='v3', tier, index, toPlatform=false){
   try{
     showToast('Proses claim...','var(--gold2)');
     const c = (version === 'v2') ? contractV2 : contract;
-    const tx = (version === 'v2')
-      ? await c.claimNormal(tier, index)
-      : await c.claimNormal(tier, index, toPlatform);
+    let tx;
+    if(version === 'v2'){
+      // V2 contract tidak punya parameter toPlatform
+      tx = await c.claimNormal(tier, index);
+    } else {
+      tx = await c.claimNormal(tier, index, toPlatform);
+    }
     await tx.wait();
-    showToast('✓ Claim berhasil! INDC dikirim ke wallet','var(--gold2)');
+    showToast('✓ Claim berhasil!','var(--gold2)');
     await loadData();
   }catch(e){ showToast('Gagal: '+e.message,'var(--red)'); }
 }
@@ -1142,30 +1166,18 @@ async function doClaim(version='v3', tier, index, toPlatform=false){
 async function doEarlyClaim(version='v3', tier, index, toPlatform=false){
   if(!contract) return;
   try{
-    // Tampilkan estimasi penalti dulu
-    const ep = await contract.getEarlyPenalty(myAddr, tier, index);
-    const total   = fmtNum(ethers.utils.formatUnits(ep.total,9));
-    const penalty = fmtNum(ethers.utils.formatUnits(ep.penalty,9));
-    const payout  = fmtNum(ethers.utils.formatUnits(ep.payout,9));
-
-    const pop = document.createElement('div');
-    pop.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    pop.innerHTML=`<div style="background:#0d1f3c;border:2px solid rgba(200,146,42,0.6);border-radius:18px;padding:24px 20px;max-width:320px;width:100%;text-align:center;">
-      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
-      <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:12px;">KONFIRMASI EARLY CLAIM</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#a89880;margin-bottom:14px;line-height:1.9;text-align:left;">
-        Total saldo: <b style="color:#f5f0e8;">${total} INDC</b><br>
-        Penalti (${TIER_CONFIG[tier-1].penaltyLabel}): <b style="color:#ef4444;">${penalty} INDC</b><br>
-        Yang diterima: <b style="color:var(--gold3);">${payout} INDC</b>
-      </div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#6b5a48;margin-bottom:16px;">Yakin lanjut early claim?</div>
-      <div style="display:flex;gap:8px;">
-        <button onclick="this.closest('[style*=fixed]').remove()" style="flex:1;font-family:'Orbitron',sans-serif;font-size:9px;padding:10px;background:rgba(168,152,128,0.1);border:1px solid rgba(255,255,255,0.2);color:var(--white2);border-radius:10px;cursor:pointer;">BATAL</button>
-        <button onclick="confirmEarlyClaim(${tier},${index});this.closest('[style*=fixed]').remove()" style="flex:1;font-family:'Orbitron',sans-serif;font-size:9px;padding:10px;background:rgba(200,146,42,0.2);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;cursor:pointer;">YA, CLAIM</button>
-      </div>
-    </div>`;
-    document.body.appendChild(pop);
-  }catch(e){ showToast('Error: '+e.message,'var(--red)'); }
+    showToast('Proses early claim...','var(--gold2)');
+    const c = (version === 'v2') ? contractV2 : contract;
+    let tx;
+    if(version === 'v2'){
+      tx = await c.earlyClaim(tier, index);
+    } else {
+      tx = await c.earlyClaim(tier, index, toPlatform);
+    }
+    await tx.wait();
+    showToast('✓ Early claim berhasil!','var(--gold2)');
+    await loadData();
+  }catch(e){ showToast('Gagal: '+e.message,'var(--red)'); }
 }
 
 async function confirmEarlyClaim(tier, index){
@@ -1184,9 +1196,34 @@ async function confirmEarlyClaim(tier, index){
 /* ── CLAIM ALL ── */
 async function doClaimAll(){
   if(!contract) return;
+  // Tampilkan popup pilihan tujuan untuk V3
+  const existing = document.getElementById('claimAllPopup');
+  if(existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'claimAllPopup';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;color:#333;text-align:center;">
+      <div style="font-size:20px;margin-bottom:10px;">⚡</div>
+      <div style="font-size:14px;font-weight:700;color:#333;margin-bottom:6px;">Claim Semua — Pilih Tujuan</div>
+      <div style="font-size:12px;color:#888;margin-bottom:20px;line-height:1.6;">Kemana hasil claim semua posisi V3 akan dikirim?</div>
+      <button onclick="confirmClaimAll(true)" style="width:100%;background:linear-gradient(135deg,#c8922a,#a07020);color:#fff;border:none;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+        🏦 Platform Wallet
+      </button>
+      <button onclick="confirmClaimAll(false)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        👛 Wallet Eksternal
+      </button>
+      <button onclick="document.getElementById('claimAllPopup').remove()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:8px;">✕ Batal</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function confirmClaimAll(toPlatform) {
+  document.getElementById('claimAllPopup')?.remove();
   try{
     showToast('Proses claim semua...','var(--gold2)');
-    const tx = await contract.claimAll(false);
+    const tx = await contract.claimAll(toPlatform);
     await tx.wait();
     showToast('✓ Semua posisi berhasil di-claim!','var(--gold2)');
     await loadData();
