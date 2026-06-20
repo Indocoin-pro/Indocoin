@@ -82,7 +82,9 @@ const VAULT_ABI = [
   'function ambilDanaTrading(address user, uint256 amount) external',
   'function kembalikanHasil(address user, uint256 modal, uint256 hasil) external',
   'function getUserInfo(address user) external view returns (uint256,uint256,uint256,uint256,uint256,uint256,bool)',
-  'function getGlobalStats() external view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)',
+  'function getMySettings(address user) external view returns (uint256,uint256,uint256,bool)',
+  'function getUserAktif() external view returns (address[])',
+  'function getGlobalStats() external view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)',
   'function daftarUser(uint256) external view returns (address)',
   'function minDeposit() external view returns (uint256)',
   'function paused() external view returns (bool)'
@@ -209,7 +211,7 @@ async function filterToken(tokenAddress, pairAddress, provider, config) {
 }
 
 // ── Eksekusi Beli ────────────────────────────────────────────────────────────
-async function eksekusiBeli(tokenAddress, routerAddress, config) {
+async function eksekusiBeli(tokenAddress, routerAddress, config, userAddress, modalUser) {
   try {
     const wallet   = await getWallet();
     const provider = wallet.provider;
@@ -218,11 +220,12 @@ async function eksekusiBeli(tokenAddress, routerAddress, config) {
     const token    = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
     const vault    = getVault(wallet);
 
-    const modalWei = ethers.parseUnits(config.bot.modalPerSiklus.toString(), 18);
+    const modal    = modalUser || config.bot.modalPerSiklus;
+    const modalWei = ethers.parseUnits(modal.toFixed(6), 18);
     const slippage = config.bot.slippagePct / 100;
 
-    // Ambil dana dari vault contract
-    log(`💳 Ambil dana $${config.bot.modalPerSiklus} dari SniperVault...`);
+    // Ambil dana dari vault contract per user
+    log(`💳 Ambil dana $${modal} dari SniperVault untuk user ${userAddress.slice(0,8)}...`);
     const txAmbil = await vault.ambilDanaTrading(userAddress, modalWei);
     await txAmbil.wait();
 
@@ -263,7 +266,8 @@ async function eksekusiBeli(tokenAddress, routerAddress, config) {
       decimals: Number(decimals),
       jumlahToken: saldoToken,
       hargaBeli,
-      modal: config.bot.modalPerSiklus,
+      modal,
+      userAddress,
       waktuBeli: Date.now(),
       routerAddress,
       txHash: receipt.hash
@@ -296,12 +300,16 @@ async function monitorPosisi(posisi, config) {
 
     log(`📊 ${posisi.symbol} | Nilai: $${nilaiUSDT.toFixed(4)} | P/L: ${profitPct.toFixed(2)}% | Puncak: $${puncak.toFixed(4)} | Drop: ${trailingDrop.toFixed(2)}%`);
 
-    // Take profit: trailing stop aktif setelah +30%
-    const sudahProfit = profitPct >= config.bot.targetProfitPct;
+    // Gunakan TP/SL per user kalau ada, fallback ke config global
+    const tpPct = posisi.tpPct || config.bot.targetProfitPct;
+    const slPct = posisi.slPct || config.bot.stopLossPct;
+
+    // Take profit: trailing stop aktif setelah target profit tercapai
+    const sudahProfit = profitPct >= tpPct;
     const trailingHit = sudahProfit && trailingDrop >= config.bot.trailingStopPct;
 
-    // Stop loss
-    const stopLossHit = profitPct <= -config.bot.stopLossPct;
+    // Stop loss per user
+    const stopLossHit = profitPct <= -slPct;
 
     if (trailingHit || stopLossHit) {
       const alasan = trailingHit ? `Trailing stop (puncak $${puncak.toFixed(4)}, drop ${trailingDrop.toFixed(2)}%)` : `Stop loss ${profitPct.toFixed(2)}%`;
@@ -413,9 +421,9 @@ async function scanTokenBaru(dexName, dexConfig, config) {
         return;
       }
 
-      // Cek saldo cukup
-      if (saldoBot < config.bot.modalPerSiklus) {
-        log(`⚠️ Saldo tidak cukup: $${saldoBot.toFixed(2)} < $${config.bot.modalPerSiklus}`);
+      // Cek ada user aktif (saldo dicek per user di vault)
+      if (saldoBot <= 0) {
+        log(`⚠️ Total pool vault kosong: $${saldoBot.toFixed(2)}`);
         return;
       }
 
@@ -432,13 +440,50 @@ async function scanTokenBaru(dexName, dexConfig, config) {
         return;
       }
 
-      // Beli
-      const posisi = await eksekusiBeli(tokenTarget, dexConfig.router, config);
-      if (posisi.sukses) {
-        posisiAktif[tokenTarget] = { ...posisi, puncak: posisi.modal };
-        saldoBot -= config.bot.modalPerSiklus;
-        simpanState();
+      // Ambil daftar user aktif dari vault
+      let usersAktif = [];
+      try {
+        const provider2 = await getBscProvider();
+        const vault2    = getVault(provider2);
+        usersAktif      = await vault2.getUserAktif();
+        log(`👥 User aktif: ${usersAktif.length}`);
+      } catch(e) {
+        log(`⚠️ Gagal ambil user aktif: ${e.message}`);
       }
+
+      if (usersAktif.length === 0) {
+        log(`⏭️ Tidak ada user aktif, skip token ini`);
+        return;
+      }
+
+      // Beli per user sesuai setting masing-masing
+      for (const userAddr of usersAktif) {
+        try {
+          const provider2 = await getBscProvider();
+          const vault2    = getVault(provider2);
+          const settings  = await vault2.getMySettings(userAddr);
+          const modalUser = parseFloat(ethers.formatUnits(settings[2], 18));
+          const tpUser    = Number(settings[0]);
+          const slUser    = Number(settings[1]);
+
+          const posisi = await eksekusiBeli(tokenTarget, dexConfig.router, config, userAddr, modalUser);
+          if (posisi.sukses) {
+            const key = `${tokenTarget}_${userAddr}`;
+            posisiAktif[key] = {
+              ...posisi,
+              puncak      : posisi.modal,
+              userAddress : userAddr,
+              tpPct       : tpUser,
+              slPct       : slUser
+            };
+            log(`✅ Posisi dibuka untuk user ${userAddr.slice(0,8)} | TP:${tpUser}% SL:${slUser}%`);
+          }
+          await new Promise(r => setTimeout(r, 1000)); // jeda antar user
+        } catch(e) {
+          log(`⚠️ Gagal beli untuk user ${userAddr.slice(0,8)}: ${e.message}`);
+        }
+      }
+      simpanState();
     });
 
     log(`👀 Scanner ${dexName} aktif`);
@@ -484,13 +529,12 @@ function loadState() {
 async function initSaldo() {
   try {
     const provider = await getBscProvider();
-    const usdt     = new ethers.Contract(USDT, ERC20_ABI, provider);
-    const config   = loadConfig();
-    const bal      = await usdt.balanceOf(config.wallet.address);
-    saldoBot       = parseFloat(ethers.formatUnits(bal, 18));
-    log(`💰 Saldo USDT: $${saldoBot.toFixed(2)}`);
+    const vault    = getVault(provider);
+    const gs       = await vault.getGlobalStats();
+    saldoBot       = parseFloat(ethers.formatUnits(gs[0], 18)); // totalPool
+    log(`💰 Total Pool Vault: $${saldoBot.toFixed(2)}`);
   } catch(e) {
-    log(`⚠️ Gagal cek saldo: ${e.message}`);
+    log(`⚠️ Gagal cek saldo vault: ${e.message}`);
   }
 }
 
@@ -562,7 +606,9 @@ async function main() {
   log(`✅ Bot aktif | Modal: $${config.bot.modalPerSiklus} | Target: +${config.bot.targetProfitPct}% | SL: -${config.bot.stopLossPct}% | Trailing: -${config.bot.trailingStopPct}%`);
 }
 
-main().catch(e => {
-  log(`💀 Fatal error: ${e.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch(e => {
+    log(`💀 Fatal error: ${e.message}`);
+    process.exit(1);
+  });
+}
