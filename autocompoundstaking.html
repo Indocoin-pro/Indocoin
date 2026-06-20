@@ -166,8 +166,8 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .btn-stake:hover{box-shadow:0 4px 30px rgba(250,204,21,0.5);transform:translateY(-1px);}
 .btn-claim{width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
 .btn-claim:hover{box-shadow:0 4px 20px rgba(250,204,21,0.4);}
-.btn-early{width:100%;padding:10px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.15);color:#555;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
-.btn-early:hover{background:rgba(168,152,128,0.1);}
+.btn-early{width:100%;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;}
+.btn-early:hover{background:rgba(239,68,68,0.15);}
 .btn-claim-all{width:100%;padding:14px;background:rgba(200,146,42,0.12);border:1px solid rgba(200,146,42,0.5);color:var(--gold);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all 0.3s;margin-bottom:14px;}
 .btn-claim-all:hover{background:rgba(200,146,42,0.2);}
 .status-msg{text-align:center;font-family:'Share Tech Mono',monospace;font-size:10px;margin-top:8px;color:var(--muted);min-height:16px;}
@@ -616,6 +616,7 @@ let provider, signer, contract, indcC;
 let myAddr = null;
 let selectedTier = 1;
 let positionsCache = {};
+let positionsCacheV2 = {};
 let liveTimer = null;
 
 /* ── Utils ── */
@@ -870,9 +871,11 @@ async function loadData(){
       if(balDeposit) balDeposit.textContent = '0';
     }
 
-    // Total compound balance
+    // Total compound balance — gabungkan V2 + V3
     try{
-      const totalBal = await contract.getTotalCompoundBalance(myAddr);
+      let totalBal = ethers.BigNumber.from(0);
+      try{ totalBal = totalBal.add(await contract.getTotalCompoundBalance(myAddr)); }catch(e){}
+      try{ totalBal = totalBal.add(await contractV2.getTotalCompoundBalance(myAddr)); }catch(e){}
       const tbEl = document.getElementById('totalBal');
       if(tbEl) tbEl.textContent = fmtNum(ethers.utils.formatUnits(totalBal,9))+' INDC';
     }catch(e){}
@@ -978,6 +981,7 @@ async function loadPositions(){
     for(let t=1;t<=4;t++){
       try{
         const positions = await contractV2.getUserPositions(myAddr, t);
+        positionsCacheV2[t] = positions;
         for(let i=0;i<positions.length;i++){
           if(!positions[i].active) continue;
           totalPositions++;
@@ -1010,36 +1014,39 @@ function startLiveUpdate(){
   if(liveTimer) clearInterval(liveTimer);
   liveTimer = setInterval(()=>{
     const now = Math.floor(Date.now()/1000);
-    for(let t=1;t<=4;t++){
-      const positions = positionsCache[t]||[];
-      for(let i=0;i<positions.length;i++){
-        const p = positions[i];
-        if(!p||!p.active) continue;
-        const principal = parseFloat(ethers.utils.formatUnits(p.principal,9));
-        const accrued   = parseFloat(ethers.utils.formatUnits(p.accruedIndc,9));
-        const maxRew    = parseFloat(ethers.utils.formatUnits(p.maxReward,9));
-        const isMaxed   = accrued >= maxRew;
-        const unlockTime = parseInt(p.unlockTime.toString());
-        const timeLeft  = Math.max(0, unlockTime - now);
+    for(const ver of ['v2','v3']){
+      const cache = ver==='v2' ? positionsCacheV2 : positionsCache;
+      for(let t=1;t<=4;t++){
+        const positions = cache[t]||[];
+        for(let i=0;i<positions.length;i++){
+          const p = positions[i];
+          if(!p||!p.active) continue;
+          const principal = parseFloat(ethers.utils.formatUnits(p.principal,9));
+          const accrued   = parseFloat(ethers.utils.formatUnits(p.accruedIndc,9));
+          const maxRew    = parseFloat(ethers.utils.formatUnits(p.maxReward,9));
+          const isMaxed   = accrued >= maxRew;
+          const unlockTime = parseInt(p.unlockTime.toString());
+          const timeLeft  = Math.max(0, unlockTime - now);
 
-        // Update countdown
-        const cdEl = document.getElementById(`cd_${t}_${i}`);
-        if(cdEl) cdEl.textContent = fmtCountdown(timeLeft);
+          // Update countdown
+          const cdEl = document.getElementById(`cd_${ver}_${t}_${i}`);
+          if(cdEl) cdEl.textContent = fmtCountdown(timeLeft);
 
-        // Update compound balance live
-        if(!isMaxed){
-          const elapsed = now - parseInt(p.lastUpdateTime.toString());
-          const base = principal + accrued;
-          const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
-          const compBal = Math.min(principal + maxRew, principal + accrued + newR);
-          const roiPct = Math.min(100, ((compBal-principal)/maxRew)*100);
+          // Update compound balance live
+          if(!isMaxed){
+            const elapsed = now - parseInt(p.lastUpdateTime.toString());
+            const base = principal + accrued;
+            const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
+            const compBal = Math.min(principal + maxRew, principal + accrued + newR);
+            const roiPct = Math.min(100, ((compBal-principal)/maxRew)*100);
 
-          const cbEl = document.getElementById(`compBal_${t}_${i}`);
-          if(cbEl) cbEl.textContent = fmtNum(compBal)+' INDC';
-          const rpEl = document.getElementById(`roiPct_${t}_${i}`);
-          if(rpEl) rpEl.textContent = roiPct.toFixed(1)+'%';
-          const rfEl = document.getElementById(`roiFill_${t}_${i}`);
-          if(rfEl) rfEl.style.width = roiPct+'%';
+            const cbEl = document.getElementById(`compBal_${ver}_${t}_${i}`);
+            if(cbEl) cbEl.textContent = fmtNum(compBal)+' INDC';
+            const rpEl = document.getElementById(`roiPct_${ver}_${t}_${i}`);
+            if(rpEl) rpEl.textContent = roiPct.toFixed(1)+'%';
+            const rfEl = document.getElementById(`roiFill_${ver}_${t}_${i}`);
+            if(rfEl) rfEl.style.width = roiPct+'%';
+          }
         }
       }
     }
