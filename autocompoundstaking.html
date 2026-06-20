@@ -905,7 +905,6 @@ function renderCard(p, t, i, version, posisiList) {
   const unlockTime = parseInt(p.unlockTime.toString());
   const timeLeft  = Math.max(0, unlockTime - now);
   const isUnlocked = timeLeft === 0;
-  const roiPct    = Math.min(100, (accrued/maxRew)*100);
   const isMaxed   = accrued >= maxRew;
   const tc        = TIER_CONFIG[t-1];
 
@@ -916,6 +915,8 @@ function renderCard(p, t, i, version, posisiList) {
     const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
     compBal = Math.min(principal + maxRew, principal + accrued + newR);
   }
+  // ROI berdasarkan compBal live, bukan accrued di contract
+  const roiPct = maxRew > 0 ? Math.min(100, ((compBal - principal) / maxRew) * 100) : 0;
 
   const statusLabel = isMaxed ? 'MAX REACHED' : isUnlocked ? 'UNLOCKED' : 'LOCKED';
   const statusClass = isMaxed ? 'maxed' : isUnlocked ? 'unlocked' : 'locked';
@@ -1038,7 +1039,7 @@ function startLiveUpdate(){
             const base = principal + accrued;
             const newR = base * (parseFloat(p.ratePerSec.toString()) / INDC_DEC) * elapsed;
             const compBal = Math.min(principal + maxRew, principal + accrued + newR);
-            const roiPct = Math.min(100, ((compBal-principal)/maxRew)*100);
+            const roiPct = maxRew > 0 ? Math.min(100, ((compBal-principal)/maxRew)*100) : 0;
 
             const cbEl = document.getElementById(`compBal_${ver}_${t}_${i}`);
             if(cbEl) cbEl.textContent = fmtNum(compBal)+' INDC';
