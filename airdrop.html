@@ -76,13 +76,32 @@ async function flagSuspicious(wallet, hash, fileName) {
   } catch(e) {}
 }
 
+// Cek apakah wallet sudah verified Telegram (permanen)
+async function isTelegramVerified(wallet) {
+  try {
+    const snap = await get(ref(_fbDb, `telegram_verified/${wallet.toLowerCase()}`));
+    return snap.exists();
+  } catch(e) { return false; }
+}
+
+// Simpan status Telegram verified permanen per wallet
+async function saveTelegramVerified(wallet, telegramId, telegramUsername) {
+  await set(ref(_fbDb, `telegram_verified/${wallet.toLowerCase()}`), {
+    telegram_id: telegramId,
+    username: telegramUsername || '',
+    ts: Date.now()
+  });
+}
+
 // Export ke window agar bisa diakses dari script utama
 window._airdropFirebase = {
   hashImage,
   checkHashExists,
   saveHash,
   checkFileName,
-  flagSuspicious
+  flagSuspicious,
+  isTelegramVerified,
+  saveTelegramVerified
 };
 </script>
 <style>
@@ -144,7 +163,17 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .sec-div::after{content:'';flex:1;height:1px;background:var(--border);}
 
 /* GATE */
-.gate-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text3);
+/* ── TELEGRAM GATE ── */
+.tg-gate-overlay{display:flex;align-items:center;justify-content:center;min-height:60vh;padding:16px;}
+.tg-gate-box{background:#ffffff;border-radius:20px;padding:28px 22px;max-width:400px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.10);}
+.tg-gate-icon{font-size:48px;margin-bottom:12px;}
+.tg-gate-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:#1c1917;margin-bottom:10px;line-height:1.4;}
+.tg-gate-desc{font-family:'Rajdhani',sans-serif;font-size:14px;color:#78716c;margin-bottom:16px;line-height:1.5;}
+.tg-gate-steps{text-align:left;margin-bottom:20px;display:flex;flex-direction:column;gap:6px;}
+.tg-step{font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;background:#f5f5f0;border-radius:8px;padding:8px 12px;}
+.btn-join-tg{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;background:#229ED9;border:none;border-radius:12px;color:#fff;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;margin-bottom:16px;letter-spacing:0.5px;}
+.btn-join-tg:hover{background:#1a8dbf;}
+#joinTgHint{text-align:center;}
   line-height:1.7;margin-bottom:14px;letter-spacing:0.5px;}
 .task-list{display:flex;flex-direction:column;gap:0;margin-bottom:14px;}
 
@@ -271,7 +300,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 
   <div class="hero">
     <div class="hero-title">🪂 AIRDROP</div>
-    <div class="hero-sub">TUGAS SOSMED +5 INDC · 40 PROGRAM +1 INDC · RESET 00:00</div>
+    <div class="hero-sub">TUGAS SOSMED +2 INDC · 40 PROGRAM +1 INDC · RESET 00:00</div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-val" id="statTotal">—</div><div class="hero-stat-lbl">TERKUMPUL</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="statToday">—</div><div class="hero-stat-lbl">HARI INI</div></div>
@@ -289,31 +318,41 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
     </div>
   </div>
 
-  <!-- SOSMED GATE -->
+  <!-- TELEGRAM GATE -->
   <div id="sosmedGate" style="display:none;">
-    <div class="sec-div">🎟️ Tiket Masuk Hari Ini</div>
-    <div class="gate-sub">
-      Selesaikan 1 tugas di bawah dan upload screenshot bukti.<br>
-      Dapat <strong>+5 INDC</strong> langsung masuk wallet · lalu 40 program terbuka!
-    </div>
-    <div class="task-list" id="taskList"></div>
-    <div id="uploadWrap" class="upload-wrap" style="display:none;">
-      <div class="upload-area" onclick="document.getElementById('sosmedFile').click()">
-        <p id="uploadHint">📸 Upload screenshot bukti · pastikan tanggal & jam terlihat</p>
-        <img id="uploadPreview" class="upload-preview" alt="">
+    <div class="tg-gate-overlay">
+      <div class="tg-gate-box">
+        <div class="tg-gate-icon">🎁</div>
+        <div class="tg-gate-title">Join sekarang, klaim INDC gratis!</div>
+        <div class="tg-gate-desc">Login Telegram sekali saja — lalu akses 40+ program airdrop setiap hari. Gratis selamanya.</div>
+        <div class="tg-gate-steps">
+          <div class="tg-step">✅ Bergabung ke komunitas resmi Indocoin</div>
+          <div class="tg-step">✅ Akses 40+ program airdrop harian</div>
+          <div class="tg-step">✅ Verifikasi sekali, berlaku selamanya</div>
+        </div>
+        <a href="https://t.me/+CzjgvwApDscwMGM1" target="_blank" class="btn-join-tg" id="btnJoinTg" onclick="markJoinClicked()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.26 14.4l-2.95-.924c-.641-.204-.654-.641.136-.953l11.527-4.443c.537-.194 1.006.131.589.168z"/></svg>
+          GABUNG TELEGRAM INDOCOIN
+        </a>
+        <div id="joinTgHint" style="display:none;">
+          <div class="tg-gate-desc" style="color:#059669;margin-bottom:12px;">✅ Sudah join? Sekarang verifikasi keanggotaanmu!</div>
+          <script async src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login="IndocoinVerifikasiBot"
+            data-size="large"
+            data-onauth="onTelegramAuth(user)"
+            data-request-access="write">
+          </script>
+        </div>
+        <div class="status-msg s-info" id="verifyStatus" style="margin-top:12px;"></div>
       </div>
-      <input type="file" id="sosmedFile" accept="image/*" style="display:none" onchange="handleUpload(event)">
-      <button class="btn-verify" id="btnVerify" disabled onclick="verifySosmed()">VERIFIKASI BUKTI</button>
-      <div class="status-msg s-info" id="verifyStatus"></div>
     </div>
-    <div class="countdown-bar">Reset besok jam 00:00 · <span id="cdGate">--:--:--</span></div>
   </div>
 
   <!-- PROGRAM LIST -->
   <div id="programSection" style="display:none;">
     <div class="sec-div">📖 Cara Klaim</div>
     <div class="how-card">
-      <div class="how-step"><div class="how-num">1</div><div class="how-text">Selesaikan tugas sosmed → dapat <strong>+5 INDC</strong> langsung</div></div>
+      <div class="how-step"><div class="how-num">1</div><div class="how-text">Selesaikan tugas sosmed → dapat <strong>+2 INDC</strong> langsung</div></div>
       <div class="how-step"><div class="how-num">2</div><div class="how-text">Klik program → diarahkan ke halaman tersebut</div></div>
       <div class="how-step"><div class="how-num">3</div><div class="how-text">Baca halaman selama 30 detik · timer berjalan otomatis</div></div>
       <div class="how-step"><div class="how-num">4</div><div class="how-text">Jawab 2 pertanyaan · 1 edukasi + 1 tentang program tersebut</div></div>
@@ -434,8 +473,42 @@ function todayKey() {
   return `${d.getFullYear()}${d.getMonth()}${d.getDate()}`;
 }
 function isGateDoneToday() {
+  // Gate sekarang permanen per wallet via Firebase (dicek async di onWalletConnected)
   if (!userAddress) return false;
-  return localStorage.getItem('indc_gate_' + userAddress + '_' + todayKey()) === '1';
+  return localStorage.getItem('indc_tg_verified_' + userAddress.toLowerCase()) === '1';
+}
+
+function markJoinClicked() {
+  // Tampilkan tombol verifikasi setelah user klik join
+  setTimeout(() => {
+    document.getElementById('joinTgHint').style.display = 'block';
+  }, 2000);
+}
+
+async function onTelegramAuth(user) {
+  if (!userAddress) {
+    setStatus('verifyStatus', '❌ Hubungkan wallet dulu sebelum verifikasi.', 'err');
+    return;
+  }
+  setStatus('verifyStatus', '⏳ Memverifikasi keanggotaan Telegram...', 'info');
+  try {
+    // Cek apakah user member grup via Cloudflare Worker (proxy aman)
+    const res = await fetch(`https://tg-verify.indocoin-info.workers.dev/?user_id=${user.id}`);
+    const data = await res.json();
+    const isMember = data.ok && data.is_member;
+    if (!isMember) {
+      setStatus('verifyStatus', '❌ Kamu belum bergabung di grup Telegram Indocoin. Join dulu lalu coba lagi.', 'err');
+      return;
+    }
+    // Simpan ke Firebase permanen
+    await window._airdropFirebase.saveTelegramVerified(userAddress, user.id, user.username);
+    // Simpan ke localStorage untuk akses cepat
+    localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
+    setStatus('verifyStatus', '✅ Verified! Akses 40 program terbuka!', 'ok');
+    setTimeout(() => showPrograms(), 1500);
+  } catch(e) {
+    setStatus('verifyStatus', '❌ Gagal verifikasi. Coba lagi.', 'err');
+  }
 }
 function isClaimedToday(pageId) {
   if (!userAddress) return false;
@@ -489,26 +562,6 @@ function toggleMore(btn) {
 function renderGate() {
   document.getElementById('sosmedGate').style.display = 'block';
   document.getElementById('programSection').style.display = 'none';
-
-  const tasks = getTodayTasks();
-
-  function taskHTML(t) {
-    return `
-      <div class="task-main" id="tc-${t.id}">
-        <div class="task-platform">${t.icon} ${t.pl}</div>
-        <div class="task-desc">${t.desc}</div>
-        <div class="copy-hint">Salin link → buka di luar app → screenshot bukti</div>
-        <button class="btn-copy" id="cp-${t.id}" onclick="copyLink(this,'${t.link}')">📋 SALIN LINK</button>
-        <button class="task-select-btn" id="tsb-${t.id}" onclick="selectTask(${t.id})">PILIH TUGAS INI</button>
-      </div>`;
-  }
-
-  document.getElementById('taskList').innerHTML = `
-    <div class="task-list-wrap">
-      ${tasks.map(t => taskHTML(t)).join('')}
-    </div>`;
-
-  startCountdown('cdGate');
 }
 
 function selectTask(id) {
@@ -632,12 +685,12 @@ async function verifySosmed() {
   const wk = userAddress.toLowerCase();
   // Tambah 5 ke pending balance sosmed gate
   const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
-  localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
+  localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 2).toString());
   // Tandai gate done hari ini
   localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
   uploadedImg = null;
   uploadedFileName = '';
-  setStatus('verifyStatus','✅ +5 INDC masuk ke TERKUMPUL! 40 program terbuka!','ok');
+  setStatus('verifyStatus','✅ +2 INDC masuk ke TERKUMPUL! 40 program terbuka!','ok');
   setTimeout(() => showPrograms(), 1500);
 }
 
@@ -728,9 +781,23 @@ async function onWalletConnected() {
     document.getElementById('airdropBal').textContent = '— INDC';
     document.getElementById('statTotal').textContent = '—';
   }
-  // Gate check
-  if(isGateDoneToday()) showPrograms();
-  else renderGate();
+  // Gate check — cek Firebase dulu kalau localStorage belum ada
+  if (isGateDoneToday()) {
+    showPrograms();
+  } else {
+    // Cek Firebase apakah sudah pernah verified sebelumnya
+    try {
+      const verified = await window._airdropFirebase.isTelegramVerified(userAddress);
+      if (verified) {
+        localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
+        showPrograms();
+      } else {
+        renderGate();
+      }
+    } catch(e) {
+      renderGate();
+    }
+  }
 }
 
 function setStatus(id, msg, type) {
