@@ -386,13 +386,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
         <div class="tg-gate-title">Verifikasi Keanggotaan</div>
         <div class="tg-gate-desc">Sebelum klaim airdrop, kamu wajib bergabung ke salah satu komunitas resmi INDOCOIN.</div>
 
-        <!-- TOMBOL JOIN -->
         <div style="display:flex;gap:10px;margin-bottom:16px;">
           <a href="https://t.me/+CzjgvwApDscwMGM1" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:#2196F3;color:#fff;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;text-decoration:none;">🔵 Join Telegram</a>
           <a href="https://chat.whatsapp.com/FyyGY5ZSuh47nJNmVAX3WQ" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:#25D366;color:#fff;border-radius:10px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;text-decoration:none;">🟢 Join WhatsApp</a>
         </div>
 
-        <!-- CARA DAPAT KODE -->
         <div style="background:#f8f7f5;border-radius:10px;padding:12px;margin-bottom:16px;text-align:left;">
           <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#92400e;margin-bottom:8px;">📌 Cara mendapatkan Kode Komunitas:</div>
           <div style="font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;line-height:1.7;">
@@ -403,13 +401,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
           </div>
         </div>
 
-        <!-- PILIH SUMBER KODE -->
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button onclick="setSumber('tg')" id="btnSumberTg" style="flex:1;padding:10px;background:#fff;color:#1c1917;border:1.5px solid #d6d3d1;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Kode dari Telegram</button>
-          <button onclick="setSumber('wa')" id="btnSumberWa" style="flex:1;padding:10px;background:#fff;color:#1c1917;border:1.5px solid #d6d3d1;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Kode dari WhatsApp</button>
+          <button id="btnSumberTg" onclick="setSumber('tg')" style="flex:1;padding:10px;background:#fff;color:#1c1917;border:1.5px solid #d6d3d1;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Kode dari Telegram</button>
+          <button id="btnSumberWa" onclick="setSumber('wa')" style="flex:1;padding:10px;background:#fff;color:#1c1917;border:1.5px solid #d6d3d1;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Kode dari WhatsApp</button>
         </div>
 
-        <!-- INPUT KODE -->
         <input type="text" id="inputKodeKomunitas" placeholder="Masukkan Kode Komunitas..." style="width:100%;padding:12px 16px;border:1.5px solid #d6d3d1;border-radius:10px;font-family:'Share Tech Mono',monospace;font-size:13px;color:#1c1917;margin-bottom:10px;outline:none;letter-spacing:1px;box-sizing:border-box;">
 
         <button onclick="verifyKodeKomunitas()" style="width:100%;padding:14px;background:#16a34a;border:none;border-radius:12px;color:#fff;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.3s;">
@@ -418,6 +414,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
         <div id="verifyStatus" style="margin-top:12px;font-family:'Rajdhani',sans-serif;font-size:13px;text-align:center;min-height:20px;color:#dc2626;"></div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- PROGRAM LIST -->
@@ -616,16 +613,16 @@ function isOnboardDone(wallet) {
 
 function markTask(task) {
   if (!userAddress) return;
-  // Simpan ke localStorage dulu (instant)
+  // Simpan langsung ke localStorage TANPA delay — supaya tidak hilang kalau user balik cepat
   localStorage.setItem(getOnboardKey(userAddress, task), '1');
-  // Simpan ke Firebase juga (per wallet, persisten)
-  set(ref(_fbDb, `onboard_tasks/${userAddress.toLowerCase()}/${task}`), true).catch(()=>{});
-  // Centang langsung tanpa delay
-  const btn = document.getElementById('btn-' + task);
-  const row = document.getElementById('task-' + task);
-  if (btn) { btn.textContent = '✅ DONE'; btn.classList.add('done'); }
-  if (row) row.classList.add('done');
-  checkAllTasksDone();
+  // Update UI dengan delay supaya user sempat lihat animasi
+  setTimeout(() => {
+    const btn = document.getElementById('btn-' + task);
+    const row = document.getElementById('task-' + task);
+    if (btn) { btn.textContent = '✅ DONE'; btn.classList.add('done'); }
+    if (row) row.classList.add('done');
+    checkAllTasksDone();
+  }, 500);
 }
 
 function checkAllTasksDone() {
@@ -649,64 +646,8 @@ function checkAllTasksDone() {
   }
 }
 
-let _selectedKomunitas = '';
-
-function setSumber(type) {
-  _selectedKomunitas = type;
-  const tgBtn = document.getElementById('btnSumberTg');
-  const waBtn = document.getElementById('btnSumberWa');
-  if (type === 'tg') {
-    tgBtn.style.background = '#2196F3';
-    tgBtn.style.color = '#fff';
-    tgBtn.style.borderColor = '#2196F3';
-    waBtn.style.background = '#fff';
-    waBtn.style.color = '#1c1917';
-    waBtn.style.borderColor = '#d6d3d1';
-  } else {
-    waBtn.style.background = '#25D366';
-    waBtn.style.color = '#fff';
-    waBtn.style.borderColor = '#25D366';
-    tgBtn.style.background = '#fff';
-    tgBtn.style.color = '#1c1917';
-    tgBtn.style.borderColor = '#d6d3d1';
-  }
-}
-
-async function verifyKodeKomunitas() {
-  const input = document.getElementById('inputKodeKomunitas');
-  const status = document.getElementById('verifyStatus');
-  const kode = input.value.trim();
-  if (!kode) { status.textContent = '⚠️ Masukkan Kode Komunitas terlebih dahulu.'; status.style.color='#92400e'; return; }
-  if (!userAddress) { status.textContent = '⚠️ Hubungkan wallet terlebih dahulu.'; status.style.color='#92400e'; return; }
-  if (!_selectedKomunitas) { status.textContent = '⚠️ Pilih Join Telegram atau WhatsApp dulu.'; status.style.color='#92400e'; return; }
-  status.textContent = '⏳ Memverifikasi...';
-  status.style.color = '#92400e';
-  try {
-    const fbKey = _selectedKomunitas === 'tg' ? 'community_pin/telegram' : 'community_pin/whatsapp';
-    const snap = await get(ref(_fbDb, fbKey));
-    if (!snap.exists()) { status.textContent = '❌ Kode tidak valid.'; status.style.color='#dc2626'; return; }
-    const validKode = snap.val().toString().trim();
-    if (kode !== validKode) {
-      status.textContent = '❌ Kode salah. Pastikan kode dari pesan PIN admin di group.';
-      status.style.color = '#dc2626';
-      input.style.borderColor = '#dc2626';
-      return;
-    }
-    // Simpan ke Firebase (tidak perlu await - jangan block proses)
-    await window._airdropFirebase.saveTelegramVerified(userAddress, 'verified', 'kode_komunitas');
-    localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
-    status.textContent = '✅ Berhasil! Selamat datang di komunitas INDOCOIN.';
-    status.style.color = '#16a34a';
-    setTimeout(() => showPrograms(), 1000);
-  } catch(e) {
-    status.textContent = '❌ Gagal verifikasi. Coba lagi.';
-    status.style.color = '#dc2626';
-    console.error('verifyKode error:', e);
-  }
-}
-
 async function finishOnboarding() {
-  if (!userAddress) return;
+  if (!userAddress || !isOnboardDone(userAddress)) return;
   try {
     await window._airdropFirebase.saveTelegramVerified(userAddress, 'onboard', 'onboard');
     localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
@@ -718,26 +659,15 @@ async function renderGate() {
   document.getElementById('sosmedGate').style.display = 'block';
   document.getElementById('programSection').style.display = 'none';
   if (!userAddress) return;
-  // Baca dari Firebase dulu, sync ke localStorage
   try {
-    const snap = await get(ref(_fbDb, `onboard_tasks/${userAddress.toLowerCase()}`));
+    const snap = await get(ref(_fbDb, 'onboard_tasks/' + userAddress.toLowerCase()));
     if (snap.exists()) {
       const data = snap.val();
-      ONBOARD_TASKS.forEach(t => {
+      ['tg','wa'].forEach(t => {
         if (data[t]) localStorage.setItem(getOnboardKey(userAddress, t), '1');
       });
     }
   } catch(e) {}
-  // Restore UI dari localStorage
-  ONBOARD_TASKS.forEach(t => {
-    if (localStorage.getItem(getOnboardKey(userAddress, t)) === '1') {
-      const btn = document.getElementById('btn-' + t);
-      const row = document.getElementById('task-' + t);
-      if (btn) { btn.textContent = '✅ DONE'; btn.classList.add('done'); }
-      if (row) row.classList.add('done');
-    }
-  });
-  checkAllTasksDone();
 }
 
 function markJoinClicked() {}
@@ -870,17 +800,7 @@ function toggleMore(btn) {
   btn.querySelector('.btn-more-txt').textContent = isOpen ? 'PILIHAN LAIN' : 'SEMBUNYIKAN';
 }
 
-function renderGate() {
-  document.getElementById('sosmedGate').style.display = 'block';
-  document.getElementById('programSection').style.display = 'none';
-  // Deteksi browser in-app (TokenPocket, Trust Wallet, dll)
-  const ua = navigator.userAgent.toLowerCase();
-  const isInApp = ua.includes('tokenpocket') || ua.includes('trust') || ua.includes('metamask') || ua.includes('imtoken');
-  if (isInApp) {
-    document.getElementById('chromeWarning').style.display = 'block';
-    document.getElementById('joinTgHint').style.display = 'none';
-  }
-}
+
 
 function selectTask(id) {
   selectedTaskId = id;
@@ -1154,6 +1074,52 @@ window.addEventListener('load', async () => {
     } catch(e){}
   }
 });
+
+let _selectedKomunitas = '';
+
+function setSumber(type) {
+  _selectedKomunitas = type;
+  const tgBtn = document.getElementById('btnSumberTg');
+  const waBtn = document.getElementById('btnSumberWa');
+  if (type === 'tg') {
+    tgBtn.style.background = '#2196F3'; tgBtn.style.color = '#fff'; tgBtn.style.borderColor = '#2196F3';
+    waBtn.style.background = '#fff'; waBtn.style.color = '#1c1917'; waBtn.style.borderColor = '#d6d3d1';
+  } else {
+    waBtn.style.background = '#25D366'; waBtn.style.color = '#fff'; waBtn.style.borderColor = '#25D366';
+    tgBtn.style.background = '#fff'; tgBtn.style.color = '#1c1917'; tgBtn.style.borderColor = '#d6d3d1';
+  }
+}
+
+async function verifyKodeKomunitas() {
+  const input = document.getElementById('inputKodeKomunitas');
+  const status = document.getElementById('verifyStatus');
+  const kode = input.value.trim();
+  if (!kode) { status.textContent = '⚠️ Masukkan Kode Komunitas terlebih dahulu.'; status.style.color='#92400e'; return; }
+  if (!userAddress) { status.textContent = '⚠️ Hubungkan wallet terlebih dahulu.'; status.style.color='#92400e'; return; }
+  if (!_selectedKomunitas) { status.textContent = '⚠️ Pilih Kode dari Telegram atau WhatsApp dulu.'; status.style.color='#92400e'; return; }
+  status.textContent = '⏳ Memverifikasi...';
+  status.style.color = '#92400e';
+  try {
+    const fbKey = _selectedKomunitas === 'tg' ? 'community_pin/telegram' : 'community_pin/whatsapp';
+    const snap = await get(ref(_fbDb, fbKey));
+    if (!snap.exists()) { status.textContent = '❌ Kode tidak ditemukan.'; status.style.color='#dc2626'; return; }
+    const validKode = snap.val().toString().trim();
+    if (kode !== validKode) {
+      status.textContent = '❌ Kode salah. Pastikan kode dari pesan PIN admin di group.';
+      status.style.color = '#dc2626';
+      input.style.borderColor = '#dc2626';
+      return;
+    }
+    window._airdropFirebase.saveTelegramVerified(userAddress, 'verified', 'kode_komunitas').catch(()=>{});
+    localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
+    status.textContent = '✅ Berhasil! Selamat datang di komunitas INDOCOIN.';
+    status.style.color = '#16a34a';
+    setTimeout(() => showPrograms(), 1000);
+  } catch(e) {
+    status.textContent = '❌ Error: ' + (e.message || e.toString());
+    status.style.color = '#dc2626';
+  }
+}
 </script>
 </body>
 </html>
