@@ -22,6 +22,9 @@ const _fbApp = initializeApp({
 }, 'airdrop-app');
 
 const _fbDb = getDatabase(_fbApp);
+window._fbDb = _fbDb;
+window._fbGet = get;
+window._fbRef = ref;
 
 // Hitung hash SHA-256 dari gambar
 async function hashImage(base64) {
@@ -660,7 +663,7 @@ async function renderGate() {
   document.getElementById('programSection').style.display = 'none';
   if (!userAddress) return;
   try {
-    const snap = await get(ref(_fbDb, 'onboard_tasks/' + userAddress.toLowerCase()));
+    const snap = await window._fbGet(window._fbRef(window._fbDb, 'onboard_tasks/' + userAddress.toLowerCase()));
     if (snap.exists()) {
       const data = snap.val();
       ['tg','wa'].forEach(t => {
@@ -1101,7 +1104,7 @@ async function verifyKodeKomunitas() {
   status.style.color = '#92400e';
   try {
     const fbKey = _selectedKomunitas === 'tg' ? 'community_pin/telegram' : 'community_pin/whatsapp';
-    const snap = await get(ref(_fbDb, fbKey));
+    const snap = await window._fbGet(window._fbRef(window._fbDb, fbKey));
     if (!snap.exists()) { status.textContent = '❌ Kode tidak ditemukan.'; status.style.color='#dc2626'; return; }
     const validKode = snap.val().toString().trim();
     if (kode !== validKode) {
