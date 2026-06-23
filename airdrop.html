@@ -626,7 +626,7 @@ function isGateDoneToday() {
 const ONBOARD_TASKS = ['tg','wa','yt','fb','ig'];
 
 function getOnboardKey(wallet, task) {
-  return 'indc_onboard_device_' + task;
+  return 'indc_onboard_' + wallet.toLowerCase() + '_' + task;
 }
 
 function isOnboardDone(wallet) {
@@ -635,9 +635,10 @@ function isOnboardDone(wallet) {
 
 function markTask(task) {
   if (!userAddress) return;
-  // Simpan langsung ke localStorage TANPA delay — supaya tidak hilang kalau user balik cepat
+  // Simpan ke localStorage dulu (instant)
   localStorage.setItem(getOnboardKey(userAddress, task), '1');
-  // Update UI dengan delay supaya user sempat lihat animasi
+  // Simpan ke Firebase juga (per wallet, persisten)
+  set(ref(_fbDb, `onboard_tasks/${userAddress.toLowerCase()}/${task}`), true).catch(()=>{});
   setTimeout(() => {
     const btn = document.getElementById('btn-' + task);
     const row = document.getElementById('task-' + task);
@@ -677,11 +678,21 @@ async function finishOnboarding() {
   showPrograms();
 }
 
-function renderGate() {
+async function renderGate() {
   document.getElementById('sosmedGate').style.display = 'block';
   document.getElementById('programSection').style.display = 'none';
   if (!userAddress) return;
-  // Restore state task yang sudah diklik sebelumnya
+  // Baca dari Firebase dulu, sync ke localStorage
+  try {
+    const snap = await get(ref(_fbDb, `onboard_tasks/${userAddress.toLowerCase()}`));
+    if (snap.exists()) {
+      const data = snap.val();
+      ONBOARD_TASKS.forEach(t => {
+        if (data[t]) localStorage.setItem(getOnboardKey(userAddress, t), '1');
+      });
+    }
+  } catch(e) {}
+  // Restore UI dari localStorage
   ONBOARD_TASKS.forEach(t => {
     if (localStorage.getItem(getOnboardKey(userAddress, t)) === '1') {
       const btn = document.getElementById('btn-' + t);
