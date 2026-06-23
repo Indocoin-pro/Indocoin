@@ -93,6 +93,28 @@ async function saveTelegramVerified(wallet, telegramId, telegramUsername) {
   });
 }
 
+// Cek apakah link sudah pernah dipakai oleh wallet ini (lintas hari)
+async function checkLinkExists(wallet, link) {
+  try {
+    const snap = await get(ref(_fbDb, `airdrop_links/${wallet.toLowerCase()}`));
+    if (!snap.exists()) return false;
+    const data = snap.val();
+    // Cek semua entri apakah ada link yang sama
+    return Object.values(data).some(entry => entry.link === link.trim());
+  } catch(e) { return false; }
+}
+
+// Simpan link baru per wallet per hari
+async function saveLink(wallet, link, platform, type) {
+  const key = Date.now().toString();
+  await set(ref(_fbDb, `airdrop_links/${wallet.toLowerCase()}/${key}`), {
+    link: link.trim(),
+    platform,
+    type,
+    ts: Date.now()
+  });
+}
+
 // Export ke window agar bisa diakses dari script utama
 window._airdropFirebase = {
   hashImage,
@@ -101,7 +123,9 @@ window._airdropFirebase = {
   checkFileName,
   flagSuspicious,
   isTelegramVerified,
-  saveTelegramVerified
+  saveTelegramVerified,
+  checkLinkExists,
+  saveLink
 };
 </script>
 <style>
@@ -269,12 +293,48 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .how-num{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);width:20px;flex-shrink:0;}
 .how-text{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text3);line-height:1.6;letter-spacing:0.5px;}
 
-.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:100;height:60px;display:flex;
-  background:#fff;border-top:1px solid var(--border);box-shadow:0 -2px 8px rgba(0,0,0,0.06);}
-.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;text-decoration:none;color:var(--muted);font-family:'Share Tech Mono',monospace;
-  font-size:7px;letter-spacing:1px;transition:color 0.2s;}
-.bnav-item.active,.bnav-item:hover{color:var(--gold);}
+.onboard-task{display:flex;align-items:center;justify-content:space-between;background:#f5f5f0;border:1.5px solid #e7e5e4;border-radius:10px;padding:10px 12px;transition:all 0.3s;}
+.onboard-task.done{background:#f0fdf4;border-color:#6ee7b7;}
+.onboard-info{display:flex;align-items:center;gap:8px;flex:1;}
+.onboard-icon{font-size:18px;}
+.onboard-label{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:#1c1917;}
+.btn-onboard{padding:7px 14px;background:#229ED9;color:#fff;border:none;border-radius:8px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap;transition:all 0.3s;}
+.btn-onboard.done{background:#059669;pointer-events:none;}
+
+.btn-platform{flex:1;padding:8px 4px;background:#f5f5f0;border:1px solid #e7e5e4;border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:8px;color:#44403c;text-align:center;text-decoration:none;transition:all 0.2s;display:block;}
+.btn-platform:hover{background:#fef3c7;border-color:#fcd34d;color:#92400e;}
+.btn-platform.selected{background:#fef3c7;border-color:#d97706;color:#92400e;font-weight:700;}
+.bottomnav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(8,8,8,0.99);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  height: 60px;
+}
+.bnav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--muted);
+  transition: color 0.2s;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 7px;
+  letter-spacing: 1px;
+  border: none;
+  background: transparent;
+}
+.bnav-item.active { color: var(--gold); }
+.bnav-item:hover { color: var(--gold); }
+.bnav-icon { font-size: 20px; }
+.bnav-label { font-size: 7px; font-weight: 700; letter-spacing: 1px; font-family: 'Orbitron', sans-serif; }
 </style>
 <script src="wallet-bridge.js"></script>
 </head>
@@ -300,7 +360,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 
   <div class="hero">
     <div class="hero-title">🪂 AIRDROP</div>
-    <div class="hero-sub">TUGAS SOSMED +5 INDC · 40 PROGRAM +1 INDC · RESET 00:00</div>
+    <div class="hero-sub">TUGAS SOSMED +4 INDC · 39 PROGRAM +1 INDC · RESET 00:00</div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-val" id="statTotal">—</div><div class="hero-stat-lbl">TERKUMPUL</div></div>
       <div class="hero-stat"><div class="hero-stat-val" id="statToday">—</div><div class="hero-stat-lbl">HARI INI</div></div>
@@ -318,31 +378,62 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
     </div>
   </div>
 
-  <!-- TELEGRAM GATE -->
+  <!-- STEP 1 GATE: TUGAS SEKALI SEUMUR HIDUP -->
   <div id="sosmedGate" style="display:none;">
     <div class="tg-gate-overlay">
       <div class="tg-gate-box">
         <div class="tg-gate-icon">🎁</div>
-        <div class="tg-gate-title">Join sekarang, klaim INDC gratis!</div>
-        <div class="tg-gate-desc">Login Telegram sekali saja — lalu akses 40+ program airdrop setiap hari. Gratis selamanya.</div>
-        <div class="tg-gate-steps">
-          <div class="tg-step">✅ Bergabung ke komunitas resmi Indocoin</div>
-          <div class="tg-step">✅ Akses 40+ program airdrop harian</div>
-          <div class="tg-step">✅ Verifikasi sekali, berlaku selamanya</div>
+        <div class="tg-gate-title">Selesaikan 5 Tugas Wajib</div>
+        <div class="tg-gate-desc">Bergabung ke semua komunitas resmi Indocoin — cukup sekali, berlaku selamanya.</div>
+
+        <!-- TASK ITEMS -->
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;text-align:left;">
+
+          <div class="onboard-task" id="task-tg">
+            <div class="onboard-info">
+              <span class="onboard-icon">✈️</span>
+              <span class="onboard-label">Gabung Telegram Indocoin</span>
+            </div>
+            <a href="https://t.me/+CzjgvwApDscwMGM1" target="_blank" class="btn-onboard" id="btn-tg" onclick="markTask('tg')">GABUNG</a>
+          </div>
+
+          <div class="onboard-task" id="task-wa">
+            <div class="onboard-info">
+              <span class="onboard-icon">💬</span>
+              <span class="onboard-label">Gabung WhatsApp Group</span>
+            </div>
+            <a href="https://chat.whatsapp.com/FyyGY5ZSuh47nJNmVAX3WQ" target="_blank" class="btn-onboard" id="btn-wa" onclick="markTask('wa')">GABUNG</a>
+          </div>
+
+          <div class="onboard-task" id="task-yt">
+            <div class="onboard-info">
+              <span class="onboard-icon">▶️</span>
+              <span class="onboard-label">Subscribe YouTube Indocoin</span>
+            </div>
+            <a href="https://youtube.com/@indocoin_defi_web3" target="_blank" class="btn-onboard" id="btn-yt" onclick="markTask('yt')">SUBSCRIBE</a>
+          </div>
+
+          <div class="onboard-task" id="task-fb">
+            <div class="onboard-info">
+              <span class="onboard-icon">👍</span>
+              <span class="onboard-label">Ikuti Facebook Indocoin</span>
+            </div>
+            <a href="https://www.facebook.com/share/1NaUZBDiyS/" target="_blank" class="btn-onboard" id="btn-fb" onclick="markTask('fb')">IKUTI</a>
+          </div>
+
+          <div class="onboard-task" id="task-ig">
+            <div class="onboard-info">
+              <span class="onboard-icon">📸</span>
+              <span class="onboard-label">Ikuti Instagram Indocoin</span>
+            </div>
+            <a href="https://www.instagram.com/indocoin_indc" target="_blank" class="btn-onboard" id="btn-ig" onclick="markTask('ig')">IKUTI</a>
+          </div>
+
         </div>
-        <a href="https://t.me/+CzjgvwApDscwMGM1" target="_blank" class="btn-join-tg" id="btnJoinTg" onclick="markJoinClicked()">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.26 14.4l-2.95-.924c-.641-.204-.654-.641.136-.953l11.527-4.443c.537-.194 1.006.131.589.168z"/></svg>
-          GABUNG TELEGRAM INDOCOIN
-        </a>
-        <div id="joinTgHint" style="display:none;">
-          <div class="tg-gate-desc" style="color:#059669;margin-bottom:12px;">✅ Sudah join? Sekarang verifikasi keanggotaanmu!</div>
-          <script async src="https://telegram.org/js/telegram-widget.js?22"
-            data-telegram-login="IndocoinVerifikasiBot"
-            data-size="large"
-            data-onauth="onTelegramAuth(user)"
-            data-request-access="write">
-          </script>
-        </div>
+
+        <button id="btnLanjut" onclick="finishOnboarding()" disabled style="width:100%;padding:14px;background:#ccc;border:none;border-radius:12px;color:#fff;font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;cursor:not-allowed;transition:all 0.3s;">
+          SELESAIKAN SEMUA TUGAS DULU
+        </button>
         <div class="status-msg s-info" id="verifyStatus" style="margin-top:12px;"></div>
       </div>
     </div>
@@ -350,15 +441,82 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 
   <!-- PROGRAM LIST -->
   <div id="programSection" style="display:none;">
-    <div class="sec-div">📖 Cara Klaim</div>
-    <div class="how-card">
-      <div class="how-step"><div class="how-num">1</div><div class="how-text">Selesaikan tugas sosmed → dapat <strong>+5 INDC</strong> langsung</div></div>
-      <div class="how-step"><div class="how-num">2</div><div class="how-text">Klik program → diarahkan ke halaman tersebut</div></div>
-      <div class="how-step"><div class="how-num">3</div><div class="how-text">Baca halaman selama 30 detik · timer berjalan otomatis</div></div>
-      <div class="how-step"><div class="how-num">4</div><div class="how-text">Jawab 2 pertanyaan · 1 edukasi + 1 tentang program tersebut</div></div>
-      <div class="how-step"><div class="how-num">5</div><div class="how-text">Klaim <strong>+1 INDC</strong> per halaman · reset jam 00:00</div></div>
+
+    <!-- STEP 2: TUGAS HARIAN -->
+    <div id="dailyTaskSection">
+      <div class="sec-div">📢 Tugas Harian</div>
+      <div class="how-card" style="margin-bottom:14px;">
+        <div class="how-step"><div class="how-num">📤</div><div class="how-text"><strong>SHARE</strong> postingan Indocoin → paste link + upload screenshot → dapat <strong>+4 INDC</strong></div></div>
+        <div class="how-step"><div class="how-num">💬</div><div class="how-text"><strong>KOMEN</strong> di postingan Indocoin → upload screenshot → dapat <strong>+1 INDC</strong></div></div>
+        <div class="how-step"><div class="how-num">⚠️</div><div class="how-text">Pilih <strong>salah satu</strong> tugas per hari · screenshot harus baru · reset jam 00:00</div></div>
+      </div>
+
+      <!-- PILIHAN TUGAS -->
+      <div id="dailyTaskPicker" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+
+        <!-- SHARE -->
+        <div style="background:#fff;border:1.5px solid #e7e5e4;border-radius:12px;padding:14px;" id="shareTaskCard">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:22px;">📤</span>
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#92400e;">SHARE POSTINGAN</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;">+4 INDC · Pilih platform di bawah</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <a href="https://www.facebook.com/share/1NaUZBDiyS/" target="_blank" onclick="selectDailyTask('share','fb')" class="btn-platform" id="spfb">📘 Facebook</a>
+            <a href="https://www.instagram.com/indocoin_indc" target="_blank" onclick="selectDailyTask('share','ig')" class="btn-platform" id="spig">📸 Instagram</a>
+            <a href="https://youtube.com/@indocoin_defi_web3" target="_blank" onclick="selectDailyTask('share','yt')" class="btn-platform" id="spyt">▶️ YouTube</a>
+          </div>
+        </div>
+
+        <!-- KOMEN -->
+        <div style="background:#fff;border:1.5px solid #e7e5e4;border-radius:12px;padding:14px;" id="komenTaskCard">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <span style="font-size:22px;">💬</span>
+            <div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:#92400e;">TULIS KOMENTAR</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;">+1 INDC · Pilih platform di bawah</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <a href="https://www.facebook.com/share/1NaUZBDiyS/" target="_blank" onclick="selectDailyTask('komen','fb')" class="btn-platform" id="kpfb">📘 Facebook</a>
+            <a href="https://www.instagram.com/indocoin_indc" target="_blank" onclick="selectDailyTask('komen','ig')" class="btn-platform" id="kpig">📸 Instagram</a>
+            <a href="https://youtube.com/@indocoin_defi_web3" target="_blank" onclick="selectDailyTask('komen','yt')" class="btn-platform" id="kpyt">▶️ YouTube</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- UPLOAD SECTION -->
+      <div id="uploadWrap" style="display:none;background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin-bottom:14px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#92400e;margin-bottom:8px;" id="uploadTitle">UPLOAD BUKTI</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;margin-bottom:10px;line-height:1.6;" id="uploadDesc">Upload screenshot yang memperlihatkan postingan telah di-share/dikomentari.</div>
+        <!-- INPUT LINK -->
+        <div id="linkWrap" style="margin-bottom:10px;display:none;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#78716c;margin-bottom:6px;letter-spacing:1px;">📎 PASTE LINK HASIL SHARE/KOMENTAR KAMU:</div>
+          <input type="url" id="linkInput" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#1c1917;background:#fff;outline:none;" oninput="checkFormReady()">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:7px;color:#a8a29e;margin-top:4px;">Contoh: link postingan FB yang kamu share, link video YT, dll</div>
+        </div>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+          <p id="uploadHint">📸 Tap untuk upload screenshot bukti</p>
+          <img id="uploadPreview" class="upload-preview">
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleUpload(event)">
+        <button class="btn-verify" id="btnVerify" onclick="verifySosmed()" disabled>VERIFIKASI & KLAIM INDC</button>
+        <div class="status-msg s-info" id="verifyStatus" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="countdown-bar">Reset tugas besok jam 00:00 · <span id="cdDaily">--:--:--</span></div>
     </div>
-    <div class="sec-div">🚀 40 Program</div>
+
+    <!-- PROGRAM LIST -->
+    <div class="sec-div" style="margin-top:16px;">🚀 39 Program</div>
+    <div class="how-card" style="margin-bottom:14px;">
+      <div class="how-step"><div class="how-num">1</div><div class="how-text">Klik program → diarahkan ke halaman tersebut</div></div>
+      <div class="how-step"><div class="how-num">2</div><div class="how-text">Baca halaman selama 30 detik · timer berjalan otomatis</div></div>
+      <div class="how-step"><div class="how-num">3</div><div class="how-text">Jawab 2 pertanyaan · klaim <strong>+1 INDC</strong> per halaman · reset jam 00:00</div></div>
+    </div>
     <div class="prog-list" id="progList"></div>
     <div class="countdown-bar" style="margin-top:16px;">Reset besok jam 00:00 · <span id="cdProg">--:--:--</span></div>
   </div>
@@ -367,26 +525,11 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 </div>
 
 <nav class="bottomnav">
-  <a href="dashboard.html" class="bnav-item">
-    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
-    <span>HOME</span>
-  </a>
-  <a href="earn.html" class="bnav-item">
-    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 6v8M7.5 8.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 2.5-5 2.5-5 5 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-    <span>EARN</span>
-  </a>
-  <a href="referral.html" class="bnav-item">
-    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="15" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="16" cy="15" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 7.5l-4.5 5M10 7.5l4.5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-    <span>REFERRAL</span>
-  </a>
-  <a href="presale.html" class="bnav-item">
-    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 5.4 5.6.8-4 4.2 1 5.6L10 15.4l-5 2.6 1-5.6L2 8.2l5.6-.8L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-    <span>PRESALE</span>
-  </a>
-  <a href="community.html" class="bnav-item">
-    <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-    <span>COMMUNITY</span>
-  </a>
+  <a class="bnav-item" href="dashboard.html"><span class="bnav-icon">🏠</span>HOME</a>
+  <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
+  <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
+  <a class="bnav-item active" href="airdrop.html"><span class="bnav-icon">🪂</span>AIRDROP</a>
+  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
 </nav>
 
 <script>
@@ -478,15 +621,80 @@ function isGateDoneToday() {
   return localStorage.getItem('indc_tg_verified_' + userAddress.toLowerCase()) === '1';
 }
 
-function markJoinClicked() {
-  if (userAddress) {
-    localStorage.setItem('indc_tg_join_clicked_' + userAddress.toLowerCase(), '1');
-  }
-  setTimeout(() => {
-    const hint = document.getElementById('joinTgHint');
-    if (hint) hint.style.display = 'block';
-  }, 1500);
+
+// ── ONBOARDING TASKS (SEKALI SEUMUR HIDUP) ───────────────
+const ONBOARD_TASKS = ['tg','wa','yt','fb','ig'];
+
+function getOnboardKey(wallet, task) {
+  return 'indc_onboard_' + wallet.toLowerCase() + '_' + task;
 }
+
+function isOnboardDone(wallet) {
+  return ONBOARD_TASKS.every(t => localStorage.getItem(getOnboardKey(wallet, t)) === '1');
+}
+
+function markTask(task) {
+  if (!userAddress) return;
+  // Simpan langsung ke localStorage TANPA delay — supaya tidak hilang kalau user balik cepat
+  localStorage.setItem(getOnboardKey(userAddress, task), '1');
+  // Update UI dengan delay supaya user sempat lihat animasi
+  setTimeout(() => {
+    const btn = document.getElementById('btn-' + task);
+    const row = document.getElementById('task-' + task);
+    if (btn) { btn.textContent = '✅ DONE'; btn.classList.add('done'); }
+    if (row) row.classList.add('done');
+    checkAllTasksDone();
+  }, 500);
+}
+
+function checkAllTasksDone() {
+  if (!userAddress) return;
+  const allDone = isOnboardDone(userAddress);
+  const btnLanjut = document.getElementById('btnLanjut');
+  if (!btnLanjut) return;
+  if (allDone) {
+    btnLanjut.disabled = false;
+    btnLanjut.style.background = '#16a34a';
+    btnLanjut.style.cursor = 'pointer';
+    btnLanjut.style.boxShadow = '0 4px 12px rgba(22,163,74,0.3)';
+    btnLanjut.textContent = '✅ SEMUA SELESAI — MASUK KE AIRDROP';
+  } else {
+    btnLanjut.disabled = true;
+    btnLanjut.style.background = '#d6d3d1';
+    btnLanjut.style.cursor = 'not-allowed';
+    btnLanjut.style.boxShadow = 'none';
+    const done = ONBOARD_TASKS.filter(t => localStorage.getItem(getOnboardKey(userAddress, t)) === '1').length;
+    btnLanjut.textContent = `SELESAIKAN SEMUA TUGAS (${done}/5)`;
+  }
+}
+
+async function finishOnboarding() {
+  if (!userAddress || !isOnboardDone(userAddress)) return;
+  try {
+    await window._airdropFirebase.saveTelegramVerified(userAddress, 'onboard', 'onboard');
+    localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
+  } catch(e) {}
+  showPrograms();
+}
+
+function renderGate() {
+  document.getElementById('sosmedGate').style.display = 'block';
+  document.getElementById('programSection').style.display = 'none';
+  if (!userAddress) return;
+  // Restore state task yang sudah diklik sebelumnya
+  ONBOARD_TASKS.forEach(t => {
+    if (localStorage.getItem(getOnboardKey(userAddress, t)) === '1') {
+      const btn = document.getElementById('btn-' + t);
+      const row = document.getElementById('task-' + t);
+      if (btn) { btn.textContent = '✅ DONE'; btn.classList.add('done'); }
+      if (row) row.classList.add('done');
+    }
+  });
+  checkAllTasksDone();
+}
+
+function markJoinClicked() {}
+
 
 async function onTelegramAuth(user) {
   if (!userAddress) {
@@ -495,13 +703,10 @@ async function onTelegramAuth(user) {
   }
   setStatus('verifyStatus', '⏳ Memverifikasi keanggotaan Telegram...', 'info');
   try {
-    // Cek apakah user member grup via bot API
-    const chatId = '-5111277775';
-    const botToken = '8835080895:AAGpWorUDKejge6wFlHlc6cUxYjyF9H1BqM';
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${chatId}&user_id=${user.id}`);
+    // Cek apakah user member grup via Cloudflare Worker (proxy aman)
+    const res = await fetch(`https://tg-verify.indocoin-info.workers.dev/?user_id=${user.id}`);
     const data = await res.json();
-    const status = data.result && data.result.status;
-    const isMember = ['member','administrator','creator'].includes(status);
+    const isMember = data.ok && data.is_member;
     if (!isMember) {
       setStatus('verifyStatus', '❌ Kamu belum bergabung di grup Telegram Indocoin. Join dulu lalu coba lagi.', 'err');
       return;
@@ -510,11 +715,7 @@ async function onTelegramAuth(user) {
     await window._airdropFirebase.saveTelegramVerified(userAddress, user.id, user.username);
     // Simpan ke localStorage untuk akses cepat
     localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
-    // Tambah 5 INDC pending
-    const wk = userAddress.toLowerCase();
-    const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
-    localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
-    setStatus('verifyStatus', '✅ Verified! +5 INDC masuk ke TERKUMPUL! 40 program terbuka!', 'ok');
+    setStatus('verifyStatus', '✅ Verified! Akses 39 program terbuka!', 'ok');
     setTimeout(() => showPrograms(), 1500);
   } catch(e) {
     setStatus('verifyStatus', '❌ Gagal verifikasi. Coba lagi.', 'err');
@@ -529,18 +730,71 @@ function isFailedToday(pageId) {
   return localStorage.getItem('indc_failed_' + userAddress.toLowerCase() + '_page_' + pageId + '_' + todayKey()) === '1';
 }
 
-// ── ROTASI 3 TUGAS PER HARI ───────────────────────────────
-// 14 tugas, siklus 5 hari (3+3+3+3+2), deterministik berdasarkan tanggal
-// Semua user di hari yang sama dapat tugas yang sama
-function getTodayTasks() {
-  const START = new Date('2026-06-01');
-  const today = new Date(); today.setHours(0,0,0,0);
-  const day = ((Math.floor((today-START)/86400000) % 11) + 11) % 11;
-  if (day <= 2) return TASKS_SHARE;
-  if (day <= 5) return TASKS_LIKE;
-  if (day <= 7) return TASKS_FOLLOW;
-  return TASKS_KOMEN;
+// ── TASK HARIAN ───────────────────────────────────────────
+let dailyTaskType = null; // 'share' atau 'komen'
+let dailyTaskReward = 0;
+
+function isDailyTaskDone() {
+  if (!userAddress) return false;
+  return localStorage.getItem('indc_gate_' + userAddress.toLowerCase() + '_' + todayKey()) === '1';
 }
+
+function selectDailyTask(type, platform) {
+  if (!userAddress) return;
+  if (isDailyTaskDone()) return;
+  dailyTaskType = type;
+  dailyTaskReward = type === 'share' ? 4 : 1;
+  // Reset semua highlight
+  ['spfb','spig','spyt','kpfb','kpig','kpyt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('selected');
+  });
+  // Highlight yang dipilih
+  const el = document.getElementById((type==='share'?'sp':'kp') + platform);
+  if (el) el.classList.add('selected');
+  // Tampilkan upload section
+  const wrap = document.getElementById('uploadWrap');
+  if (wrap) {
+    wrap.style.display = 'block';
+    const typeLabel = type === 'share' ? 'share' : 'komentar';
+    const platLabel = platform === 'fb' ? 'Facebook' : platform === 'ig' ? 'Instagram' : 'YouTube';
+    document.getElementById('uploadTitle').textContent = `BUKTI ${type.toUpperCase()} · ${platLabel.toUpperCase()} · +${dailyTaskReward} INDC`;
+    document.getElementById('uploadDesc').textContent = type === 'share' 
+      ? `Share postingan Indocoin di ${platLabel} → paste link share + upload screenshot.`
+      : `Komen di postingan Indocoin di ${platLabel} → upload screenshot komentar kamu.`;
+    // Tampilkan/sembunyikan input link
+    const linkWrap = document.getElementById('linkWrap');
+    if (linkWrap) linkWrap.style.display = type === 'share' ? 'block' : 'none';
+    const linkInput = document.getElementById('linkInput');
+    if (linkInput) linkInput.value = '';
+    document.getElementById('uploadPreview').style.display = 'none';
+    document.getElementById('uploadHint').textContent = '📸 Tap untuk upload screenshot bukti';
+    document.getElementById('btnVerify').disabled = true;
+    document.getElementById('verifyStatus').textContent = '';
+    document.getElementById('verifyStatus').className = 'status-msg s-info';
+    setTimeout(() => wrap.scrollIntoView({behavior:'smooth', block:'center'}), 100);
+  }
+}
+
+function checkDailyTaskDone() {
+  if (!userAddress) return;
+  if (isDailyTaskDone()) {
+    // Sembunyikan picker, tampilkan pesan sudah selesai
+    const picker = document.getElementById('dailyTaskPicker');
+    const wrap = document.getElementById('uploadWrap');
+    if (picker) picker.style.display = 'none';
+    if (wrap) wrap.style.display = 'none';
+    const section = document.getElementById('dailyTaskSection');
+    if (section) {
+      const done = document.createElement('div');
+      done.className = 'status-msg s-ok';
+      done.style.marginBottom = '14px';
+      done.textContent = '✅ Tugas harian selesai! Reset jam 00:00';
+      section.insertBefore(done, section.querySelector('.countdown-bar'));
+    }
+  }
+}
+
 
 // ── RENDER GATE ───────────────────────────────────────────
 function copyLink(btn, link) {
@@ -572,10 +826,12 @@ function toggleMore(btn) {
 function renderGate() {
   document.getElementById('sosmedGate').style.display = 'block';
   document.getElementById('programSection').style.display = 'none';
-  // Kalau user sudah pernah klik join sebelumnya, langsung tampilkan widget verifikasi
-  if (userAddress && localStorage.getItem('indc_tg_join_clicked_' + userAddress.toLowerCase()) === '1') {
-    const hint = document.getElementById('joinTgHint');
-    if (hint) hint.style.display = 'block';
+  // Deteksi browser in-app (TokenPocket, Trust Wallet, dll)
+  const ua = navigator.userAgent.toLowerCase();
+  const isInApp = ua.includes('tokenpocket') || ua.includes('trust') || ua.includes('metamask') || ua.includes('imtoken');
+  if (isInApp) {
+    document.getElementById('chromeWarning').style.display = 'block';
+    document.getElementById('joinTgHint').style.display = 'none';
   }
 }
 
@@ -629,6 +885,16 @@ function checkImageDims(base64) {
   });
 }
 
+function checkFormReady() {
+  const link = document.getElementById('linkInput');
+  const btnVerify = document.getElementById('btnVerify');
+  if (!btnVerify) return;
+  const linkVal = link ? link.value.trim() : '';
+  const hasImg = uploadedImg && uploadedImg.length > 5000;
+  const linkOk = dailyTaskType === 'komen' || linkVal.startsWith('http');
+  btnVerify.disabled = !(hasImg && linkOk);
+}
+
 function handleUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -640,7 +906,8 @@ function handleUpload(e) {
     const prev = document.getElementById('uploadPreview');
     prev.src = uploadedImg; prev.style.display = 'block';
     document.getElementById('uploadHint').textContent = '✅ Screenshot siap diverifikasi';
-    document.getElementById('btnVerify').disabled = false;
+    document.getElementById('btnVerify').disabled = true;
+    checkFormReady();
   };
   r.readAsDataURL(file);
 }
@@ -649,72 +916,79 @@ async function verifySosmed() {
   if (!uploadedImg || uploadedImg.length < 5000) {
     setStatus('verifyStatus','❌ Screenshot tidak valid atau terlalu kecil','err'); return;
   }
+  const linkInput = document.getElementById('linkInput');
+  const linkVal = linkInput ? linkInput.value.trim() : '';
+  
+  // Link hanya wajib untuk SHARE
+  if (dailyTaskType === 'share' && !linkVal.startsWith('http')) {
+    setStatus('verifyStatus','❌ Link wajib diisi untuk tugas SHARE.','err'); return;
+  }
 
-  setStatus('verifyStatus','⏳ Memverifikasi screenshot...','info');
+  setStatus('verifyStatus','⏳ Memverifikasi...','info');
 
-  // ── Sinyal non-blocking (tidak pernah menolak upload, hanya dicatat) ──
-  let suspicious = false;
+  // Cek link duplikat
+  if (!window._airdropFirebase || !userAddress) {
+    setStatus('verifyStatus','❌ Gagal memuat sistem verifikasi. Coba lagi.','err'); return;
+  }
 
-  // Sinyal 1: nama file mengandung tanggal hari ini? (info saja, banyak HP rename file saat di-share)
   try {
-    const fnameOk = window._airdropFirebase ? window._airdropFirebase.checkFileName(uploadedFileName) : true;
-    if (!fnameOk) suspicious = true; // tidak reject, hanya tandai
-  } catch(e) {}
+    const linkExists = await window._airdropFirebase.checkLinkExists(userAddress, linkVal);
+    if (linkExists) {
+      setStatus('verifyStatus','❌ Link ini sudah pernah digunakan sebelumnya. Gunakan link baru.','err'); return;
+    }
+  } catch(e) {
+    setStatus('verifyStatus','❌ Gagal cek link. Coba lagi.','err'); return;
+  }
 
-  // Sinyal 2: dimensi gambar cocok dengan resolusi screen device ini?
+  // ── Sinyal non-blocking ──
+  let suspicious = false;
+  try {
+    const fnameOk = window._airdropFirebase.checkFileName(uploadedFileName);
+    if (!fnameOk) suspicious = true;
+  } catch(e) {}
   try {
     const dims = await checkImageDims(uploadedImg);
-    if (dims.matches === false) suspicious = true; // kemungkinan foto-dari-foto/device lain
+    if (dims.matches === false) suspicious = true;
   } catch(e) {}
 
-  // Hash check — satu-satunya pengecekan yang BENAR-BENAR menolak (cegah foto daur ulang, 7 hari)
-  // FAIL-CLOSED: kalau pengecekan ini gagal/error (koneksi lemot, dll), TOLAK dan minta coba lagi.
-  // Jangan pernah diam-diam meloloskan submission saat validasi gagal dijalankan.
-  if (!window._airdropFirebase || !userAddress) {
-    setStatus('verifyStatus','❌ Gagal memuat sistem verifikasi. Coba lagi sebentar.','err');
-    return;
-  }
+  // Hash check screenshot
   let hash;
   try {
     hash = await window._airdropFirebase.hashImage(uploadedImg);
     const exists = await window._airdropFirebase.checkHashExists(userAddress, hash);
     if (exists) {
-      setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru hari ini.','err');
-      return;
+      setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru.','err'); return;
     }
   } catch(e) {
-    console.warn('Hash check error:', e);
-    setStatus('verifyStatus','❌ Gagal memverifikasi screenshot. Coba upload ulang atau gunakan screenshot lain.','err');
-    return;
-  }
-  try {
-    // Simpan hash baru, sertakan flag suspicious untuk review manual nanti (bukan untuk blocking realtime)
-    await window._airdropFirebase.saveHash(userAddress, hash);
-    if (suspicious) {
-      await window._airdropFirebase.flagSuspicious(userAddress, hash, uploadedFileName);
-    }
-  } catch(e) {
-    console.warn('Save hash/flag error (non-blocking):', e);
+    setStatus('verifyStatus','❌ Gagal memverifikasi screenshot. Coba upload ulang.','err'); return;
   }
 
+  try {
+    await window._airdropFirebase.saveHash(userAddress, hash);
+    await window._airdropFirebase.saveLink(userAddress, linkVal, 'sosmed', dailyTaskType || 'share');
+    if (suspicious) await window._airdropFirebase.flagSuspicious(userAddress, hash, uploadedFileName);
+  } catch(e) {}
+
   const wk = userAddress.toLowerCase();
-  // Tambah 5 ke pending balance sosmed gate
   const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
-  localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + 5).toString());
-  // Tandai gate done hari ini
+  const reward = dailyTaskReward || 2;
+  localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + reward).toString());
   localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
   uploadedImg = null;
   uploadedFileName = '';
-  setStatus('verifyStatus','✅ +5 INDC masuk ke TERKUMPUL! 40 program terbuka!','ok');
-  setTimeout(() => showPrograms(), 1500);
+  if (linkInput) linkInput.value = '';
+  setStatus('verifyStatus',`✅ +${reward} INDC masuk ke TERKUMPUL!`,'ok');
+  setTimeout(() => { checkDailyTaskDone(); showPrograms(); }, 1500);
 }
 
 // ── SHOW PROGRAMS ─────────────────────────────────────────
 function showPrograms() {
   document.getElementById('sosmedGate').style.display = 'none';
   document.getElementById('programSection').style.display = 'block';
+  checkDailyTaskDone();
   renderPrograms();
   startCountdown('cdProg');
+  startCountdown('cdDaily');
 }
 
 function renderPrograms() {
