@@ -792,18 +792,26 @@ function selectDailyTask(type, platform) {
 function checkDailyTaskDone() {
   if (!userAddress) return;
   if (isDailyTaskDone()) {
-    // Sembunyikan picker, tampilkan pesan sudah selesai
     const picker = document.getElementById('dailyTaskPicker');
     const wrap = document.getElementById('uploadWrap');
     if (picker) picker.style.display = 'none';
     if (wrap) wrap.style.display = 'none';
     const section = document.getElementById('dailyTaskSection');
-    if (section) {
+    if (section && !section.querySelector('.s-ok')) {
       const done = document.createElement('div');
       done.className = 'status-msg s-ok';
       done.style.marginBottom = '14px';
       done.textContent = '✅ Tugas harian selesai! Reset jam 00:00';
       section.insertBefore(done, section.querySelector('.countdown-bar'));
+    }
+    // Aktifkan tombol MASUK
+    const btn = document.getElementById('btnMasukProgram');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.background = '#c8922a';
+      btn.style.color = '#fff';
+      btn.style.cursor = 'pointer';
+      btn.textContent = '🚀 MASUK KE 39 PROGRAM AIRDROP →';
     }
   }
 }
@@ -1099,23 +1107,27 @@ async function onWalletConnected() {
     document.getElementById('statTotal').textContent = '—';
   }
   // Gate check — cek Firebase dulu kalau localStorage belum ada
+  const passedKey = 'indc_daily_passed_' + userAddress.toLowerCase() + '_' + todayKey();
+  const alreadyPassed = localStorage.getItem(passedKey) === '1';
+
   if (isGateDoneToday()) {
-    showPrograms();
+    if (alreadyPassed) {
+      showProgramList();
+    } else {
+      showPrograms();
+    }
   } else {
-    // Cek Firebase apakah sudah pernah verified sebelumnya
     try {
       const verified = await window._airdropFirebase.isTelegramVerified(userAddress);
       if (verified) {
         localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
-        showPrograms();
-      } else {
-        // Cek apakah sudah lewat step 2 hari ini
-        const passedKey = 'indc_daily_passed_' + userAddress.toLowerCase() + '_' + todayKey();
-        if (localStorage.getItem(passedKey) === '1') {
+        if (alreadyPassed) {
           showProgramList();
         } else {
-          renderGate();
+          showPrograms();
         }
+      } else {
+        renderGate();
       }
     } catch(e) {
       renderGate();
