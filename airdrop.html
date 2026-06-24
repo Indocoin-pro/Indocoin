@@ -486,12 +486,25 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
       <div id="uploadWrap" style="display:block;background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin-bottom:14px;">
         <div style="font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;color:#92400e;margin-bottom:6px;" id="uploadTitle">📸 UPLOAD SCREENSHOT BUKTI</div>
         <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:#78716c;margin-bottom:10px;line-height:1.6;" id="uploadDesc">Upload screenshot yang memperlihatkan postingan Indocoin beserta nama/akun kamu. Pastikan tanggal dan jam terlihat.</div>
-        <!-- INPUT LINK -->
+        <!-- SALIN LINK MEDSOS -->
         <div id="linkWrap" style="margin-bottom:10px;display:block;">
-          <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#92400e;margin-bottom:6px;">📎 LINK POSTINGAN YANG KAMU SHARE</div>
-          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:#78716c;margin-bottom:8px;">Paste link URL postingan Indocoin yang sudah kamu share. Bukan link profil kamu, tapi link postingannya langsung.</div>
-          <input type="url" id="linkInput" placeholder="https://www.facebook.com/..." style="width:100%;padding:10px;border:1px solid #e7e5e4;border-radius:8px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#1c1917;background:#fff;outline:none;box-sizing:border-box;" oninput="checkFormReady()">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:#a8a29e;margin-top:4px;">Contoh: https://www.facebook.com/share/posts/xxxxx</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:#92400e;margin-bottom:6px;">🔗 SALIN LINK POSTINGAN INDOCOIN</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:#78716c;margin-bottom:10px;">Tap tombol di bawah untuk menyalin link postingan Indocoin, lalu bagikan di akun medsos kamu.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 12px;">
+              <span style="font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;">🔵 Facebook Indocoin</span>
+              <button onclick="copyLink('https://www.facebook.com/share/1NaUZBDiyS/', this)" style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;background:#2196F3;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">SALIN</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 12px;">
+              <span style="font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;">📸 Instagram Indocoin</span>
+              <button onclick="copyLink('https://www.instagram.com/indocoin_indc', this)" style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;background:#E1306C;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">SALIN</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 12px;">
+              <span style="font-family:'Rajdhani',sans-serif;font-size:13px;color:#44403c;">▶️ YouTube Indocoin</span>
+              <button onclick="copyLink('https://youtube.com/@indocoin_defi_web3', this)" style="font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;background:#FF0000;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;">SALIN</button>
+            </div>
+          </div>
+          <input type="hidden" id="linkInput" value="">
         </div>
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
           <p id="uploadHint">📸 Tap untuk upload screenshot bukti</p>
@@ -1000,6 +1013,8 @@ function showProgramList() {
   if (wallet) wallet.style.display = 'block';
   const main = document.querySelector('.main');
   if (main) main.style.padding = '16px 16px 90px';
+  // Simpan status sudah lewat step 2 hari ini
+  if (userAddress) localStorage.setItem('indc_daily_passed_' + userAddress.toLowerCase() + '_' + todayKey(), '1');
   renderPrograms();
   startCountdown('cdProg');
 }
@@ -1094,7 +1109,13 @@ async function onWalletConnected() {
         localStorage.setItem('indc_tg_verified_' + userAddress.toLowerCase(), '1');
         showPrograms();
       } else {
-        renderGate();
+        // Cek apakah sudah lewat step 2 hari ini
+        const passedKey = 'indc_daily_passed_' + userAddress.toLowerCase() + '_' + todayKey();
+        if (localStorage.getItem(passedKey) === '1') {
+          showProgramList();
+        } else {
+          renderGate();
+        }
       }
     } catch(e) {
       renderGate();
@@ -1121,6 +1142,30 @@ window.addEventListener('load', async () => {
   }
 });
 
+
+function copyLink(url, btn) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✅ DISALIN';
+    btn.style.background = '#16a34a';
+    document.getElementById('linkInput').value = url;
+    checkFormReady();
+    setTimeout(() => {
+      btn.textContent = 'SALIN';
+      btn.style.background = btn.dataset.color || btn.style.background;
+    }, 2000);
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✅ DISALIN';
+    document.getElementById('linkInput').value = url;
+    checkFormReady();
+  });
+}
 let _selectedKomunitas = '';
 
 function setSumber(type) {
