@@ -917,19 +917,28 @@ async function verifySosmed() {
     if (!fnameOk) suspicious = true;
   } catch(e) {}
   try {
-    const dims = await checkImageDims(uploadedImg);
+    const dims = await Promise.race([
+      checkImageDims(uploadedImg),
+      new Promise(r => setTimeout(() => r({matches:null}), 3000))
+    ]);
     if (dims.matches === false) suspicious = true;
   } catch(e) {}
 
   // Hash check screenshot
   let hash;
   try {
-    hash = await window._airdropFirebase.hashImage(uploadedImg);
+    hash = await Promise.race([
+      window._airdropFirebase.hashImage(uploadedImg),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 10000))
+    ]);
     const exists = await window._airdropFirebase.checkHashExists(userAddress, hash);
     if (exists) {
       setStatus('verifyStatus','❌ Screenshot ini pernah digunakan sebelumnya. Gunakan screenshot baru.','err'); return;
     }
   } catch(e) {
+    if (e.message === 'timeout') {
+      setStatus('verifyStatus','❌ Koneksi lambat, coba lagi.','err'); return;
+    }
     setStatus('verifyStatus','❌ Gagal memverifikasi screenshot. Coba upload ulang.','err'); return;
   }
 
@@ -941,7 +950,7 @@ async function verifySosmed() {
 
   const wk = userAddress.toLowerCase();
   const pendingBal = parseFloat(localStorage.getItem('indc_pending_bal_' + wk) || '0');
-  const reward = dailyTaskReward || 2;
+  const reward = 4;
   localStorage.setItem('indc_pending_bal_' + wk, (pendingBal + reward).toString());
   localStorage.setItem('indc_gate_' + wk + '_' + todayKey(), '1');
   uploadedImg = null;
