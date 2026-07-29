@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "135.8";
+const VERSION = "135.9";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -75,6 +75,7 @@ const CACHE_FILES = [
   "/time-vault-trade.html",
   "/undian.html",
   "/member-vip.html",
+  "/member-sync.html",
   "/wallet.html",
   "/tabungan.html",
   "/tournament.html",
