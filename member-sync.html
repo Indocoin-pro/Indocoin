@@ -308,12 +308,12 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
-  const GATEWAY_ADDR = '0x8744cac6477290F28b27d9a17c22B42E72Ac37fc';
+  const GATEWAY_ADDR = '0x67e727f1a045f09e4d003aa3079ec580c950f5c3';
   const CHAIN_ID_HEX = '0x38'; // BSC mainnet (56)
   const MAX_BATCH = 30;
 
   const GATEWAY_ABI = [
-    "function getMyDownlineTree(address root) view returns (tuple(address user, uint8 level, uint256 stakedUsdt, bool isSynced)[])",
+    "function getMyDownlineTree(address root) view returns (tuple(address user, uint8 level, uint256 stakedUsdt, uint256 reportedUsdt, uint256 pendingUsdt, bool isSynced)[])",
     "function syncMyDownlines(address[] downlines) external"
   ];
 
@@ -396,6 +396,8 @@
         user: r.user,
         level: r.level,
         stakedUsdt: r.stakedUsdt,
+        reportedUsdt: r.reportedUsdt,
+        pendingUsdt: r.pendingUsdt,
         isSynced: r.isSynced
       }));
 
@@ -431,9 +433,9 @@
     document.getElementById('sumSynced').textContent  = synced;
     document.getElementById('sumPending').textContent = pending;
 
-    // estimasi tambahan volume dari yang belum sync
+    // estimasi tambahan volume dari selisih yang belum dilaporkan
     let pendingSum = ethers.BigNumber.from(0);
-    _tree.filter(x => !x.isSynced).forEach(x => { pendingSum = pendingSum.add(x.stakedUsdt); });
+    _tree.forEach(x => { pendingSum = pendingSum.add(x.pendingUsdt); });
     document.getElementById('impactValue').textContent = '+ $' + fmtUsd(pendingSum);
 
     // breakdown per level
@@ -482,11 +484,14 @@
       visibleItems.forEach(item => {
         const row = document.createElement('div');
         row.className = 'row';
+        const volLine = item.isSynced
+          ? `Volume staking: <b>$${fmtUsd(item.stakedUsdt)}</b> — sudah dilaporkan penuh`
+          : `Volume staking: <b>$${fmtUsd(item.stakedUsdt)}</b> · belum dilaporkan: <b style="color:var(--amber)">$${fmtUsd(item.pendingUsdt)}</b>`;
         row.innerHTML = `
           <div class="lv-badge">L${item.level}</div>
           <div class="row-main">
             <div class="addr">${item.user}</div>
-            <div class="vol">Volume staking: <b>$${fmtUsd(item.stakedUsdt)}</b></div>
+            <div class="vol">${volLine}</div>
           </div>
           ${item.isSynced
             ? '<div class="status-badge done">✓ Sudah</div>'
@@ -509,8 +514,8 @@
       logLine(`Tx terkirim: ${tx.hash.slice(0,10)}... menunggu konfirmasi`);
       await tx.wait();
       const item = _tree.find(x => x.user.toLowerCase() === addr.toLowerCase());
-      logLine(`Sync berhasil — ${shortAddr(addr)} ($${item ? fmtUsd(item.stakedUsdt) : '?'})`, 'ok');
-      if (item) item.isSynced = true;
+      logLine(`Sync berhasil — ${shortAddr(addr)} (+$${item ? fmtUsd(item.pendingUsdt) : '?'})`, 'ok');
+      if (item) { item.reportedUsdt = item.stakedUsdt; item.pendingUsdt = ethers.BigNumber.from(0); item.isSynced = true; }
       render();
     } catch(e) {
       logLine(`Gagal sync ${shortAddr(addr)}: ` + (e.reason || e.message || e), 'err');
@@ -536,7 +541,7 @@
         await tx.wait();
         batch.forEach(addr => {
           const item = _tree.find(x => x.user.toLowerCase() === addr.toLowerCase());
-          if (item) item.isSynced = true;
+          if (item) { item.reportedUsdt = item.stakedUsdt; item.pendingUsdt = ethers.BigNumber.from(0); item.isSynced = true; }
         });
         logLine(`Batch berhasil — ${batch.length} downline tersinkron.`, 'ok');
         render();
