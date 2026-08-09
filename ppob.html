@@ -160,10 +160,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       <div class="pool-groups">
         <div class="pool-group-label">DANA LIKUID</div>
         <div class="pool-group-label">DANA BUYBACK</div>
-        <div class="pool-box"><div class="pool-box-value green">$1.245</div><div class="pool-box-label">Tersedia</div></div>
-        <div class="pool-box"><div class="pool-box-value gold">$8.930</div><div class="pool-box-label">Terpakai</div></div>
-        <div class="pool-box"><div class="pool-box-value gold">$0.85</div><div class="pool-box-label">Menunggu</div></div>
-        <div class="pool-box"><div class="pool-box-value green">42.150</div><div class="pool-box-label">Terpakai</div></div>
+        <div class="pool-box"><div class="pool-box-value green" id="stat-likuid-tersedia">...</div><div class="pool-box-label">Tersedia</div></div>
+        <div class="pool-box"><div class="pool-box-value gold" id="stat-likuid-terpakai">...</div><div class="pool-box-label">Terpakai</div></div>
+        <div class="pool-box"><div class="pool-box-value gold" id="stat-buyback-menunggu">...</div><div class="pool-box-label">Menunggu</div></div>
+        <div class="pool-box"><div class="pool-box-value green" id="stat-buyback-terpakai">...</div><div class="pool-box-label">Terpakai</div></div>
       </div>
     </div>
   </div>
@@ -240,6 +240,24 @@ async function loadCatalog(){
   }catch(err){
     document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--red);font-size:11px;padding:20px;">Gagal memuat katalog. Coba muat ulang halaman.</div>';
     console.error('Gagal ambil /api/catalog:', err);
+  }
+}
+
+/** Ambil angka asli dashboard pool dari server, ganti angka contoh */
+async function fetchPoolStats(){
+  try{
+    const res = await fetch(API_BASE + '/api/pool-stats');
+    const data = await res.json();
+
+    document.getElementById('stat-likuid-tersedia').textContent = '$' + data.danaLikuid.tersedia.toLocaleString('id-ID', {maximumFractionDigits:2});
+    document.getElementById('stat-likuid-terpakai').textContent = '$' + data.danaLikuid.sudahTerpakai.toLocaleString('id-ID', {maximumFractionDigits:2});
+    document.getElementById('stat-buyback-menunggu').textContent = '$' + data.danaBuyback.menunggu.toLocaleString('id-ID', {maximumFractionDigits:2});
+    document.getElementById('stat-buyback-terpakai').textContent = data.danaBuyback.sudahTerpakai.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' INDC';
+  }catch(err){
+    console.error('Gagal ambil /api/pool-stats:', err);
+    ['stat-likuid-tersedia','stat-likuid-terpakai','stat-buyback-menunggu','stat-buyback-terpakai'].forEach(id=>{
+      document.getElementById(id).textContent = '—';
+    });
   }
 }
 
@@ -346,6 +364,7 @@ const tickerHtml = tickerData.map(t=>`<span class="ticker-item"><b>${t.s}</b><sp
 document.getElementById('ticker').innerHTML = tickerHtml + tickerHtml;
 
 loadCatalog();
+fetchPoolStats();
 
 // ===== WALLET CONNECT ASLI =====
 // Mengikuti pola yang sama persis dengan halaman lain (wallet-auto-connect.js
