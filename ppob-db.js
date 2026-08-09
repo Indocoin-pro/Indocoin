@@ -53,6 +53,14 @@ db.exec(`
     seller_status      TEXT DEFAULT 'unknown',
     updated_at         INTEGER NOT NULL
   );
+
+  -- Angka akumulasi yang backend catat sendiri secara real-time (bukan
+  -- dihitung ulang dari riwayat blockchain) — dipakai untuk kartu
+  -- "Sudah Terpakai" di dashboard transparansi pool.
+  CREATE TABLE IF NOT EXISTS stats (
+    key   TEXT PRIMARY KEY,
+    value REAL NOT NULL DEFAULT 0
+  );
 `);
 
 /**
@@ -152,6 +160,18 @@ function getAllProducts() {
   `).all();
 }
 
+function incrementStat(key, amount) {
+  db.prepare(`
+    INSERT INTO stats (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = value + excluded.value
+  `).run(key, amount);
+}
+
+function getStat(key) {
+  const row = db.prepare('SELECT value FROM stats WHERE key = ?').get(key);
+  return row ? row.value : 0;
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -163,4 +183,6 @@ module.exports = {
   upsertProduct,
   setHargaJualManual,
   getAllProducts,
+  incrementStat,
+  getStat,
 };

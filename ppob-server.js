@@ -16,7 +16,8 @@ const db = require('./db');
 const pricing = require('./pricing');
 const digiflazz = require('./digiflazz');
 const settle = require('./settle');
-const { encodeProductCode } = require('./blockchain');
+const blockchain = require('./blockchain');
+const { encodeProductCode } = blockchain;
 
 const app = express();
 
@@ -172,6 +173,36 @@ app.get('/api/catalog', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/catalog:', err);
     res.status(500).json({ error: 'Gagal mengambil katalog' });
+  }
+});
+
+/**
+ * GET /api/pool-stats
+ * Data buat kartu "Transparansi Pool" di ppob.html — gabungan:
+ *   - Dibaca LANGSUNG dari kontrak (real-time, selalu akurat)
+ *   - Dibaca dari database kita sendiri (dicatat backend tiap kejadian,
+ *     BUKAN hasil scan ulang riwayat blockchain)
+ */
+app.get('/api/pool-stats', async (req, res) => {
+  try {
+    const [redemption, pool] = await Promise.all([
+      blockchain.getRedemptionVaultStatus(),
+      blockchain.getPoolStatus(),
+    ]);
+
+    res.json({
+      danaLikuid: {
+        tersedia: redemption.available,
+        sudahTerpakai: db.getStat('redemption_used_usdt'),
+      },
+      danaBuyback: {
+        menunggu: pool.buybackPending,
+        sudahTerpakai: db.getStat('buyback_total_indc'),
+      },
+    });
+  } catch (err) {
+    console.error('[server.js] Error /api/pool-stats:', err);
+    res.status(500).json({ error: 'Gagal mengambil statistik pool' });
   }
 });
 

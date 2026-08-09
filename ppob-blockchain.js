@@ -12,10 +12,13 @@ const PPOB_GATEWAY_ABI = [
   'event OrderCreated(bytes32 indexed orderId, address indexed user, bytes32 indexed productCode, uint8 method, uint256 amountPaid, uint256 modalUsdt, uint256 profitUsdt)',
   'event OrderSucceeded(bytes32 indexed orderId)',
   'event OrderRefunded(bytes32 indexed orderId, bool byTimeout)',
+  'event BuybackExecuted(uint256 usdtSpent, uint256 indcReceived)',
   'function reportOrderSuccess(bytes32 orderId) external',
   'function reportOrderFailed(bytes32 orderId) external',
   'function getOrder(bytes32 orderId) external view returns (tuple(address user, bytes32 productCode, uint8 method, uint256 amountPaid, uint256 modalUsdt, uint256 profitUsdt, uint8 status, uint256 createdAt))',
   'function paused() external view returns (bool)',
+  'function getRedemptionVaultStatus() external view returns (uint256 available, uint256 reserved)',
+  'function getPoolStatus() external view returns (uint256 buybackPending, uint256 burnPending, uint256 nextBuybackThreshold, uint256 nextBurnThreshold)',
 ];
 
 const PAYMENT_METHOD = { 0: 'USDT', 1: 'PLATFORM_INDC', 2: 'EXTERNAL_INDC' };
@@ -128,6 +131,43 @@ async function isPaused() {
   return contract.paused();
 }
 
+/** Baca status Redemption Vault langsung dari kontrak (1x panggilan cepat, bukan scan riwayat) */
+async function getRedemptionVaultStatus() {
+  const [available, reserved] = await contract.getRedemptionVaultStatus();
+  return {
+    available: Number(ethers.formatUnits(available, 18)),
+    reserved: Number(ethers.formatUnits(reserved, 18)),
+  };
+}
+
+/** Baca status pool Buyback/Burn yang masih menunggu ambang batas */
+async function getPoolStatus() {
+  const [buybackPending, burnPending, nextBuybackThreshold, nextBurnThreshold] = await contract.getPoolStatus();
+  return {
+    buybackPending: Number(ethers.formatUnits(buybackPending, 18)),
+    burnPending: Number(ethers.formatUnits(burnPending, 18)),
+    nextBuybackThreshold: Number(ethers.formatUnits(nextBuybackThreshold, 18)),
+    nextBurnThreshold: Number(ethers.formatUnits(nextBurnThreshold, 18)),
+  };
+}
+
+/**
+ * Dengarkan event BuybackExecuted secara real-time — dipakai buat
+ * nambahin "Total Dibuyback Sejak Awal" ke database kita SETIAP KALI
+ * kejadian, bukan hitung ulang seluruh riwayat tiap kali ditanya
+ * (hindari scan blok besar yang rawan kena rate limit RPC).
+ */
+function listenForBuyback(onBuybackExecuted) {
+  contract.on('BuybackExecuted', (usdtSpent, indcReceived, event) => {
+    onBuybackExecuted({
+      usdtSpent: Number(ethers.formatUnits(usdtSpent, 18)),
+      indcReceived: Number(ethers.formatUnits(indcReceived, 9)), // INDC = 9 desimal
+      txHash: event.log.transactionHash,
+    });
+  });
+  console.log('[blockchain.js] Mendengarkan event BuybackExecuted');
+}
+
 module.exports = {
   contract,
   provider,
@@ -139,4 +179,7 @@ module.exports = {
   isPaused,
   encodeProductCode,
   decodeProductCode,
+  getRedemptionVaultStatus,
+  getPoolStatus,
+  listenForBuyback,
 };

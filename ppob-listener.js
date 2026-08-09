@@ -176,6 +176,14 @@ async function main() {
     saveLastProcessedBlock(currentBlock);
   });
 
+  // 2b. Dengarkan event BuybackExecuted — catat ke "Dana Buyback — Sudah
+  // Terpakai" setiap kali kejadian, real-time, tanpa perlu scan ulang
+  // riwayat blockchain di kemudian hari.
+  blockchain.listenForBuyback((data) => {
+    db.incrementStat('buyback_total_indc', data.indcReceived);
+    console.log(`[ppob-listener] Buyback tercatat: ${data.indcReceived} INDC (tx: ${data.txHash})`);
+  });
+
   // 3. Jalankan pengecekan retry setiap 3 menit
   setInterval(retryPendingOrders, 3 * 60 * 1000);
 
