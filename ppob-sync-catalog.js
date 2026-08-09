@@ -58,7 +58,14 @@ async function syncCatalog() {
     const isPascabayar = (p.category || '').toLowerCase() === 'pascabayar';
     const sellerStatus = p.seller_product_status ? 'valid' : 'invalid';
 
-    db.upsertProduct(p.buyer_sku_code, p.product_name, p.brand, p.price, isPascabayar, sellerStatus);
+    // Produk pascabayar TIDAK punya field "price" dari Digiflazz (mereka
+    // pakai "admin" + "commission" sebagai gantinya, karena tagihan
+    // aslinya baru diketahui saat cek tagihan per transaksi). Pakai fee
+    // admin sebagai nilai simpanan sementara di katalog — bukan harga
+    // final, cuma supaya kolom database tidak kosong.
+    const hargaModal = p.price != null ? p.price : (p.admin || 0);
+
+    db.upsertProduct(p.buyer_sku_code, p.product_name, p.brand, hargaModal, isPascabayar, sellerStatus);
     count++;
     if (isPascabayar) countPascabayar++;
   }
