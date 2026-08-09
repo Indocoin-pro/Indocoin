@@ -46,6 +46,7 @@ db.exec(`
     kode_produk        TEXT PRIMARY KEY,
     nama_produk        TEXT,
     brand              TEXT,
+    category           TEXT,
     harga_modal        INTEGER NOT NULL,
     harga_jual_manual  INTEGER DEFAULT NULL,
     is_pascabayar      INTEGER DEFAULT 0,
@@ -116,17 +117,18 @@ function getProduct(kodeProduk) {
  * harga_jual_manual sama sekali, supaya harga yang sudah diatur Dev
  * tidak pernah tertimpa oleh sync berkala.
  */
-function upsertProduct(kodeProduk, namaProduk, brand, hargaModal, isPascabayar, sellerStatus) {
+function upsertProduct(kodeProduk, namaProduk, brand, category, hargaModal, isPascabayar, sellerStatus) {
   db.prepare(`
-    INSERT INTO products (kode_produk, nama_produk, brand, harga_modal, is_pascabayar, seller_status, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (kode_produk, nama_produk, brand, category, harga_modal, is_pascabayar, seller_status, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(kode_produk) DO UPDATE SET
       nama_produk = excluded.nama_produk,
+      category = excluded.category,
       harga_modal = excluded.harga_modal,
       is_pascabayar = excluded.is_pascabayar,
       seller_status = excluded.seller_status,
       updated_at = excluded.updated_at
-  `).run(kodeProduk, namaProduk, brand, hargaModal, isPascabayar ? 1 : 0, sellerStatus, Date.now());
+  `).run(kodeProduk, namaProduk, brand, category, hargaModal, isPascabayar ? 1 : 0, sellerStatus, Date.now());
 }
 
 /**
