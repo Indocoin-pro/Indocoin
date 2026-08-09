@@ -133,6 +133,48 @@ app.post('/api/orders/register', (req, res) => {
   }
 });
 
+/**
+ * GET /api/catalog
+ * Mengembalikan seluruh katalog produk aktif, dikelompokkan:
+ *   { "Pulsa": { "Telkomsel": [ {kodeProduk, namaProduk, hargaJual, isPascabayar}, ... ] } }
+ *
+ * Harga yang dikembalikan SUDAH final (harga_jual_manual kalau ada
+ * isinya, atau harga_modal apa adanya kalau belum diisi Dev) — frontend
+ * tinggal tampilkan langsung, tidak perlu hitung ulang.
+ */
+app.get('/api/catalog', (req, res) => {
+  try {
+    const produk = db.getAllProducts();
+    const grouped = {};
+
+    for (const p of produk) {
+      const kategori = p.category || 'Lainnya';
+      const brand = p.brand || 'Lainnya';
+
+      if (!grouped[kategori]) grouped[kategori] = {};
+      if (!grouped[kategori][brand]) grouped[kategori][brand] = [];
+
+      const { hargaJual } = pricing.hitungHargaJual(
+        p.harga_modal,
+        p.harga_jual_manual,
+        !!p.is_pascabayar
+      );
+
+      grouped[kategori][brand].push({
+        kodeProduk: p.kode_produk,
+        namaProduk: p.nama_produk,
+        hargaJual,
+        isPascabayar: !!p.is_pascabayar,
+      });
+    }
+
+    res.json(grouped);
+  } catch (err) {
+    console.error('[server.js] Error /api/catalog:', err);
+    res.status(500).json({ error: 'Gagal mengambil katalog' });
+  }
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok', priceSigner: pricing.priceSignerAddress }));
 
 const PORT = process.env.PORT || 3001;

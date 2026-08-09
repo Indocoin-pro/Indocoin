@@ -143,6 +143,15 @@ function setHargaJualManual(kodeProduk, harga) {
   `).run(harga, Date.now(), kodeProduk);
 }
 
+function getAllProducts() {
+  return db.prepare(`
+    SELECT kode_produk, nama_produk, brand, category, harga_modal, harga_jual_manual, is_pascabayar
+    FROM products
+    WHERE seller_status = 'valid'
+    ORDER BY category, brand, harga_modal ASC
+  `).all();
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -153,4 +162,5 @@ module.exports = {
   getProduct,
   upsertProduct,
   setHargaJualManual,
+  getAllProducts,
 };
