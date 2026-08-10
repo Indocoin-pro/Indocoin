@@ -21,6 +21,18 @@ const { encodeProductCode } = blockchain;
 
 const app = express();
 
+// CORS — WAJIB, karena ppob.html (di indocoin.id) dan API ini
+// (ppob-api.indocoin.id) adalah 2 subdomain berbeda. Tanpa ini, browser
+// akan blokir semua fetch() dari ppob.html walau server merespons normal
+// (curl tidak kena aturan ini, makanya kelihatan "jalan" saat dites lewat SSH).
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://indocoin.id');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Hub-Signature');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // Webhook butuh raw body (untuk verifikasi signature) — daftarkan
 // SEBELUM express.json() global supaya body tidak keburu di-parse.
 app.post('/webhook/digiflazz', express.raw({ type: 'application/json' }), (req, res) => {
