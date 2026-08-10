@@ -178,6 +178,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
 <div class="screen active" id="screen-kategori"><div class="icon-grid" id="grid-kategori"></div></div>
 <div class="screen" id="screen-provider"><div class="icon-grid provider-grid" id="grid-provider"></div></div>
+<div class="screen" id="screen-submenu"><div class="submenu-list" id="list-submenu"></div></div>
 <div class="screen" id="screen-produk">
   <div id="pascabayar-holder"></div>
   <div class="produk-note"><span>12 produk</span><span>Urut termurah ▾</span></div>
@@ -271,10 +272,10 @@ function getKategoriUntukTab(tab){
   return hasil;
 }
 
-let state = {main:'pra', kategori:null, provider:null};
+let state = {main:'pra', kategori:null, provider:null, submenu:null};
 
 function setMainTab(tab){
-  state = {main:tab, kategori:null, provider:null};
+  state = {main:tab, kategori:null, provider:null, submenu:null};
   document.getElementById('tab-pra').classList.toggle('active', tab==='pra');
   document.getElementById('tab-pasca').classList.toggle('active', tab==='pasca');
   renderKategori();
@@ -285,6 +286,7 @@ function renderBreadcrumb(){
   const parts = [state.main==='pra'?'Prabayar':'Pascabayar'];
   if(state.kategori) parts.push(state.kategori);
   if(state.provider) parts.push(state.provider);
+  if(state.submenu) parts.push(state.submenu);
   let html = parts.length>1 ? `<span class="back" onclick="goBack()">‹</span>` : '';
   parts.forEach((p,i)=>{
     if(i>0) html += `<span class="sep">/</span>`;
@@ -299,7 +301,8 @@ function showScreen(name){
 }
 
 function goBack(){
-  if(state.provider){ state.provider=null; showScreen('provider'); }
+  if(state.submenu){ state.submenu=null; showScreen('submenu'); }
+  else if(state.provider){ state.provider=null; showScreen('provider'); }
   else if(state.kategori){ state.kategori=null; showScreen('kategori'); }
   renderBreadcrumb();
 }
@@ -311,7 +314,8 @@ function renderKategori(){
     document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Belum ada produk di kategori ini.</div>';
   } else {
     document.getElementById('grid-kategori').innerHTML = keys.map(k=>{
-      let count=0; Object.values(kategoris[k]).forEach(arr=>count+=arr.length);
+      let count=0;
+      Object.values(kategoris[k]).forEach(types=>Object.values(types).forEach(arr=>count+=arr.length));
       return `<div class="icon-card" onclick="pickKategori('${k}')">
         <div class="icon-big">${CAT_ICON[k]||'📦'}</div>
         <div class="icon-name">${k}</div><div class="icon-sub">${count} produk</div>
@@ -325,9 +329,10 @@ function pickKategori(k){
   state.kategori = k;
   const providers = getKategoriUntukTab(state.main)[k];
   document.getElementById('grid-provider').innerHTML = Object.keys(providers).map(p=>{
+    let count=0; Object.values(providers[p]).forEach(arr=>count+=arr.length);
     return `<div class="icon-card" onclick="pickProvider('${p}')">
       <div class="provider-logo" style="color:${PROV_COLOR[p]||'#999'}">${p}</div>
-      <div class="icon-sub">${providers[p].length} produk</div>
+      <div class="icon-sub">${count} produk</div>
     </div>`;
   }).join('');
   showScreen('provider'); renderBreadcrumb();
@@ -335,8 +340,21 @@ function pickKategori(k){
 
 function pickProvider(p){
   state.provider = p;
+  const submenus = getKategoriUntukTab(state.main)[state.kategori][p];
+  document.getElementById('list-submenu').innerHTML = Object.keys(submenus).map(s=>`
+    <div class="submenu-row" onclick="pickSubmenu('${s}')">
+      <div class="submenu-left"><div class="submenu-dot"></div>
+        <div><div class="submenu-name">${s}</div><div class="submenu-count">${submenus[s].length} produk</div></div>
+      </div>
+      <span class="submenu-arrow">›</span>
+    </div>`).join('');
+  showScreen('submenu'); renderBreadcrumb();
+}
+
+function pickSubmenu(s){
+  state.submenu = s;
   const isPasca = state.main === 'pasca';
-  let produk = getKategoriUntukTab(state.main)[state.kategori][p].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
+  let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][s].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
 
   document.getElementById('pascabayar-holder').innerHTML = isPasca ? `
     <div class="pascabayar-note"><div class="pascabayar-note-text"><b>Tanpa markup.</b> Harga tagihan pascabayar 100% sesuai jumlah yang harus dibayar.</div></div>` : '';
@@ -348,6 +366,7 @@ function pickProvider(p){
       <div class="prow-divider"></div>
       <div class="prow-right">
         <div class="prow-top"><span class="tick">${p.kodeProduk}</span><span class="prow-name">${p.namaProduk}</span></div>
+        ${p.deskripsi ? `<div class="prow-desc">${p.deskripsi}</div>` : ''}
       </div>
     </div>`).join('');
 

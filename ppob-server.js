@@ -163,9 +163,11 @@ app.get('/api/catalog', (req, res) => {
     for (const p of produk) {
       const kategori = p.category || 'Lainnya';
       const brand = p.brand || 'Lainnya';
+      const type = p.type || 'Umum';
 
       if (!grouped[kategori]) grouped[kategori] = {};
-      if (!grouped[kategori][brand]) grouped[kategori][brand] = [];
+      if (!grouped[kategori][brand]) grouped[kategori][brand] = {};
+      if (!grouped[kategori][brand][type]) grouped[kategori][brand][type] = [];
 
       const { hargaJual } = pricing.hitungHargaJual(
         p.harga_modal,
@@ -173,9 +175,10 @@ app.get('/api/catalog', (req, res) => {
         !!p.is_pascabayar
       );
 
-      grouped[kategori][brand].push({
+      grouped[kategori][brand][type].push({
         kodeProduk: p.kode_produk,
         namaProduk: p.nama_produk,
+        deskripsi: p.deskripsi || '',
         hargaJual,
         isPascabayar: !!p.is_pascabayar,
       });

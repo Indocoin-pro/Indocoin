@@ -47,6 +47,8 @@ db.exec(`
     nama_produk        TEXT,
     brand              TEXT,
     category           TEXT,
+    type               TEXT,
+    deskripsi          TEXT,
     harga_modal        INTEGER NOT NULL,
     harga_jual_manual  INTEGER DEFAULT NULL,
     is_pascabayar      INTEGER DEFAULT 0,
@@ -125,18 +127,20 @@ function getProduct(kodeProduk) {
  * harga_jual_manual sama sekali, supaya harga yang sudah diatur Dev
  * tidak pernah tertimpa oleh sync berkala.
  */
-function upsertProduct(kodeProduk, namaProduk, brand, category, hargaModal, isPascabayar, sellerStatus) {
+function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar, sellerStatus) {
   db.prepare(`
-    INSERT INTO products (kode_produk, nama_produk, brand, category, harga_modal, is_pascabayar, seller_status, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, is_pascabayar, seller_status, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(kode_produk) DO UPDATE SET
       nama_produk = excluded.nama_produk,
       category = excluded.category,
+      type = excluded.type,
+      deskripsi = excluded.deskripsi,
       harga_modal = excluded.harga_modal,
       is_pascabayar = excluded.is_pascabayar,
       seller_status = excluded.seller_status,
       updated_at = excluded.updated_at
-  `).run(kodeProduk, namaProduk, brand, category, hargaModal, isPascabayar ? 1 : 0, sellerStatus, Date.now());
+  `).run(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar ? 1 : 0, sellerStatus, Date.now());
 }
 
 /**
@@ -153,10 +157,10 @@ function setHargaJualManual(kodeProduk, harga) {
 
 function getAllProducts() {
   return db.prepare(`
-    SELECT kode_produk, nama_produk, brand, category, harga_modal, harga_jual_manual, is_pascabayar
+    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, is_pascabayar
     FROM products
     WHERE seller_status = 'valid'
-    ORDER BY category, brand, harga_modal ASC
+    ORDER BY category, brand, type, harga_modal ASC
   `).all();
 }
 
