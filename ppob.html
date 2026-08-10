@@ -227,9 +227,23 @@ const CAT_ICON = {
 // tinggal daftarin di sini). Kalau kategori BELUM ada di daftar ini,
 // otomatis pakai emoji dari CAT_ICON di atas.
 const CAT_LOGO = {
+  'Pulsa': 'pulsa.png',
+  'Data': 'data.png',
+  'Paket SMS & Telpon': 'telepon.png',
   'PLN': 'plnprabayar.png',
+  'Voucher': 'voucher.jpg',
+  'Games': 'games.png',
+  'TV': 'tv.jpg',
   'Gas': 'pertaminagas.png',
 };
+// Kategori yang SENGAJA disembunyikan dari tab Prabayar
+const KATEGORI_PRA_HIDDEN = ['Aktivasi Perdana', 'Aktivasi Voucher', 'Masa Aktif'];
+// Urutan tampil tetap untuk tab Prabayar — kategori di luar daftar ini
+// (kalau ada, misal Digiflazz nambah kategori baru nanti) otomatis
+// masuk ke urutan paling akhir, bukan hilang.
+const KATEGORI_PRA_ORDER = ['Pulsa', 'Data', 'Paket SMS & Telpon', 'PLN', 'Voucher', 'Games', 'TV', 'Gas'];
+// Nama tampilan yang beda dari nama asli di database (cuma kosmetik)
+const KATEGORI_DISPLAY_NAME = { 'Paket SMS & Telpon': 'Telepon & SMS' };
 const PROV_COLOR = {
   TELKOMSEL:'#e2001a', INDOSAT:'#e8b800', XL:'#4a9eff', AXIS:'#b06fd8',
   TRI:'#e0507a', SMARTFREN:'#ff5fa8', PLN:'#e8a830', BPJS:'#2ea86a',
@@ -321,7 +335,7 @@ function goBack(){
 
 function renderKategori(){
   const kategoris = getKategoriUntukTab(state.main);
-  const keys = Object.keys(kategoris);
+  let keys = Object.keys(kategoris);
 
   // Pascabayar di Digiflazz cuma punya 1 kategori (namanya persis
   // "Pascabayar" itu sendiri) — kalau dipaksa ikutin alur normal, user
@@ -342,6 +356,18 @@ function renderKategori(){
     return;
   }
 
+  // Tab Prabayar: sembunyikan kategori tertentu + urutan tampil tetap
+  if(state.main === 'pra'){
+    keys = keys.filter(k => !KATEGORI_PRA_HIDDEN.includes(k));
+    keys.sort((a,b) => {
+      const ia = KATEGORI_PRA_ORDER.indexOf(a), ib = KATEGORI_PRA_ORDER.indexOf(b);
+      if(ia === -1 && ib === -1) return 0;
+      if(ia === -1) return 1;  // kategori baru yang belum didaftar, taruh di akhir
+      if(ib === -1) return -1;
+      return ia - ib;
+    });
+  }
+
   if(keys.length === 0){
     document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Belum ada produk di kategori ini.</div>';
   } else {
@@ -353,7 +379,7 @@ function renderKategori(){
         : `<div class="icon-big">${CAT_ICON[k]||'📦'}</div>`;
       return `<div class="icon-card" onclick="pickKategori('${k}')">
         ${iconHtml}
-        <div class="icon-name">${k}</div><div class="icon-sub">${count} produk</div>
+        <div class="icon-name">${KATEGORI_DISPLAY_NAME[k] || k}</div><div class="icon-sub">${count} produk</div>
       </div>`;
     }).join('');
   }
