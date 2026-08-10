@@ -279,6 +279,7 @@ function setMainTab(tab){
   document.getElementById('tab-pra').classList.toggle('active', tab==='pra');
   document.getElementById('tab-pasca').classList.toggle('active', tab==='pasca');
   renderKategori();
+  history.replaceState({...state}, '', '#kategori'); // level akar, bukan drill-down baru
 }
 
 function renderBreadcrumb(){
@@ -301,10 +302,7 @@ function showScreen(name){
 }
 
 function goBack(){
-  if(state.submenu){ state.submenu=null; showScreen('submenu'); }
-  else if(state.provider){ state.provider=null; showScreen('provider'); }
-  else if(state.kategori){ state.kategori=null; showScreen('kategori'); }
-  renderBreadcrumb();
+  history.back(); // biarkan browser yang urus, sinkron dengan tombol back HP
 }
 
 function renderKategori(){
@@ -325,9 +323,9 @@ function renderKategori(){
   showScreen('kategori'); renderBreadcrumb();
 }
 
-function pickKategori(k){
-  state.kategori = k;
-  const providers = getKategoriUntukTab(state.main)[k];
+/** Render doang, TANPA sentuh riwayat browser — dipakai juga saat tombol back ditekan */
+function renderProviderScreen(){
+  const providers = getKategoriUntukTab(state.main)[state.kategori];
   document.getElementById('grid-provider').innerHTML = Object.keys(providers).map(p=>{
     let count=0; Object.values(providers[p]).forEach(arr=>count+=arr.length);
     return `<div class="icon-card" onclick="pickProvider('${p}')">
@@ -338,9 +336,16 @@ function pickKategori(k){
   showScreen('provider'); renderBreadcrumb();
 }
 
-function pickProvider(p){
-  state.provider = p;
-  const submenus = getKategoriUntukTab(state.main)[state.kategori][p];
+function pickKategori(k){
+  state.kategori = k;
+  state.provider = null;
+  state.submenu = null;
+  renderProviderScreen();
+  history.pushState({...state}, '', '#provider');
+}
+
+function renderSubmenuScreen(){
+  const submenus = getKategoriUntukTab(state.main)[state.kategori][state.provider];
   document.getElementById('list-submenu').innerHTML = Object.keys(submenus).map(s=>`
     <div class="submenu-row" onclick="pickSubmenu('${s}')">
       <div class="submenu-left"><div class="submenu-dot"></div>
@@ -351,10 +356,16 @@ function pickProvider(p){
   showScreen('submenu'); renderBreadcrumb();
 }
 
-function pickSubmenu(s){
-  state.submenu = s;
+function pickProvider(p){
+  state.provider = p;
+  state.submenu = null;
+  renderSubmenuScreen();
+  history.pushState({...state}, '', '#submenu');
+}
+
+function renderProdukScreen(){
   const isPasca = state.main === 'pasca';
-  let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][s].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
+  let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][state.submenu].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
 
   document.getElementById('pascabayar-holder').innerHTML = isPasca ? `
     <div class="pascabayar-note"><div class="pascabayar-note-text"><b>Tanpa markup.</b> Harga tagihan pascabayar 100% sesuai jumlah yang harus dibayar.</div></div>` : '';
@@ -373,6 +384,25 @@ function pickSubmenu(s){
   showScreen('produk'); renderBreadcrumb();
 }
 
+function pickSubmenu(s){
+  state.submenu = s;
+  renderProdukScreen();
+  history.pushState({...state}, '', '#produk');
+}
+
+/**
+ * Dengarkan tombol/gesture back BAWAAN hp atau TokenPocket — tanpa ini,
+ * back native langsung keluar total dari halaman (karena browser tidak
+ * tahu ada "sub-halaman" di dalam app kita, semuanya cuma 1 URL).
+ */
+window.addEventListener('popstate', (e) => {
+  state = e.state ? {...e.state} : {main: state.main, kategori:null, provider:null, submenu:null};
+  if(state.submenu) renderProdukScreen();
+  else if(state.provider) renderSubmenuScreen();
+  else if(state.kategori) renderProviderScreen();
+  else renderKategori();
+});
+
 function openModal(){ document.getElementById('modalOverlay').classList.add('show'); }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
 
@@ -384,6 +414,7 @@ const tickerHtml = tickerData.map(t=>`<span class="ticker-item"><b>${t.s}</b><sp
 document.getElementById('ticker').innerHTML = tickerHtml + tickerHtml;
 
 loadCatalog();
+history.replaceState({...state}, '', '#kategori');
 fetchPoolStats();
 
 // ===== WALLET CONNECT ASLI =====
