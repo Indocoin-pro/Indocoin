@@ -285,7 +285,8 @@ function setMainTab(tab){
 function renderBreadcrumb(){
   const bc = document.getElementById('breadcrumb');
   const parts = [state.main==='pra'?'Prabayar':'Pascabayar'];
-  if(state.kategori) parts.push(state.kategori);
+  const skipKategori = state.main === 'pasca'; // nama kategori tunggalnya = "Pascabayar" juga, dobel sama label tab
+  if(state.kategori && !skipKategori) parts.push(state.kategori);
   if(state.provider) parts.push(state.provider);
   if(state.submenu) parts.push(state.submenu);
   let html = parts.length>1 ? `<span class="back" onclick="goBack()">‹</span>` : '';
@@ -308,6 +309,26 @@ function goBack(){
 function renderKategori(){
   const kategoris = getKategoriUntukTab(state.main);
   const keys = Object.keys(kategoris);
+
+  // Pascabayar di Digiflazz cuma punya 1 kategori (namanya persis
+  // "Pascabayar" itu sendiri) — kalau dipaksa ikutin alur normal, user
+  // harus klik 1 ikon "Pascabayar" dulu sebelum lihat daftar biller
+  // (BPJS, PLN, dst), yang terasa sia-sia. Jadi di sini kita SKIP
+  // otomatis 1 tingkat itu, langsung tampilkan biller sebagai grid ikon.
+  if(keys.length === 1 && state.main === 'pasca'){
+    state.kategori = keys[0];
+    const providers = kategoris[keys[0]];
+    document.getElementById('grid-kategori').innerHTML = Object.keys(providers).map(p=>{
+      let count=0; Object.values(providers[p]).forEach(arr=>count+=arr.length);
+      return `<div class="icon-card" onclick="pickProvider('${p}')">
+        <div class="provider-logo" style="color:${PROV_COLOR[p]||'#999'}">${p}</div>
+        <div class="icon-sub">${count} produk</div>
+      </div>`;
+    }).join('');
+    showScreen('kategori'); renderBreadcrumb();
+    return;
+  }
+
   if(keys.length === 0){
     document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Belum ada produk di kategori ini.</div>';
   } else {
@@ -399,8 +420,8 @@ window.addEventListener('popstate', (e) => {
   state = e.state ? {...e.state} : {main: state.main, kategori:null, provider:null, submenu:null};
   if(state.submenu) renderProdukScreen();
   else if(state.provider) renderSubmenuScreen();
-  else if(state.kategori) renderProviderScreen();
-  else renderKategori();
+  else if(state.kategori && state.main === 'pra') renderProviderScreen();
+  else renderKategori(); // root (prabayar) ATAU root gabungan (pascabayar)
 });
 
 function openModal(){ document.getElementById('modalOverlay').classList.add('show'); }
