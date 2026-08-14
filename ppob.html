@@ -80,6 +80,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .icon-sub{font-size:8px;color:var(--muted);margin-top:1px;}
 .provider-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:14px;margin-bottom:8px;letter-spacing:0.5px;}
 .provider-logo-img{width:44px;height:44px;object-fit:contain;margin-bottom:6px;border-radius:8px;background:#fff;padding:4px;}
+.provider-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-weight:900;font-size:16px;color:#fff;margin-bottom:6px;}
 
 .submenu-list{display:flex;flex-direction:column;gap:8px;}
 .submenu-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:14px 15px;cursor:pointer;}
@@ -244,6 +245,19 @@ const KATEGORI_PRA_HIDDEN = ['Aktivasi Perdana', 'Aktivasi Voucher', 'Masa Aktif
 const KATEGORI_PRA_ORDER = ['Pulsa', 'Data', 'Paket SMS & Telpon', 'PLN', 'Voucher', 'Games', 'TV', 'Gas'];
 // Nama tampilan yang beda dari nama asli di database (cuma kosmetik)
 const KATEGORI_DISPLAY_NAME = { 'Paket SMS & Telpon': 'Telepon & SMS' };
+// Nama tampilan yang lebih pendek buat brand/provider — data asli di
+// database TETAP dipakai untuk lookup, ini cuma ganti yang dilihat user.
+const PROV_DISPLAY_NAME = {
+  'GOOGLE PLAY INDONESIA': 'Google Play',
+  'Traveloka E-Voucher': 'Traveloka',
+  'MAP E-gift Voucher': 'MAP E-gift',
+  'Steam Wallet (IDR)': 'Steam IDR',
+  'Nintendo eShop': 'Nintendo',
+  'ALFAMART VOUCHER': 'Alfamart',
+  'INDOMARET': 'Indomaret',
+  'Unipin Voucher': 'Unipin',
+  'Conquer Online': 'Conquer',
+};
 const PROV_COLOR = {
   TELKOMSEL:'#e2001a', INDOSAT:'#e8b800', XL:'#4a9eff', AXIS:'#b06fd8',
   TRI:'#e0507a', SMARTFREN:'#ff5fa8', PLN:'#e8a830', BPJS:'#2ea86a',
@@ -373,8 +387,8 @@ function renderBreadcrumb(){
   const bc = document.getElementById('breadcrumb');
   const parts = [state.main==='pra'?'Prabayar':'Pascabayar'];
   const skipKategori = state.main === 'pasca'; // nama kategori tunggalnya = "Pascabayar" juga, dobel sama label tab
-  if(state.kategori && !skipKategori) parts.push(state.kategori);
-  if(state.provider) parts.push(state.provider);
+  if(state.kategori && !skipKategori) parts.push(KATEGORI_DISPLAY_NAME[state.kategori] || state.kategori);
+  if(state.provider) parts.push(PROV_DISPLAY_NAME[state.provider] || state.provider);
   if(state.submenu) parts.push(state.submenu);
   let html = parts.length>1 ? `<span class="back" onclick="goBack()">‹</span>` : '';
   parts.forEach((p,i)=>{
@@ -455,11 +469,11 @@ function renderProviderScreen(){
   document.getElementById('grid-provider').innerHTML = Object.keys(providers).map(p=>{
     let count=0; Object.values(providers[p]).forEach(arr=>count+=arr.length);
     const iconHtml = PROV_LOGO[p]
-      ? `<img src="/logos/${PROV_LOGO[p]}" class="provider-logo-img" onerror="this.outerHTML='<div class=&quot;provider-logo&quot; style=&quot;color:${PROV_COLOR[p]||'#999'}&quot;>${p}</div>'" alt="${p}">`
-      : `<div class="provider-logo" style="color:${PROV_COLOR[p]||'#999'}">${p}</div>`;
+      ? `<img src="/logos/${PROV_LOGO[p]}" class="provider-logo-img" onerror="this.outerHTML='<div class=&quot;provider-avatar&quot; style=&quot;background:${PROV_COLOR[p]||'#555'}&quot;>${p.charAt(0)}</div>'" alt="${p}">`
+      : `<div class="provider-avatar" style="background:${PROV_COLOR[p]||'#555'}">${p.charAt(0)}</div>`;
     return `<div class="icon-card" onclick="pickProvider('${p}')">
       ${iconHtml}
-      <div class="icon-sub">${count} produk</div>
+      <div class="icon-name">${PROV_DISPLAY_NAME[p] || p}</div><div class="icon-sub">${count} produk</div>
     </div>`;
   }).join('');
   showScreen('provider'); renderBreadcrumb();
