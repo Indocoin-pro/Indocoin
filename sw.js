@@ -58,6 +58,7 @@ const CACHE_FILES = [
   "/trade.html",
   "/swap.html",
   "/phantom-box-trade.html",
+  "/ppob.html",
   "/clash-trade.html",
   "/battle-arena-trade.html",
   "/cycle-trade.html",
