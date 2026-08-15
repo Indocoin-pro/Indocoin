@@ -107,6 +107,17 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .prow-name{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);}
 .prow-desc{font-size:9px;color:var(--muted);line-height:1.3;}
 .btn-beli{flex-shrink:0;padding:9px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:900;letter-spacing:1px;cursor:pointer;}
+.btn-riwayat,.btn-admin{padding:6px 11px;border-radius:7px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--muted2);}
+.btn-admin{border-color:rgba(46,168,106,0.4);color:var(--green);}
+
+/* ===== PANEL ADMIN ===== */
+.admin-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border2);}
+.admin-row:last-child{border-bottom:none;}
+.admin-row-info{flex:1;min-width:0;}
+.admin-row-name{font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);}
+.admin-row-modal{font-size:9px;color:var(--muted);margin-top:1px;}
+.admin-row-input{width:96px;flex-shrink:0;padding:8px 9px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;}
+.admin-row-save{flex-shrink:0;padding:8px 10px;border:none;border-radius:7px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:900;cursor:pointer;}
 
 /* ===== MODAL BELI ===== */
 .buy-body{padding:20px 20px 24px;}
@@ -210,6 +221,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <div class="screen" id="screen-submenu"><div class="submenu-list" id="list-submenu"></div></div>
 <div class="screen" id="screen-produk">
   <div id="pascabayar-holder"></div>
+  <div id="produk-action-row" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;"></div>
   <div class="produk-note"><span>12 produk</span><span>Urut termurah ▾</span></div>
   <div class="ledger" id="ledger-produk"></div>
 </div>
@@ -241,6 +253,32 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
       <div class="buy-status" id="buyStatus"></div>
       <button class="btn-buy-confirm" id="btnBuyConfirm" onclick="mulaiProsesBeli()">KONFIRMASI BELI</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RIWAYAT (placeholder — dibangun lengkap di langkah #4) -->
+<div class="modal-overlay" id="riwayatOverlay">
+  <div class="modal-card" style="background:var(--bg2);">
+    <div class="buy-body" style="text-align:center;padding:34px 20px;">
+      <div style="font-size:40px;margin-bottom:12px;">🕐</div>
+      <div class="buy-title" style="margin-bottom:8px;">Riwayat Pesanan</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">Fitur ini sedang dibangun, segera hadir.</div>
+      <button class="btn-buy-confirm" onclick="document.getElementById('riwayatOverlay').classList.remove('show')">TUTUP</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADMIN — SET HARGA -->
+<div class="modal-overlay" id="adminOverlay">
+  <div class="modal-card" style="background:var(--bg2);max-height:80vh;">
+    <div class="buy-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="buy-title" style="margin:0;">Set Harga Jual</div>
+        <span onclick="document.getElementById('adminOverlay').classList.remove('show')" style="cursor:pointer;color:var(--muted);font-size:20px;">✕</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:14px;">Produk yang lagi kamu buka saat ini saja. Kosongkan kolom untuk balik ke harga asli.</div>
+      <div id="adminProdukList"></div>
     </div>
   </div>
 </div>
@@ -580,6 +618,12 @@ function pickProvider(p){
 function renderProdukScreen(){
   const isPasca = state.main === 'pasca';
   let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][state.submenu].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
+  window.PRODUK_TERTAMPIL = produk; // dipakai panel admin, cuma produk yang lagi kelihatan saat ini
+
+  document.getElementById('produk-action-row').innerHTML = `
+    <button class="btn-riwayat" onclick="bukaRiwayat()">🕐 Riwayat</button>
+    ${isDevWallet ? `<button class="btn-admin" onclick="bukaPanelAdmin()">📝 Admin</button>` : ''}
+  `;
 
   document.getElementById('pascabayar-holder').innerHTML = isPasca ? `
     <div class="pascabayar-note"><div class="pascabayar-note-text"><b>Tanpa markup.</b> Harga tagihan pascabayar 100% sesuai jumlah yang harus dibayar.</div></div>` : '';
@@ -622,11 +666,15 @@ window.addEventListener('popstate', (e) => {
   const adaModalTerbuka =
     document.getElementById('buyOverlay').classList.contains('show') ||
     document.getElementById('successOverlay').classList.contains('show') ||
-    document.getElementById('modalOverlay').classList.contains('show');
+    document.getElementById('modalOverlay').classList.contains('show') ||
+    document.getElementById('riwayatOverlay').classList.contains('show') ||
+    document.getElementById('adminOverlay').classList.contains('show');
   if(adaModalTerbuka){
     document.getElementById('buyOverlay').classList.remove('show');
     document.getElementById('successOverlay').classList.remove('show');
     document.getElementById('modalOverlay').classList.remove('show');
+    document.getElementById('riwayatOverlay').classList.remove('show');
+    document.getElementById('adminOverlay').classList.remove('show');
     return;
   }
 
@@ -706,8 +754,10 @@ window.connectWallet = async function () {
     currentAddress = accounts[0];
     updateWalletUI(currentAddress);
 
-    // TODO: setelah wallet connect, cek apakah alamat ini = wallet Dev
-    // (via signature 1x/jam) untuk memunculkan tombol admin tersembunyi.
+    isDevWallet = currentAddress.toLowerCase() === DEV_WALLET.toLowerCase();
+    // Kalau lagi di halaman daftar produk saat wallet connect, render ulang
+    // supaya tombol Admin langsung muncul (untuk wallet Dev) tanpa reload.
+    if(state.submenu) renderProdukScreen();
   } catch (err) {
     console.error('Gagal connect wallet:', err);
   }
@@ -745,6 +795,12 @@ const GATEWAY_ABI = [
 ];
 
 let buyState = { produk: null, metode: 'usdt', saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
+
+// ===== ADMIN PANEL — hanya wallet Dev =====
+const DEV_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc';
+let isDevWallet = false;
+let adminToken = null;
+let adminTokenExpiry = 0;
 
 function bukaModalBeli(kodeProduk){
   if(!currentAddress){
@@ -945,8 +1001,95 @@ async function ambilHargaIndc(){
 
 function tutupSuksesKeRiwayat(){
   document.getElementById('successOverlay').classList.remove('show');
-  // TODO: arahkan ke halaman Riwayat Pesanan setelah halaman itu dibangun (langkah #4)
-  alert('Halaman Riwayat Pesanan belum dibangun — sementara kembali ke katalog.');
+  bukaRiwayat();
+}
+
+function bukaRiwayat(){
+  document.getElementById('riwayatOverlay').classList.add('show');
+  history.pushState({...state}, '', '#riwayat');
+}
+
+// ===== PANEL ADMIN =====
+async function bukaPanelAdmin(){
+  const sesiMasihValid = adminToken && Date.now() < adminTokenExpiry;
+  if(!sesiMasihValid){
+    const berhasil = await mintaTandaTanganAdmin();
+    if(!berhasil) return;
+  }
+  renderPanelAdmin();
+  document.getElementById('adminOverlay').classList.add('show');
+  history.pushState({...state}, '', '#admin');
+}
+
+async function mintaTandaTanganAdmin(){
+  try{
+    const signer = await getSigner();
+    const message = `INDOCOIN Admin Login\ntimestamp:${Date.now()}`;
+    const signature = await signer.signMessage(message);
+
+    const res = await fetch(API_BASE + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: currentAddress, message, signature }),
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Gagal login admin.');
+      return false;
+    }
+    const data = await res.json();
+    adminToken = data.token;
+    adminTokenExpiry = data.expiresAt;
+    return true;
+  }catch(err){
+    console.error('Gagal tanda tangan admin:', err);
+    return false;
+  }
+}
+
+function renderPanelAdmin(){
+  const produk = window.PRODUK_TERTAMPIL || [];
+  document.getElementById('adminProdukList').innerHTML = produk.map(p => `
+    <div class="admin-row">
+      <div class="admin-row-info">
+        <div class="admin-row-name">${p.namaProduk}</div>
+        <div class="admin-row-modal">Modal: Rp${(p.hargaModal || p.hargaJual).toLocaleString('id-ID')} · Sekarang: Rp${p.hargaJual.toLocaleString('id-ID')}</div>
+      </div>
+      <input class="admin-row-input" type="number" placeholder="Harga baru" id="admin-input-${p.kodeProduk}">
+      <button class="admin-row-save" onclick="simpanHargaAdmin('${p.kodeProduk}')">SIMPAN</button>
+    </div>`).join('');
+}
+
+async function simpanHargaAdmin(kodeProduk){
+  const input = document.getElementById('admin-input-' + kodeProduk);
+  const nilai = input.value.trim();
+  const hargaJualManual = nilai === '' ? null : Number(nilai);
+
+  try{
+    const res = await fetch(API_BASE + '/api/admin/set-price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, kodeProduk, hargaJualManual }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || 'Gagal simpan harga.');
+      return;
+    }
+
+    // Update harga di tampilan produk yang lagi kebuka, tanpa reload
+    const p = window.PRODUK_LOOKUP[kodeProduk];
+    if(p) p.hargaJual = data.hargaJualBaru;
+    const pInList = window.PRODUK_TERTAMPIL.find(x => x.kodeProduk === kodeProduk);
+    if(pInList) pInList.hargaJual = data.hargaJualBaru;
+
+    renderProdukScreen();
+    renderPanelAdmin();
+    input.value = '';
+  }catch(err){
+    console.error('Gagal simpan harga:', err);
+    alert('Gagal simpan harga, coba lagi.');
+  }
 }
 </script>
 

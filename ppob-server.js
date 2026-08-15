@@ -180,6 +180,7 @@ app.get('/api/catalog', (req, res) => {
         namaProduk: p.nama_produk,
         deskripsi: p.deskripsi || '',
         hargaJual,
+        hargaModal: p.harga_modal,
         isPascabayar: !!p.is_pascabayar,
       });
     }
@@ -218,6 +219,99 @@ app.get('/api/pool-stats', async (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/pool-stats:', err);
     res.status(500).json({ error: 'Gagal mengambil statistik pool' });
+  }
+});
+
+/**
+ * ===== ADMIN PANEL — hanya wallet Dev =====
+ * Sesi disimpan di memori server (bukan database) — cukup untuk fitur
+ * ini karena umurnya pendek (1 jam) dan tidak masalah kalau hilang
+ * saat server restart (Dev tinggal tanda tangan ulang).
+ */
+const DEV_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc';
+const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 jam
+const adminSessions = new Map(); // token -> { expiresAt }
+
+function buatTokenAcak() {
+  return require('crypto').randomBytes(24).toString('hex');
+}
+
+function cekSesiValid(token) {
+  const sesi = adminSessions.get(token);
+  if (!sesi) return false;
+  if (Date.now() > sesi.expiresAt) {
+    adminSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * POST /api/admin/login
+ * Body: { wallet, message, signature }
+ * Frontend minta wallet tanda tangani sebuah pesan (berisi timestamp),
+ * di sini kita verifikasi tanda tangan itu VALID milik DEV_WALLET —
+ * bukan cuma cek alamat yang connect (itu bisa dipalsukan di frontend).
+ */
+app.post('/api/admin/login', (req, res) => {
+  try {
+    const { wallet, message, signature } = req.body;
+    if (!wallet || !message || !signature) {
+      return res.status(400).json({ error: 'wallet, message, dan signature wajib diisi' });
+    }
+
+    // Cegah replay attack — pesan harus menyebutkan timestamp yang masih baru (< 5 menit)
+    const match = message.match(/timestamp:(\d+)/);
+    if (!match || Date.now() - parseInt(match[1]) > 5 * 60 * 1000) {
+      return res.status(400).json({ error: 'Pesan sudah kedaluwarsa, coba lagi' });
+    }
+
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+    if (recoveredAddress.toLowerCase() !== DEV_WALLET.toLowerCase()) {
+      return res.status(403).json({ error: 'Bukan wallet Dev' });
+    }
+    if (recoveredAddress.toLowerCase() !== wallet.toLowerCase()) {
+      return res.status(403).json({ error: 'Tanda tangan tidak cocok dengan wallet yang dikirim' });
+    }
+
+    const token = buatTokenAcak();
+    adminSessions.set(token, { expiresAt: Date.now() + SESSION_DURATION_MS });
+    res.json({ token, expiresAt: Date.now() + SESSION_DURATION_MS });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/login:', err);
+    res.status(500).json({ error: 'Gagal verifikasi tanda tangan' });
+  }
+});
+
+/**
+ * POST /api/admin/set-price
+ * Body: { token, kodeProduk, hargaJualManual }
+ * hargaJualManual boleh null untuk mengosongkan lagi (balik ke harga asli).
+ */
+app.post('/api/admin/set-price', (req, res) => {
+  try {
+    const { token, kodeProduk, hargaJualManual } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!kodeProduk) {
+      return res.status(400).json({ error: 'kodeProduk wajib diisi' });
+    }
+
+    const harga = hargaJualManual === null || hargaJualManual === '' ? null : Number(hargaJualManual);
+    if (harga !== null && (isNaN(harga) || harga < 0)) {
+      return res.status(400).json({ error: 'Harga tidak valid' });
+    }
+
+    db.setHargaJualManual(kodeProduk, harga);
+
+    const product = db.getProduct(kodeProduk);
+    const { hargaJual } = pricing.hitungHargaJual(product.harga_modal, product.harga_jual_manual, !!product.is_pascabayar);
+
+    res.json({ success: true, kodeProduk, hargaJualBaru: hargaJual });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/set-price:', err);
+    res.status(500).json({ error: 'Gagal ubah harga' });
   }
 });
 
