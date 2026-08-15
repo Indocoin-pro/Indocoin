@@ -106,6 +106,33 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .tick{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);background:rgba(200,146,42,0.08);border:1px solid var(--border2);border-radius:4px;padding:1px 4px;flex-shrink:0;}
 .prow-name{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);}
 .prow-desc{font-size:9px;color:var(--muted);line-height:1.3;}
+.btn-beli{flex-shrink:0;padding:9px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:900;letter-spacing:1px;cursor:pointer;}
+
+/* ===== MODAL BELI ===== */
+.buy-body{padding:20px 20px 24px;}
+.buy-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.buy-price{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--gold2);margin-bottom:16px;}
+.buy-label{font-size:10px;color:var(--muted);letter-spacing:0.5px;margin:14px 0 6px;}
+.buy-input{width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;}
+.buy-input::placeholder{color:var(--muted);}
+.buy-methods{display:flex;gap:8px;}
+.buy-method{flex:1;padding:12px 8px;border:1px solid var(--border2);border-radius:10px;text-align:center;cursor:pointer;background:var(--bg3);}
+.buy-method.active{border-color:var(--gold);background:rgba(200,146,42,0.12);}
+.buy-method-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.buy-method-bal{font-size:9px;color:var(--muted);margin-top:3px;}
+.buy-status{font-size:11px;text-align:center;margin:14px 0 6px;min-height:15px;color:var(--muted);}
+.buy-status.err{color:var(--red);}
+.buy-status.ok{color:var(--green);}
+.btn-buy-confirm{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:1px;cursor:pointer;margin-top:6px;}
+.btn-buy-confirm:disabled{opacity:0.4;cursor:not-allowed;}
+.buy-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:#0a0a0a;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:-1px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== MODAL SUKSES ===== */
+.success-body{padding:34px 24px 28px;text-align:center;}
+.success-icon{font-size:52px;margin-bottom:14px;}
+.success-title{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:#1a1a1a;margin-bottom:6px;}
+.success-desc{font-family:'Rajdhani',sans-serif;font-size:13px;color:#666;margin-bottom:22px;}
 
 /* ===== MODAL — PUTIH, ENERGIK (sengaja kontras dari tema gelap) ===== */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:flex-end;justify-content:center;}
@@ -185,6 +212,47 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <div id="pascabayar-holder"></div>
   <div class="produk-note"><span>12 produk</span><span>Urut termurah ▾</span></div>
   <div class="ledger" id="ledger-produk"></div>
+</div>
+
+<!-- MODAL BELI -->
+<div class="modal-overlay" id="buyOverlay">
+  <div class="modal-card" style="background:var(--bg2);">
+    <div class="buy-body">
+      <div class="buy-title" id="buyProdukName">—</div>
+      <div class="buy-price" id="buyProdukHarga">Rp0</div>
+
+      <div class="buy-label">NOMOR TUJUAN</div>
+      <input class="buy-input" id="buyNomorTujuan" type="text" inputmode="numeric" placeholder="Contoh: 081234567890">
+
+      <div class="buy-label">BAYAR PAKAI</div>
+      <div class="buy-methods">
+        <div class="buy-method active" id="methodUsdt" onclick="pilihMetodeBayar('usdt')">
+          <div class="buy-method-name">USDT</div>
+          <div class="buy-method-bal" id="balUsdt">Saldo: —</div>
+        </div>
+        <div class="buy-method" id="methodIndc" onclick="pilihMetodeBayar('indc')">
+          <div class="buy-method-name">INDC</div>
+          <div class="buy-method-bal" id="balIndc">Saldo: —</div>
+        </div>
+      </div>
+
+      <div class="buy-status" id="buyStatus"></div>
+      <button class="btn-buy-confirm" id="btnBuyConfirm" onclick="mulaiProsesBeli()">KONFIRMASI BELI</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SUKSES -->
+<div class="modal-overlay" id="successOverlay">
+  <div class="modal-card">
+    <div class="modal-topbar"></div>
+    <div class="success-body">
+      <div class="success-icon">✅</div>
+      <div class="success-title">Pembelian Berhasil!</div>
+      <div class="success-desc">Pesanan kamu sedang diproses. Cek statusnya di halaman Riwayat.</div>
+      <button class="modal-ok" onclick="tutupSuksesKeRiwayat()">OKE, LIHAT RIWAYAT</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL TRANSPARANSI -->
@@ -514,6 +582,12 @@ function renderProdukScreen(){
     <div class="pascabayar-note"><div class="pascabayar-note-text"><b>Tanpa markup.</b> Harga tagihan pascabayar 100% sesuai jumlah yang harus dibayar.</div></div>` : '';
   document.querySelector('.produk-note span').textContent = produk.length + ' produk';
 
+  // Simpan data produk di lookup map (bukan inline di HTML) — supaya
+  // aman dari karakter kutip di nama produk (misal "Traveloka E-Voucher")
+  // yang bisa merusak atribut onclick kalau di-inline langsung.
+  window.PRODUK_LOOKUP = {};
+  produk.forEach(p => { window.PRODUK_LOOKUP[p.kodeProduk] = p; });
+
   document.getElementById('ledger-produk').innerHTML = produk.map(p => `
     <div class="prow">
       <div class="prow-price">Rp${p.hargaJual.toLocaleString('id-ID')}</div>
@@ -522,6 +596,7 @@ function renderProdukScreen(){
         <div class="prow-name">${p.namaProduk}</div>
         <div class="prow-desc">${state.submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
       </div>
+      ${isPasca ? '' : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
     </div>`).join('');
 
   showScreen('produk'); renderBreadcrumb();
@@ -635,7 +710,229 @@ if (typeof window.ethereum !== 'undefined') {
     updateWalletUI(currentAddress);
   });
 }
+
+// ===== ALUR BELI =====
+const PPOB_GATEWAY_ADDR = '0x5289CBb6d16203e392Eb7Ca7E13c82b8e721F341';
+const PW_WALLET_ADDR = '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF'; // Platform Wallet
+const INDC_ADDR = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
+const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
+
+const ERC20_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+];
+const PW_ABI = ['function getBalance(address user, address token) view returns (uint256)'];
+const GATEWAY_ABI = [
+  'function payWithUSDT(bytes32 orderId, bytes32 productCode, uint256 modalUsdt, uint256 profitUsdt, uint256 expiry, bytes calldata signature) external',
+  'function payWithPlatformINDC(bytes32 orderId, bytes32 productCode, uint256 indcAmount, uint256 modalUsdtEquivalent, uint256 profitUsdtEquivalent, uint256 expiry, bytes calldata signature) external',
+];
+
+let buyState = { produk: null, metode: 'usdt', saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
+
+function bukaModalBeli(kodeProduk){
+  if(!currentAddress){
+    window.connectWallet();
+    return;
+  }
+  buyState.produk = window.PRODUK_LOOKUP[kodeProduk];
+  buyState.metode = 'usdt';
+  document.getElementById('buyProdukName').textContent = buyState.produk.namaProduk;
+  document.getElementById('buyProdukHarga').textContent = 'Rp' + buyState.produk.hargaJual.toLocaleString('id-ID');
+  document.getElementById('buyNomorTujuan').value = '';
+  setBuyStatus('', '');
+  document.getElementById('methodUsdt').classList.add('active');
+  document.getElementById('methodIndc').classList.remove('active');
+  document.getElementById('balUsdt').textContent = 'Saldo: —';
+  document.getElementById('balIndc').textContent = 'Saldo: —';
+  document.getElementById('buyOverlay').classList.add('show');
+  muatSaldoUntukBeli();
+}
+
+function tutupModalBeli(){
+  document.getElementById('buyOverlay').classList.remove('show');
+}
+
+function pilihMetodeBayar(m){
+  buyState.metode = m;
+  document.getElementById('methodUsdt').classList.toggle('active', m==='usdt');
+  document.getElementById('methodIndc').classList.toggle('active', m==='indc');
+}
+
+function setBuyStatus(text, kind){
+  const el = document.getElementById('buyStatus');
+  el.textContent = text;
+  el.className = 'buy-status' + (kind ? ' ' + kind : '');
+}
+
+async function muatSaldoUntukBeli(){
+  try{
+    const signer = await getSigner();
+    const usdtContract = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
+    const pwContract = new ethers.Contract(PW_WALLET_ADDR, PW_ABI, signer);
+
+    const [usdtRaw, indcRaw, bnbRaw] = await Promise.all([
+      usdtContract.balanceOf(currentAddress),
+      pwContract.getBalance(currentAddress, INDC_ADDR),
+      window.ethereum.request({ method: 'eth_getBalance', params: [currentAddress, 'latest'] }),
+    ]);
+
+    buyState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
+    buyState.saldoIndc = parseFloat(ethers.formatUnits(indcRaw, 9));
+    buyState.saldoBnb  = parseFloat(ethers.formatUnits(bnbRaw, 18));
+
+    document.getElementById('balUsdt').textContent = 'Saldo: ' + buyState.saldoUsdt.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' USDT';
+    document.getElementById('balIndc').textContent = 'Saldo: ' + buyState.saldoIndc.toLocaleString('id-ID', {maximumFractionDigits:0}) + ' INDC';
+  }catch(err){
+    console.error('Gagal muat saldo:', err);
+    setBuyStatus('Gagal memuat saldo. Coba lagi.', 'err');
+  }
+}
+
+async function getSigner(){
+  const browserProvider = new ethers.BrowserProvider(window.ethereum);
+  return browserProvider.getSigner();
+}
+
+/** Kurs USDT/IDR — trik rasio harga BNB dari CoinGecko, sama seperti assets.html */
+async function ambilKursUsdtIdr(){
+  try{
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr');
+    const data = await res.json();
+    return data.binancecoin.idr / data.binancecoin.usd;
+  }catch(err){
+    console.warn('Gagal ambil kurs, pakai fallback 16500:', err);
+    return 16500;
+  }
+}
+
+function generateOrderId(){
+  const random = ethers.hexlify(ethers.randomBytes(32));
+  return random;
+}
+
+async function mulaiProsesBeli(){
+  const nomorTujuan = document.getElementById('buyNomorTujuan').value.trim();
+  if(!nomorTujuan){
+    setBuyStatus('Nomor tujuan wajib diisi.', 'err');
+    return;
+  }
+
+  const p = buyState.produk;
+  const btn = document.getElementById('btnBuyConfirm');
+
+  // Cek saldo sesuai metode dipilih SEBELUM lanjut apapun
+  if(buyState.metode === 'usdt'){
+    const perluUsdt = p.hargaJual / (await ambilKursUsdtIdr());
+    if(buyState.saldoUsdt < perluUsdt){
+      setBuyStatus(`Saldo USDT tidak cukup. Saldo: ${buyState.saldoUsdt.toFixed(2)} USDT`, 'err');
+      return;
+    }
+  } else {
+    // Estimasi kasar INDC dibutuhkan pakai harga INDC — untuk validasi awal saja,
+    // angka final tetap dari quote server (price signer) di langkah berikutnya.
+    if(buyState.saldoIndc <= 0){
+      setBuyStatus('Saldo INDC di Platform Wallet kosong.', 'err');
+      return;
+    }
+  }
+  if(buyState.saldoBnb < 0.001){
+    setBuyStatus('Saldo BNB tidak cukup untuk biaya gas.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  try{
+    const signer = await getSigner();
+    const gateway = new ethers.Contract(PPOB_GATEWAY_ADDR, GATEWAY_ABI, signer);
+    const orderId = generateOrderId();
+    const usdtIdrRate = await ambilKursUsdtIdr();
+
+    setBuyStatus('Mengambil quote harga...', '');
+    const quoteRes = await fetch(API_BASE + '/api/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, kodeProduk: p.kodeProduk, usdtIdrRate }),
+    });
+    if(!quoteRes.ok){
+      const errData = await quoteRes.json().catch(() => ({}));
+      throw new Error(errData.error || 'Gagal ambil quote harga');
+    }
+    const quote = await quoteRes.json();
+
+    // Daftarkan nomor tujuan SEBELUM transaksi on-chain dikirim, supaya
+    // listener backend sudah tahu nomor tujuan saat event OrderCreated muncul.
+    setBuyStatus('Mendaftarkan pesanan...', '');
+    await fetch(API_BASE + '/api/orders/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, customerNo: nomorTujuan, kodeProduk: p.kodeProduk }),
+    });
+
+    if(buyState.metode === 'usdt'){
+      const totalUsdt = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
+      const usdtContract = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
+      const allowance = await usdtContract.allowance(currentAddress, PPOB_GATEWAY_ADDR);
+
+      if(allowance < totalUsdt){
+        setBuyStatus('Approve USDT di wallet...', '');
+        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, totalUsdt);
+        await txApprove.wait();
+      }
+
+      setBuyStatus('Konfirmasi pembelian di wallet...', '');
+      const txBeli = await gateway.payWithUSDT(
+        quote.orderId, quote.productCode, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature
+      );
+      setBuyStatus('Menunggu konfirmasi blockchain...', '');
+      await txBeli.wait();
+
+    } else {
+      // INDC dari Platform Wallet — TIDAK perlu approve (kontrak PPOB
+      // sudah di-whitelist untuk motong saldo Platform Wallet langsung).
+      const indcAmount = ethers.parseUnits(
+        (p.hargaJual / (await ambilHargaIndc())).toFixed(9), 9
+      );
+      setBuyStatus('Konfirmasi pembelian di wallet...', '');
+      const txBeli = await gateway.payWithPlatformINDC(
+        quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature
+      );
+      setBuyStatus('Menunggu konfirmasi blockchain...', '');
+      await txBeli.wait();
+    }
+
+    setBuyStatus('Berhasil!', 'ok');
+    tutupModalBeli();
+    document.getElementById('successOverlay').classList.add('show');
+
+  }catch(err){
+    console.error('Gagal proses beli:', err);
+    const pesan = err.reason || err.message || 'Transaksi gagal, coba lagi.';
+    setBuyStatus(pesan.length > 80 ? 'Transaksi gagal atau dibatalkan.' : pesan, 'err');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+/** Harga INDC saat ini dalam USD, dari kontrak INDC Market */
+async function ambilHargaIndc(){
+  const signer = await getSigner();
+  const marketContract = new ethers.Contract(
+    '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
+    ['function currentPrice() view returns (uint256)'],
+    signer
+  );
+  const priceRaw = await marketContract.currentPrice();
+  return parseFloat(ethers.formatUnits(priceRaw, 18));
+}
+
+function tutupSuksesKeRiwayat(){
+  document.getElementById('successOverlay').classList.remove('show');
+  // TODO: arahkan ke halaman Riwayat Pesanan setelah halaman itu dibangun (langkah #4)
+  alert('Halaman Riwayat Pesanan belum dibangun — sementara kembali ke katalog.');
+}
 </script>
+
 
 </body>
 </html>
