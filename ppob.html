@@ -218,6 +218,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <div class="modal-overlay" id="buyOverlay">
   <div class="modal-card" style="background:var(--bg2);">
     <div class="buy-body">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:-8px;">
+        <span onclick="tutupModalBeli()" style="cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:4px 8px;">✕</span>
+      </div>
       <div class="buy-title" id="buyProdukName">—</div>
       <div class="buy-price" id="buyProdukHarga">Rp0</div>
 
@@ -614,6 +617,19 @@ function pickSubmenu(s){
  * tahu ada "sub-halaman" di dalam app kita, semuanya cuma 1 URL).
  */
 window.addEventListener('popstate', (e) => {
+  // Kalau ada modal yang lagi kebuka, tombol back cukup NUTUP modal itu
+  // saja — jangan ikut ganti tampilan halaman navigasi di baliknya.
+  const adaModalTerbuka =
+    document.getElementById('buyOverlay').classList.contains('show') ||
+    document.getElementById('successOverlay').classList.contains('show') ||
+    document.getElementById('modalOverlay').classList.contains('show');
+  if(adaModalTerbuka){
+    document.getElementById('buyOverlay').classList.remove('show');
+    document.getElementById('successOverlay').classList.remove('show');
+    document.getElementById('modalOverlay').classList.remove('show');
+    return;
+  }
+
   state = e.state ? {...e.state} : {main: state.main, kategori:null, provider:null, submenu:null};
   if(state.submenu) renderProdukScreen();
   else if(state.provider) renderSubmenuScreen();
@@ -747,10 +763,11 @@ function bukaModalBeli(kodeProduk){
   document.getElementById('balIndc').textContent = 'Saldo: —';
   document.getElementById('buyOverlay').classList.add('show');
   muatSaldoUntukBeli();
+  history.pushState({...state}, '', '#beli'); // biar tombol back HP nutup modal, bukan keluar app
 }
 
 function tutupModalBeli(){
-  document.getElementById('buyOverlay').classList.remove('show');
+  history.back(); // popstate handler di bawah yang beneran nutup modalnya
 }
 
 function pilihMetodeBayar(m){
