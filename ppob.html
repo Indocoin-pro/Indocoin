@@ -90,6 +90,16 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .submenu-count{font-size:9px;color:var(--muted);margin-top:2px;}
 .submenu-arrow{color:var(--gold);font-size:15px;}
 
+/* ===== GRID FILTER SUBMENU (di halaman gabungan "Semua") ===== */
+.filter-chip-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px;}
+.filter-chip{background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:8px 4px;text-align:center;cursor:pointer;}
+.filter-chip.active{background:rgba(200,146,42,0.14);border-color:var(--gold);}
+.filter-chip-nama{font-family:'Rajdhani',sans-serif;font-size:10.5px;font-weight:600;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.filter-chip.active .filter-chip-nama{color:var(--gold2);}
+.filter-chip-jumlah{font-family:'Orbitron',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;}
+.filter-chip.active .filter-chip-jumlah{color:var(--gold);}
+.filter-chip-kosong{visibility:hidden;}
+
 .produk-note{font-size:9.5px;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
 .pascabayar-note{display:flex;gap:8px;background:rgba(46,168,106,0.06);border:1px solid rgba(46,168,106,0.25);border-radius:10px;padding:11px 12px;margin-bottom:12px;}
 .pascabayar-note-text{font-size:10.5px;color:var(--muted2);line-height:1.4;}
@@ -223,6 +233,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <div class="screen" id="screen-produk">
   <div id="pascabayar-holder"></div>
   <div id="produk-action-row" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;"></div>
+  <div class="filter-chip-grid" id="filter-submenu-grid"></div>
   <div class="produk-note"><span>12 produk</span><span>Urut termurah ▾</span></div>
   <div class="ledger" id="ledger-produk"></div>
 </div>
@@ -604,36 +615,54 @@ function pickKategori(k){
   history.pushState({...state}, '', '#provider');
 }
 
-function renderSubmenuScreen(){
-  const submenus = getKategoriUntukTab(state.main)[state.kategori][state.provider];
-  document.getElementById('list-submenu').innerHTML = Object.keys(submenus).map(s=>`
-    <div class="submenu-row" onclick="pickSubmenu('${s}')">
-      <div class="submenu-left"><div class="submenu-dot"></div>
-        <div><div class="submenu-name">${s}</div><div class="submenu-count">${submenus[s].length} produk</div></div>
-      </div>
-      <span class="submenu-arrow">›</span>
-    </div>`).join('');
-  showScreen('submenu'); renderBreadcrumb();
-}
+let filterSubmenuAktif = 'Semua';
 
 function pickProvider(p){
   state.provider = p;
-  state.submenu = null;
-  renderSubmenuScreen();
-  history.pushState({...state}, '', '#submenu');
+  state.submenu = null; // tidak lagi dipakai sebagai "layar submenu terpisah"
+  filterSubmenuAktif = 'Semua';
+  renderProdukGabungan();
+  history.pushState({...state}, '', '#produk');
 }
 
-/** Potong teks kepanjangan pakai "..." — dipakai buat deskripsi produk yang
- * panjangnya beda-beda liar tergantung apa adanya dari Digiflazz. */
-function potongTeks(teks, maksHuruf){
-  if(teks.length <= maksHuruf) return teks;
-  return teks.substring(0, maksHuruf).trim() + '...';
+function pilihFilterSubmenu(nama){
+  filterSubmenuAktif = nama;
+  renderProdukGabungan(); // render ulang di tempat, TANPA nambah riwayat baru
 }
 
-function renderProdukScreen(){
+function renderProdukGabungan(){
+  const submenus = getKategoriUntukTab(state.main)[state.kategori][state.provider];
   const isPasca = state.main === 'pasca';
-  let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][state.submenu].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
-  window.PRODUK_TERTAMPIL = produk; // dipakai panel admin, cuma produk yang lagi kelihatan saat ini
+
+  // Gabungkan semua produk dari SEMUA submenu jadi 1 daftar, masing-masing
+  // ditandai submenu asalnya (buat filter chip & keterangan per baris).
+  let semuaProduk = [];
+  Object.keys(submenus).forEach(namaSubmenu => {
+    submenus[namaSubmenu].forEach(p => semuaProduk.push({...p, _submenu: namaSubmenu}));
+  });
+
+  // ===== Grid filter chip: "Semua" + tiap submenu, dengan jumlah produk =====
+  const daftarFilter = ['Semua', ...Object.keys(submenus)];
+  let chipHtml = daftarFilter.map(nama => {
+    const jumlah = nama === 'Semua' ? semuaProduk.length : submenus[nama].length;
+    return `<div class="filter-chip ${filterSubmenuAktif===nama?'active':''}" onclick="pilihFilterSubmenu('${nama}')">
+      <div class="filter-chip-nama">${nama}</div>
+      <div class="filter-chip-jumlah">${jumlah}</div>
+    </div>`;
+  }).join('');
+  // Baris terakhir grid diisi kotak kosong (tidak bisa diklik, tidak
+  // kelihatan) kalau jumlah chip tidak genap kelipatan 4 — biar tetap
+  // rapi sejajar, bukan nanggung di ujung.
+  const kolom = 4;
+  const sisaKosong = (kolom - (daftarFilter.length % kolom)) % kolom;
+  for(let i=0; i<sisaKosong; i++) chipHtml += `<div class="filter-chip-kosong"></div>`;
+  document.getElementById('filter-submenu-grid').innerHTML = chipHtml;
+
+  // ===== Daftar produk, disaring sesuai filter aktif, urut termurah =====
+  let produk = semuaProduk
+    .filter(p => filterSubmenuAktif === 'Semua' || p._submenu === filterSubmenuAktif)
+    .sort((a,b) => a.hargaJual - b.hargaJual);
+  window.PRODUK_TERTAMPIL = produk; // dipakai panel admin
 
   document.getElementById('produk-action-row').innerHTML = `
     <button class="btn-riwayat" onclick="bukaRiwayat()">🕐 Riwayat</button>
@@ -659,18 +688,12 @@ function renderProdukScreen(){
       <div class="prow-divider"></div>
       <div class="prow-right">
         <div class="prow-name">${p.namaProduk}</div>
-        <div class="prow-desc">${state.submenu}${p.deskripsi ? ' · ' + potongTeks(p.deskripsi, 45) : ''}</div>
+        <div class="prow-desc">${p._submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
       </div>
       ${isPasca ? '' : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
     </div>`).join('');
 
   showScreen('produk'); renderBreadcrumb();
-}
-
-function pickSubmenu(s){
-  state.submenu = s;
-  renderProdukScreen();
-  history.pushState({...state}, '', '#produk');
 }
 
 /**
@@ -697,8 +720,7 @@ window.addEventListener('popstate', (e) => {
   }
 
   state = e.state ? {...e.state} : {main: state.main, kategori:null, provider:null, submenu:null};
-  if(state.submenu) renderProdukScreen();
-  else if(state.provider) renderSubmenuScreen();
+  if(state.provider) renderProdukGabungan();
   else if(state.kategori && state.main === 'pra') renderProviderScreen();
   else renderKategori(); // root (prabayar) ATAU root gabungan (pascabayar)
 });
@@ -775,7 +797,7 @@ window.connectWallet = async function () {
     isDevWallet = currentAddress.toLowerCase() === DEV_WALLET.toLowerCase();
     // Kalau lagi di halaman daftar produk saat wallet connect, render ulang
     // supaya tombol Admin langsung muncul (untuk wallet Dev) tanpa reload.
-    if(state.submenu) renderProdukScreen();
+    if(state.provider) renderProdukGabungan();
   } catch (err) {
     console.error('Gagal connect wallet:', err);
   }
@@ -1118,7 +1140,7 @@ async function simpanHargaAdmin(kodeProduk){
     const p2InList = window.PRODUK_TERTAMPIL.find(x => x.kodeProduk === kodeProduk);
     if(p2InList) p2InList.hargaReferensi = dataRef.hargaReferensiBaru;
 
-    renderProdukScreen();
+    renderProdukGabungan();
     renderPanelAdmin();
     input.value = '';
   }catch(err){
