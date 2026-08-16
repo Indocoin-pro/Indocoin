@@ -74,11 +74,14 @@ async function handleOrder(order) {
   try {
     db.incrementRetry(order.orderId);
 
-    const result = await digiflazz.topup(
-      order.productCode,
-      meta.customer_no,
-      order.orderId // ref_id Digiflazz = orderId on-chain, supaya mudah ditelusuri
-    );
+    // Order pascabayar (sudah melalui "cek tagihan" lewat /api/pasca/inquiry)
+    // WAJIB pakai payPasca() dengan ref_id YANG SAMA seperti saat inquiry —
+    // BUKAN topup(), karena mekanisme Digiflazz-nya beda total. Kalau
+    // tidak ada catatan inquiry, ini order Prabayar biasa (tidak berubah).
+    const inquiry = db.getInquiry(order.orderId);
+    const result = inquiry
+      ? await digiflazz.payPasca(order.productCode, meta.customer_no, order.orderId)
+      : await digiflazz.topup(order.productCode, meta.customer_no, order.orderId);
 
     console.log(`[ppob-listener] Respons Digiflazz untuk order ${order.orderId}: status=${result.status}, rc=${result.rc}`);
 

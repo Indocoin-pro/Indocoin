@@ -85,16 +85,33 @@ app.post('/api/quote', async (req, res) => {
       return res.status(409).json({ error: `Produk ${kodeProduk} sedang tidak tersedia (seller invalid)` });
     }
 
-    const { hargaJual, fee } = pricing.hitungHargaJual(
-      product.harga_modal,
-      product.harga_jual_manual,
-      !!product.is_pascabayar,
-      product.biaya_admin_tambahan
-    );
+    // Pascabayar YANG SUDAH DICEK TAGIHANNYA (via /api/pasca/inquiry) —
+    // pakai angka ASLI hasil cek tagihan, BUKAN harga katalog statis
+    // (yang cuma penampung biaya admin, bukan tagihan sebenarnya).
+    // Kalau tidak ada inquiry (kasus Prabayar), jalur & hasil hitungan
+    // TETAP PERSIS SAMA seperti sebelumnya.
+    const inquiry = db.getInquiry(orderId);
+
+    let hargaModalUntukQuote, feeUntukQuote, hargaJual;
+    if (inquiry) {
+      hargaModalUntukQuote = inquiry.harga_asli;
+      feeUntukQuote = inquiry.biaya_admin_tambahan;
+      hargaJual = inquiry.total_bayar;
+    } else {
+      const hasil = pricing.hitungHargaJual(
+        product.harga_modal,
+        product.harga_jual_manual,
+        !!product.is_pascabayar,
+        product.biaya_admin_tambahan
+      );
+      hargaModalUntukQuote = product.harga_modal;
+      feeUntukQuote = hasil.fee;
+      hargaJual = hasil.hargaJual;
+    }
 
     // Konversi Rupiah → USDT (18 desimal)
-    const modalUsdt = ethers.parseUnits((product.harga_modal / usdtIdrRate).toFixed(18), 18);
-    const profitUsdt = ethers.parseUnits((fee / usdtIdrRate).toFixed(18), 18);
+    const modalUsdt = ethers.parseUnits((hargaModalUntukQuote / usdtIdrRate).toFixed(18), 18);
+    const profitUsdt = ethers.parseUnits((feeUntukQuote / usdtIdrRate).toFixed(18), 18);
 
     const expiry = Math.floor(Date.now() / 1000) + QUOTE_VALIDITY_SECONDS;
     const productCodeBytes32 = encodeProductCode(kodeProduk);
@@ -111,9 +128,9 @@ app.post('/api/quote', async (req, res) => {
     res.json({
       orderId,
       productCode: productCodeBytes32,
-      hargaModal: product.harga_modal,
+      hargaModal: hargaModalUntukQuote,
       hargaJual,
-      fee,
+      fee: feeUntukQuote,
       modalUsdt: modalUsdt.toString(),
       profitUsdt: profitUsdt.toString(),
       expiry,
@@ -144,6 +161,59 @@ app.post('/api/orders/register', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/orders/register:', err);
     res.status(500).json({ error: 'Gagal mendaftarkan order' });
+  }
+});
+
+/**
+ * POST /api/pasca/inquiry
+ * "Cek Tagihan" pascabayar — WAJIB dipanggil sebelum bayar, karena
+ * jumlah tagihan asli tidak pernah diketahui dari katalog statis
+ * (beda-beda tiap nomor pelanggan). orderId di sini akan dipakai LAGI
+ * persis sama sebagai ref_id Digiflazz saat pembayaran nanti (dan juga
+ * sebagai orderId on-chain) — satu ID dipakai konsisten di 3 tempat.
+ */
+app.post('/api/pasca/inquiry', async (req, res) => {
+  try {
+    const { orderId, kodeProduk, customerNo } = req.body;
+    if (!orderId || !kodeProduk || !customerNo) {
+      return res.status(400).json({ error: 'orderId, kodeProduk, dan customerNo wajib diisi' });
+    }
+
+    const product = db.getProduct(kodeProduk);
+    if (!product) {
+      return res.status(404).json({ error: `Produk ${kodeProduk} tidak ditemukan di katalog` });
+    }
+    if (!product.is_pascabayar) {
+      return res.status(400).json({ error: 'Produk ini bukan produk pascabayar' });
+    }
+
+    const hasil = await digiflazz.inqPasca(kodeProduk, customerNo, orderId);
+
+    if (hasil.status !== 'Sukses') {
+      return res.status(422).json({ error: hasil.message || 'Gagal cek tagihan', rc: hasil.rc });
+    }
+
+    const hargaAsli = hasil.price; // total dari Digiflazz (tagihan + admin asli mereka)
+    const adminDigiflazz = hasil.admin || 0;
+    const biayaAdminTambahan = product.biaya_admin_tambahan || 0;
+    const totalBayar = hargaAsli + biayaAdminTambahan;
+
+    db.saveInquiry({
+      orderId, kodeProduk, customerNo,
+      customerName: hasil.customer_name,
+      hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar,
+    });
+
+    res.json({
+      customerName: hasil.customer_name,
+      hargaAsli,
+      adminDigiflazz,
+      biayaAdminTambahan,
+      totalBayar,
+    });
+  } catch (err) {
+    console.error('[server.js] Error /api/pasca/inquiry:', err);
+    res.status(500).json({ error: 'Gagal cek tagihan, coba lagi' });
   }
 });
 

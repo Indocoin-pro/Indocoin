@@ -295,6 +295,60 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 </div>
 
+<!-- MODAL BAYAR PASCABAYAR (2 tahap: cek tagihan → hasil+bayar) -->
+<div class="modal-overlay" id="pascaOverlay">
+  <div class="modal-card" style="background:var(--bg2);">
+    <div class="buy-body">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:-8px;">
+        <span onclick="tutupModalPasca()" style="cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:4px 8px;">✕</span>
+      </div>
+      <div class="buy-title" id="pascaProdukName">—</div>
+
+      <!-- TAHAP 1: input nomor pelanggan -->
+      <div id="pascaTahap1">
+        <div class="buy-label">NOMOR PELANGGAN</div>
+        <input class="buy-input" id="pascaNomorPelanggan" type="text" inputmode="numeric" placeholder="Contoh: 530000000003">
+        <div class="buy-status" id="pascaStatus1"></div>
+        <button class="btn-buy-confirm" id="btnCekTagihan" onclick="cekTagihanPasca()">CEK TAGIHAN</button>
+      </div>
+
+      <!-- TAHAP 2: hasil cek tagihan + tombol bayar (muncul setelah cek berhasil) -->
+      <div id="pascaTahap2" style="display:none;">
+        <div class="buy-label">ATAS NAMA</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--text);margin-bottom:10px;" id="pascaNamaPelanggan">—</div>
+
+        <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted2);margin-bottom:5px;">
+            <span>Tagihan</span><span id="pascaTagihan">Rp0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#a89178;margin-bottom:8px;">
+            <span>Biaya Admin</span><span id="pascaBiayaAdmin">Rp0</span>
+          </div>
+          <div style="height:1px;background:var(--border2);margin-bottom:8px;"></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--gold2);">
+            <span>Total</span><span id="pascaTotal">Rp0</span>
+          </div>
+        </div>
+
+        <div class="buy-label">BAYAR PAKAI</div>
+        <div class="buy-methods">
+          <div class="buy-method active" id="pascaMethodUsdt" onclick="pilihMetodeBayarPasca('usdt')">
+            <div class="buy-method-name">USDT</div>
+            <div class="buy-method-bal" id="pascaBalUsdt">Saldo: —</div>
+          </div>
+          <div class="buy-method" id="pascaMethodIndc" onclick="pilihMetodeBayarPasca('indc')">
+            <div class="buy-method-name">INDC</div>
+            <div class="buy-method-bal" id="pascaBalIndc">Saldo: —</div>
+          </div>
+        </div>
+
+        <div class="buy-status" id="pascaStatus2"></div>
+        <button class="btn-buy-confirm" id="btnBayarPasca" onclick="bayarSekarangPasca()">BAYAR SEKARANG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL SUKSES -->
 <div class="modal-overlay" id="successOverlay">
   <div class="modal-card">
@@ -730,13 +784,15 @@ window.addEventListener('popstate', (e) => {
     document.getElementById('successOverlay').classList.contains('show') ||
     document.getElementById('modalOverlay').classList.contains('show') ||
     document.getElementById('riwayatOverlay').classList.contains('show') ||
-    document.getElementById('adminOverlay').classList.contains('show');
+    document.getElementById('adminOverlay').classList.contains('show') ||
+    document.getElementById('pascaOverlay').classList.contains('show');
   if(adaModalTerbuka){
     document.getElementById('buyOverlay').classList.remove('show');
     document.getElementById('successOverlay').classList.remove('show');
     document.getElementById('modalOverlay').classList.remove('show');
     document.getElementById('riwayatOverlay').classList.remove('show');
     document.getElementById('adminOverlay').classList.remove('show');
+    document.getElementById('pascaOverlay').classList.remove('show');
     return;
   }
 
@@ -1076,8 +1132,187 @@ function bukaRiwayat(){
  * ini sengaja dipisah dari tombol BELI Prabayar supaya nanti gampang
  * disambungkan ke alur 2-langkah tanpa menyentuh kode Prabayar sama sekali.
  */
+let pascaState = { produk: null, orderId: null, metode: 'usdt', totalBayar: 0, saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
+
 function bukaBayarPascabayar(kodeProduk){
-  alert('Pembayaran tagihan pascabayar sedang dibangun, segera hadir.');
+  if(!currentAddress){
+    window.connectWallet();
+    return;
+  }
+  pascaState.produk = window.PRODUK_LOOKUP[kodeProduk];
+  pascaState.orderId = null;
+  pascaState.metode = 'usdt';
+  document.getElementById('pascaProdukName').textContent = pascaState.produk.namaProduk;
+  document.getElementById('pascaNomorPelanggan').value = '';
+  document.getElementById('pascaTahap1').style.display = '';
+  document.getElementById('pascaTahap2').style.display = 'none';
+  setPascaStatus1('', '');
+  document.getElementById('pascaOverlay').classList.add('show');
+  history.pushState({...state}, '', '#pasca');
+}
+
+function tutupModalPasca(){
+  history.back();
+}
+
+function setPascaStatus1(text, kind){
+  const el = document.getElementById('pascaStatus1');
+  el.textContent = text;
+  el.className = 'buy-status' + (kind ? ' ' + kind : '');
+}
+function setPascaStatus2(text, kind){
+  const el = document.getElementById('pascaStatus2');
+  el.textContent = text;
+  el.className = 'buy-status' + (kind ? ' ' + kind : '');
+}
+
+async function cekTagihanPasca(){
+  const nomor = document.getElementById('pascaNomorPelanggan').value.trim();
+  if(!nomor){
+    setPascaStatus1('Nomor pelanggan wajib diisi.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btnCekTagihan');
+  btn.disabled = true;
+  setPascaStatus1('Mengecek tagihan...', '');
+
+  try{
+    const orderId = generateOrderId();
+    const res = await fetch(API_BASE + '/api/pasca/inquiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, kodeProduk: pascaState.produk.kodeProduk, customerNo: nomor }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      setPascaStatus1(data.error || 'Gagal cek tagihan.', 'err');
+      return;
+    }
+
+    pascaState.orderId = orderId;
+    pascaState.nomorPelanggan = nomor;
+    pascaState.totalBayar = data.totalBayar;
+
+    document.getElementById('pascaNamaPelanggan').textContent = data.customerName || '—';
+    document.getElementById('pascaTagihan').textContent = 'Rp' + (data.hargaAsli - data.adminDigiflazz).toLocaleString('id-ID');
+    document.getElementById('pascaBiayaAdmin').textContent = 'Rp' + (data.adminDigiflazz + data.biayaAdminTambahan).toLocaleString('id-ID');
+    document.getElementById('pascaTotal').textContent = 'Rp' + data.totalBayar.toLocaleString('id-ID');
+
+    document.getElementById('pascaTahap1').style.display = 'none';
+    document.getElementById('pascaTahap2').style.display = '';
+    setPascaStatus2('', '');
+    muatSaldoUntukPasca();
+  }catch(err){
+    console.error('Gagal cek tagihan:', err);
+    setPascaStatus1('Gagal cek tagihan, coba lagi.', 'err');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function pilihMetodeBayarPasca(m){
+  pascaState.metode = m;
+  document.getElementById('pascaMethodUsdt').classList.toggle('active', m==='usdt');
+  document.getElementById('pascaMethodIndc').classList.toggle('active', m==='indc');
+}
+
+async function muatSaldoUntukPasca(){
+  try{
+    const signer = await getSigner();
+    const usdtContract = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
+    const pwContract = new ethers.Contract(PW_WALLET_ADDR, PW_ABI, signer);
+    const [usdtRaw, indcRaw, bnbRaw] = await Promise.all([
+      usdtContract.balanceOf(currentAddress),
+      pwContract.getBalance(currentAddress, INDC_ADDR),
+      window.ethereum.request({ method: 'eth_getBalance', params: [currentAddress, 'latest'] }),
+    ]);
+    pascaState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
+    pascaState.saldoIndc = parseFloat(ethers.formatUnits(indcRaw, 9));
+    pascaState.saldoBnb = parseFloat(ethers.formatUnits(bnbRaw, 18));
+    document.getElementById('pascaBalUsdt').textContent = 'Saldo: ' + pascaState.saldoUsdt.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' USDT';
+    document.getElementById('pascaBalIndc').textContent = 'Saldo: ' + pascaState.saldoIndc.toLocaleString('id-ID', {maximumFractionDigits:0}) + ' INDC';
+  }catch(err){
+    console.error('Gagal muat saldo:', err);
+  }
+}
+
+async function bayarSekarangPasca(){
+  const btn = document.getElementById('btnBayarPasca');
+
+  if(pascaState.metode === 'usdt'){
+    const perluUsdt = pascaState.totalBayar / (await ambilKursUsdtIdr());
+    if(pascaState.saldoUsdt < perluUsdt){
+      setPascaStatus2(`Saldo USDT tidak cukup. Saldo: ${pascaState.saldoUsdt.toFixed(2)} USDT`, 'err');
+      return;
+    }
+  } else if(pascaState.saldoIndc <= 0){
+    setPascaStatus2('Saldo INDC di Platform Wallet kosong.', 'err');
+    return;
+  }
+  if(pascaState.saldoBnb < 0.001){
+    setPascaStatus2('Saldo BNB tidak cukup untuk biaya gas.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  try{
+    const signer = await getSigner();
+    const gateway = new ethers.Contract(PPOB_GATEWAY_ADDR, GATEWAY_ABI, signer);
+    const usdtIdrRate = await ambilKursUsdtIdr();
+
+    // Daftarkan nomor tujuan SEBELUM transaksi on-chain — sama seperti
+    // alur Prabayar, listener butuh ini untuk tahu nomor pelanggannya.
+    setPascaStatus2('Mendaftarkan pesanan...', '');
+    await fetch(API_BASE + '/api/orders/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: pascaState.orderId, customerNo: pascaState.nomorPelanggan, kodeProduk: pascaState.produk.kodeProduk }),
+    });
+
+    setPascaStatus2('Mengambil quote harga...', '');
+    const quoteRes = await fetch(API_BASE + '/api/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: pascaState.orderId, kodeProduk: pascaState.produk.kodeProduk, usdtIdrRate }),
+    });
+    if(!quoteRes.ok){
+      const errData = await quoteRes.json().catch(() => ({}));
+      throw new Error(errData.error || 'Gagal ambil quote harga');
+    }
+    const quote = await quoteRes.json();
+
+    if(pascaState.metode === 'usdt'){
+      const totalUsdt = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
+      const usdtContract = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
+      const allowance = await usdtContract.allowance(currentAddress, PPOB_GATEWAY_ADDR);
+      if(allowance < totalUsdt){
+        setPascaStatus2('Approve USDT di wallet...', '');
+        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, totalUsdt);
+        await txApprove.wait();
+      }
+      setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
+      const tx = await gateway.payWithUSDT(quote.orderId, quote.productCode, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature);
+      setPascaStatus2('Menunggu konfirmasi blockchain...', '');
+      await tx.wait();
+    } else {
+      const indcAmount = ethers.parseUnits((pascaState.totalBayar / (await ambilHargaIndc())).toFixed(9), 9);
+      setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
+      const tx = await gateway.payWithPlatformINDC(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature);
+      setPascaStatus2('Menunggu konfirmasi blockchain...', '');
+      await tx.wait();
+    }
+
+    setPascaStatus2('Berhasil!', 'ok');
+    document.getElementById('pascaOverlay').classList.remove('show');
+    document.getElementById('successOverlay').classList.add('show');
+  }catch(err){
+    console.error('Gagal bayar tagihan:', err);
+    const pesan = err.reason || err.message || 'Transaksi gagal, coba lagi.';
+    setPascaStatus2(pesan.length > 80 ? 'Transaksi gagal atau dibatalkan.' : pesan, 'err');
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 // ===== PANEL ADMIN =====

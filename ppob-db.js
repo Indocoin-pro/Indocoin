@@ -64,6 +64,22 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value REAL NOT NULL DEFAULT 0
   );
+
+  -- Hasil "cek tagihan" (inq-pasca) pascabayar — WAJIB disimpan karena
+  -- pembayaran (pay-pasca) harus pakai ref_id yang SAMA PERSIS dan di
+  -- HARI YANG SAMA (aturan resmi Digiflazz). order_id di sini = ref_id
+  -- yang dikirim ke Digiflazz = orderId on-chain (satu ID dipakai 3x).
+  CREATE TABLE IF NOT EXISTS pasca_inquiries (
+    order_id              TEXT PRIMARY KEY,
+    kode_produk           TEXT NOT NULL,
+    customer_no           TEXT NOT NULL,
+    customer_name         TEXT,
+    harga_asli            INTEGER NOT NULL,
+    admin_digiflazz       INTEGER NOT NULL,
+    biaya_admin_tambahan  INTEGER NOT NULL DEFAULT 0,
+    total_bayar           INTEGER NOT NULL,
+    created_at            INTEGER NOT NULL
+  );
 `);
 
 // Migrasi manual — CREATE TABLE IF NOT EXISTS TIDAK menambah kolom baru
@@ -237,6 +253,23 @@ function getStat(key) {
   return row ? row.value : 0;
 }
 
+/** Simpan hasil "cek tagihan" — dipanggil dari /api/pasca/inquiry */
+function saveInquiry({ orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar }) {
+  db.prepare(`
+    INSERT INTO pasca_inquiries
+      (order_id, kode_produk, customer_no, customer_name, harga_asli, admin_digiflazz, biaya_admin_tambahan, total_bayar, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar, Date.now());
+}
+
+/** Ambil hasil cek tagihan — dipakai /api/quote (untuk hitung harga
+ * dinamis) DAN ppob-listener.js (untuk deteksi "order ini pascabayar,
+ * panggil payPasca() bukan topup()"). Return null kalau bukan order
+ * pascabayar (tidak pernah melalui proses cek tagihan). */
+function getInquiry(orderId) {
+  return db.prepare('SELECT * FROM pasca_inquiries WHERE order_id = ?').get(orderId);
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -252,5 +285,7 @@ module.exports = {
   getAllProducts,
   incrementStat,
   getStat,
+  saveInquiry,
+  getInquiry,
   nonaktifkanProdukHilang,
 };
