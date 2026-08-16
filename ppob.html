@@ -448,7 +448,14 @@ async function loadCatalog(){
   document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Memuat katalog...</div>';
   try{
     const res = await fetch(API_BASE + '/api/catalog');
-    RAW_CATALOG = await res.json();
+    const data = await res.json();
+    // Cek eksplisit: kalau server balikin { error: "..." } (respons gagal),
+    // JANGAN dianggap sebagai data katalog asli — dulu ini pernah salah
+    // ditafsir sebagai 1 "kategori" bernama error, bikin tampilan kacau.
+    if(!res.ok || data.error){
+      throw new Error(data.error || 'Server mengembalikan error');
+    }
+    RAW_CATALOG = data;
     renderKategori();
   }catch(err){
     document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--red);font-size:11px;padding:20px;">Gagal memuat katalog. Coba muat ulang halaman.</div>';

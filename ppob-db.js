@@ -66,6 +66,19 @@ db.exec(`
   );
 `);
 
+// Migrasi manual — CREATE TABLE IF NOT EXISTS TIDAK menambah kolom baru
+// ke tabel yang sudah ada sebelumnya, jadi kolom baru wajib ditambah
+// lewat ALTER TABLE terpisah. Dibungkus try-catch supaya aman dijalankan
+// berkali-kali (kalau kolom sudah ada, errornya diabaikan begitu saja).
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN harga_referensi INTEGER DEFAULT NULL;`);
+  console.log('[db.js] Migrasi: kolom harga_referensi ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi harga_referensi gagal:', err.message);
+  }
+}
+
 /**
  * Dipanggil endpoint pendaftaran order (server.js) — frontend WAJIB
  * memanggil ini sebelum/tepat setelah user submit transaksi on-chain,
