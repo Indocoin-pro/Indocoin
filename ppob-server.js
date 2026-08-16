@@ -181,6 +181,7 @@ app.get('/api/catalog', (req, res) => {
         deskripsi: p.deskripsi || '',
         hargaJual,
         hargaModal: p.harga_modal,
+        hargaReferensi: p.harga_referensi || null,
         isPascabayar: !!p.is_pascabayar,
       });
     }
@@ -312,6 +313,34 @@ app.post('/api/admin/set-price', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/admin/set-price:', err);
     res.status(500).json({ error: 'Gagal ubah harga' });
+  }
+});
+
+/**
+ * POST /api/admin/set-harga-referensi
+ * Harga "dicoret" — murni tampilan, tidak memengaruhi hitungan apapun.
+ * Body: { token, kodeProduk, hargaReferensi } — kirim null untuk hapus.
+ */
+app.post('/api/admin/set-harga-referensi', (req, res) => {
+  try {
+    const { token, kodeProduk, hargaReferensi } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!kodeProduk) {
+      return res.status(400).json({ error: 'kodeProduk wajib diisi' });
+    }
+
+    const harga = hargaReferensi === null || hargaReferensi === '' ? null : Number(hargaReferensi);
+    if (harga !== null && (isNaN(harga) || harga < 0)) {
+      return res.status(400).json({ error: 'Harga tidak valid' });
+    }
+
+    db.setHargaReferensi(kodeProduk, harga);
+    res.json({ success: true, kodeProduk, hargaReferensiBaru: harga });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/set-harga-referensi:', err);
+    res.status(500).json({ error: 'Gagal ubah harga referensi' });
   }
 });
 

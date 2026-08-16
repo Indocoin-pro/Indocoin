@@ -51,6 +51,7 @@ db.exec(`
     deskripsi          TEXT,
     harga_modal        INTEGER NOT NULL,
     harga_jual_manual  INTEGER DEFAULT NULL,
+    harga_referensi    INTEGER DEFAULT NULL,
     is_pascabayar      INTEGER DEFAULT 0,
     seller_status      TEXT DEFAULT 'unknown',
     updated_at         INTEGER NOT NULL
@@ -155,6 +156,15 @@ function setHargaJualManual(kodeProduk, harga) {
   `).run(harga, Date.now(), kodeProduk);
 }
 
+/** Harga "dicoret" (referensi/perbandingan) — murni kosmetik, tidak
+ * dipakai buat hitungan apapun, cuma ditampilkan ke user apa adanya. */
+function setHargaReferensi(kodeProduk, harga) {
+  db.prepare(`
+    UPDATE products SET harga_referensi = ?, updated_at = ?
+    WHERE kode_produk = ?
+  `).run(harga, Date.now(), kodeProduk);
+}
+
 /**
  * Tandai produk yang TIDAK MUNCUL LAGI di hasil sync terbaru Digiflazz
  * sebagai 'invalid' (bukan dihapus permanen dari database — cuma
@@ -174,7 +184,7 @@ function nonaktifkanProdukHilang(kodeProdukAktifSaatIni) {
 
 function getAllProducts() {
   return db.prepare(`
-    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, is_pascabayar
+    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, harga_referensi, is_pascabayar
     FROM products
     WHERE seller_status = 'valid'
     ORDER BY category, brand, type, harga_modal ASC
@@ -203,6 +213,7 @@ module.exports = {
   getProduct,
   upsertProduct,
   setHargaJualManual,
+  setHargaReferensi,
   getAllProducts,
   incrementStat,
   getStat,
