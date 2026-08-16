@@ -22,6 +22,8 @@ const TRANSACTION_URL = 'https://api.digiflazz.com/v1/transaction';
 
 if (!USERNAME || !API_KEY) {
   console.error('[digiflazz.js] DIGIFLAZZ_USERNAME / DIGIFLAZZ_APIKEY belum diisi di .env');
+} else {
+  console.log(`[digiflazz.js] Kredensial dimuat — username: ${USERNAME.length} karakter, apikey: ${API_KEY.length} karakter`);
 }
 
 function signTopup(refId) {
@@ -93,6 +95,14 @@ async function inqPasca(buyerSkuCode, customerNo, refId) {
     sign: signTopup(refId),
   };
   if (TESTING_MODE) payload.testing = true;
+
+  // LOG DIAGNOSTIK SEMENTARA — buat cari tau kenapa "Signature Anda
+  // salah" masih muncul walau ref_id sudah dipendekkan. username
+  // sengaja disensor sebagian di log demi keamanan.
+  console.log('[digiflazz.js] DEBUG inqPasca payload:', {
+    ...payload,
+    username: USERNAME ? USERNAME.slice(0, 3) + '***(' + USERNAME.length + ' char)' : 'KOSONG!',
+  });
 
   const res = await axios.post(TRANSACTION_URL, payload, { timeout: 30000 });
   return res.data.data;
