@@ -105,7 +105,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .prow-top{display:flex;align-items:center;gap:6px;}
 .tick{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--gold);background:rgba(200,146,42,0.08);border:1px solid var(--border2);border-radius:4px;padding:1px 4px;flex-shrink:0;}
 .prow-name{font-family:'Rajdhani',sans-serif;font-size:13.5px;font-weight:600;color:var(--text);}
-.prow-desc{font-size:9px;color:var(--muted);line-height:1.3;}
+.prow-desc{font-size:9px;color:var(--muted);line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .btn-beli{flex-shrink:0;padding:9px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:9.5px;font-weight:900;letter-spacing:1px;cursor:pointer;}
 .btn-riwayat,.btn-admin{padding:6px 11px;border-radius:7px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--muted2);}
 .btn-admin{border-color:rgba(46,168,106,0.4);color:var(--green);}
@@ -615,6 +615,13 @@ function pickProvider(p){
   history.pushState({...state}, '', '#submenu');
 }
 
+/** Potong teks kepanjangan pakai "..." — dipakai buat deskripsi produk yang
+ * panjangnya beda-beda liar tergantung apa adanya dari Digiflazz. */
+function potongTeks(teks, maksHuruf){
+  if(teks.length <= maksHuruf) return teks;
+  return teks.substring(0, maksHuruf).trim() + '...';
+}
+
 function renderProdukScreen(){
   const isPasca = state.main === 'pasca';
   let produk = getKategoriUntukTab(state.main)[state.kategori][state.provider][state.submenu].slice().sort((a,b)=>a.hargaJual-b.hargaJual);
@@ -641,7 +648,7 @@ function renderProdukScreen(){
       <div class="prow-divider"></div>
       <div class="prow-right">
         <div class="prow-name">${p.namaProduk}</div>
-        <div class="prow-desc">${state.submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
+        <div class="prow-desc">${state.submenu}${p.deskripsi ? ' · ' + potongTeks(p.deskripsi, 45) : ''}</div>
       </div>
       ${isPasca ? '' : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
     </div>`).join('');
