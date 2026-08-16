@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 /* ===== ICON — POLOS, TANPA KOTAK ===== */
 .icon-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
 .provider-grid{grid-template-columns:repeat(4,1fr);}
-.icon-card{text-align:center;cursor:pointer;}
+.icon-card{text-align:center;cursor:pointer;min-width:0;overflow:hidden;}
 .icon-big{font-size:34px;margin-bottom:6px;line-height:1;}
 .icon-name{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
 .icon-sub{font-size:8px;color:var(--muted);margin-top:1px;}
@@ -547,7 +547,8 @@ function renderKategori(){
   if(keys.length === 1 && state.main === 'pasca'){
     state.kategori = keys[0];
     const providers = kategoris[keys[0]];
-    document.getElementById('grid-kategori').innerHTML = Object.keys(providers).map(p=>{
+    const namaBiller = Object.keys(providers);
+    let billerHtml = namaBiller.map(p=>{
       let count=0; Object.values(providers[p]).forEach(arr=>count+=arr.length);
       const iconHtml = PASCA_LOGO[p]
         ? `<img src="/logos/${PASCA_LOGO[p]}" class="provider-logo-img" onerror="this.outerHTML='<div class=&quot;icon-big&quot;>${PASCA_ICON[p]||'🧾'}</div>'" alt="${p}">`
@@ -557,6 +558,12 @@ function renderKategori(){
         <div class="icon-name">${p}</div><div class="icon-sub">${count} produk</div>
       </div>`;
     }).join('');
+    // Sama kayak grid kategori Prabayar — isi kotak kosong biar baris
+    // terakhir tetap rapi sejajar kalau jumlahnya ganjil kelipatan 4.
+    const kolomBiller = 4;
+    const sisaKosongBiller = (kolomBiller - (namaBiller.length % kolomBiller)) % kolomBiller;
+    for(let i=0; i<sisaKosongBiller; i++) billerHtml += `<div class="filter-chip-kosong"></div>`;
+    document.getElementById('grid-kategori').innerHTML = billerHtml;
     showScreen('kategori'); renderBreadcrumb();
     return;
   }
@@ -642,21 +649,28 @@ function renderProdukGabungan(){
   });
 
   // ===== Grid filter chip: "Semua" + tiap submenu, dengan jumlah produk =====
-  const daftarFilter = ['Semua', ...Object.keys(submenus)];
-  let chipHtml = daftarFilter.map(nama => {
-    const jumlah = nama === 'Semua' ? semuaProduk.length : submenus[nama].length;
-    return `<div class="filter-chip ${filterSubmenuAktif===nama?'active':''}" onclick="pilihFilterSubmenu('${nama}')">
-      <div class="filter-chip-nama">${nama}</div>
-      <div class="filter-chip-jumlah">${jumlah}</div>
-    </div>`;
-  }).join('');
-  // Baris terakhir grid diisi kotak kosong (tidak bisa diklik, tidak
-  // kelihatan) kalau jumlah chip tidak genap kelipatan 4 — biar tetap
-  // rapi sejajar, bukan nanggung di ujung.
-  const kolom = 4;
-  const sisaKosong = (kolom - (daftarFilter.length % kolom)) % kolom;
-  for(let i=0; i<sisaKosong; i++) chipHtml += `<div class="filter-chip-kosong"></div>`;
-  document.getElementById('filter-submenu-grid').innerHTML = chipHtml;
+  // KHUSUS Prabayar — Pascabayar cuma punya 1 jenis submenu ("Umum"),
+  // jadi grid filter di sini gak ada gunanya (2 pilihan isinya identik),
+  // langsung disembunyikan total tanpa ganggu logika Prabayar sama sekali.
+  if(isPasca){
+    document.getElementById('filter-submenu-grid').innerHTML = '';
+  } else {
+    const daftarFilter = ['Semua', ...Object.keys(submenus)];
+    let chipHtml = daftarFilter.map(nama => {
+      const jumlah = nama === 'Semua' ? semuaProduk.length : submenus[nama].length;
+      return `<div class="filter-chip ${filterSubmenuAktif===nama?'active':''}" onclick="pilihFilterSubmenu('${nama}')">
+        <div class="filter-chip-nama">${nama}</div>
+        <div class="filter-chip-jumlah">${jumlah}</div>
+      </div>`;
+    }).join('');
+    // Baris terakhir grid diisi kotak kosong (tidak bisa diklik, tidak
+    // kelihatan) kalau jumlah chip tidak genap kelipatan 4 — biar tetap
+    // rapi sejajar, bukan nanggung di ujung.
+    const kolom = 4;
+    const sisaKosong = (kolom - (daftarFilter.length % kolom)) % kolom;
+    for(let i=0; i<sisaKosong; i++) chipHtml += `<div class="filter-chip-kosong"></div>`;
+    document.getElementById('filter-submenu-grid').innerHTML = chipHtml;
+  }
 
   // ===== Daftar produk, disaring sesuai filter aktif, urut termurah =====
   let produk = semuaProduk
@@ -682,15 +696,22 @@ function renderProdukGabungan(){
   document.getElementById('ledger-produk').innerHTML = produk.map(p => `
     <div class="prow">
       <div>
-        ${p.hargaReferensi ? `<div class="prow-price-ref">Rp${p.hargaReferensi.toLocaleString('id-ID')}</div>` : ''}
-        <div class="prow-price">Rp${p.hargaJual.toLocaleString('id-ID')}</div>
+        ${isPasca ? `
+          <div class="prow-price" style="font-size:11px;">Cek Tagihan</div>
+          ${p.hargaJual ? `<div class="prow-price-ref" style="text-decoration:none;">Admin Rp${p.hargaJual.toLocaleString('id-ID')}</div>` : ''}
+        ` : `
+          ${p.hargaReferensi ? `<div class="prow-price-ref">Rp${p.hargaReferensi.toLocaleString('id-ID')}</div>` : ''}
+          <div class="prow-price">Rp${p.hargaJual.toLocaleString('id-ID')}</div>
+        `}
       </div>
       <div class="prow-divider"></div>
       <div class="prow-right">
         <div class="prow-name">${p.namaProduk}</div>
         <div class="prow-desc">${p._submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
       </div>
-      ${isPasca ? '' : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
+      ${isPasca
+        ? `<button class="btn-beli" onclick="bukaBayarPascabayar('${p.kodeProduk}')">BAYAR</button>`
+        : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
     </div>`).join('');
 
   showScreen('produk'); renderBreadcrumb();
@@ -1049,6 +1070,16 @@ function bukaRiwayat(){
   history.pushState({...state}, '', '#riwayat');
 }
 
+/**
+ * Placeholder — alur pembayaran pascabayar (cek tagihan dulu, baru bayar)
+ * belum dibangun, sesuai kesepakatan fokus Prabayar dulu. Tombol BAYAR
+ * ini sengaja dipisah dari tombol BELI Prabayar supaya nanti gampang
+ * disambungkan ke alur 2-langkah tanpa menyentuh kode Prabayar sama sekali.
+ */
+function bukaBayarPascabayar(kodeProduk){
+  alert('Pembayaran tagihan pascabayar sedang dibangun, segera hadir.');
+}
+
 // ===== PANEL ADMIN =====
 async function bukaPanelAdmin(){
   const sesiMasihValid = adminToken && Date.now() < adminTokenExpiry;
@@ -1089,7 +1120,25 @@ async function mintaTandaTanganAdmin(){
 
 function renderPanelAdmin(){
   const produk = window.PRODUK_TERTAMPIL || [];
-  document.getElementById('adminProdukList').innerHTML = produk.map(p => `
+  document.getElementById('adminProdukList').innerHTML = produk.map(p => {
+    if(p.isPascabayar){
+      // Pascabayar TIDAK pakai harga_jual_manual sama sekali (lihat
+      // pricing.js) — jadi kolomnya diganti "biaya admin tambahan",
+      // bukan "harga jual baru", supaya gak menyesatkan admin.
+      return `
+      <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+        <div class="admin-row-info">
+          <div class="admin-row-name">${p.namaProduk}</div>
+          <div class="admin-row-modal">Biaya admin asli: Rp${(p.hargaModal || 0).toLocaleString('id-ID')} · Sekarang: Rp${p.hargaJual.toLocaleString('id-ID')}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <input class="admin-row-input" style="flex:1;width:auto;" type="number" placeholder="Biaya admin tambahan" id="admin-fee-${p.kodeProduk}" value="${p.biayaAdminTambahan || ''}">
+          <input class="admin-row-input" style="flex:1;width:auto;" type="number" placeholder="Harga dicoret (opsional)" id="admin-ref-${p.kodeProduk}" value="${p.hargaReferensi || ''}">
+          <button class="admin-row-save" onclick="simpanHargaAdmin('${p.kodeProduk}')">SIMPAN</button>
+        </div>
+      </div>`;
+    }
+    return `
     <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div class="admin-row-info">
         <div class="admin-row-name">${p.namaProduk}</div>
@@ -1100,32 +1149,54 @@ function renderPanelAdmin(){
         <input class="admin-row-input" style="flex:1;width:auto;" type="number" placeholder="Harga dicoret (opsional)" id="admin-ref-${p.kodeProduk}" value="${p.hargaReferensi || ''}">
         <button class="admin-row-save" onclick="simpanHargaAdmin('${p.kodeProduk}')">SIMPAN</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function simpanHargaAdmin(kodeProduk){
-  const input = document.getElementById('admin-input-' + kodeProduk);
+  const p = window.PRODUK_LOOKUP[kodeProduk];
   const inputRef = document.getElementById('admin-ref-' + kodeProduk);
-  const nilai = input.value.trim();
   const nilaiRef = inputRef.value.trim();
-  const hargaJualManual = nilai === '' ? null : Number(nilai);
   const hargaReferensi = nilaiRef === '' ? null : Number(nilaiRef);
 
   try{
-    // Cuma panggil endpoint harga jual kalau kolom itu diisi (biar gak
-    // sengaja ngosongin harga jual manual pas cuma mau ubah harga coret doang)
-    if(nilai !== ''){
-      const res = await fetch(API_BASE + '/api/admin/set-price', {
+    if(p && p.isPascabayar){
+      // ===== JALUR PASCABAYAR — endpoint & kolom terpisah, tidak
+      // menyentuh jalur harga_jual_manual milik Prabayar sama sekali =====
+      const inputFee = document.getElementById('admin-fee-' + kodeProduk);
+      const nilaiFee = inputFee.value.trim();
+      const biayaAdminTambahan = nilaiFee === '' ? null : Number(nilaiFee);
+
+      const resFee = await fetch(API_BASE + '/api/admin/set-biaya-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: adminToken, kodeProduk, hargaJualManual }),
+        body: JSON.stringify({ token: adminToken, kodeProduk, biayaAdminTambahan }),
       });
-      const data = await res.json();
-      if(!res.ok){ alert(data.error || 'Gagal simpan harga jual.'); return; }
-      const p = window.PRODUK_LOOKUP[kodeProduk];
-      if(p) p.hargaJual = data.hargaJualBaru;
+      const dataFee = await resFee.json();
+      if(!resFee.ok){ alert(dataFee.error || 'Gagal simpan biaya admin.'); return; }
+      if(p) p.hargaJual = dataFee.hargaJualBaru;
       const pInList = window.PRODUK_TERTAMPIL.find(x => x.kodeProduk === kodeProduk);
-      if(pInList) pInList.hargaJual = data.hargaJualBaru;
+      if(pInList) pInList.hargaJual = dataFee.hargaJualBaru;
+    } else {
+      // ===== JALUR PRABAYAR — sama persis seperti sebelumnya, tidak diubah =====
+      const input = document.getElementById('admin-input-' + kodeProduk);
+      const nilai = input.value.trim();
+      const hargaJualManual = nilai === '' ? null : Number(nilai);
+
+      // Cuma panggil endpoint harga jual kalau kolom itu diisi (biar gak
+      // sengaja ngosongin harga jual manual pas cuma mau ubah harga coret doang)
+      if(nilai !== ''){
+        const res = await fetch(API_BASE + '/api/admin/set-price', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: adminToken, kodeProduk, hargaJualManual }),
+        });
+        const data = await res.json();
+        if(!res.ok){ alert(data.error || 'Gagal simpan harga jual.'); return; }
+        if(p) p.hargaJual = data.hargaJualBaru;
+        const pInList = window.PRODUK_TERTAMPIL.find(x => x.kodeProduk === kodeProduk);
+        if(pInList) pInList.hargaJual = data.hargaJualBaru;
+      }
     }
 
     const resRef = await fetch(API_BASE + '/api/admin/set-harga-referensi', {
@@ -1142,7 +1213,6 @@ async function simpanHargaAdmin(kodeProduk){
 
     renderProdukGabungan();
     renderPanelAdmin();
-    input.value = '';
   }catch(err){
     console.error('Gagal simpan harga:', err);
     alert('Gagal simpan harga, coba lagi.');

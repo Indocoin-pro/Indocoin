@@ -79,6 +79,18 @@ try {
   }
 }
 
+// Biaya admin tambahan — KHUSUS produk pascabayar, angka yang Dev bisa
+// tambahkan di atas biaya admin asli dari Digiflazz (atau isi dari nol
+// kalau produk itu memang tidak ada biaya admin sama sekali).
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN biaya_admin_tambahan INTEGER DEFAULT NULL;`);
+  console.log('[db.js] Migrasi: kolom biaya_admin_tambahan ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi biaya_admin_tambahan gagal:', err.message);
+  }
+}
+
 /**
  * Dipanggil endpoint pendaftaran order (server.js) — frontend WAJIB
  * memanggil ini sebelum/tepat setelah user submit transaksi on-chain,
@@ -178,6 +190,15 @@ function setHargaReferensi(kodeProduk, harga) {
   `).run(harga, Date.now(), kodeProduk);
 }
 
+/** Khusus pascabayar — biaya admin TAMBAHAN yang Dev tentukan sendiri,
+ * ditambahkan di atas biaya admin asli dari Digiflazz (kalau ada). */
+function setBiayaAdminTambahan(kodeProduk, biaya) {
+  db.prepare(`
+    UPDATE products SET biaya_admin_tambahan = ?, updated_at = ?
+    WHERE kode_produk = ?
+  `).run(biaya, Date.now(), kodeProduk);
+}
+
 /**
  * Tandai produk yang TIDAK MUNCUL LAGI di hasil sync terbaru Digiflazz
  * sebagai 'invalid' (bukan dihapus permanen dari database — cuma
@@ -197,7 +218,7 @@ function nonaktifkanProdukHilang(kodeProdukAktifSaatIni) {
 
 function getAllProducts() {
   return db.prepare(`
-    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, harga_referensi, is_pascabayar
+    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, harga_referensi, biaya_admin_tambahan, is_pascabayar
     FROM products
     WHERE seller_status = 'valid'
     ORDER BY category, brand, type, harga_modal ASC
@@ -227,6 +248,7 @@ module.exports = {
   upsertProduct,
   setHargaJualManual,
   setHargaReferensi,
+  setBiayaAdminTambahan,
   getAllProducts,
   incrementStat,
   getStat,

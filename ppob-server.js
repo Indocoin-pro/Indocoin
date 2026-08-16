@@ -88,7 +88,8 @@ app.post('/api/quote', async (req, res) => {
     const { hargaJual, fee } = pricing.hitungHargaJual(
       product.harga_modal,
       product.harga_jual_manual,
-      !!product.is_pascabayar
+      !!product.is_pascabayar,
+      product.biaya_admin_tambahan
     );
 
     // Konversi Rupiah → USDT (18 desimal)
@@ -172,7 +173,8 @@ app.get('/api/catalog', (req, res) => {
       const { hargaJual } = pricing.hitungHargaJual(
         p.harga_modal,
         p.harga_jual_manual,
-        !!p.is_pascabayar
+        !!p.is_pascabayar,
+        p.biaya_admin_tambahan
       );
 
       grouped[kategori][brand][type].push({
@@ -182,6 +184,7 @@ app.get('/api/catalog', (req, res) => {
         hargaJual,
         hargaModal: p.harga_modal,
         hargaReferensi: p.harga_referensi || null,
+        biayaAdminTambahan: p.biaya_admin_tambahan || null,
         isPascabayar: !!p.is_pascabayar,
       });
     }
@@ -307,12 +310,45 @@ app.post('/api/admin/set-price', (req, res) => {
     db.setHargaJualManual(kodeProduk, harga);
 
     const product = db.getProduct(kodeProduk);
-    const { hargaJual } = pricing.hitungHargaJual(product.harga_modal, product.harga_jual_manual, !!product.is_pascabayar);
+    const { hargaJual } = pricing.hitungHargaJual(product.harga_modal, product.harga_jual_manual, !!product.is_pascabayar, product.biaya_admin_tambahan);
 
     res.json({ success: true, kodeProduk, hargaJualBaru: hargaJual });
   } catch (err) {
     console.error('[server.js] Error /api/admin/set-price:', err);
     res.status(500).json({ error: 'Gagal ubah harga' });
+  }
+});
+
+/**
+ * POST /api/admin/set-biaya-admin
+ * KHUSUS produk pascabayar — biaya admin tambahan yang Dev tentukan
+ * sendiri, ditambahkan di atas biaya admin asli dari Digiflazz (kalau
+ * ada). Kirim null untuk mengosongkan lagi.
+ */
+app.post('/api/admin/set-biaya-admin', (req, res) => {
+  try {
+    const { token, kodeProduk, biayaAdminTambahan } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!kodeProduk) {
+      return res.status(400).json({ error: 'kodeProduk wajib diisi' });
+    }
+
+    const biaya = biayaAdminTambahan === null || biayaAdminTambahan === '' ? null : Number(biayaAdminTambahan);
+    if (biaya !== null && (isNaN(biaya) || biaya < 0)) {
+      return res.status(400).json({ error: 'Biaya admin tidak valid' });
+    }
+
+    db.setBiayaAdminTambahan(kodeProduk, biaya);
+
+    const product = db.getProduct(kodeProduk);
+    const { hargaJual } = pricing.hitungHargaJual(product.harga_modal, product.harga_jual_manual, !!product.is_pascabayar, product.biaya_admin_tambahan);
+
+    res.json({ success: true, kodeProduk, hargaJualBaru: hargaJual });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/set-biaya-admin:', err);
+    res.status(500).json({ error: 'Gagal ubah biaya admin' });
   }
 });
 

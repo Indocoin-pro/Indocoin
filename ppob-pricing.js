@@ -9,9 +9,10 @@
  *     & bisa dibeli selama masa itu, bukan disembunyikan.
  *   - Kalau harga_jual_manual sudah diisi Dev → PAKAI angka itu, apa pun
  *     nilainya (bisa di atas atau di bawah harga_modal, terserah Dev).
- *   - Pascabayar: SELALU harga_jual = harga_modal, tidak pernah menerima
- *     override manual — komisi didapat langsung dari Digiflazz per
- *     transaksi sukses, bukan dari selisih harga jual.
+ *   - Pascabayar: harga_jual = harga_modal + biaya_admin_tambahan (kalau
+ *     diisi Dev). TIDAK PERNAH menerima harga_jual_manual (override total
+ *     harga) — komisi/tagihan tetap apa adanya dari Digiflazz, Dev cuma
+ *     bisa nambah biaya admin di atasnya, bukan ganti angka totalnya.
  */
 
 const { ethers } = require('ethers');
@@ -21,11 +22,14 @@ require('dotenv').config();
  * @param {number} hargaModal        Harga modal dari katalog (Rupiah)
  * @param {number|null} hargaJualManual  Harga override dari Dev, atau null
  * @param {boolean} isPascabayar     True kalau kategori Pascabayar
+ * @param {number|null} biayaAdminTambahan  Khusus pascabayar — biaya admin
+ *   tambahan yang Dev tentukan (di atas biaya admin asli dari Digiflazz)
  * @returns {{ hargaJual: number, fee: number }}
  */
-function hitungHargaJual(hargaModal, hargaJualManual, isPascabayar) {
+function hitungHargaJual(hargaModal, hargaJualManual, isPascabayar, biayaAdminTambahan) {
   if (isPascabayar) {
-    return { hargaJual: hargaModal, fee: 0 };
+    const tambahan = biayaAdminTambahan || 0;
+    return { hargaJual: hargaModal + tambahan, fee: tambahan };
   }
   if (hargaJualManual != null) {
     return { hargaJual: hargaJualManual, fee: hargaJualManual - hargaModal };
