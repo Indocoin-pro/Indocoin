@@ -212,7 +212,10 @@ app.post('/api/pasca/inquiry', async (req, res) => {
       totalBayar,
     });
   } catch (err) {
-    console.error('[server.js] Error /api/pasca/inquiry:', err);
+    // Axios error object aslinya dalam, sering kepotong di log PM2 —
+    // ambil pesan asli dari Digiflazz (kalau ada) supaya kebaca jelas.
+    const pesanDigiflazz = err.response?.data?.data?.message || err.message;
+    console.error('[server.js] Error /api/pasca/inquiry:', pesanDigiflazz, JSON.stringify(err.response?.data || {}));
     res.status(500).json({ error: 'Gagal cek tagihan, coba lagi' });
   }
 });
