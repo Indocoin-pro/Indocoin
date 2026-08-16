@@ -152,11 +152,29 @@ function verifyWebhookSignature(rawBody, signatureHeader) {
   return crypto.timingSafeEqual(expectedBuf, receivedBuf);
 }
 
+/**
+ * Digiflazz kemungkinan punya batas panjang ref_id yang tidak
+ * didokumentasikan (semua contoh di dokumentasi resmi mereka pendek,
+ * misal "some1d", "ref-93") — sementara orderId on-chain kita 66
+ * karakter (bytes32 hex). Ini kemungkinan penyebab error "Signature
+ * Anda salah" (rc 41) yang muncul saat pakai orderId penuh sebagai
+ * ref_id. Fungsi ini bikin ref_id LEBIH PENDEK tapi tetap turunan
+ * PERSIS dari orderId yang sama, supaya konsisten dipakai ulang di
+ * inqPasca() dan payPasca() untuk order yang sama.
+ *
+ * @param {string} orderId  bytes32 hex on-chain (misal "0x9e1377ec...")
+ * @returns {string} 20 karakter terakhir, tanpa prefix "0x"
+ */
+function toDigiflazzRefId(orderId) {
+  return orderId.replace(/^0x/, '').slice(-20);
+}
+
 module.exports = {
   topup,
   checkStatus,
   inqPasca,
   payPasca,
+  toDigiflazzRefId,
   verifyWebhookSignature,
   signTopup,
 };

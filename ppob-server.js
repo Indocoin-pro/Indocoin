@@ -187,7 +187,8 @@ app.post('/api/pasca/inquiry', async (req, res) => {
       return res.status(400).json({ error: 'Produk ini bukan produk pascabayar' });
     }
 
-    const hasil = await digiflazz.inqPasca(kodeProduk, customerNo, orderId);
+    const refIdDigiflazz = digiflazz.toDigiflazzRefId(orderId);
+    const hasil = await digiflazz.inqPasca(kodeProduk, customerNo, refIdDigiflazz);
 
     if (hasil.status !== 'Sukses') {
       return res.status(422).json({ error: hasil.message || 'Gagal cek tagihan', rc: hasil.rc });

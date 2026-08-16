@@ -80,7 +80,7 @@ async function handleOrder(order) {
     // tidak ada catatan inquiry, ini order Prabayar biasa (tidak berubah).
     const inquiry = db.getInquiry(order.orderId);
     const result = inquiry
-      ? await digiflazz.payPasca(order.productCode, meta.customer_no, order.orderId)
+      ? await digiflazz.payPasca(order.productCode, meta.customer_no, digiflazz.toDigiflazzRefId(order.orderId))
       : await digiflazz.topup(order.productCode, meta.customer_no, order.orderId);
 
     console.log(`[ppob-listener] Respons Digiflazz untuk order ${order.orderId}: status=${result.status}, rc=${result.rc}`);
