@@ -155,6 +155,23 @@ function setHargaJualManual(kodeProduk, harga) {
   `).run(harga, Date.now(), kodeProduk);
 }
 
+/**
+ * Tandai produk yang TIDAK MUNCUL LAGI di hasil sync terbaru Digiflazz
+ * sebagai 'invalid' (bukan dihapus permanen dari database — cuma
+ * disembunyikan dari /api/catalog, karena getAllProducts() hanya
+ * mengambil yang seller_status='valid'). Kalau Digiflazz aktifkan lagi
+ * produk itu nanti, upsertProduct() otomatis balikin jadi 'valid' lagi.
+ */
+function nonaktifkanProdukHilang(kodeProdukAktifSaatIni) {
+  if (kodeProdukAktifSaatIni.length === 0) return 0;
+  const placeholder = kodeProdukAktifSaatIni.map(() => '?').join(',');
+  const result = db.prepare(`
+    UPDATE products SET seller_status = 'invalid', updated_at = ?
+    WHERE seller_status = 'valid' AND kode_produk NOT IN (${placeholder})
+  `).run(Date.now(), ...kodeProdukAktifSaatIni);
+  return result.changes;
+}
+
 function getAllProducts() {
   return db.prepare(`
     SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, is_pascabayar
@@ -189,4 +206,5 @@ module.exports = {
   getAllProducts,
   incrementStat,
   getStat,
+  nonaktifkanProdukHilang,
 };

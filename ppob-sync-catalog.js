@@ -52,6 +52,8 @@ async function syncCatalog() {
 
   let count = 0;
   let countPascabayar = 0;
+  const kodeProdukAktif = []; // dipakai buat nonaktifkan produk yang sudah hilang/dimatikan di Digiflazz
+
   for (const p of produk) {
     if (!p.buyer_product_status) continue; // skip yang belum di-ON-kan
 
@@ -68,9 +70,15 @@ async function syncCatalog() {
     db.upsertProduct(p.buyer_sku_code, p.product_name, p.brand, p.category, p.type || 'Umum', p.desc || '', hargaModal, isPascabayar, sellerStatus);
     count++;
     if (isPascabayar) countPascabayar++;
+    kodeProdukAktif.push(p.buyer_sku_code);
   }
 
-  console.log(`[sync-catalog] Selesai — ${count} produk aktif tersimpan ke database lokal (${countPascabayar} di antaranya pascabayar).`);
+  // Produk yang TIDAK muncul di hasil sync ini (dihapus/dimatikan
+  // Digiflazz) otomatis disembunyikan dari katalog — bukan dihapus
+  // permanen, cuma ditandai 'invalid' supaya tidak tampil ke user.
+  const jumlahDinonaktifkan = db.nonaktifkanProdukHilang(kodeProdukAktif);
+
+  console.log(`[sync-catalog] Selesai — ${count} produk aktif tersimpan ke database lokal (${countPascabayar} di antaranya pascabayar). ${jumlahDinonaktifkan} produk lama dinonaktifkan karena sudah tidak ada di Digiflazz.`);
 }
 
 syncCatalog().catch((err) => {
