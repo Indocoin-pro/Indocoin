@@ -94,8 +94,13 @@ app.post('/api/quote', async (req, res) => {
 
     let hargaModalUntukQuote, feeUntukQuote, hargaJual;
     if (inquiry) {
-      hargaModalUntukQuote = inquiry.harga_asli;
-      feeUntukQuote = inquiry.biaya_admin_tambahan;
+      // modal = biaya bersih yang BENERAN kita keluarkan ke Digiflazz
+      // (tagihan+admin, DIKURANGI komisi yang jadi diskon buat kita).
+      // profit = komisi (margin dari Digiflazz) + biaya admin tambahan
+      // (margin sendiri) — DUA-DUANYA ikut ke Buyback/Redemption/dst,
+      // sama seperti alur Prabayar.
+      hargaModalUntukQuote = inquiry.harga_asli - inquiry.komisi_digiflazz;
+      feeUntukQuote = inquiry.komisi_digiflazz + inquiry.biaya_admin_tambahan;
       hargaJual = inquiry.total_bayar;
     } else {
       const hasil = pricing.hitungHargaJual(
@@ -196,13 +201,14 @@ app.post('/api/pasca/inquiry', async (req, res) => {
 
     const hargaAsli = hasil.price; // total dari Digiflazz (tagihan + admin asli mereka)
     const adminDigiflazz = hasil.admin || 0;
+    const komisiDigiflazz = product.komisi || 0; // margin kita, dari katalog (field "commission" Digiflazz)
     const biayaAdminTambahan = product.biaya_admin_tambahan || 0;
     const totalBayar = hargaAsli + biayaAdminTambahan;
 
     db.saveInquiry({
       orderId, kodeProduk, customerNo,
       customerName: hasil.customer_name,
-      hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar,
+      hargaAsli, adminDigiflazz, komisiDigiflazz, biayaAdminTambahan, totalBayar,
     });
 
     res.json({

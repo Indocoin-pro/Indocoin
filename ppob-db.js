@@ -76,6 +76,7 @@ db.exec(`
     customer_name         TEXT,
     harga_asli            INTEGER NOT NULL,
     admin_digiflazz       INTEGER NOT NULL,
+    komisi_digiflazz      INTEGER NOT NULL DEFAULT 0,
     biaya_admin_tambahan  INTEGER NOT NULL DEFAULT 0,
     total_bayar           INTEGER NOT NULL,
     created_at            INTEGER NOT NULL
@@ -104,6 +105,28 @@ try {
 } catch (err) {
   if (!/duplicate column/i.test(err.message)) {
     console.error('[db.js] Migrasi biaya_admin_tambahan gagal:', err.message);
+  }
+}
+
+// Komisi — KHUSUS pascabayar, field TERPISAH dari "admin" yang selama
+// ini kelewat tidak disimpan (Digiflazz kirim admin & commission
+// sebagai 2 angka BEDA di /daftar-harga). Komisi ini yang jadi margin
+// kita, ikut masuk ke profitUsdt (Buyback/Redemption/Operasional/Burn).
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN komisi INTEGER DEFAULT 0;`);
+  console.log('[db.js] Migrasi: kolom komisi ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi komisi gagal:', err.message);
+  }
+}
+
+try {
+  db.exec(`ALTER TABLE pasca_inquiries ADD COLUMN komisi_digiflazz INTEGER DEFAULT 0;`);
+  console.log('[db.js] Migrasi: kolom pasca_inquiries.komisi_digiflazz ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi komisi_digiflazz gagal:', err.message);
   }
 }
 
@@ -169,10 +192,10 @@ function getProduct(kodeProduk) {
  * harga_jual_manual sama sekali, supaya harga yang sudah diatur Dev
  * tidak pernah tertimpa oleh sync berkala.
  */
-function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar, sellerStatus) {
+function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar, sellerStatus, komisi) {
   db.prepare(`
-    INSERT INTO products (kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, is_pascabayar, seller_status, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, is_pascabayar, seller_status, komisi, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(kode_produk) DO UPDATE SET
       nama_produk = excluded.nama_produk,
       category = excluded.category,
@@ -181,8 +204,9 @@ function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi,
       harga_modal = excluded.harga_modal,
       is_pascabayar = excluded.is_pascabayar,
       seller_status = excluded.seller_status,
+      komisi = excluded.komisi,
       updated_at = excluded.updated_at
-  `).run(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar ? 1 : 0, sellerStatus, Date.now());
+  `).run(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar ? 1 : 0, sellerStatus, komisi || 0, Date.now());
 }
 
 /**
@@ -234,7 +258,7 @@ function nonaktifkanProdukHilang(kodeProdukAktifSaatIni) {
 
 function getAllProducts() {
   return db.prepare(`
-    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, harga_referensi, biaya_admin_tambahan, is_pascabayar
+    SELECT kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, harga_jual_manual, harga_referensi, biaya_admin_tambahan, komisi, is_pascabayar
     FROM products
     WHERE seller_status = 'valid'
     ORDER BY category, brand, type, harga_modal ASC
@@ -254,12 +278,12 @@ function getStat(key) {
 }
 
 /** Simpan hasil "cek tagihan" — dipanggil dari /api/pasca/inquiry */
-function saveInquiry({ orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar }) {
+function saveInquiry({ orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, komisiDigiflazz, biayaAdminTambahan, totalBayar }) {
   db.prepare(`
     INSERT INTO pasca_inquiries
-      (order_id, kode_produk, customer_no, customer_name, harga_asli, admin_digiflazz, biaya_admin_tambahan, total_bayar, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, biayaAdminTambahan, totalBayar, Date.now());
+      (order_id, kode_produk, customer_no, customer_name, harga_asli, admin_digiflazz, komisi_digiflazz, biaya_admin_tambahan, total_bayar, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(orderId, kodeProduk, customerNo, customerName, hargaAsli, adminDigiflazz, komisiDigiflazz || 0, biayaAdminTambahan, totalBayar, Date.now());
 }
 
 /** Ambil hasil cek tagihan — dipakai /api/quote (untuk hitung harga
