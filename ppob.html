@@ -156,6 +156,18 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .buy-status{font-size:11px;text-align:center;margin:14px 0 6px;min-height:15px;color:var(--muted);}
 .buy-status.err{color:var(--red);}
 .buy-status.ok{color:var(--green);}
+.buy-status.explore{
+  font-weight:600;
+  background:linear-gradient(90deg, rgba(255,255,255,0.5) 0%, #ffffff 50%, rgba(255,255,255,0.5) 100%);
+  background-size:200% auto;
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:shimmerText 2.2s linear infinite;
+}
+@keyframes shimmerText{
+  0%{background-position:200% center;}
+  100%{background-position:-200% center;}
+}
 .btn-buy-confirm{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0a0a0a;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;letter-spacing:1px;cursor:pointer;margin-top:6px;}
 .btn-buy-confirm:disabled{opacity:0.4;cursor:not-allowed;}
 .buy-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:#0a0a0a;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:-1px;}
@@ -717,7 +729,12 @@ function renderProdukGabungan(){
   // KHUSUS Prabayar — Pascabayar cuma punya 1 jenis submenu ("Umum"),
   // jadi grid filter di sini gak ada gunanya (2 pilihan isinya identik),
   // langsung disembunyikan total tanpa ganggu logika Prabayar sama sekali.
-  if(isPasca){
+  // Sembunyikan grid filter kalau: Pascabayar (selalu cuma "Umum"), ATAU
+  // kategori apapun yang submenunya cuma 1 jenis (aturan otomatis, bukan
+  // hardcode nama kategori — berlaku ke Pulsa dan kategori lain serupa
+  // tanpa perlu didaftarkan satu-satu).
+  const hanyaSatuSubmenu = Object.keys(submenus).length === 1;
+  if(isPasca || hanyaSatuSubmenu){
     document.getElementById('filter-submenu-grid').innerHTML = '';
   } else {
     const daftarFilter = ['Semua', ...Object.keys(submenus)];
@@ -936,7 +953,7 @@ let adminTokenExpiry = 0;
 const TOKO_BELUM_DIBUKA = true;
 function cekBolehTransaksi(fungsiStatus){
   if(TOKO_BELUM_DIBUKA && !isDevWallet){
-    fungsiStatus('Hari ini khusus untuk menjelajahi katalog. Kenali semua produk kami dulu.', '');
+    fungsiStatus('Hari ini khusus untuk menjelajahi katalog. Kenali semua produk kami dulu.', 'explore');
     return false;
   }
   return true;
