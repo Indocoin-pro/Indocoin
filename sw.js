@@ -81,6 +81,7 @@ const CACHE_FILES = [
   "/tabungan.html",
   "/tournament.html",
   "/syaratdanketentuan.html",
+  "/riwayat.html",
   "/sanjaya-icon.png",
   "/indowar-icon.png",
   "/sanjaya-sound.js",
