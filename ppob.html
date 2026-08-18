@@ -609,6 +609,25 @@ async function loadCatalog(){
   }
 }
 
+/**
+ * Versi "diam-diam" dari loadCatalog() — dipakai SETELAH admin simpan
+ * harga, supaya data selalu segar dari server (bukan cuma andelin
+ * mutasi manual di memori browser yang ternyata kadang telat kelihatan
+ * sebelum halaman di-refresh manual). SENGAJA tidak memanggil
+ * renderKategori() seperti loadCatalog() biasa — itu akan reset layar
+ * balik ke grid kategori paling atas, ganggu admin yang lagi kerja di
+ * dalam daftar produk. Pemanggil yang urus render ulang sendiri.
+ */
+async function segarkanKatalogDiamDiam(){
+  try{
+    const res = await fetch(API_BASE + '/api/catalog');
+    const data = await res.json();
+    if(res.ok && !data.error) RAW_CATALOG = data;
+  }catch(err){
+    console.warn('Gagal segarkan katalog diam-diam:', err);
+  }
+}
+
 /** Ambil angka asli dashboard pool dari server, ganti angka contoh */
 async function fetchPoolStats(){
   try{
@@ -1708,11 +1727,11 @@ async function simpanHargaAdmin(kodeProduk){
     });
     const dataRef = await resRef.json();
     if(!resRef.ok){ alert(dataRef.error || 'Gagal simpan harga coret.'); return; }
-    const p2 = window.PRODUK_LOOKUP[kodeProduk];
-    if(p2) p2.hargaReferensi = dataRef.hargaReferensiBaru;
-    const p2InList = window.PRODUK_TERTAMPIL.find(x => x.kodeProduk === kodeProduk);
-    if(p2InList) p2InList.hargaReferensi = dataRef.hargaReferensiBaru;
 
+    // Tarik ulang katalog dari server (bukan cuma andelin mutasi manual
+    // di memori browser) — supaya tampilan PASTI sesuai data terbaru
+    // seketika, tanpa perlu refresh halaman manual.
+    await segarkanKatalogDiamDiam();
     renderProdukGabungan();
     renderPanelAdmin();
   }catch(err){
