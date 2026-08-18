@@ -511,6 +511,53 @@ const PROV_LOGO = {
   'e-Meterai': 'e-materai.png',
   'MyPertamina': 'pertaminagas.png',
 };
+
+/**
+ * Deteksi operator dari 4 digit awal nomor HP Indonesia — dipakai untuk
+ * WARNING (bukan blokir keras) sebelum user checkout produk operator
+ * seluler (Pulsa/Data/Telepon&SMS/dst), supaya kasus "beli produk
+ * Indosat pakai nomor Telkomsel" (lihat riwayat kegagalan "Nomor Tujuan
+ * Salah") bisa dicegah SEBELUM saldo kepotong, bukan ketahuan belakangan
+ * lewat kegagalan transaksi.
+ *
+ * SENGAJA cuma warning + konfirmasi, BUKAN blokir mutlak — daftar
+ * prefix ini bisa saja tidak 100% lengkap/berubah (migrasi nomor,
+ * portabilitas nomor, dll), jadi user tetap punya opsi lanjut kalau
+ * yakin nomornya benar.
+ */
+const OPERATOR_PREFIX = {
+  TELKOMSEL: ['0811','0812','0813','0821','0822','0823','0851','0852','0853'],
+  INDOSAT:   ['0814','0815','0816','0855','0856','0857','0858','0895','0896','0897','0898','0899'],
+  XL:        ['0817','0818','0819','0859','0877','0878'],
+  AXIS:      ['0831','0832','0833','0838'],
+  TRI:       ['0895','0896','0897','0898','0899'],
+  SMARTFREN: ['0881','0882','0883','0884','0885','0886','0887','0888','0889'],
+};
+
+function deteksiOperator(nomor){
+  const n = nomor.replace(/\D/g, '');
+  const norm = n.startsWith('62') ? '0' + n.slice(2) : n;
+  const prefix4 = norm.slice(0, 4);
+  for(const [brand, prefixes] of Object.entries(OPERATOR_PREFIX)){
+    if(prefixes.includes(prefix4)) return brand;
+  }
+  return null; // tidak dikenali — jangan blokir, biarkan lewat tanpa warning
+}
+
+/**
+ * @returns {string|null} pesan warning kalau ADA indikasi mismatch, null kalau aman/tidak yakin
+ */
+function cekKecocokanOperator(nomor, brandProduk){
+  if(!OPERATOR_PREFIX[brandProduk]) return null; // produk bukan operator seluler (PLN/BPJS/dst), skip
+  const terdeteksi = deteksiOperator(nomor);
+  if(!terdeteksi) return null; // prefix tidak dikenali, jangan sok tau
+  if(terdeteksi === brandProduk) return null; // cocok
+  // TRI & INDOSAT sekarang 1 grup (merger) — prefix banyak yang overlap,
+  // jangan warning silang antara dua ini supaya tidak salah alarm.
+  const grupIndosatTri = ['INDOSAT', 'TRI'];
+  if(grupIndosatTri.includes(terdeteksi) && grupIndosatTri.includes(brandProduk)) return null;
+  return `Nomor Anda Salah — ini nomor ${terdeteksi}, bukan ${brandProduk}. Periksa kembali nomor tujuan atau pilih produk ${terdeteksi}.`;
+}
 // Ikon khusus buat biller pascabayar (brand di dalam kategori "Pascabayar")
 const PASCA_ICON = {
   'PLN PASCABAYAR': '⚡', 'BPJS KESEHATAN': '🏥', 'MULTIFINANCE': '💳',
@@ -1111,6 +1158,15 @@ async function mulaiProsesBeli(){
   const nomorTujuan = document.getElementById('buyNomorTujuan').value.trim();
   if(!nomorTujuan){
     setBuyStatus('Nomor tujuan wajib diisi.', 'err');
+    return;
+  }
+
+  // Blokir total (bukan sekadar warning) kalau nomor kelihatan bukan
+  // dari operator produk yang dipilih — mencegah kasus "Nomor Tujuan
+  // Salah" yang baru ketahuan SETELAH saldo kepotong dan transaksi gagal.
+  const peringatanOperator = cekKecocokanOperator(nomorTujuan, state.provider);
+  if(peringatanOperator){
+    setBuyStatus(peringatanOperator, 'err');
     return;
   }
 
