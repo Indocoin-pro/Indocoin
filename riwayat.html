@@ -101,8 +101,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <div class="bukti-overlay" id="buktiOverlay">
   <div class="bukti-box">
     <img id="buktiImg" alt="Bukti transaksi">
-    <div class="bukti-hint">Tekan lama gambar di atas untuk menyimpan atau membagikan ke WhatsApp.</div>
-    <button class="bukti-close" onclick="document.getElementById('buktiOverlay').classList.remove('show')">TUTUP</button>
+    <div class="bukti-hint">Tekan lama gambar untuk simpan/kirim. Kalau tidak bisa, pakai tombol download di bawah.</div>
+    <a class="bukti-close" id="buktiDownload" download="bukti-indocoin.png" style="display:block;text-decoration:none;text-align:center;margin-top:10px;">💾 DOWNLOAD GAMBAR</a>
+    <button class="bukti-close" style="background:transparent;border:1px solid var(--border);color:var(--muted2);margin-top:8px;" onclick="document.getElementById('buktiOverlay').classList.remove('show')">TUTUP</button>
   </div>
 </div>
 
@@ -373,8 +374,14 @@ async function bagikanBukti(orderId){
     }
 
     if(!shareBerhasil){
-      const url = URL.createObjectURL(blob);
-      document.getElementById('buktiImg').src = url;
+      // Pakai data URL (base64), BUKAN blob URL — banyak browser bawaan
+      // wallet (Trust Wallet dll) membatasi/tidak mendukung long-press-
+      // save untuk blob: URL, tapi data: URL didukung jauh lebih luas.
+      const dataUrl = canvas.toDataURL('image/png');
+      document.getElementById('buktiImg').src = dataUrl;
+      const linkDownload = document.getElementById('buktiDownload');
+      linkDownload.href = dataUrl;
+      linkDownload.download = `bukti-indocoin-${orderId.slice(2,10)}.png`;
       document.getElementById('buktiOverlay').classList.add('show');
     }
   }, 'image/png');
