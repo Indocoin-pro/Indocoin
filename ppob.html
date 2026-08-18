@@ -1019,6 +1019,7 @@ async function muatSaldoUntukBeli(){
     buyState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
     buyState.saldoIndc = parseFloat(ethers.formatUnits(indcRaw, 9));
     buyState.saldoBnb  = parseFloat(ethers.formatUnits(bnbRaw, 18));
+    buyState.saldoBnbWei = bnbRaw;
 
     document.getElementById('balUsdt').textContent = 'Saldo: ' + buyState.saldoUsdt.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' USDT';
     document.getElementById('balIndc').textContent = 'Saldo: ' + buyState.saldoIndc.toLocaleString('id-ID', {maximumFractionDigits:0}) + ' INDC';
@@ -1031,6 +1032,32 @@ async function muatSaldoUntukBeli(){
 async function getSigner(){
   const browserProvider = new ethers.BrowserProvider(window.ethereum);
   return browserProvider.getSigner();
+}
+
+/**
+ * Cek apakah saldo BNB cukup untuk gas fee — pakai HARGA GAS REAL-TIME
+ * dari jaringan (bukan angka tebakan tetap), supaya ambang batasnya
+ * selalu sesuai kondisi sebenarnya (gas BSC murah, ~ratusan rupiah).
+ *
+ * gasLimitEstimate konservatif (lebih tinggi dari kebutuhan nyata),
+ * mengasumsikan skenario terberat (approve + transaksi utama), supaya
+ * user tidak "hampir cukup lalu gagal di tengah jalan" kalau ternyata
+ * masih perlu approve. 250.000 gas unit jauh di atas kebutuhan wajar
+ * approve ERC20 (~50rb) + payWithUSDT/payWithPlatformINDC (~150-200rb).
+ *
+ * @returns {{ cukup: boolean, saldoBnb: number, kebutuhanBnb: number }}
+ */
+async function cekSaldoBnbCukup(signer, saldoBnbWei){
+  const feeData = await signer.provider.getFeeData();
+  const gasPrice = feeData.gasPrice || 3000000000n; // fallback 3 Gwei kalau node tidak kasih data
+  const gasLimitEstimate = 250000n;
+  const kebutuhanWei = gasPrice * gasLimitEstimate;
+
+  return {
+    cukup: saldoBnbWei >= kebutuhanWei,
+    saldoBnb: parseFloat(ethers.formatUnits(saldoBnbWei, 18)),
+    kebutuhanBnb: parseFloat(ethers.formatUnits(kebutuhanWei, 18)),
+  };
 }
 
 /** Kurs USDT/IDR — trik rasio harga BNB dari CoinGecko, sama seperti assets.html */
@@ -1077,14 +1104,16 @@ async function mulaiProsesBeli(){
       return;
     }
   }
-  if(buyState.saldoBnb < 0.001){
-    setBuyStatus(`Saldo BNB tidak cukup untuk biaya gas (terdeteksi: ${buyState.saldoBnb.toFixed(5)} BNB).`, 'err');
+
+  const signer = await getSigner();
+  const cekBnb = await cekSaldoBnbCukup(signer, buyState.saldoBnbWei);
+  if(!cekBnb.cukup){
+    setBuyStatus(`Saldo BNB tidak cukup untuk biaya gas. Saldo: ${cekBnb.saldoBnb.toFixed(6)} BNB, dibutuhkan: ~${cekBnb.kebutuhanBnb.toFixed(6)} BNB.`, 'err');
     return;
   }
 
   btn.disabled = true;
   try{
-    const signer = await getSigner();
     const gateway = new ethers.Contract(PPOB_GATEWAY_ADDR, GATEWAY_ABI, signer);
     const orderId = generateOrderId();
     const usdtIdrRate = await ambilKursUsdtIdr();
@@ -1288,6 +1317,7 @@ async function muatSaldoUntukPasca(){
     pascaState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
     pascaState.saldoIndc = parseFloat(ethers.formatUnits(indcRaw, 9));
     pascaState.saldoBnb = parseFloat(ethers.formatUnits(bnbRaw, 18));
+    pascaState.saldoBnbWei = bnbRaw;
     document.getElementById('pascaBalUsdt').textContent = 'Saldo: ' + pascaState.saldoUsdt.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' USDT';
     document.getElementById('pascaBalIndc').textContent = 'Saldo: ' + pascaState.saldoIndc.toLocaleString('id-ID', {maximumFractionDigits:0}) + ' INDC';
   }catch(err){
@@ -1310,14 +1340,16 @@ async function bayarSekarangPasca(){
     setPascaStatus2('Saldo INDC di Platform Wallet kosong.', 'err');
     return;
   }
-  if(pascaState.saldoBnb < 0.001){
-    setPascaStatus2(`Saldo BNB tidak cukup untuk biaya gas (terdeteksi: ${pascaState.saldoBnb.toFixed(5)} BNB).`, 'err');
+
+  const signer = await getSigner();
+  const cekBnb = await cekSaldoBnbCukup(signer, pascaState.saldoBnbWei);
+  if(!cekBnb.cukup){
+    setPascaStatus2(`Saldo BNB tidak cukup untuk biaya gas. Saldo: ${cekBnb.saldoBnb.toFixed(6)} BNB, dibutuhkan: ~${cekBnb.kebutuhanBnb.toFixed(6)} BNB.`, 'err');
     return;
   }
 
   btn.disabled = true;
   try{
-    const signer = await getSigner();
     const gateway = new ethers.Contract(PPOB_GATEWAY_ADDR, GATEWAY_ABI, signer);
     const usdtIdrRate = await ambilKursUsdtIdr();
 
