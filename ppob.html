@@ -198,6 +198,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .split-desc small{display:block;font-weight:500;color:#888;font-size:10.5px;margin-top:1px;}
 
 .contract-box{background:#f4f4f4;border:1px solid #e0e0e0;border-radius:10px;padding:11px 13px;margin-bottom:16px;}
+.contract-note{font-family:'Rajdhani',sans-serif;font-size:11.5px;color:#888;line-height:1.5;margin-bottom:14px;padding:0 2px;}
 .contract-label{font-size:9.5px;color:#999;letter-spacing:0.5px;margin-bottom:4px;}
 .contract-addr{font-family:'Share Tech Mono',monospace;font-size:10.5px;color:#2a2a2a;word-break:break-all;}
 .contract-link{display:inline-block;margin-top:6px;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;color:#3d7ec9;text-decoration:none;}
@@ -398,6 +399,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <div class="split-item"><div class="split-pct" style="background:#3d7ec9;">40%</div><div class="split-desc">Pool Penukaran<small>Cadangan supaya bisa bayar pakai INDC</small></div></div>
         <div class="split-item"><div class="split-pct" style="background:#8a8a8a;">9.5%</div><div class="split-desc">Operasional<small>Biaya server &amp; sistem berjalan</small></div></div>
         <div class="split-item"><div class="split-pct" style="background:#2ea86a;">0.5%</div><div class="split-desc">Dibakar Permanen<small>Mengurangi suplai INDC selamanya</small></div></div>
+      </div>
+
+      <div class="contract-note">
+        Catatan: Dana Likuid (Pool Penukaran) bisa juga bertambah dari cadangan modal yang disetor langsung oleh Dev — bukan cuma dari margin transaksi. Jadi angkanya tidak selalu naik berbarengan dengan Dana Buyback.
       </div>
 
       <div class="contract-box">
@@ -1008,7 +1013,7 @@ async function muatSaldoUntukBeli(){
     const [usdtRaw, indcRaw, bnbRaw] = await Promise.all([
       usdtContract.balanceOf(currentAddress),
       pwContract.getBalance(currentAddress, INDC_ADDR),
-      window.ethereum.request({ method: 'eth_getBalance', params: [currentAddress, 'latest'] }),
+      signer.provider.getBalance(currentAddress),
     ]);
 
     buyState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
@@ -1073,7 +1078,7 @@ async function mulaiProsesBeli(){
     }
   }
   if(buyState.saldoBnb < 0.001){
-    setBuyStatus('Saldo BNB tidak cukup untuk biaya gas.', 'err');
+    setBuyStatus(`Saldo BNB tidak cukup untuk biaya gas (terdeteksi: ${buyState.saldoBnb.toFixed(5)} BNB).`, 'err');
     return;
   }
 
@@ -1278,7 +1283,7 @@ async function muatSaldoUntukPasca(){
     const [usdtRaw, indcRaw, bnbRaw] = await Promise.all([
       usdtContract.balanceOf(currentAddress),
       pwContract.getBalance(currentAddress, INDC_ADDR),
-      window.ethereum.request({ method: 'eth_getBalance', params: [currentAddress, 'latest'] }),
+      signer.provider.getBalance(currentAddress),
     ]);
     pascaState.saldoUsdt = parseFloat(ethers.formatUnits(usdtRaw, 18));
     pascaState.saldoIndc = parseFloat(ethers.formatUnits(indcRaw, 9));
@@ -1306,7 +1311,7 @@ async function bayarSekarangPasca(){
     return;
   }
   if(pascaState.saldoBnb < 0.001){
-    setPascaStatus2('Saldo BNB tidak cukup untuk biaya gas.', 'err');
+    setPascaStatus2(`Saldo BNB tidak cukup untuk biaya gas (terdeteksi: ${pascaState.saldoBnb.toFixed(5)} BNB).`, 'err');
     return;
   }
 
