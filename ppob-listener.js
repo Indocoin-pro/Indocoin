@@ -112,8 +112,55 @@ async function retryPendingOrders() {
     const secondsSinceUpdate = (Date.now() - meta.updated_at) / 1000;
     if (secondsSinceUpdate < 120) continue;
 
-    // Batasi jumlah percobaan — kalau sudah dicoba berkali-kali dan tetap
-    // pending, biarkan auto-refund timeout (24 jam) yang menyelesaikan.
+    // ═══════════════════════════════════════════════════════════════
+    // KASUS PALING KRITIS: Digiflazz SUDAH resolve (Sukses/Gagal) —
+    // produk KEMUNGKINAN SUDAH DIKIRIM ke user (kalau Sukses) — tapi
+    // laporan ke on-chain GAGAL (misal Backend Operator kehabisan gas
+    // BNB). Order ini TIDAK BOLEH dibiarkan sampai auto-refund timeout
+    // (24 jam) — itu akan menyebabkan kerugian ganda: Digiflazz sudah
+    // dibayar/diproses, TAPI user juga dapat refund penuh. Makanya
+    // kasus ini di-retry TANPA BATAS jumlah percobaan (beda dari kasus
+    // Digiflazz masih PENDING di bawah, yang tetap dibatasi 5x).
+    // ═══════════════════════════════════════════════════════════════
+    if (meta.digiflazz_status === 'Sukses' || meta.digiflazz_status === 'Gagal') {
+      try {
+        db.incrementRetry(meta.order_id);
+
+        if (meta.digiflazz_status === 'Sukses') {
+          const txHash = await blockchain.reportSuccess(meta.order_id);
+          db.updateOnchainStatus(meta.order_id, 'SUCCESS');
+          console.log(`[ppob-listener] Retry BERHASIL lapor SUKSES on-chain untuk order ${meta.order_id}. Tx: ${txHash}`);
+
+          const order = await blockchain.getOnchainOrder(meta.order_id);
+          if (order.method === 'PLATFORM_INDC') {
+            const modalUsdtNumber = Number(require('ethers').formatUnits(order.modalUsdt, 18));
+            db.incrementStat('redemption_used_usdt', modalUsdtNumber);
+          }
+        } else {
+          const txHash = await blockchain.reportFailed(meta.order_id);
+          db.updateOnchainStatus(meta.order_id, 'REFUNDED');
+          console.log(`[ppob-listener] Retry BERHASIL lapor GAGAL on-chain untuk order ${meta.order_id}. Tx: ${txHash}`);
+        }
+      } catch (err) {
+        console.error(`[ppob-listener] Retry lapor on-chain GAGAL LAGI untuk order ${meta.order_id} (percobaan ke-${meta.retry_count + 1}): ${err.message}`);
+        // Peringatan makin mencolok tiap 10x gagal berturut-turut — biar
+        // kelihatan jelas di log kalau ini bukan sekadar hiccup sesaat,
+        // dan Dev perlu cek manual (kemungkinan besar: Backend Operator
+        // kehabisan BNB lagi).
+        if ((meta.retry_count + 1) % 10 === 0) {
+          console.error(`[ppob-listener] ⚠️⚠️⚠️  PERINGATAN: order ${meta.order_id} sudah GAGAL lapor on-chain ${meta.retry_count + 1}x berturut-turut. Kemungkinan besar Backend Operator (${process.env.BACKEND_OPERATOR_ADDRESS || 'lihat .env'}) kehabisan BNB — CEK & ISI ULANG SEGERA.`);
+        }
+      }
+      continue; // Order jenis ini SELESAI diproses giliran ini — lanjut ke order berikutnya
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Kasus Digiflazz masih PENDING — perilaku ASLI, tidak diubah:
+    // cek ulang status via checkStatus(), dibatasi 5x percobaan,
+    // setelah itu diserahkan ke auto-refund timeout (ini tetap benar
+    // untuk kasus PENDING, karena kalau memang tidak pernah selesai
+    // di sisi Digiflazz, refund adalah hasil yang tepat).
+    // ═══════════════════════════════════════════════════════════════
     if (meta.retry_count >= 5) {
       console.warn(`[ppob-listener] Order ${meta.order_id} sudah dicoba ${meta.retry_count}x, menyerahkan ke auto-refund timeout.`);
       continue;
