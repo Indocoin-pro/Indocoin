@@ -71,7 +71,7 @@ const QUOTE_VALIDITY_SECONDS = 3 * 60; // 3 menit, sesuai kesepakatan
  */
 app.post('/api/quote', async (req, res) => {
   try {
-    const { orderId, kodeProduk, usdtIdrRate } = req.body;
+    const { orderId, kodeProduk, usdtIdrRate, metode } = req.body;
 
     if (!orderId || !kodeProduk || !usdtIdrRate) {
       return res.status(400).json({ error: 'orderId, kodeProduk, dan usdtIdrRate wajib diisi' });
@@ -121,14 +121,34 @@ app.post('/api/quote', async (req, res) => {
     const expiry = Math.floor(Date.now() / 1000) + QUOTE_VALIDITY_SECONDS;
     const productCodeBytes32 = encodeProductCode(kodeProduk);
 
-    const signature = await pricing.signQuote(
-      orderId,
-      productCodeBytes32,
-      modalUsdt,
-      profitUsdt,
-      expiry,
-      process.env.PPOB_GATEWAY_ADDRESS
-    );
+    let signature, indcPriceUsdt = null;
+
+    if (metode === 'indc') {
+      // Pembayaran INDC — WAJIB pakai signature versi baru yang juga
+      // "menyegel" harga INDC saat itu (langsung dari kontrak INDC
+      // Market, bukan angka manual), sesuai perbaikan celah keamanan
+      // di kontrak PPOBGateway yang baru.
+      indcPriceUsdt = await pricing.ambilHargaIndcLive();
+      signature = await pricing.signQuoteWithIndcPrice(
+        orderId,
+        productCodeBytes32,
+        modalUsdt,
+        profitUsdt,
+        indcPriceUsdt,
+        expiry,
+        process.env.PPOB_GATEWAY_ADDRESS
+      );
+    } else {
+      // Pembayaran USDT — TIDAK BERUBAH sama sekali dari sebelumnya
+      signature = await pricing.signQuote(
+        orderId,
+        productCodeBytes32,
+        modalUsdt,
+        profitUsdt,
+        expiry,
+        process.env.PPOB_GATEWAY_ADDRESS
+      );
+    }
 
     res.json({
       orderId,
@@ -138,6 +158,7 @@ app.post('/api/quote', async (req, res) => {
       fee: feeUntukQuote,
       modalUsdt: modalUsdt.toString(),
       profitUsdt: profitUsdt.toString(),
+      indcPriceUsdt: indcPriceUsdt != null ? indcPriceUsdt.toString() : null,
       expiry,
       signature,
     });

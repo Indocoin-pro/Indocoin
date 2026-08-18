@@ -18,6 +18,26 @@
 const { ethers } = require('ethers');
 require('dotenv').config();
 
+// Koneksi baca-saja ke BSC — dipakai khusus untuk ambil harga INDC
+// real-time dari kontrak INDC Market (bukan untuk kirim transaksi apapun).
+const readProvider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const INDC_MARKET_ADDRESS = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+const indcMarketContract = new ethers.Contract(
+  INDC_MARKET_ADDRESS,
+  ['function currentPrice() view returns (uint256)'],
+  readProvider
+);
+
+/**
+ * Ambil harga INDC saat ini dalam USDT (18 desimal), LANGSUNG dari
+ * kontrak INDC Market — bukan angka yang diisi manual siapapun. Dipakai
+ * untuk "menyegel" harga INDC ke dalam signature pembayaran INDC, supaya
+ * kontrak bisa memverifikasi jumlah INDC yang dikirim user itu wajar.
+ */
+async function ambilHargaIndcLive() {
+  return indcMarketContract.currentPrice();
+}
+
 /**
  * @param {number} hargaModal        Harga modal dari katalog (Rupiah)
  * @param {number|null} hargaJualManual  Harga override dari Dev, atau null
@@ -65,8 +85,28 @@ async function signQuote(orderId, productCode, modalUsdt, profitUsdt, expiry, co
   return signature;
 }
 
+/**
+ * Versi khusus untuk pembayaran INDC — signature-nya JUGA "menyegel"
+ * harga INDC saat itu (indcPriceUsdt), urutan field HARUS PERSIS sama
+ * dengan _verifyPriceSignatureWithIndcPrice di kontrak, kalau tidak
+ * signature bakal selalu dianggap tidak valid.
+ *
+ * @param {bigint} indcPriceUsdt harga 1 INDC dalam USDT (18 desimal),
+ *   didapat dari ambilHargaIndcLive() — BUKAN angka manual
+ */
+async function signQuoteWithIndcPrice(orderId, productCode, modalUsdt, profitUsdt, indcPriceUsdt, expiry, contractAddress) {
+  const messageHash = ethers.solidityPackedKeccak256(
+    ['bytes32', 'bytes32', 'uint256', 'uint256', 'uint256', 'uint256', 'address'],
+    [orderId, productCode, modalUsdt, profitUsdt, indcPriceUsdt, expiry, contractAddress]
+  );
+  const signature = await priceSignerWallet.signMessage(ethers.getBytes(messageHash));
+  return signature;
+}
+
 module.exports = {
   hitungHargaJual,
   signQuote,
+  signQuoteWithIndcPrice,
+  ambilHargaIndcLive,
   priceSignerAddress: priceSignerWallet.address,
 };

@@ -927,7 +927,7 @@ if (typeof window.ethereum !== 'undefined') {
 }
 
 // ===== ALUR BELI =====
-const PPOB_GATEWAY_ADDR = '0x5289CBb6d16203e392Eb7Ca7E13c82b8e721F341';
+const PPOB_GATEWAY_ADDR = '0x67B27bCd448a71AF974B24a8220DD7Ea650c77A5';
 const PW_WALLET_ADDR = '0xA96c9BDfE9d1Cba08e6Ac8F1b3d038630d428bAF'; // Platform Wallet
 const INDC_ADDR = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const USDT_ADDR = '0x55d398326f99059fF775485246999027B3197955';
@@ -940,7 +940,7 @@ const ERC20_ABI = [
 const PW_ABI = ['function getBalance(address user, address token) view returns (uint256)'];
 const GATEWAY_ABI = [
   'function payWithUSDT(bytes32 orderId, bytes32 productCode, uint256 modalUsdt, uint256 profitUsdt, uint256 expiry, bytes calldata signature) external',
-  'function payWithPlatformINDC(bytes32 orderId, bytes32 productCode, uint256 indcAmount, uint256 modalUsdtEquivalent, uint256 profitUsdtEquivalent, uint256 expiry, bytes calldata signature) external',
+  'function payWithPlatformINDC(bytes32 orderId, bytes32 productCode, uint256 indcAmount, uint256 modalUsdtEquivalent, uint256 profitUsdtEquivalent, uint256 indcPriceUsdt, uint256 expiry, bytes calldata signature) external',
 ];
 
 let buyState = { produk: null, metode: 'usdt', saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
@@ -1088,7 +1088,7 @@ async function mulaiProsesBeli(){
     const quoteRes = await fetch(API_BASE + '/api/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, kodeProduk: p.kodeProduk, usdtIdrRate }),
+      body: JSON.stringify({ orderId, kodeProduk: p.kodeProduk, usdtIdrRate, metode: buyState.metode }),
     });
     if(!quoteRes.ok){
       const errData = await quoteRes.json().catch(() => ({}));
@@ -1126,12 +1126,17 @@ async function mulaiProsesBeli(){
     } else {
       // INDC dari Platform Wallet — TIDAK perlu approve (kontrak PPOB
       // sudah di-whitelist untuk motong saldo Platform Wallet langsung).
-      const indcAmount = ethers.parseUnits(
-        (p.hargaJual / (await ambilHargaIndc())).toFixed(9), 9
-      );
+      // PENTING: indcAmount dihitung dari quote.indcPriceUsdt (harga
+      // YANG SAMA PERSIS dipakai backend saat menandatangani) — bukan
+      // dari pengambilan harga terpisah — supaya tidak pernah meleset
+      // dari signature yang sudah disegel backend.
+      const totalUsdtEquivalent = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
+      const INDC_DEC_UNIT = 1000000000n; // 10^9
+      const indcAmount = (totalUsdtEquivalent * INDC_DEC_UNIT) / BigInt(quote.indcPriceUsdt);
+
       setBuyStatus('Konfirmasi pembelian di wallet...', '');
       const txBeli = await gateway.payWithPlatformINDC(
-        quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature
+        quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature
       );
       setBuyStatus('Menunggu konfirmasi blockchain...', '');
       await txBeli.wait();
@@ -1324,7 +1329,7 @@ async function bayarSekarangPasca(){
     const quoteRes = await fetch(API_BASE + '/api/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: pascaState.orderId, kodeProduk: pascaState.produk.kodeProduk, usdtIdrRate }),
+      body: JSON.stringify({ orderId: pascaState.orderId, kodeProduk: pascaState.produk.kodeProduk, usdtIdrRate, metode: pascaState.metode }),
     });
     if(!quoteRes.ok){
       const errData = await quoteRes.json().catch(() => ({}));
@@ -1346,9 +1351,15 @@ async function bayarSekarangPasca(){
       setPascaStatus2('Menunggu konfirmasi blockchain...', '');
       await tx.wait();
     } else {
-      const indcAmount = ethers.parseUnits((pascaState.totalBayar / (await ambilHargaIndc())).toFixed(9), 9);
+      // PENTING: indcAmount dihitung dari quote.indcPriceUsdt (harga
+      // YANG SAMA PERSIS dipakai backend saat menandatangani), bukan
+      // dari pengambilan harga terpisah.
+      const totalUsdtEquivalent = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
+      const INDC_DEC_UNIT = 1000000000n; // 10^9
+      const indcAmount = (totalUsdtEquivalent * INDC_DEC_UNIT) / BigInt(quote.indcPriceUsdt);
+
       setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
-      const tx = await gateway.payWithPlatformINDC(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.expiry, quote.signature);
+      const tx = await gateway.payWithPlatformINDC(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature);
       setPascaStatus2('Menunggu konfirmasi blockchain...', '');
       await tx.wait();
     }
