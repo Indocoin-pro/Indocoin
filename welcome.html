@@ -416,11 +416,10 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
   0%{transform:translateY(-60px) rotate(var(--r0));}
   100%{transform:translateY(calc(100vh + 60px)) rotate(var(--r1));}
 }
-.rain-money{width:var(--sz);height:calc(var(--sz)*0.58);border-radius:4px;font-family:'Orbitron',sans-serif;font-weight:900;font-size:calc(var(--sz)*0.3);padding:0 4px;}
-.rain-money-10k{background:linear-gradient(135deg,#3a0d4a,#9b4fc9,#3a0d4a);border:1px solid rgba(196,120,235,0.6);box-shadow:0 2px 8px rgba(155,79,201,0.4);color:#f0d4ff;text-shadow:0 0 6px rgba(196,120,235,0.9);}
-.rain-money-50k{background:linear-gradient(135deg,#0a2a52,#2f7fd6,#0a2a52);border:1px solid rgba(100,170,235,0.6);box-shadow:0 2px 8px rgba(47,127,214,0.4);color:#d0e8ff;text-shadow:0 0 6px rgba(100,170,235,0.9);}
-.rain-money-100k{background:linear-gradient(135deg,#4a0a0a,#d63c3c,#4a0a0a);border:1px solid rgba(235,110,110,0.6);box-shadow:0 2px 8px rgba(214,60,60,0.4);color:#ffd9d9;text-shadow:0 0 6px rgba(235,110,110,0.9);}
-.rain-usdt{width:var(--sz);height:calc(var(--sz)*0.65);border-radius:5px;background:linear-gradient(135deg,#0d3328,#26a17b,#0d3328);border:1px solid rgba(38,161,123,0.5);box-shadow:0 2px 6px rgba(38,161,123,0.3);color:#7dffc5;font-family:'Share Tech Mono',monospace;font-size:calc(var(--sz)*0.32);padding:0 3px;}
+.rain-coin-img{width:var(--sz);height:var(--sz);border-radius:50%;overflow:hidden;
+  background:rgba(255,255,255,0.05);box-shadow:0 0 12px rgba(255,255,255,0.3),0 2px 8px rgba(0,0,0,0.4);
+  border:1px solid rgba(255,255,255,0.25);}
+.rain-coin-img img{width:100%;height:100%;object-fit:contain;display:block;}
 .rain-indc{width:var(--sz);height:calc(var(--sz)*0.65);border-radius:5px;background:linear-gradient(135deg,#2a1500,#c8922a,#2a1500);border:1px solid rgba(200,146,42,0.5);box-shadow:0 2px 6px rgba(200,146,42,0.3);color:#fff9c4;font-family:'Cinzel Decorative',serif;font-size:calc(var(--sz)*0.32);padding:0 3px;}
 
 /* VIGNETTE */
@@ -1607,21 +1606,44 @@ for(let i=0;i<50;i++){
   document.body.appendChild(s);
 }
 
-// SETUP RAIN (hidden)
-const rainTypes=[{cls:'rain-money rain-money-10k',txt:'Rp10K',big:true},{cls:'rain-money rain-money-50k',txt:'Rp50K',big:true},{cls:'rain-money rain-money-100k',txt:'Rp100K',big:true},{cls:'rain-usdt',txt:'USDT',big:false},{cls:'rain-indc',txt:'INDC',big:false}];
+// SETUP RAIN — logo crypto asli (CDN) + logo INDOCOIN asli
+const COIN_CDN = 'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/';
+const rainTypes=[
+  {type:'img', src: COIN_CDN+'btc.svg',  sym:'btc'},
+  {type:'img', src: COIN_CDN+'bnb.svg',  sym:'bnb'},
+  {type:'img', src: COIN_CDN+'usdt.svg', sym:'usdt'},
+  {type:'img', src: COIN_CDN+'doge.svg', sym:'doge'},
+  {type:'img', src: COIN_CDN+'sol.svg',  sym:'sol'},
+  {type:'img', src: COIN_CDN+'eth.svg',  sym:'eth'},
+  {type:'img', src: '1772782967104.png', sym:'INDC'}, // logo asli INDOCOIN (sama yg dipakai navbar)
+];
+function rainImgFallback(imgEl, sym){
+  const parent = imgEl.parentElement;
+  if(!parent) return;
+  parent.textContent = sym.toUpperCase();
+  parent.style.display='flex';
+  parent.style.alignItems='center';
+  parent.style.justifyContent='center';
+  parent.style.fontFamily = "'Orbitron',sans-serif";
+  parent.style.fontWeight = '900';
+  parent.style.color = '#fff';
+  parent.style.fontSize = 'calc(var(--sz)*0.28)';
+}
+window.rainImgFallback = rainImgFallback;
+
 const rainItems=[];
 for(let i=0;i<70;i++){
   const t=rainTypes[Math.floor(Math.random()*rainTypes.length)];
   const el=document.createElement('div');
-  const sz=t.big ? Math.floor(Math.random()*18+22) : Math.floor(Math.random()*14+14);
+  const sz = Math.floor(Math.random()*24+34); // logo koin dibesarin lagi: 34-58px, jelas keliatan
   const spd=(Math.random()*2+3).toFixed(1); // 3-5s lebih lambat
   const delay=-(Math.random()*5).toFixed(1);
   const op=(Math.random()*0.35+0.08).toFixed(2);
   const r0=Math.floor(Math.random()*360);
   const r1=r0+(Math.random()>0.5?360:-360);
-  el.className=`rain-item ${t.cls}`;
+  el.className='rain-item rain-coin-img';
   el.style.cssText=`left:${Math.random()*100}%;--sz:${sz}px;--spd:${spd}s;--delay:${delay}s;--op:${op};--r0:${r0}deg;--r1:${r1}deg;`;
-  el.textContent=t.txt;
+  el.innerHTML=`<img src="${t.src}" alt="${t.sym}" onerror="rainImgFallback(this,'${t.sym}')">`;
   document.getElementById('stage-main').appendChild(el);
   rainItems.push(el);
 }
