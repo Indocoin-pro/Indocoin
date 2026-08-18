@@ -177,6 +177,34 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
   font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;margin-bottom:6px;}
 .btn-claim:disabled{opacity:0.4;cursor:not-allowed;}
 
+/* POSISI STAKING — COMPACT (v2 tampilan) */
+.stake-item.compact{padding:12px 14px;border-left:3px solid var(--white3);}
+.stake-item.compact.ready{border-left-color:var(--green);}
+.si-badge.ready{background:rgba(46,168,106,0.15);color:var(--green);border:1px solid rgba(46,168,106,0.4);}
+.si-action-row{display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);}
+.si-countdown{flex:1;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);min-width:0;}
+.si-countdown .cd-val{color:var(--white);font-weight:700;}
+.si-countdown.due .cd-val{color:var(--green);}
+.chip{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;
+  padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent;
+  transition:all .25s;white-space:nowrap;}
+.chip-lanjut{background:rgba(255,255,255,0.06);color:var(--white3);border-color:rgba(255,255,255,0.12);}
+.chip-lanjut.ready{background:rgba(46,168,106,0.15);color:#fff;border-color:var(--green);
+  box-shadow:0 0 10px rgba(46,168,106,0.35);animation:pulseGreen 1.6s infinite;}
+.chip-lanjut:active{transform:scale(0.96);}
+@keyframes pulseGreen{0%,100%{box-shadow:0 0 6px rgba(46,168,106,0.3);}50%{box-shadow:0 0 16px rgba(46,168,106,0.6);}}
+.chip-klaim{background:rgba(200,146,42,0.1);color:var(--gold3);border-color:rgba(200,146,42,0.35);}
+.chip-klaim:active{transform:scale(0.96);}
+.chip-klaim.off{opacity:0.45;}
+.mini-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:9999;padding:24px;}
+.mini-popup-overlay.show{display:flex;}
+.mini-popup{background:#161616;border:1px solid var(--border);border-radius:16px;padding:22px;max-width:320px;text-align:center;}
+.mini-popup .icon{font-size:26px;margin-bottom:8px;}
+.mini-popup .title{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--gold3);letter-spacing:1px;margin-bottom:8px;}
+.mini-popup .desc{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--white2);line-height:1.5;margin-bottom:16px;}
+.mini-popup button{width:100%;padding:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  color:var(--white);border-radius:8px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;cursor:pointer;}
+
 /* PLATFORM WALLET */
 .platform-wallet{background:linear-gradient(135deg,rgba(46,168,106,0.08),rgba(0,0,0,0.3));
   border:2px solid rgba(46,168,106,0.3);border-radius:14px;padding:14px;margin-bottom:12px;}
@@ -786,6 +814,16 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
   </div>
 </div>
 
+<!-- POPUP INFO KLAIM (compact chip) -->
+<div class="mini-popup-overlay" id="claimInfoOverlay">
+  <div class="mini-popup">
+    <div class="icon">🔒</div>
+    <div class="title">BELUM AKTIF</div>
+    <div class="desc">Klaim reward aktif setelah program ini selesai. Cek dulu ya progress pool sebelum ambil reward.</div>
+    <button onclick="closeClaimInfoPopup()">MENGERTI</button>
+  </div>
+</div>
+
 <script>
 /* ══ CONFIG ══ */
 const SC = {
@@ -1053,45 +1091,23 @@ async function loadPositions(){
       // Gunakan checkpointPending dari contract sebagai sumber kebenaran
       const isReadyNow = pos.checkpointPending === true || secLeft <= 0;
 
-      html += `<div class="stake-item ${isCP?'checkpoint':''}">
+      const cpReady = isCP || isReadyNow;
+      html += `<div class="stake-item compact ${cpReady?'ready':''}">
         <div class="si-top">
           <span class="si-name">POSISI #${i+1}</span>
-          <span class="si-badge ${isCP?'checkpoint':'aktif'}">${isCP?'⏸ KONFIRMASI':'▶ AKTIF'}</span>
+          <span class="si-badge ${cpReady?'ready':'aktif'}">${cpReady?'⏰ SIAP LANJUT':'▶ AKTIF'}</span>
         </div>
         <div class="si-grid">
           <div><span class="si-lbl">MODAL STAKE</span><span class="si-val">${fmtI(staked)} INDC</span></div>
           <div style="text-align:right"><span class="si-lbl">REWARD PENDING</span><span class="si-val gold">${fmtI(reward)} INDC</span></div>
-          <div><span class="si-lbl">MULAI</span><span class="si-val">${start}</span></div>
-          <div style="text-align:right">
-            <span class="si-lbl">${isCP?'KONFIRMASI':'KONFIRMASI BERIKUT'}</span>
-            <span class="si-val">${nextCP}</span>
-            <div style="margin-top:4px;">
-              <span data-cp-time="${cpTimestamp}" data-pos-idx="${i}"
-                style="font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;
-                color:${isCP||isReadyNow?'#ef4444':'#c8922a'};">
-                ${fmtCountdown(secLeft)}
-              </span>
-            </div>
+        </div>
+        <div class="si-action-row">
+          <div class="si-countdown ${cpReady?'due':''}" data-cp-time="${cpTimestamp}" data-pos-idx="${i}">
+            <span class="cd-prefix">${cpReady?'Status:':'Konfirmasi:'}</span> <span class="cd-val">${cpReady?'Waktunya konfirmasi':fmtCountdown(secLeft)}</span>
           </div>
+          <button class="chip chip-lanjut ${cpReady?'ready':''}" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">${cpReady?'Konfirmasi Lanjut':'Lanjut'}</button>
+          <button class="chip chip-klaim ${reward<=0?'off':''}" onclick="showClaimInfoPopup()">Klaim</button>
         </div>
-        <div class="reward-bar">
-          <div class="rb-lbl">💰 TOTAL REWARD TERSEDIA</div>
-          <div class="rb-val">${fmtI(reward)} INDC</div>
-          <div class="rb-sub">≈ $${(reward*_indcPrice).toFixed(4)} USDT</div>
-        </div>
-        ${isCP?`
-        <div class="checkpoint-banner">
-          <div class="cp-lbl">⏸ KONFIRMASI — REWARD BEKU</div>
-          <div class="cp-sub">Klik LANJUT untuk melanjutkan reward 7 hari berikutnya</div>
-        </div>
-        <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">▶ LANJUT — AKTIFKAN KEMBALI</button>
-        `:`
-        <button class="btn-checkpoint" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})"
-          style="display:${(pos.checkpointPending||isReadyNow)?'block':'none'};">
-          ▶ LANJUT — AKTIFKAN 7 HARI BERIKUTNYA
-        </button>
-        <button class="btn-claim" onclick="showClaimPopup(${i}, ${reward})" ${reward<=0?'disabled':''}>💰 KLAIM REWARD</button>
-        `}
       </div>`;
     }
     document.getElementById('posisiList').innerHTML = html;
@@ -1117,15 +1133,20 @@ function startCpCountdowns(){
       const cpTime = parseInt(el.getAttribute('data-cp-time'));
       const now = Math.floor(Date.now()/1000);
       const left = cpTime - now;
-      el.textContent = fmtCountdown(left);
-      // Jika countdown habis → tampilkan tombol LANJUT
+      const valEl    = el.querySelector('.cd-val');
+      const prefixEl = el.querySelector('.cd-prefix');
+      const posIdx   = el.getAttribute('data-pos-idx');
+      const btn      = document.getElementById('btnLanjut_'+posIdx);
       if(left <= 0){
-        el.style.color = '#ef4444';
-        el.style.fontWeight = '700';
-        const posIdx = el.getAttribute('data-pos-idx');
-        const btnId = 'btnLanjut_'+posIdx;
-        const btn = document.getElementById(btnId);
-        if(btn) btn.style.display = 'block';
+        el.classList.add('due');
+        if(prefixEl) prefixEl.textContent = 'Status:';
+        if(valEl) valEl.textContent = 'Waktunya konfirmasi';
+        if(btn){ btn.classList.add('ready'); btn.textContent = 'Konfirmasi Lanjut'; }
+        const badge = el.closest('.stake-item')?.querySelector('.si-badge');
+        if(badge){ badge.classList.add('ready'); badge.classList.remove('aktif'); badge.textContent='⏰ SIAP LANJUT'; }
+        el.closest('.stake-item')?.classList.add('ready');
+      } else {
+        if(valEl) valEl.textContent = fmtCountdown(left);
       }
     });
   }, 1000);
@@ -1337,6 +1358,16 @@ async function confirmWithdraw(){
 function showSendToProgram(){
   alert('Fitur ini akan tersedia setelah program staking INDC versi baru diluncurkan!');
 }
+
+/* ── KLAIM REWARD: info popup dulu (belum trigger tx) ── */
+function showClaimInfoPopup(){
+  document.getElementById('claimInfoOverlay')?.classList.add('show');
+}
+function closeClaimInfoPopup(){
+  document.getElementById('claimInfoOverlay')?.classList.remove('show');
+}
+window.showClaimInfoPopup  = showClaimInfoPopup;
+window.closeClaimInfoPopup = closeClaimInfoPopup;
 
 // Expose semua fungsi ke global scope untuk onclick HTML
 window.showWithdrawPopup    = showWithdrawPopup;
