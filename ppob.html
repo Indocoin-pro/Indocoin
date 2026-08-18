@@ -1216,7 +1216,13 @@ async function mulaiProsesBeli(){
 
     setBuyStatus('Berhasil!', 'ok');
     tutupModalBeli();
-    document.getElementById('successOverlay').classList.add('show');
+    // Jeda sedikit — tutupModalBeli() pakai history.back() yang ASYNC,
+    // popstate handler-nya baru "nyusul" beberapa saat kemudian dan
+    // menutup SEMUA modal yang lagi kebuka (termasuk successOverlay
+    // kalau langsung ditampilkan di baris ini juga). Tanpa jeda, popup
+    // sukses sempat nyala sepersekian detik lalu langsung ketutup lagi
+    // sebelum sempat terlihat.
+    setTimeout(tampilkanSuksesOtomatis, 200);
     fetchPoolStats();
 
   }catch(err){
@@ -1238,6 +1244,19 @@ async function ambilHargaIndc(){
   );
   const priceRaw = await marketContract.currentPrice();
   return parseFloat(ethers.formatUnits(priceRaw, 18));
+}
+
+/**
+ * Tampilkan popup sukses SECARA OTOMATIS — muncul sendiri, hilang sendiri
+ * setelah 5 detik (tidak perlu diklik). Tombol "OKE, LIHAT RIWAYAT" di
+ * dalamnya TETAP bisa diklik kalau user mau langsung lompat ke Riwayat
+ * sebelum 5 detik berlalu.
+ */
+function tampilkanSuksesOtomatis(){
+  document.getElementById('successOverlay').classList.add('show');
+  setTimeout(() => {
+    document.getElementById('successOverlay').classList.remove('show');
+  }, 5000);
 }
 
 function tutupSuksesKeRiwayat(){
@@ -1500,7 +1519,7 @@ async function bayarSekarangPasca(){
 
     setPascaStatus2('Berhasil!', 'ok');
     document.getElementById('pascaOverlay').classList.remove('show');
-    document.getElementById('successOverlay').classList.add('show');
+    tampilkanSuksesOtomatis();
     fetchPoolStats();
   }catch(err){
     console.error('Gagal bayar tagihan:', err);
