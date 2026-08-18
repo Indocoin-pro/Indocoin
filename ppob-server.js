@@ -201,11 +201,18 @@ app.get('/api/orders/history/:wallet', (req, res) => {
 
     const hasil = rows.map(r => {
       // Status yang gampang dipahami user, gabungan dari 2 status internal.
-      let statusTampil;
+      // 'GAGAL_KIRIM' SENGAJA dipisah dari 'PENDING' biasa — order jenis
+      // ini gagal SEBELUM sempat diterima Digiflazz (bisa direfund manual
+      // dengan aman), beda dari PENDING asli yang berarti Digiflazz SUDAH
+      // menerima dan masih memprosesnya (JANGAN boleh direfund manual,
+      // supaya tidak dobel: produk terkirim TAPI user juga sudah direfund).
+      let statusTampil, bisaRefundManual = false;
       if (r.onchain_status === 'SUCCESS') statusTampil = 'Berhasil';
       else if (r.onchain_status === 'REFUNDED') statusTampil = 'Direfund';
-      else if (r.digiflazz_status === 'Pending' || r.digiflazz_status === 'PENDING') statusTampil = 'Diproses';
-      else statusTampil = 'Diproses';
+      else if (r.digiflazz_status === 'GAGAL_KIRIM') {
+        statusTampil = 'Gagal Terkirim';
+        bisaRefundManual = true;
+      } else statusTampil = 'Diproses';
 
       return {
         orderId: r.order_id,
@@ -213,6 +220,7 @@ app.get('/api/orders/history/:wallet', (req, res) => {
         nomorTujuan: r.customer_no,
         harga: r.harga_pascabayar != null ? r.harga_pascabayar : r.harga_prabayar,
         status: statusTampil,
+        bisaRefundManual,
         sn: r.sn || null,
         createdAt: r.created_at,
       };

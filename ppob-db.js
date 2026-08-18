@@ -155,6 +155,19 @@ try {
   }
 }
 
+// last_error — pesan error ASLI (termasuk isi respons Digiflazz kalau
+// ada) saat topup()/checkStatus() gagal dipanggil. Sebelumnya cuma
+// err.message generic ("Request failed with status code 400") yang
+// tersimpan di log server dan hilang — bikin sulit didiagnosis belakangan.
+try {
+  db.exec(`ALTER TABLE order_meta ADD COLUMN last_error TEXT;`);
+  console.log('[db.js] Migrasi: kolom order_meta.last_error ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi last_error gagal:', err.message);
+  }
+}
+
 /**
  * Dipanggil endpoint pendaftaran order (server.js) — frontend WAJIB
  * memanggil ini sebelum/tepat setelah user submit transaksi on-chain,
@@ -179,6 +192,28 @@ function updateDigiflazzStatus(orderId, status, refId, sn) {
     UPDATE order_meta SET digiflazz_status = ?, ref_id = ?, sn = ?, updated_at = ?
     WHERE order_id = ?
   `).run(status, refId, sn || null, Date.now(), orderId);
+}
+
+/**
+ * Tandai order GAGAL TERKIRIM ke Digiflazz — dipanggil saat topup()/
+ * checkStatus() melempar exception (bukan respons Digiflazz yang
+ * ke-parse, misal HTTP 400/network error). Status ini SENGAJA dibedakan
+ * dari 'PENDING' biasa (yang berarti Digiflazz SUDAH terima order dan
+ * masih memprosesnya) — supaya nanti tombol refund manual di halaman
+ * riwayat cuma boleh muncul untuk status ini, TIDAK untuk PENDING asli
+ * (mencegah user refund order yang sebenarnya masih diproses normal,
+ * yang bisa berujung kerugian ganda kalau produknya ternyata terkirim).
+ *
+ * PENTING: order tetap boleh di-retry otomatis oleh retryPendingOrders()
+ * seperti biasa setelah ditandai ini — status GAGAL_KIRIM akan otomatis
+ * tertimpa jadi 'Sukses'/'Gagal' kalau percobaan berikutnya ternyata
+ * berhasil dapat respons asli dari Digiflazz.
+ */
+function markGagalKirim(orderId, errorDetail) {
+  db.prepare(`
+    UPDATE order_meta SET digiflazz_status = 'GAGAL_KIRIM', last_error = ?, updated_at = ?
+    WHERE order_id = ?
+  `).run(errorDetail ? String(errorDetail).slice(0, 2000) : null, Date.now(), orderId);
 }
 
 function updateOnchainStatus(orderId, status) {
@@ -219,6 +254,7 @@ function getOrderHistoryByWallet(walletUser) {
     SELECT
       om.order_id, om.customer_no, om.product_code,
       om.digiflazz_status, om.onchain_status, om.created_at, om.sn,
+      om.last_error, om.retry_count,
       p.nama_produk,
       COALESCE(p.harga_jual_manual, p.harga_modal) AS harga_prabayar,
       pi.total_bayar AS harga_pascabayar
@@ -346,6 +382,7 @@ module.exports = {
   registerOrder,
   getOrderMeta,
   updateDigiflazzStatus,
+  markGagalKirim,
   updateOnchainStatus,
   incrementRetry,
   getPendingOrders,

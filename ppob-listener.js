@@ -87,7 +87,22 @@ async function handleOrder(order) {
 
     await settle.processDigiflazzResult(order.orderId, result);
   } catch (err) {
-    console.error(`[ppob-listener] Error saat eksekusi order ${order.orderId}:`, err.message);
+    // Tangkap isi respons ASLI dari Digiflazz kalau ada (bukan cuma
+    // "Request failed with status code 400") — ini pesan yang beneran
+    // menjelaskan KENAPA ditolak, sebelumnya dibuang begitu saja.
+    const detailAsli = err.response?.data
+      ? JSON.stringify(err.response.data)
+      : err.message;
+    console.error(`[ppob-listener] Error saat eksekusi order ${order.orderId}:`, detailAsli);
+
+    // Tandai GAGAL_KIRIM (beda dari PENDING biasa) — supaya halaman
+    // riwayat tahu order ini gagal SEBELUM sempat diproses Digiflazz,
+    // beda dari order yang sudah diterima Digiflazz dan masih diproses
+    // normal. Tetap boleh di-retry otomatis seperti biasa (lihat
+    // retryPendingOrders) — status ini akan tertimpa otomatis kalau
+    // percobaan berikutnya berhasil dapat respons asli dari Digiflazz.
+    db.markGagalKirim(order.orderId, detailAsli);
+
     // Tidak langsung report gagal ke kontrak di sini — error jaringan/API
     // sementara BUKAN berarti transaksi benar-benar gagal. Biarkan retry
     // berikutnya (lihat retryPendingOrders) atau auto-refund timeout yang
@@ -172,7 +187,11 @@ async function retryPendingOrders() {
       const result = await digiflazz.checkStatus(meta.product_code, meta.customer_no, meta.order_id, isPascabayar);
       await settle.processDigiflazzResult(meta.order_id, result);
     } catch (err) {
-      console.error(`[ppob-listener] Error retry order ${meta.order_id}:`, err.message);
+      const detailAsli = err.response?.data
+        ? JSON.stringify(err.response.data)
+        : err.message;
+      console.error(`[ppob-listener] Error retry order ${meta.order_id}:`, detailAsli);
+      db.markGagalKirim(meta.order_id, detailAsli);
     }
   }
 }
