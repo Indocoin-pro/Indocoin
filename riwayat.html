@@ -59,6 +59,11 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .btn-refund:disabled{opacity:0.5;cursor:default;}
 .btn-refund.loading{color:var(--muted);border-color:var(--border2);}
 
+.btn-share{margin-top:10px;width:100%;background:transparent;border:1px solid var(--green);color:var(--green);
+  border-radius:8px;padding:9px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.5px;cursor:pointer;}
+.btn-share:disabled{opacity:0.5;cursor:default;}
+
 .note-pending{margin-top:8px;font-size:10px;color:var(--muted);font-style:italic;}
 </style>
 </head>
@@ -89,6 +94,7 @@ const API_BASE = 'https://ppob-api.indocoin.id';
 let currentAddress = null;
 let allOrders = [];
 let activeFilter = 'all';
+let ORDER_LOOKUP = {};
 
 const WARNA_BADGE = {
   'Berhasil': 'var(--green)',
@@ -143,6 +149,9 @@ function render(){
     return;
   }
 
+  ORDER_LOOKUP = {};
+  orders.forEach(o => { ORDER_LOOKUP[o.orderId] = o; });
+
   list.innerHTML = orders.map(o => {
     const tanggal = new Date(o.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const hargaTampil = o.harga != null ? 'Rp' + Number(o.harga).toLocaleString('id-ID') : '-';
@@ -163,6 +172,10 @@ function render(){
       tombolRefund = `<div class="note-pending">Sedang diproses oleh provider — mohon tunggu, refund otomatis akan berjalan jika tidak kunjung selesai.</div>`;
     }
 
+    const tombolShare = o.status === 'Berhasil'
+      ? `<button class="btn-share" onclick="bagikanBukti('${o.orderId}')">📤 BAGIKAN BUKTI</button>`
+      : '';
+
     return `
       <div class="card">
         <div class="card-top">
@@ -177,6 +190,7 @@ function render(){
           <div class="card-harga">${hargaTampil}</div>
         </div>
         ${tombolRefund}
+        ${tombolShare}
       </div>`;
   }).join('');
 }
@@ -209,6 +223,162 @@ async function refundManual(orderId, btnEl){
     btnEl.classList.remove('loading');
     btnEl.textContent = 'AJUKAN REFUND';
   }
+}
+
+/**
+ * Generate gambar bukti transaksi (struk) pakai canvas, lalu share
+ * lewat Web Share API (buka menu share HP — bisa langsung pilih
+ * WhatsApp dll). Kalau browser tidak dukung Web Share dengan file
+ * (misal desktop), fallback ke download gambar biasa.
+ */
+async function bagikanBukti(orderId){
+  const order = ORDER_LOOKUP[orderId];
+  if(!order){ alert('Data transaksi tidak ditemukan.'); return; }
+
+  const canvas = document.createElement('canvas');
+  const W = 720, PAD = 40;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+
+  // Ukur tinggi dulu berdasarkan konten (nama produk bisa panjang/wrap)
+  ctx.font = '600 26px Rajdhani, sans-serif';
+  const wrapProduk = wrapText(ctx, order.namaProduk, W - PAD*2);
+  const tinggiProduk = wrapProduk.length * 32;
+  const H = 560 + tinggiProduk;
+  canvas.height = H;
+
+  // Warna & font harus di-set ULANG setelah resize (canvas reset context)
+  const bg = '#0a0a0a', gold = '#c8922a', gold3 = '#f5c842', text = '#f0ebe3', muted = '#7a6a58', green = '#2ea86a', border = 'rgba(200,146,42,0.25)';
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Border tipis di sekeliling
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(6, 6, W-12, H-12);
+
+  let y = 60;
+  ctx.textAlign = 'center';
+
+  // Header brand
+  ctx.fillStyle = gold3;
+  ctx.font = '900 30px Orbitron, sans-serif';
+  ctx.fillText('INDOCOIN', W/2, y);
+  y += 26;
+  ctx.fillStyle = muted;
+  ctx.font = '400 14px "Share Tech Mono", monospace';
+  ctx.fillText('TOP UP & TAGIHAN', W/2, y);
+  y += 40;
+
+  // Badge sukses
+  ctx.fillStyle = green;
+  ctx.font = '700 20px Orbitron, sans-serif';
+  ctx.fillText('✓ TRANSAKSI BERHASIL', W/2, y);
+  y += 50;
+
+  // Garis putus
+  drawDashedLine(ctx, PAD, y, W-PAD, y, border);
+  y += 45;
+
+  // Nama produk (bisa multi baris)
+  ctx.fillStyle = text;
+  ctx.font = '600 26px Rajdhani, sans-serif';
+  wrapProduk.forEach(line => { ctx.fillText(line, W/2, y); y += 32; });
+  y += 10;
+
+  // Nomor tujuan
+  ctx.fillStyle = muted;
+  ctx.font = '400 16px "Share Tech Mono", monospace';
+  ctx.fillText(order.nomorTujuan, W/2, y);
+  y += 45;
+
+  drawDashedLine(ctx, PAD, y, W-PAD, y, border);
+  y += 40;
+
+  // Detail rows kiri-kanan
+  ctx.textAlign = 'left';
+  const rows = [
+    ['Tanggal', new Date(order.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })],
+    ['Total Bayar', order.harga != null ? 'Rp' + Number(order.harga).toLocaleString('id-ID') : '-'],
+  ];
+  if(order.sn) rows.push(['SN', order.sn]);
+
+  rows.forEach(([label, value]) => {
+    ctx.fillStyle = muted;
+    ctx.font = '400 15px "Share Tech Mono", monospace';
+    ctx.fillText(label, PAD, y);
+    ctx.fillStyle = text;
+    ctx.font = '700 15px "Share Tech Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(value, W-PAD, y);
+    ctx.textAlign = 'left';
+    y += 34;
+  });
+
+  y += 20;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = muted;
+  ctx.font = '400 12px "Share Tech Mono", monospace';
+  ctx.fillText('Diverifikasi via indocoin.id', W/2, H-30);
+
+  // Render font custom butuh delay kecil biar kepakai sebelum toDataURL
+  // (kalau font belum sempat load, browser fallback ke font sistem —
+  // tetap aman, cuma kurang cantik dikit, bukan gagal total)
+  await new Promise(r => setTimeout(r, 50));
+
+  canvas.toBlob(async (blob) => {
+    if(!blob){ alert('Gagal membuat gambar bukti.'); return; }
+    const file = new File([blob], `bukti-indocoin-${order.orderId.slice(2,10)}.png`, { type: 'image/png' });
+
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      try{
+        await navigator.share({
+          files: [file],
+          title: 'Bukti Transaksi INDOCOIN',
+          text: `Bukti pembelian ${order.namaProduk} — ${order.nomorTujuan}`,
+        });
+      }catch(err){
+        if(err.name !== 'AbortError') console.error('Gagal share:', err);
+      }
+    } else {
+      // Fallback: download langsung (desktop / browser tanpa dukungan share file)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, 'image/png');
+}
+
+function wrapText(ctx, text, maxWidth){
+  const words = String(text).split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach(word => {
+    const test = current ? current + ' ' + word : word;
+    if(ctx.measureText(test).width > maxWidth && current){
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  });
+  if(current) lines.push(current);
+  return lines;
+}
+
+function drawDashedLine(ctx, x1, y, x2, y2, color){
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function escapeHtml(str){
