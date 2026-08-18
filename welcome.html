@@ -819,13 +819,25 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
   </div>
 </div>
 
-<!-- POPUP INFO KLAIM (compact chip) -->
+<!-- POPUP INFO KLAIM (compact chip — program masih berjalan) -->
 <div class="mini-popup-overlay" id="claimInfoOverlay">
   <div class="mini-popup">
-    <div class="icon">🔒</div>
-    <div class="title">BELUM AKTIF</div>
-    <div class="desc">Klaim reward aktif setelah program ini selesai. Cek dulu ya progress pool sebelum ambil reward.</div>
-    <button onclick="closeClaimInfoPopup()">MENGERTI</button>
+    <div class="icon">📈</div>
+    <div class="title">SIAP MELUNCUR</div>
+    <div class="desc">Modal &amp; reward kamu terus bertumbuh <b>1% setiap hari</b>. Begitu program Welcome resmi ditutup, satu klik di sini langsung menarik <b>SEMUA modal + reward</b> dari seluruh posisi kamu ke Platform Wallet — cepat, aman, otomatis. Tetap semangat, reward-nya jalan terus! 🚀</div>
+    <button onclick="closeClaimInfoPopup()">SIAP, LANJUT!</button>
+  </div>
+</div>
+
+<!-- POPUP KLAIM SEMUA (muncul saat program sudah resmi berhenti) -->
+<div class="mini-popup-overlay" id="claimStoppedOverlay">
+  <div class="mini-popup">
+    <div class="icon">🏁</div>
+    <div class="title">PROGRAM TELAH BERAKHIR</div>
+    <div class="desc">Perjalanan Welcome Program resmi selesai! Klik tombol di bawah untuk menarik <b>seluruh modal &amp; reward</b> dari semua posisi kamu sekaligus — satu transaksi, langsung meluncur ke Platform Wallet. Aman &amp; pasti sampai. 🚀</div>
+    <div id="claimAllMsg" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:10px;min-height:14px;"></div>
+    <button id="btnClaimAllConfirm" onclick="doReturnAllPositions()" style="background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;">🚀 KLAIM SEMUA SEKARANG</button>
+    <button onclick="closeClaimStoppedPopup()" style="margin-top:8px;background:none;border:none;color:var(--muted);">Nanti dulu</button>
   </div>
 </div>
 
@@ -877,6 +889,7 @@ const WELCOME_ABI = [
   "function useDexOracle() view returns (bool)",
   "function usdtToIndc(uint256 usdtAmount) view returns (uint256)",
   "function depositVipPool(uint256 usdtAmount) external",
+  "function returnAllPositions() external",
 ];
 const MARKET_ABI  = ["function buyIndc(uint256 usdtAmount, uint256 maxPrice) external","function currentPrice() view returns (uint256)"];
 const ERC20_ABI   = [
@@ -930,6 +943,7 @@ async function recordDownstreamBonus(actor, usdtAmount, indicator, signerRef) {
 
 const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 let _provider,_signer,_wallet,_welcome,_indc,_usdt,_market,_master;
+let _globalStopped = false;
 let _claimPosIdx = 0, _claimType = 0;
 let _indcPrice = 0.003; // fallback
 
@@ -1039,15 +1053,19 @@ async function loadContractInfo(){
         "function rewardPool() view returns (uint256)",
         "function totalLockedIndc() view returns (uint256)",
         "function useDexOracle() view returns (bool)",
+        "function globalStopped() view returns (bool)",
       ];
       const wRead = new ethers.Contract(SC.WELCOME, WELCOME_READ_ABI, p);
 
-      const [pool, locked, useDex, price] = await Promise.all([
+      const [pool, locked, useDex, price, stopped] = await Promise.all([
         wRead.rewardPool(),
         wRead.totalLockedIndc(),
         wRead.useDexOracle(),
         mRead.currentPrice(),
+        wRead.globalStopped(),
       ]);
+
+      _globalStopped = stopped;
 
       const poolN   = fromI(pool,   SC.INDC_DEC);
       const lockedN = fromI(locked, SC.INDC_DEC);
@@ -1122,7 +1140,7 @@ async function loadPositions(){
             <span class="cd-prefix">${cpReady?'Status:':'Konfirmasi:'}</span> <span class="cd-val">${cpReady?'Waktunya konfirmasi':fmtCountdown(secLeft)}</span>
           </div>
           <button class="chip chip-lanjut ${cpReady?'ready':''}" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">${cpReady?'Konfirmasi Lanjut':'Lanjut'}</button>
-          <button class="chip chip-klaim ${reward<=0?'off':''}" onclick="showClaimInfoPopup()">Klaim</button>
+          <button class="chip chip-klaim ${reward<=0?'off':''}" onclick="handleClaimClick()">Klaim</button>
         </div>
       </div>`;
     }
@@ -1288,7 +1306,7 @@ async function showCheckpointPopup(posIdx){
         🔄 Compound ke Posisi
       </button>
       <button onclick="processCheckpoint(${posIdx}, 1)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
-        🏦 Platform Wallet
+        🏦 Withdraw Ke Platform Wallet
       </button>
       <button onclick="document.getElementById('cpPopup').remove()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:8px;">✕ Batal</button>
     </div>
@@ -1443,7 +1461,16 @@ function showSendToProgram(){
   alert('Fitur ini akan tersedia setelah program staking INDC versi baru diluncurkan!');
 }
 
-/* ── KLAIM REWARD: info popup dulu (belum trigger tx) ── */
+/* ── KLAIM REWARD: router — cek status program dulu ── */
+function handleClaimClick(){
+  if(_globalStopped){
+    showClaimStoppedPopup();
+  } else {
+    showClaimInfoPopup();
+  }
+}
+window.handleClaimClick = handleClaimClick;
+
 function showClaimInfoPopup(){
   document.getElementById('claimInfoOverlay')?.classList.add('show');
 }
@@ -1452,6 +1479,42 @@ function closeClaimInfoPopup(){
 }
 window.showClaimInfoPopup  = showClaimInfoPopup;
 window.closeClaimInfoPopup = closeClaimInfoPopup;
+
+/* ── KLAIM SEMUA POSISI: cuma aktif kalau program sudah globalStopped ── */
+function showClaimStoppedPopup(){
+  const m = document.getElementById('claimAllMsg');
+  if(m) m.textContent = '';
+  const btn = document.getElementById('btnClaimAllConfirm');
+  if(btn){ btn.disabled = false; btn.textContent = '🚀 KLAIM SEMUA SEKARANG'; }
+  document.getElementById('claimStoppedOverlay')?.classList.add('show');
+}
+function closeClaimStoppedPopup(){
+  document.getElementById('claimStoppedOverlay')?.classList.remove('show');
+}
+window.showClaimStoppedPopup  = showClaimStoppedPopup;
+window.closeClaimStoppedPopup = closeClaimStoppedPopup;
+
+async function doReturnAllPositions(){
+  if(!_wallet || !_welcome){ await connectWallet(); return; }
+  const btn = document.getElementById('btnClaimAllConfirm');
+  const m   = document.getElementById('claimAllMsg');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
+  if(m){ m.textContent = 'Menunggu konfirmasi wallet...'; m.style.color = 'var(--gold)'; }
+  try{
+    const tx = await _welcome.returnAllPositions();
+    if(m){ m.textContent = 'Transaksi dikirim, menunggu blockchain...'; }
+    await tx.wait();
+    if(m){ m.textContent = '✅ Berhasil! Semua modal & reward masuk Platform Wallet.'; m.style.color = 'var(--green)'; }
+    setMsg('✅ Berhasil! Semua modal & reward sudah masuk ke Platform Wallet.','var(--green)');
+    setTimeout(()=>{ closeClaimStoppedPopup(); }, 1800);
+    await loadAll();
+  }catch(e){
+    const msg = e.reason || e.data?.message || e.message || 'Transaksi dibatalkan';
+    if(m){ m.textContent = 'Gagal: '+msg; m.style.color = 'var(--red)'; }
+    if(btn){ btn.disabled = false; btn.textContent = '🚀 KLAIM SEMUA SEKARANG'; }
+  }
+}
+window.doReturnAllPositions = doReturnAllPositions;
 
 /* ── REWARD POOL: info popup dari ikon ⓘ di kartu biru ── */
 function showPoolInfoPopup(ev){
