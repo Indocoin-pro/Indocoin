@@ -192,6 +192,7 @@ body{background:var(--bg);color:var(--white);font-family:'Rajdhani',sans-serif;m
 .chip-lanjut.ready{background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border-color:var(--gold3);
   box-shadow:0 0 10px rgba(245,200,66,0.4);animation:pulseGold 1.6s infinite;}
 .chip-lanjut:active{transform:scale(0.96);}
+.chip-lanjut:disabled{opacity:0.55;cursor:not-allowed;animation:none;box-shadow:none;}
 @keyframes pulseGold{0%,100%{box-shadow:0 0 6px rgba(245,200,66,0.35);}50%{box-shadow:0 0 18px rgba(245,200,66,0.7);}}
 .chip-klaim{background:rgba(200,146,42,0.1);color:var(--gold3);border-color:rgba(200,146,42,0.35);}
 .chip-klaim:active{transform:scale(0.96);}
@@ -1283,6 +1284,11 @@ async function showCheckpointPopup(posIdx){
 async function processCheckpoint(posIdx, claimType){
   document.getElementById('cpPopup')?.remove();
   if(!_wallet) return;
+
+  // ── LAPIS 1: kunci tombol biar gak bisa diklik dobel selama proses ──
+  const btn = document.getElementById('btnLanjut_'+posIdx);
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
+
   try{
     // Step 1: Cek apakah masih ada reward yang belum diklaim
     const pos = await _welcome.getPosition(_wallet, posIdx);
@@ -1303,9 +1309,59 @@ async function processCheckpoint(posIdx, claimType){
     const tx2 = await _welcome.confirmCheckpoint(posIdx);
     await tx2.wait();
     setMsg('✓ Berhasil! Reward sudah diproses & 7 hari berikutnya aktif.','var(--green)');
-    await loadAll();
-  }catch(e){setMsg('Gagal: '+(e.reason||e.message||''),'var(--red)');}
+
+    // ── LAPIS 2: update tampilan LANGSUNG, gak nunggu baca ulang RPC ──
+    applyCheckpointOptimistic(posIdx);
+
+    // ── LAPIS 3: sinkron data asli di belakang layar (gak nge-block tampilan) ──
+    loadAll().catch(e=>console.warn('Sinkron ulang gagal (non-critical):', e));
+
+  }catch(e){
+    setMsg('Gagal: '+(e.reason||e.message||''),'var(--red)');
+    // Gagal di tengah jalan → sinkronin ulang dari data asli biar tombol balik sesuai kondisi on-chain sebenarnya
+    loadAll().catch(()=>{});
+  }
 }
+
+/* ── Optimistic update: balikin kartu ke status AKTIF instan begitu tx sukses ── */
+function applyCheckpointOptimistic(posIdx){
+  const btn = document.getElementById('btnLanjut_'+posIdx);
+  if(!btn) return;
+  const card = btn.closest('.stake-item');
+  if(!card) return;
+
+  // Tombol Lanjut → balik abu-abu, aktif lagi
+  btn.disabled = false;
+  btn.classList.remove('ready');
+  btn.textContent = 'Lanjut';
+
+  // Badge & border kartu → balik status AKTIF
+  card.classList.remove('ready');
+  const badge = card.querySelector('.si-badge');
+  if(badge){ badge.classList.remove('ready'); badge.classList.add('aktif'); badge.textContent = '▶ AKTIF'; }
+
+  // Reward pending → 0 (baru aja diklaim)
+  const rewardVal = card.querySelector('.si-grid .si-val.gold');
+  if(rewardVal) rewardVal.textContent = '0 INDC';
+
+  // Chip Klaim → nonaktifin (reward udah 0)
+  const klaimChip = card.querySelector('.chip-klaim');
+  if(klaimChip) klaimChip.classList.add('off');
+
+  // Countdown → reset ke 7 hari dari sekarang, timer jalan lagi dari situ
+  const countdownEl = card.querySelector('.si-countdown');
+  if(countdownEl){
+    const newCpTime = Math.floor(Date.now()/1000) + (7*86400);
+    countdownEl.setAttribute('data-cp-time', newCpTime);
+    countdownEl.classList.remove('due');
+    const prefixEl = countdownEl.querySelector('.cd-prefix');
+    const valEl    = countdownEl.querySelector('.cd-val');
+    if(prefixEl) prefixEl.textContent = 'Konfirmasi:';
+    if(valEl) valEl.textContent = fmtCountdown(7*86400);
+  }
+}
+window.applyCheckpointOptimistic = applyCheckpointOptimistic;
+
 
 /* ── KLAIM ── */
 function showClaimPopup(posIdx, reward){
