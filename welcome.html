@@ -684,8 +684,7 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
       ℹ️ Proses: Approve USDT → Stake otomatis (distribusi & beli INDC dilakukan onchain).<br>
     </div>
 
-    <button class="btn-approve" id="btnApproveUsdt" onclick="approveUsdt()">① APPROVE USDT</button>
-    <button class="btn-stake" id="btnBuyStake" onclick="doStakeWithUsdt()" disabled>② BELI & STAKE INDC</button>
+    <button class="btn-stake" id="btnAction" onclick="handleApproveStake()">① APPROVE & STAKE</button>
     <div class="status-msg" id="msgStake">Hubungkan wallet untuk mulai.</div>
   </div>
 
@@ -988,7 +987,8 @@ async function connectWallet(){
     _market   = new ethers.Contract(SC.MARKET,  MARKET_ABI,  _signer);
     _master   = new ethers.Contract(SC.MASTER,  MASTER_ABI,  _provider);
     setMsg('Wallet terhubung. Masukkan jumlah USDT.','var(--gold2)');
-    document.getElementById('btnApproveUsdt').disabled = false;
+    const actBtn = document.getElementById('btnAction');
+    if(actBtn) actBtn.disabled = false;
     // Update tombol OPEN → alamat wallet
     const wBtn = document.getElementById('walletBtn');
     if(wBtn) wBtn.innerHTML = shortAddr(_wallet);
@@ -1152,7 +1152,14 @@ function startCpCountdowns(){
   }, 1000);
 }
 
-/* ── APPROVE ── */
+/* ── APPROVE + STAKE — 1 tombol, 2 tahap ── */
+let _stakeStage = 'approve'; // 'approve' → belum approve | 'stake' → sudah approve, siap stake
+
+async function handleApproveStake(){
+  if(_stakeStage === 'stake'){ await doStakeWithUsdt(); }
+  else{ await approveUsdt(); }
+}
+
 async function approveUsdt(){
   if(!_wallet){await connectWallet();return;}
   const val = parseFloat(document.getElementById('inpUsdt').value||'0');
@@ -1165,18 +1172,20 @@ async function approveUsdt(){
       return;
     }
   }catch(e){ console.warn('Cek saldo gagal',e); }
-  const btn = document.getElementById('btnApproveUsdt');
+  const btn = document.getElementById('btnAction');
   btn.textContent='⏳ Approving USDT...';btn.disabled=true;
   setMsg('Menunggu konfirmasi approve USDT...','var(--gold)');
   try{
     // Approve USDT ke Welcome V2 saja — kontrak yang handle sisanya
     const tx = await _usdt.approve(SC.WELCOME, MAX_UINT);
     await tx.wait();
-    btn.textContent='✓ USDT APPROVED';
-    document.getElementById('btnBuyStake').disabled=false;
-    setMsg('USDT approved! Sekarang klik Beli & Stake.','var(--gold2)');
+    _stakeStage = 'stake';
+    btn.textContent='STAKE SEKARANG';
+    btn.disabled=false;
+    setMsg('✓ Sukses approve USDT! Silakan klik Stake Sekarang untuk melanjutkan.','var(--gold2)');
   }catch(e){
-    btn.textContent='① APPROVE USDT';btn.disabled=false;
+    _stakeStage = 'approve';
+    btn.textContent='① APPROVE & STAKE';btn.disabled=false;
     setMsg('Approve USDT dibatalkan.','var(--red)');
   }
 }
@@ -1198,7 +1207,7 @@ async function doStakeWithUsdt(){
     }
   }catch(e){ console.warn('Cek saldo gagal',e); }
 
-  const btn = document.getElementById('btnBuyStake');
+  const btn = document.getElementById('btnAction');
   btn.textContent='⏳ Memproses...';btn.disabled=true;
 
   try{
@@ -1218,11 +1227,15 @@ async function doStakeWithUsdt(){
 
     // ActivityBonus: upline stake → 10 level downline dapat bonus
     try { recordDownstreamBonus(_wallet, usdtVal, "welcome", _signer); } catch(e) {}
+
+    // Sukses → reset tombol ke tahap awal
+    _stakeStage = 'approve';
+    btn.textContent='① APPROVE & STAKE';btn.disabled=false;
   }catch(e){
     const msg = e.reason || e.data?.message || e.message || 'Transaksi dibatalkan';
     setMsg('Gagal: '+msg,'var(--red)');
-  }finally{
-    btn.textContent='② BELI & STAKE INDC';btn.disabled=false;
+    // Gagal → allowance masih ada, gak perlu approve ulang, tetap di tahap stake
+    btn.textContent='STAKE SEKARANG';btn.disabled=false;
   }
 }
 
@@ -1381,6 +1394,7 @@ window.confirmClaim         = confirmClaim;
 window.doConfirmCheckpoint  = doConfirmCheckpoint;
 window.approveUsdt          = approveUsdt;
 window.doStakeWithUsdt      = doStakeWithUsdt;
+window.handleApproveStake   = handleApproveStake;
 window.setMaxUsdt           = setMaxUsdt;
 window.calcStakePreview     = calcStakePreview;
 window.calcPreview          = calcPreview;
