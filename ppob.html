@@ -68,6 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .pool-box-value.green{color:var(--green);}
 .pool-box-value.gold{color:var(--gold2);}
 .pool-box-label{font-size:7px;color:var(--muted);margin-top:2px;}
+.pool-box-rp{font-size:8.5px;color:var(--muted2);margin-top:1px;}
 
 .maintabs{display:flex;padding:12px 14px 10px;gap:8px;}
 .maintab{flex:1;text-align:center;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;padding:10px 4px;border-radius:8px;border:1px solid var(--border2);color:var(--muted2);cursor:pointer;background:transparent;}
@@ -184,6 +185,12 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .modal-overlay.show{display:flex;}
 .modal-card{background:#ffffff;border-radius:20px 20px 0 0;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;animation:slideUp 0.25s ease;}
 @keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+/* Popup sukses sengaja beda — ngambang di tengah, bukan nempel bawah
+   kayak modal lain, biar momen "berhasil" kerasa lebih spesial. */
+#successOverlay{align-items:center;}
+#successOverlay .modal-card{border-radius:20px;max-width:340px;animation:popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes popIn{from{transform:scale(0.85);opacity:0;}to{transform:scale(1);opacity:1;}}
 .modal-topbar{height:6px;background:linear-gradient(90deg,#e8a830,#2ea86a,#3d7ec9,#e8a830);background-size:300% 100%;animation:shimmer 3s linear infinite;border-radius:20px 20px 0 0;}
 @keyframes shimmer{from{background-position:0% 0;}to{background-position:300% 0;}}
 .modal-body{padding:22px 22px 26px;}
@@ -236,10 +243,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       <div class="pool-groups">
         <div class="pool-group-label">DANA LIKUID</div>
         <div class="pool-group-label">DANA BUYBACK</div>
-        <div class="pool-box"><div class="pool-box-value green" id="stat-likuid-tersedia">...</div><div class="pool-box-label">Tersedia</div></div>
-        <div class="pool-box"><div class="pool-box-value gold" id="stat-likuid-terpakai">...</div><div class="pool-box-label">Terpakai</div></div>
-        <div class="pool-box"><div class="pool-box-value gold" id="stat-buyback-menunggu">...</div><div class="pool-box-label">Menunggu</div></div>
-        <div class="pool-box"><div class="pool-box-value green" id="stat-buyback-terpakai">...</div><div class="pool-box-label">Terpakai</div></div>
+        <div class="pool-box"><div class="pool-box-value green" id="stat-likuid-tersedia">...</div><div class="pool-box-rp" id="stat-likuid-tersedia-rp"></div><div class="pool-box-label">Tersedia</div></div>
+        <div class="pool-box"><div class="pool-box-value gold" id="stat-likuid-terpakai">...</div><div class="pool-box-rp" id="stat-likuid-terpakai-rp"></div><div class="pool-box-label">Terpakai</div></div>
+        <div class="pool-box"><div class="pool-box-value gold" id="stat-buyback-menunggu">...</div><div class="pool-box-rp" id="stat-buyback-menunggu-rp"></div><div class="pool-box-label">Menunggu</div></div>
+        <div class="pool-box"><div class="pool-box-value green" id="stat-buyback-terpakai">...</div><div class="pool-box-rp" id="stat-buyback-terpakai-rp"></div><div class="pool-box-label">Terpakai</div></div>
       </div>
     </div>
   </div>
@@ -380,7 +387,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     <div class="success-body">
       <div class="success-icon">✅</div>
       <div class="success-title">Pembelian Berhasil!</div>
-      <div class="success-desc">Pesanan kamu sedang diproses. Cek statusnya di halaman Riwayat.</div>
+      <div class="success-desc">Terima kasih sudah bertransaksi di INDOCOIN Marketplace 🙏 Pesananmu sedang diproses ke tujuan.</div>
       <button class="modal-ok" onclick="tutupSuksesKeRiwayat()">OKE, LIHAT RIWAYAT</button>
     </div>
   </div>
@@ -566,6 +573,27 @@ async function fetchPoolStats(){
     document.getElementById('stat-likuid-terpakai').textContent = '$' + data.danaLikuid.sudahTerpakai.toLocaleString('id-ID', {maximumFractionDigits:2});
     document.getElementById('stat-buyback-menunggu').textContent = '$' + data.danaBuyback.menunggu.toLocaleString('id-ID', {maximumFractionDigits:2});
     document.getElementById('stat-buyback-terpakai').textContent = data.danaBuyback.sudahTerpakai.toLocaleString('id-ID', {maximumFractionDigits:2}) + ' INDC';
+
+    // Tampilan Rupiah di bawah tiap angka — pakai koneksi baca-saja,
+    // supaya tetap jalan walau wallet belum connect (halaman baru dibuka).
+    try{
+      const kurs = await ambilKursUsdtIdr();
+      const rp = (usd) => 'Rp ' + Math.round(usd * kurs).toLocaleString('id-ID');
+      document.getElementById('stat-likuid-tersedia-rp').textContent = '≈ ' + rp(data.danaLikuid.tersedia);
+      document.getElementById('stat-likuid-terpakai-rp').textContent = '≈ ' + rp(data.danaLikuid.sudahTerpakai);
+      document.getElementById('stat-buyback-menunggu-rp').textContent = '≈ ' + rp(data.danaBuyback.menunggu);
+
+      const readProvider = new ethers.JsonRpcProvider('https://bsc.publicnode.com');
+      const marketContract = new ethers.Contract(
+        '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
+        ['function currentPrice() view returns (uint256)'],
+        readProvider
+      );
+      const hargaIndcUsd = parseFloat(ethers.formatUnits(await marketContract.currentPrice(), 18));
+      document.getElementById('stat-buyback-terpakai-rp').textContent = '≈ ' + rp(data.danaBuyback.sudahTerpakai * hargaIndcUsd);
+    }catch(errRp){
+      console.warn('Gagal hitung tampilan Rupiah pool stats:', errRp);
+    }
   }catch(err){
     console.error('Gagal ambil /api/pool-stats:', err);
     ['stat-likuid-tersedia','stat-likuid-terpakai','stat-buyback-menunggu','stat-buyback-terpakai'].forEach(id=>{
@@ -1179,6 +1207,7 @@ async function mulaiProsesBeli(){
     setBuyStatus('Berhasil!', 'ok');
     tutupModalBeli();
     document.getElementById('successOverlay').classList.add('show');
+    fetchPoolStats();
 
   }catch(err){
     console.error('Gagal proses beli:', err);
@@ -1204,6 +1233,10 @@ async function ambilHargaIndc(){
 function tutupSuksesKeRiwayat(){
   document.getElementById('successOverlay').classList.remove('show');
   bukaRiwayat();
+  // Beri jeda sedikit — angka pool baru berubah SETELAH Digiflazz
+  // konfirmasi sukses via webhook, bukan seketika transaksi blockchain
+  // selesai, jadi refresh langsung sering masih menampilkan angka lama.
+  setTimeout(fetchPoolStats, 8000);
 }
 
 function bukaRiwayat(){
@@ -1404,6 +1437,7 @@ async function bayarSekarangPasca(){
     setPascaStatus2('Berhasil!', 'ok');
     document.getElementById('pascaOverlay').classList.remove('show');
     document.getElementById('successOverlay').classList.add('show');
+    fetchPoolStats();
   }catch(err){
     console.error('Gagal bayar tagihan:', err);
     const pesan = err.reason || err.message || 'Transaksi gagal, coba lagi.';
