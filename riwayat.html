@@ -59,10 +59,19 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .btn-refund:disabled{opacity:0.5;cursor:default;}
 .btn-refund.loading{color:var(--muted);border-color:var(--border2);}
 
-.btn-share{margin-top:10px;width:100%;background:transparent;border:1px solid var(--green);color:var(--green);
+.btn-share{margin-top:10px;width:100%;background:transparent;border:1px solid var(--gold);color:var(--gold);
   border-radius:8px;padding:9px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
   letter-spacing:0.5px;cursor:pointer;}
 .btn-share:disabled{opacity:0.5;cursor:default;}
+
+.bukti-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;
+  align-items:center;justify-content:center;padding:20px;}
+.bukti-overlay.show{display:flex;}
+.bukti-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;max-width:400px;width:100%;}
+.bukti-box img{width:100%;border-radius:8px;display:block;}
+.bukti-hint{text-align:center;font-size:11px;color:var(--muted2);margin-top:12px;line-height:1.5;}
+.bukti-close{margin-top:14px;width:100%;background:var(--gold);color:#080808;border:none;border-radius:8px;
+  padding:11px;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
 
 .note-pending{margin-top:8px;font-size:10px;color:var(--muted);font-style:italic;}
 </style>
@@ -88,6 +97,14 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 </div>
 
 <div id="list"><div class="loading">Hubungkan wallet untuk melihat riwayat.</div></div>
+
+<div class="bukti-overlay" id="buktiOverlay">
+  <div class="bukti-box">
+    <img id="buktiImg" alt="Bukti transaksi">
+    <div class="bukti-hint">Tekan lama gambar di atas untuk menyimpan atau membagikan ke WhatsApp.</div>
+    <button class="bukti-close" onclick="document.getElementById('buktiOverlay').classList.remove('show')">TUTUP</button>
+  </div>
+</div>
 
 <script>
 const API_BASE = 'https://ppob-api.indocoin.id';
@@ -235,6 +252,7 @@ async function bagikanBukti(orderId){
   const order = ORDER_LOOKUP[orderId];
   if(!order){ alert('Data transaksi tidak ditemukan.'); return; }
 
+  try{
   const canvas = document.createElement('canvas');
   const W = 720, PAD = 40;
   canvas.width = W;
@@ -329,28 +347,41 @@ async function bagikanBukti(orderId){
 
   canvas.toBlob(async (blob) => {
     if(!blob){ alert('Gagal membuat gambar bukti.'); return; }
-    const file = new File([blob], `bukti-indocoin-${order.orderId.slice(2,10)}.png`, { type: 'image/png' });
 
-    if(navigator.canShare && navigator.canShare({ files: [file] })){
-      try{
+    // Coba Web Share dulu (paling nyaman kalau didukung) — tapi DIBUNGKUS
+    // try-catch ketat, dan APAPUN hasilnya (berhasil, gagal, atau tidak
+    // didukung) selalu lanjut ke tampilan gambar di halaman sebagai jalan
+    // aman — beberapa browser dalam-app (wallet dll) berperilaku aneh
+    // dengan Web Share/download otomatis, jadi kita tidak pernah gantung
+    // ke situ sendirian.
+    let shareBerhasil = false;
+    try{
+      const file = new File([blob], `bukti-indocoin-${orderId.slice(2,10)}.png`, { type: 'image/png' });
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
         await navigator.share({
           files: [file],
           title: 'Bukti Transaksi INDOCOIN',
           text: `Bukti pembelian ${order.namaProduk} — ${order.nomorTujuan}`,
         });
-      }catch(err){
-        if(err.name !== 'AbortError') console.error('Gagal share:', err);
+        shareBerhasil = true;
       }
-    } else {
-      // Fallback: download langsung (desktop / browser tanpa dukungan share file)
+    }catch(err){
+      // AbortError = user batal share, itu wajar, bukan error. Selain
+      // itu, tetap lanjut ke fallback gambar, jangan biarkan user
+      // kehilangan bukti transaksinya cuma karena Web Share bermasalah.
+      console.warn('Web Share tidak berhasil/didukung, pakai fallback tampilan gambar:', err);
+    }
+
+    if(!shareBerhasil){
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.name;
-      a.click();
-      URL.revokeObjectURL(url);
+      document.getElementById('buktiImg').src = url;
+      document.getElementById('buktiOverlay').classList.add('show');
     }
   }, 'image/png');
+  }catch(err){
+    console.error('Gagal membuat bukti transaksi:', err);
+    alert('Gagal membuat gambar bukti. Coba lagi.');
+  }
 }
 
 function wrapText(ctx, text, maxWidth){
