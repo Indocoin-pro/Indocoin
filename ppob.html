@@ -973,6 +973,7 @@ const PW_ABI = ['function getBalance(address user, address token) view returns (
 const GATEWAY_ABI = [
   'function payWithUSDT(bytes32 orderId, bytes32 productCode, uint256 modalUsdt, uint256 profitUsdt, uint256 expiry, bytes calldata signature) external',
   'function payWithPlatformINDC(bytes32 orderId, bytes32 productCode, uint256 indcAmount, uint256 modalUsdtEquivalent, uint256 profitUsdtEquivalent, uint256 indcPriceUsdt, uint256 expiry, bytes calldata signature) external',
+  'function redemptionVaultAvailable() view returns (uint256)',
 ];
 
 let buyState = { produk: null, metode: 'usdt', saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
@@ -986,7 +987,7 @@ let adminTokenExpiry = 0;
 // Saklar transaksi publik — set ke false kalau kontrak sudah siap dibuka
 // ke publik (setelah deploy ulang & celah keamanan indcAmount dibenerin).
 // Wallet Dev SELALU bisa lewat, berapa pun nilai saklar ini (buat testing).
-const TOKO_BELUM_DIBUKA = true;
+const TOKO_BELUM_DIBUKA = false;
 function cekBolehTransaksi(fungsiStatus){
   if(TOKO_BELUM_DIBUKA && !isDevWallet){
     fungsiStatus('Hari ini khusus untuk menjelajahi katalog. Kenali semua produk kami dulu.', 'explore');
@@ -1194,6 +1195,16 @@ async function mulaiProsesBeli(){
       const totalUsdtEquivalent = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
       const INDC_DEC_UNIT = 1000000000n; // 10^9
       const indcAmount = (totalUsdtEquivalent * INDC_DEC_UNIT) / BigInt(quote.indcPriceUsdt);
+
+      // Cek DULU cadangan Redemption Vault SEBELUM buka wallet — kalau
+      // tidak cukup, transaksi PASTI gagal (kontrak akan menolak). Lebih
+      // baik user tahu dari awal & diarahkan ke USDT, daripada sudah
+      // approve/konfirmasi di wallet baru ketahuan gagal.
+      const vaultAvailable = await gateway.redemptionVaultAvailable();
+      if(vaultAvailable < BigInt(quote.modalUsdt)){
+        setBuyStatus('Saldo cadangan untuk bayar pakai INDC sedang tidak cukup. Silakan pilih bayar pakai USDT.', 'err');
+        return;
+      }
 
       setBuyStatus('Konfirmasi pembelian di wallet...', '');
       const txBeli = await gateway.payWithPlatformINDC(
@@ -1474,6 +1485,12 @@ async function bayarSekarangPasca(){
       const totalUsdtEquivalent = BigInt(quote.modalUsdt) + BigInt(quote.profitUsdt);
       const INDC_DEC_UNIT = 1000000000n; // 10^9
       const indcAmount = (totalUsdtEquivalent * INDC_DEC_UNIT) / BigInt(quote.indcPriceUsdt);
+
+      const vaultAvailable = await gateway.redemptionVaultAvailable();
+      if(vaultAvailable < BigInt(quote.modalUsdt)){
+        setPascaStatus2('Saldo cadangan untuk bayar pakai INDC sedang tidak cukup. Silakan pilih bayar pakai USDT.', 'err');
+        return;
+      }
 
       setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
       const tx = await gateway.payWithPlatformINDC(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature);

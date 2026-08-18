@@ -168,7 +168,8 @@ async function retryPendingOrders() {
 
     try {
       db.incrementRetry(meta.order_id);
-      const result = await digiflazz.checkStatus(meta.product_code, meta.customer_no, meta.order_id);
+      const isPascabayar = !!db.getInquiry(meta.order_id);
+      const result = await digiflazz.checkStatus(meta.product_code, meta.customer_no, meta.order_id, isPascabayar);
       await settle.processDigiflazzResult(meta.order_id, result);
     } catch (err) {
       console.error(`[ppob-listener] Error retry order ${meta.order_id}:`, err.message);

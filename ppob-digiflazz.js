@@ -67,7 +67,14 @@ async function topup(buyerSkuCode, customerNo, refId) {
  * - Jangan cek status transaksi yang sudah lewat 90 hari (akan dianggap
  *   transaksi BARU, bukan cek status)
  */
-async function checkStatus(buyerSkuCode, customerNo, refId) {
+async function checkStatus(buyerSkuCode, customerNo, refId, isPascabayar) {
+  // Digiflazz: kirim ulang perintah YANG SAMA dengan ref_id yang sama =
+  // cara resmi mereka untuk "cek status transaksi ini". Prabayar pakai
+  // topup(), Pascabayar HARUS pakai pay-pasca() — beda perintah, kalau
+  // tertukar bisa salah perilaku/gagal.
+  if (isPascabayar) {
+    return payPasca(buyerSkuCode, customerNo, refId);
+  }
   return topup(buyerSkuCode, customerNo, refId);
 }
 
