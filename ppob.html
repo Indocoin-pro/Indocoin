@@ -300,14 +300,13 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 </div>
 
-<!-- MODAL RIWAYAT (placeholder — dibangun lengkap di langkah #4) -->
+<!-- MODAL RIWAYAT -->
 <div class="modal-overlay" id="riwayatOverlay">
-  <div class="modal-card" style="background:var(--bg2);">
-    <div class="buy-body" style="text-align:center;padding:34px 20px;">
-      <div style="font-size:40px;margin-bottom:12px;">🕐</div>
-      <div class="buy-title" style="margin-bottom:8px;">Riwayat Pesanan</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">Fitur ini sedang dibangun, segera hadir.</div>
-      <button class="btn-buy-confirm" onclick="document.getElementById('riwayatOverlay').classList.remove('show')">TUTUP</button>
+  <div class="modal-card" style="background:var(--bg2);max-height:80vh;">
+    <div class="buy-body" style="padding:20px 18px 16px;">
+      <div class="buy-title" style="margin-bottom:14px;">🕐 Riwayat Pesanan</div>
+      <div id="riwayatList" style="display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow-y:auto;"></div>
+      <button class="btn-buy-confirm" style="margin-top:16px;" onclick="document.getElementById('riwayatOverlay').classList.remove('show')">TUTUP</button>
     </div>
   </div>
 </div>
@@ -1164,7 +1163,7 @@ async function mulaiProsesBeli(){
     await fetch(API_BASE + '/api/orders/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, customerNo: nomorTujuan, kodeProduk: p.kodeProduk }),
+      body: JSON.stringify({ orderId, customerNo: nomorTujuan, kodeProduk: p.kodeProduk, walletUser: currentAddress }),
     });
 
     if(buyState.metode === 'usdt'){
@@ -1242,6 +1241,54 @@ function tutupSuksesKeRiwayat(){
 function bukaRiwayat(){
   document.getElementById('riwayatOverlay').classList.add('show');
   history.pushState({...state}, '', '#riwayat');
+  muatRiwayat();
+}
+
+async function muatRiwayat(){
+  const container = document.getElementById('riwayatList');
+
+  if(!currentAddress){
+    container.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--muted);font-size:12px;">Hubungkan wallet dulu untuk melihat riwayat.</div>';
+    return;
+  }
+
+  container.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--muted);font-size:12px;">Memuat riwayat...</div>';
+
+  try{
+    const res = await fetch(API_BASE + '/api/orders/history/' + currentAddress);
+    const data = await res.json();
+    const orders = data.orders || [];
+
+    if(orders.length === 0){
+      container.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--muted);font-size:12px;">Belum ada riwayat pesanan.</div>';
+      return;
+    }
+
+    const warnaBadge = { 'Berhasil': '#2ea86a', 'Direfund': '#c94040', 'Diproses': '#c8922a' };
+
+    container.innerHTML = orders.map(o => {
+      const tanggal = new Date(o.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const hargaTampil = o.harga != null ? 'Rp' + o.harga.toLocaleString('id-ID') : '-';
+      const warna = warnaBadge[o.status] || 'var(--muted)';
+      const snBaris = o.sn ? `<div style="font-size:10px;color:var(--muted2);margin-top:4px;font-family:'Share Tech Mono',monospace;">SN: ${o.sn}</div>` : '';
+      return `
+        <div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;">
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--text);flex:1;">${o.namaProduk}</div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;color:${warna};background:${warna}22;padding:3px 7px;border-radius:6px;white-space:nowrap;">${o.status}</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:3px;">${o.nomorTujuan}</div>
+          ${snBaris}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            <div style="font-size:10px;color:var(--muted);">${tanggal}</div>
+            <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--gold);">${hargaTampil}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }catch(err){
+    console.error('Gagal muat riwayat:', err);
+    container.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--red);font-size:12px;">Gagal memuat riwayat. Coba lagi.</div>';
+  }
 }
 
 /**
@@ -1392,7 +1439,7 @@ async function bayarSekarangPasca(){
     await fetch(API_BASE + '/api/orders/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: pascaState.orderId, customerNo: pascaState.nomorPelanggan, kodeProduk: pascaState.produk.kodeProduk }),
+      body: JSON.stringify({ orderId: pascaState.orderId, customerNo: pascaState.nomorPelanggan, kodeProduk: pascaState.produk.kodeProduk, walletUser: currentAddress }),
     });
 
     setPascaStatus2('Mengambil quote harga...', '');

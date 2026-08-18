@@ -178,15 +178,50 @@ app.post('/api/quote', async (req, res) => {
  */
 app.post('/api/orders/register', (req, res) => {
   try {
-    const { orderId, customerNo, kodeProduk } = req.body;
+    const { orderId, customerNo, kodeProduk, walletUser } = req.body;
     if (!orderId || !customerNo || !kodeProduk) {
       return res.status(400).json({ error: 'orderId, customerNo, dan kodeProduk wajib diisi' });
     }
-    db.registerOrder(orderId, customerNo, kodeProduk);
+    db.registerOrder(orderId, customerNo, kodeProduk, walletUser);
     res.json({ success: true });
   } catch (err) {
     console.error('[server.js] Error /api/orders/register:', err);
     res.status(500).json({ error: 'Gagal mendaftarkan order' });
+  }
+});
+
+/** Riwayat pesanan milik 1 wallet — dipakai fitur Riwayat di frontend. */
+app.get('/api/orders/history/:wallet', (req, res) => {
+  try {
+    const wallet = req.params.wallet;
+    if (!wallet) {
+      return res.status(400).json({ error: 'Alamat wallet wajib diisi' });
+    }
+    const rows = db.getOrderHistoryByWallet(wallet.toLowerCase());
+
+    const hasil = rows.map(r => {
+      // Status yang gampang dipahami user, gabungan dari 2 status internal.
+      let statusTampil;
+      if (r.onchain_status === 'SUCCESS') statusTampil = 'Berhasil';
+      else if (r.onchain_status === 'REFUNDED') statusTampil = 'Direfund';
+      else if (r.digiflazz_status === 'Pending' || r.digiflazz_status === 'PENDING') statusTampil = 'Diproses';
+      else statusTampil = 'Diproses';
+
+      return {
+        orderId: r.order_id,
+        namaProduk: r.nama_produk || r.product_code,
+        nomorTujuan: r.customer_no,
+        harga: r.harga_pascabayar != null ? r.harga_pascabayar : r.harga_prabayar,
+        status: statusTampil,
+        sn: r.sn || null,
+        createdAt: r.created_at,
+      };
+    });
+
+    res.json({ orders: hasil });
+  } catch (err) {
+    console.error('[server.js] Error /api/orders/history:', err);
+    res.status(500).json({ error: 'Gagal mengambil riwayat pesanan' });
   }
 });
 

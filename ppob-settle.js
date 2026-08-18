@@ -17,7 +17,7 @@ const blockchain = require('./blockchain');
 async function processDigiflazzResult(orderId, digiflazzResult) {
   const status = digiflazzResult.status;
 
-  db.updateDigiflazzStatus(orderId, status, digiflazzResult.ref_id);
+  db.updateDigiflazzStatus(orderId, status, digiflazzResult.ref_id, digiflazzResult.sn);
 
   if (status === 'Sukses') {
     console.log(`[settle.js] Order ${orderId} SUKSES di Digiflazz (SN: ${digiflazzResult.sn || '-'}). Melapor ke kontrak...`);

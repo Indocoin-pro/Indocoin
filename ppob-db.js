@@ -130,30 +130,55 @@ try {
   }
 }
 
+// wallet_user — dibutuhkan fitur Riwayat Pesanan, supaya bisa filter
+// "pesanan siapa saja ini" per wallet yang connect ke frontend.
+try {
+  db.exec(`ALTER TABLE order_meta ADD COLUMN wallet_user TEXT;`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_wallet_user ON order_meta(wallet_user);`);
+  console.log('[db.js] Migrasi: kolom order_meta.wallet_user ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi wallet_user gagal:', err.message);
+  }
+}
+
+// sn — kode bukti transaksi (Serial Number) dari Digiflazz. Penting
+// terutama untuk kasus beli pulsa/produk untuk NOMOR ORANG LAIN — user
+// butuh bukti konkret transaksi itu benar-benar berhasil dikirim.
+// Sebelumnya cuma dicatat ke log server, tidak pernah disimpan.
+try {
+  db.exec(`ALTER TABLE order_meta ADD COLUMN sn TEXT;`);
+  console.log('[db.js] Migrasi: kolom order_meta.sn ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi sn gagal:', err.message);
+  }
+}
+
 /**
  * Dipanggil endpoint pendaftaran order (server.js) — frontend WAJIB
  * memanggil ini sebelum/tepat setelah user submit transaksi on-chain,
  * supaya listener tahu nomor tujuan saat event OrderCreated terdeteksi.
  */
-function registerOrder(orderId, customerNo, productCode) {
+function registerOrder(orderId, customerNo, productCode, walletUser) {
   const now = Date.now();
   const stmt = db.prepare(`
-    INSERT INTO order_meta (order_id, customer_no, product_code, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(order_id) DO UPDATE SET customer_no = excluded.customer_no
+    INSERT INTO order_meta (order_id, customer_no, product_code, wallet_user, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(order_id) DO UPDATE SET customer_no = excluded.customer_no, wallet_user = excluded.wallet_user
   `);
-  stmt.run(orderId, customerNo, productCode, now, now);
+  stmt.run(orderId, customerNo, productCode, walletUser ? walletUser.toLowerCase() : null, now, now);
 }
 
 function getOrderMeta(orderId) {
   return db.prepare('SELECT * FROM order_meta WHERE order_id = ?').get(orderId);
 }
 
-function updateDigiflazzStatus(orderId, status, refId) {
+function updateDigiflazzStatus(orderId, status, refId, sn) {
   db.prepare(`
-    UPDATE order_meta SET digiflazz_status = ?, ref_id = ?, updated_at = ?
+    UPDATE order_meta SET digiflazz_status = ?, ref_id = ?, sn = ?, updated_at = ?
     WHERE order_id = ?
-  `).run(status, refId, Date.now(), orderId);
+  `).run(status, refId, sn || null, Date.now(), orderId);
 }
 
 function updateOnchainStatus(orderId, status) {
@@ -181,6 +206,29 @@ function getPendingOrders() {
     WHERE onchain_status = 'CREATED'
     ORDER BY created_at ASC
   `).all();
+}
+
+/**
+ * Riwayat pesanan milik 1 wallet — dipakai fitur Riwayat di frontend.
+ * Gabung dengan products (nama produk) dan pasca_inquiries (harga
+ * pascabayar yang sebenarnya, karena harganya dinamis per cek tagihan,
+ * beda dari harga katalog statis).
+ */
+function getOrderHistoryByWallet(walletUser) {
+  return db.prepare(`
+    SELECT
+      om.order_id, om.customer_no, om.product_code,
+      om.digiflazz_status, om.onchain_status, om.created_at, om.sn,
+      p.nama_produk,
+      COALESCE(p.harga_jual_manual, p.harga_modal) AS harga_prabayar,
+      pi.total_bayar AS harga_pascabayar
+    FROM order_meta om
+    LEFT JOIN products p ON p.kode_produk = om.product_code
+    LEFT JOIN pasca_inquiries pi ON pi.order_id = om.order_id
+    WHERE om.wallet_user = ?
+    ORDER BY om.created_at DESC
+    LIMIT 50
+  `).all(walletUser);
 }
 
 function getProduct(kodeProduk) {
@@ -301,6 +349,7 @@ module.exports = {
   updateOnchainStatus,
   incrementRetry,
   getPendingOrders,
+  getOrderHistoryByWallet,
   getProduct,
   upsertProduct,
   setHargaJualManual,
