@@ -222,6 +222,7 @@ app.get('/api/orders/history/:wallet', (req, res) => {
         status: statusTampil,
         bisaRefundManual,
         sn: r.sn || null,
+        lastError: r.last_error || null,
         createdAt: r.created_at,
       };
     });
@@ -230,6 +231,49 @@ app.get('/api/orders/history/:wallet', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/orders/history:', err);
     res.status(500).json({ error: 'Gagal mengambil riwayat pesanan' });
+  }
+});
+
+/**
+ * POST /api/orders/refund-manual
+ * Body: { orderId, wallet }
+ *
+ * Tombol "Ajukan Refund" di halaman riwayat. SENGAJA cuma diizinkan
+ * untuk order berstatus 'GAGAL_KIRIM' (gagal SEBELUM sempat diterima
+ * Digiflazz) DAN masih 'CREATED' di on-chain (belum pernah dilaporkan
+ * sukses/gagal sebelumnya) — supaya tidak mungkin dipakai buat order
+ * yang sebenarnya masih diproses normal oleh Digiflazz (mencegah
+ * kerugian ganda: produk terkirim TAPI user juga sudah direfund).
+ */
+app.post('/api/orders/refund-manual', async (req, res) => {
+  try {
+    const { orderId, wallet } = req.body;
+    if (!orderId || !wallet) {
+      return res.status(400).json({ error: 'orderId dan wallet wajib diisi' });
+    }
+
+    const meta = db.getOrderMeta(orderId);
+    if (!meta) {
+      return res.status(404).json({ error: 'Order tidak ditemukan' });
+    }
+    if (!meta.wallet_user || meta.wallet_user.toLowerCase() !== wallet.toLowerCase()) {
+      return res.status(403).json({ error: 'Order ini bukan milik wallet yang terhubung' });
+    }
+    if (meta.digiflazz_status !== 'GAGAL_KIRIM') {
+      return res.status(400).json({ error: 'Order ini masih diproses normal oleh Digiflazz, belum bisa direfund manual' });
+    }
+    if (meta.onchain_status !== 'CREATED') {
+      return res.status(400).json({ error: 'Order ini sudah diselesaikan sebelumnya' });
+    }
+
+    const txHash = await blockchain.reportFailed(orderId);
+    db.updateOnchainStatus(orderId, 'REFUNDED');
+    console.log(`[server.js] Refund manual berhasil untuk order ${orderId} (diminta wallet ${wallet}). Tx: ${txHash}`);
+
+    res.json({ success: true, txHash });
+  } catch (err) {
+    console.error('[server.js] Error /api/orders/refund-manual:', err);
+    res.status(500).json({ error: 'Gagal memproses refund. Coba lagi beberapa saat.' });
   }
 });
 
