@@ -151,6 +151,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .buy-input::placeholder{color:var(--muted);}
 .buy-methods{display:flex;gap:8px;}
 .buy-method{flex:1;padding:12px 8px;border:1px solid var(--border2);border-radius:10px;text-align:center;cursor:pointer;background:var(--bg3);}
+.buy-method.disabled{opacity:0.4;cursor:not-allowed;}
+.buy-method.disabled .buy-method-bal{color:var(--red);}
 .buy-method.active{border-color:var(--gold);background:rgba(200,146,42,0.12);}
 .buy-method-name{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
 .buy-method-bal{font-size:9px;color:var(--muted);margin-top:3px;}
@@ -288,9 +290,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
           <div class="buy-method-name">USDT</div>
           <div class="buy-method-bal" id="balUsdt">Saldo: —</div>
         </div>
-        <div class="buy-method" id="methodIndc" onclick="pilihMetodeBayar('indc')">
+        <div class="buy-method disabled" id="methodIndc" onclick="pilihMetodeBayar('indc')" title="Sementara nonaktif — Dana Likuid sedang ditambah">
           <div class="buy-method-name">INDC</div>
-          <div class="buy-method-bal" id="balIndc">Saldo: —</div>
+          <div class="buy-method-bal">Nonaktif sementara</div>
         </div>
       </div>
 
@@ -366,9 +368,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
             <div class="buy-method-name">USDT</div>
             <div class="buy-method-bal" id="pascaBalUsdt">Saldo: —</div>
           </div>
-          <div class="buy-method" id="pascaMethodIndc" onclick="pilihMetodeBayarPasca('indc')">
+          <div class="buy-method disabled" id="pascaMethodIndc" onclick="pilihMetodeBayarPasca('indc')" title="Sementara nonaktif — Dana Likuid sedang ditambah">
             <div class="buy-method-name">INDC</div>
-            <div class="buy-method-bal" id="pascaBalIndc">Saldo: —</div>
+            <div class="buy-method-bal">Nonaktif sementara</div>
           </div>
         </div>
 
@@ -427,6 +429,12 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 // (lihat catatan proxy — endpoint ini butuh nginx meneruskan /api/* ke
 // port 3005, karena firewall VPS memblokir akses langsung ke port itu)
 const API_BASE = 'https://ppob-api.indocoin.id';
+// Saklar sementara buat nonaktifkan pembayaran pakai INDC — dipasang
+// sampai Dana Likuid (Redemption Vault) cukup besar. Ganti ke true kalau
+// mau diaktifkan lagi. CATATAN: ini cuma nyembunyiin/nge-block di sisi
+// tampilan — pengaman SEBENARNYA (yang tidak bisa dilewati sama sekali)
+// ada di server.js /api/quote, karena kontrak WAJIB signature dari sana.
+const INDC_PAYMENT_ENABLED = false;
 
 const CAT_ICON = {
   'Pulsa': '📶', 'Data': '🌐', 'PLN': '⚡', 'Games': '🎮', 'Voucher': '🎟️',
@@ -1093,6 +1101,10 @@ function tutupModalBeli(){
 }
 
 function pilihMetodeBayar(m){
+  if(m === 'indc' && !INDC_PAYMENT_ENABLED){
+    alert('Pembayaran pakai INDC sementara ditutup sampai Dana Likuid terkumpul lebih banyak dari aktivitas transaksi. Sementara ini bisa pakai USDT dulu ya!');
+    return;
+  }
   buyState.metode = m;
   document.getElementById('methodUsdt').classList.toggle('active', m==='usdt');
   document.getElementById('methodIndc').classList.toggle('active', m==='indc');
@@ -1231,7 +1243,7 @@ async function mulaiProsesBeli(){
     const quoteRes = await fetch(API_BASE + '/api/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, kodeProduk: p.kodeProduk, usdtIdrRate, metode: buyState.metode }),
+      body: JSON.stringify({ orderId, kodeProduk: p.kodeProduk, usdtIdrRate, metode: buyState.metode, wallet: currentAddress }),
     });
     if(!quoteRes.ok){
       const errData = await quoteRes.json().catch(() => ({}));
@@ -1486,6 +1498,10 @@ async function cekTagihanPasca(){
 }
 
 function pilihMetodeBayarPasca(m){
+  if(m === 'indc' && !INDC_PAYMENT_ENABLED){
+    alert('Pembayaran pakai INDC sementara ditutup sampai Dana Likuid terkumpul lebih banyak dari aktivitas transaksi. Sementara ini bisa pakai USDT dulu ya!');
+    return;
+  }
   pascaState.metode = m;
   document.getElementById('pascaMethodUsdt').classList.toggle('active', m==='usdt');
   document.getElementById('pascaMethodIndc').classList.toggle('active', m==='indc');
@@ -1553,7 +1569,7 @@ async function bayarSekarangPasca(){
     const quoteRes = await fetch(API_BASE + '/api/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: pascaState.orderId, kodeProduk: pascaState.produk.kodeProduk, usdtIdrRate, metode: pascaState.metode }),
+      body: JSON.stringify({ orderId: pascaState.orderId, kodeProduk: pascaState.produk.kodeProduk, usdtIdrRate, metode: pascaState.metode, wallet: currentAddress }),
     });
     if(!quoteRes.ok){
       const errData = await quoteRes.json().catch(() => ({}));

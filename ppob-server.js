@@ -69,12 +69,34 @@ const QUOTE_VALIDITY_SECONDS = 3 * 60; // 3 menit, sesuai kesepakatan
  * usdtIdrRate: kurs USDT/IDR live (didapat frontend dari Indodax/Binance
  * API, dikirim di sini) — dipakai konversi harga Rupiah ke USDT.
  */
+/**
+ * Saklar sementara — nonaktifkan pembayaran INDC sampai Dana Likuid
+ * cukup besar. Ini pengaman SEBENARNYA (beda dari yang di ppob.html
+ * yang cuma sembunyiin tombol) — kontrak PPOBGateway WAJIB signature
+ * dari sini untuk memproses payWithPlatformINDC, jadi memblokir di
+ * titik ini tidak bisa dilewati siapa pun, termasuk lewat panggilan
+ * API langsung tanpa lewat website.
+ */
+const INDC_PAYMENT_ENABLED = false;
+
 app.post('/api/quote', async (req, res) => {
   try {
-    const { orderId, kodeProduk, usdtIdrRate, metode } = req.body;
+    const { orderId, kodeProduk, usdtIdrRate, metode, wallet } = req.body;
 
     if (!orderId || !kodeProduk || !usdtIdrRate) {
       return res.status(400).json({ error: 'orderId, kodeProduk, dan usdtIdrRate wajib diisi' });
+    }
+
+    if (metode === 'indc') {
+      if (!INDC_PAYMENT_ENABLED) {
+        return res.status(403).json({ error: 'Pembayaran pakai INDC sementara ditutup sampai Dana Likuid terkumpul lebih banyak dari aktivitas transaksi. Sementara ini bisa pakai USDT dulu ya!' });
+      }
+      if (!wallet) {
+        return res.status(400).json({ error: 'wallet wajib diisi untuk pembayaran INDC' });
+      }
+      if (db.sudahPakaiIndcHariIni(wallet)) {
+        return res.status(429).json({ error: 'Jatah pembayaran INDC untuk wallet ini sudah terpakai hari ini. Coba lagi besok, atau pakai USDT.' });
+      }
     }
 
     const product = db.getProduct(kodeProduk);
@@ -148,6 +170,10 @@ app.post('/api/quote', async (req, res) => {
         expiry,
         process.env.PPOB_GATEWAY_ADDRESS
       );
+    }
+
+    if (metode === 'indc') {
+      db.catatPakaiIndcHariIni(wallet, orderId);
     }
 
     res.json({

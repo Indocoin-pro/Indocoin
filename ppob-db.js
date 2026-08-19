@@ -378,6 +378,47 @@ function getInquiry(orderId) {
   return db.prepare('SELECT * FROM pasca_inquiries WHERE order_id = ?').get(orderId);
 }
 
+// ═══════════════════════════════════════════════════════════
+// LIMIT HARIAN PEMBAYARAN INDC — supaya Dana Likuid (Redemption
+// Vault) yang masih tipis nggak abis kesedot 1-2 wallet doang, tiap
+// wallet dijatah maksimal 1x pembelian pakai INDC per hari. Dicatat
+// SAAT quote diterbitkan (bukan saat order sukses) — sengaja begitu,
+// karena quote itulah satu-satunya "tiket" yang bikin transaksi bisa
+// diproses kontrak (lihat komentar di server.js /api/quote).
+// ═══════════════════════════════════════════════════════════
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS indc_daily_limit (
+      wallet  TEXT NOT NULL,
+      tanggal TEXT NOT NULL,
+      order_id TEXT,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (wallet, tanggal)
+    );
+  `);
+} catch (err) {
+  console.error('[db.js] Migrasi indc_daily_limit gagal:', err.message);
+}
+
+function _tanggalHariIni() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD, patokan UTC
+}
+
+/** true kalau wallet ini SUDAH pernah dapat quote INDC hari ini */
+function sudahPakaiIndcHariIni(wallet) {
+  const row = db.prepare('SELECT 1 FROM indc_daily_limit WHERE wallet = ? AND tanggal = ?')
+    .get(wallet.toLowerCase(), _tanggalHariIni());
+  return !!row;
+}
+
+/** Catat jatah INDC hari ini sudah terpakai oleh wallet ini */
+function catatPakaiIndcHariIni(wallet, orderId) {
+  db.prepare(`
+    INSERT OR IGNORE INTO indc_daily_limit (wallet, tanggal, order_id, created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(wallet.toLowerCase(), _tanggalHariIni(), orderId || null, Date.now());
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -397,5 +438,7 @@ module.exports = {
   getStat,
   saveInquiry,
   getInquiry,
+  sudahPakaiIndcHariIni,
+  catatPakaiIndcHariIni,
   nonaktifkanProdukHilang,
 };
