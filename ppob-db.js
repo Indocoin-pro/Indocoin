@@ -598,6 +598,24 @@ function tandaiTopupSukses(topupId, txHash) {
   `).run(txHash, Date.now(), topupId);
 }
 
+/**
+ * Batalkan permintaan top up milik SENDIRI (bukan lewat admin), supaya
+ * user tidak terkunci nunggu 30 menit kalau ternyata cuma iseng lihat-
+ * lihat atau berubah pikiran. Cuma boleh kalau statusnya masih PENDING
+ * dan memang benar milik wallet yang minta — dicek dulu sebelum diubah.
+ * @returns {boolean} true kalau berhasil dibatalkan, false kalau tidak
+ * ditemukan/bukan miliknya/statusnya sudah bukan PENDING.
+ */
+function batalkanTopupRequest(topupId, wallet) {
+  const request = getTopupRequest(topupId);
+  if (!request) return false;
+  if (request.wallet_user.toLowerCase() !== wallet.toLowerCase()) return false;
+  if (request.status !== 'PENDING') return false;
+
+  db.prepare(`UPDATE topup_requests SET status = 'DIBATALKAN' WHERE topup_id = ?`).run(topupId);
+  return true;
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -633,5 +651,6 @@ module.exports = {
   getTopupHistoryByWallet,
   getTopupPendingList,
   tandaiTopupSukses,
+  batalkanTopupRequest,
   nonaktifkanProdukHilang,
 };

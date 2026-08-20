@@ -696,6 +696,30 @@ app.post('/api/topup/request', async (req, res) => {
  * GET /api/topup/history/:wallet
  * Riwayat top up milik 1 wallet, SEMUA status — dipakai riwayat.html.
  */
+/**
+ * POST /api/topup/cancel
+ * Body: { wallet, topupId }
+ * User membatalkan permintaan top up MILIK SENDIRI yang masih PENDING —
+ * langsung membebaskan slot "1 request aktif per wallet", tanpa perlu
+ * nunggu 30 menit kedaluwarsa.
+ */
+app.post('/api/topup/cancel', (req, res) => {
+  try {
+    const { wallet, topupId } = req.body;
+    if (!wallet || !topupId) {
+      return res.status(400).json({ error: 'wallet dan topupId wajib diisi' });
+    }
+    const berhasil = db.batalkanTopupRequest(topupId, wallet);
+    if (!berhasil) {
+      return res.status(400).json({ error: 'Permintaan tidak ditemukan, bukan milik wallet ini, atau sudah tidak berstatus menunggu.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[server.js] Error /api/topup/cancel:', err);
+    res.status(500).json({ error: 'Gagal membatalkan permintaan' });
+  }
+});
+
 app.get('/api/topup/history/:wallet', (req, res) => {
   try {
     const history = db.getTopupHistoryByWallet(req.params.wallet);

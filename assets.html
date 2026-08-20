@@ -794,6 +794,7 @@ let adminToken = null;
 let adminTokenExpiry = 0;
 let topupPollInterval = null;
 let topupNilaiUntukDisalin = null;
+let topupIdAktif = null;
 let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
@@ -3430,7 +3431,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
   <div style="background:#0d0b10;border:1px solid rgba(41,98,255,0.35);border-radius:18px;padding:30px 24px;width:85%;max-width:320px;text-align:center;box-shadow:0 0 50px rgba(41,98,255,0.15);">
     <div style="font-size:44px;margin-bottom:14px;">💳</div>
     <div style="font-size:12px;font-weight:900;color:#4a9eff;letter-spacing:2px;margin-bottom:12px;">BELI CRYPTO</div>
-    <div style="font-family:'Rajdhani',sans-serif;font-size:13px;color:#a89880;line-height:1.6;margin-bottom:20px;">
+    <div style="font-size:13px;color:#a89880;line-height:1.6;margin-bottom:20px;">
       Fitur Beli Crypto dengan Rupiah sedang dalam proses aktivasi. Tim kami sedang menyelesaikan verifikasi akhir. Pantau terus update kami!
     </div>
     <button onclick="document.getElementById('transakComingSoon').style.display='none'"
@@ -3452,9 +3453,6 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 
     <!-- STEP 1: form input nominal -->
     <div id="topupStepForm">
-      <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.5;">
-        Top up USDT langsung ke wallet kamu pakai QRIS. Minimal <b id="topupMinLabel">Rp50.000</b>, maksimal <b id="topupMaxLabel">Rp100.000</b> per permintaan.
-      </div>
       <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">NOMINAL (RP)</div>
       <input id="topupInputNominal" type="number" placeholder="Contoh: 100000"
         style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:14px;margin-bottom:10px;">
@@ -3474,7 +3472,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
         <button onclick="topupSalinNominal()" id="topupBtnSalin" title="Salin nominal"
           style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--muted2);font-size:10px;cursor:pointer;">📋</button>
       </div>
-      <div style="font-family:'Rajdhani',sans-serif;font-size:10px;color:var(--red);margin-bottom:16px;">⚠️ Harus PERSIS, termasuk 3 digit terakhir (kode unik) — jangan dibulatkan.</div>
+      <div style="font-size:10px;color:var(--red);margin-bottom:16px;">⚠️ Harus PERSIS, termasuk 3 digit terakhir (kode unik) — jangan dibulatkan.</div>
 
       <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:left;font-size:11px;color:var(--muted2);margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Nominal top up</span><span id="topupRingkasNominal" style="color:var(--text);"></span></div>
@@ -3482,9 +3480,14 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
         <div style="display:flex;justify-content:space-between;"><span>USDT diterima</span><span id="topupRingkasUsdt" style="color:var(--green);font-weight:700;"></span></div>
       </div>
 
-      <div id="topupStatusMenunggu" style="font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted);margin-bottom:14px;">
+      <div id="topupStatusMenunggu" style="font-size:11px;color:var(--muted);margin-bottom:14px;">
         ⏳ Menunggu konfirmasi — otomatis update di sini setelah pembayaran dicek. Berlaku 30 menit.
       </div>
+
+      <button onclick="topupBatalkanPermintaan()" id="topupBtnBatal"
+        style="width:100%;padding:10px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:10px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-bottom:8px;">
+        ❌ BATALKAN PERMINTAAN
+      </button>
 
       <button onclick="topupCloseModal()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--muted2);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
         TUTUP (tetap diproses di belakang layar)
@@ -3495,7 +3498,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
     <div id="topupStepSukses" style="display:none;text-align:center;">
       <div style="font-size:44px;margin-bottom:10px;">✅</div>
       <div style="font-size:13px;font-weight:900;color:var(--green);margin-bottom:10px;">USDT SUDAH MASUK!</div>
-      <div id="topupSuksesDetail" style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--muted2);margin-bottom:18px;"></div>
+      <div id="topupSuksesDetail" style="font-size:12px;color:var(--muted2);margin-bottom:18px;"></div>
       <button onclick="topupCloseModal();location.reload();" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;">
         OKE, LIHAT SALDO
       </button>
@@ -3662,11 +3665,11 @@ async function topupResetForm(){
   document.getElementById('topupStepSukses').style.display = 'none';
   document.getElementById('topupInputNominal').value = '';
   document.getElementById('topupFormError').style.display = 'none';
+  const btnBatal = document.getElementById('topupBtnBatal');
+  btnBatal.disabled = false; btnBatal.textContent = '❌ BATALKAN PERMINTAAN'; btnBatal.style.display = 'block';
   try{
     const res = await fetch(API_BASE + '/api/topup/settings');
     const data = await res.json();
-    document.getElementById('topupMinLabel').textContent = 'Rp' + data.minRupiah.toLocaleString('id-ID');
-    document.getElementById('topupMaxLabel').textContent = 'Rp' + data.maxRupiah.toLocaleString('id-ID');
     document.getElementById('topupInputNominal').min = data.minRupiah;
     document.getElementById('topupInputNominal').max = data.maxRupiah;
   }catch(err){
@@ -3751,6 +3754,7 @@ async function topupBuatPermintaan(){
     document.getElementById('topupRingkasFee').textContent = topupFormatRupiah(data.feeRupiah);
     document.getElementById('topupRingkasUsdt').textContent = data.usdtAmount.toFixed(4) + ' USDT';
 
+    topupIdAktif = data.topupId;
     topupMulaiPolling(data.topupId);
   }catch(err){
     console.error('Gagal buat permintaan top up:', err);
@@ -3758,6 +3762,35 @@ async function topupBuatPermintaan(){
     errEl.style.display = 'block';
   }finally{
     btn.disabled = false; btn.textContent = 'BUAT PERMINTAAN';
+  }
+}
+
+async function topupBatalkanPermintaan(){
+  if(!topupIdAktif) return;
+  if(!confirm('Batalkan permintaan top up ini? Kamu bisa buat permintaan baru setelahnya.')) return;
+
+  const btn = document.getElementById('topupBtnBatal');
+  btn.disabled = true; btn.textContent = 'MEMBATALKAN...';
+
+  try{
+    const res = await fetch(API_BASE + '/api/topup/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userAddress, topupId: topupIdAktif }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || 'Gagal membatalkan permintaan.');
+      btn.disabled = false; btn.textContent = '❌ BATALKAN PERMINTAAN';
+      return;
+    }
+    if(topupPollInterval){ clearInterval(topupPollInterval); topupPollInterval = null; }
+    topupIdAktif = null;
+    topupResetForm();
+  }catch(err){
+    console.error('Gagal batalkan top up:', err);
+    alert('Terjadi kesalahan jaringan. Coba lagi.');
+    btn.disabled = false; btn.textContent = '❌ BATALKAN PERMINTAAN';
   }
 }
 
@@ -3771,14 +3804,17 @@ function topupMulaiPolling(topupId){
 
       if(data.status === 'SUKSES'){
         clearInterval(topupPollInterval); topupPollInterval = null;
+        topupIdAktif = null;
         document.getElementById('topupStepQris').style.display = 'none';
         document.getElementById('topupStepSukses').style.display = 'block';
         document.getElementById('topupSuksesDetail').textContent =
           data.usdt_amount.toFixed(4) + ' USDT sudah dikirim ke wallet kamu.';
       } else if(data.status === 'EXPIRED'){
         clearInterval(topupPollInterval); topupPollInterval = null;
+        topupIdAktif = null;
         document.getElementById('topupStatusMenunggu').innerHTML =
           '<span style="color:var(--red);">⌛ Permintaan sudah kedaluwarsa (lewat 30 menit). Tutup dan buat permintaan baru.</span>';
+        document.getElementById('topupBtnBatal').style.display = 'none';
       }
     }catch(err){
       console.warn('Gagal polling status top up:', err);
