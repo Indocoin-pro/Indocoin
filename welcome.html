@@ -1054,6 +1054,20 @@ async function connectWallet(){
     setMsg('Wallet terhubung. Masukkan jumlah USDT.','var(--gold2)');
     const actBtn = document.getElementById('btnAction');
     if(actBtn) actBtn.disabled = false;
+
+    // ── Cek allowance USDT yang udah ada — skip tahap approve kalau udah pernah approve ──
+    try{
+      const existingAllowance = await _usdt.allowance(_wallet, SC.WELCOME);
+      if(existingAllowance && existingAllowance.gt(0)){
+        _stakeStage = 'stake';
+        if(actBtn) actBtn.textContent = 'STAKE SEKARANG';
+        setMsg('Wallet terhubung. Allowance USDT udah aktif — langsung bisa Stake!','var(--gold2)');
+      } else {
+        _stakeStage = 'approve';
+        if(actBtn) actBtn.textContent = '① APPROVE & STAKE';
+      }
+    }catch(e){ console.warn('Cek allowance gagal (non-critical):', e); }
+
     // Update tombol OPEN → alamat wallet
     const wBtn = document.getElementById('walletBtn');
     if(wBtn) wBtn.innerHTML = shortAddr(_wallet);
