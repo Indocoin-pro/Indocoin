@@ -681,21 +681,19 @@ app.post('/api/topup/request', async (req, res) => {
       percobaan++;
     } while (db.kodeUnikSudahDipakai(nominal, kodeUnik) && percobaan < 50);
 
-    // Kode unik 3 digit langsung DITAMBAHKAN ke nominal yang diminta,
-    // supaya angka yang harus ditransfer selalu unik dan gampang
-    // dicocokkan ke mutasi bank. Fee & jumlah USDT tetap dihitung dari
-    // nominal ASLI yang diminta user (bukan totalBayar) — selisih
-    // beberapa ratus rupiah dari kode unik itu murni penanda, bukan
-    // nilai top up tambahan.
+    // Kode unik 3 digit DITAMBAHKAN ke nominal yang diminta, supaya
+    // angka yang harus ditransfer selalu unik dan gampang dicocokkan ke
+    // mutasi bank.
+    //
+    // MODEL FEE: biaya admin ditambahkan DI ATAS nominal yang diminta
+    // (surcharge), BUKAN dipotong dari dalamnya. Jadi user transfer
+    // nominal + fee + kode unik, dan menerima USDT senilai PENUH
+    // nominal yang mereka minta — bukan dikurangi fee lagi. Biaya admin
+    // sepenuhnya jadi pendapatan platform, terpisah dari nilai top up.
     const feeRupiah = db.cariFeeUntukNominal(nominal);
-    const nominalSetelahFee = nominal - feeRupiah;
-    if (nominalSetelahFee <= 0) {
-      return res.status(400).json({ error: 'Nominal terlalu kecil setelah dipotong biaya' });
-    }
-
     const kurs = await ambilKursUsdtIdrServer();
-    const usdtAmount = nominalSetelahFee / kurs;
-    const totalBayar = nominal + Number(kodeUnik);
+    const usdtAmount = nominal / kurs;
+    const totalBayar = nominal + feeRupiah + Number(kodeUnik);
 
     const topupId = ethers.keccak256(ethers.toUtf8Bytes(`${wallet.toLowerCase()}-${nominal}-${kodeUnik}-${Date.now()}`));
 
@@ -705,7 +703,7 @@ app.post('/api/topup/request', async (req, res) => {
       topupId,
       nominalDiminta: nominal,
       kodeUnik,
-      totalBayar,   // <- ini yang ditampilkan & harus ditransfer persis oleh user
+      totalBayar,   // <- ini yang ditampilkan & harus ditransfer persis oleh user (sudah termasuk fee)
       feeRupiah,
       usdtAmount,
       kurs,
