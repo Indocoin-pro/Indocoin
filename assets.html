@@ -795,6 +795,7 @@ let adminTokenExpiry = 0;
 let topupPollInterval = null;
 let topupNilaiUntukDisalin = null;
 let topupIdAktif = null;
+let topupCountdownInterval = null;
 let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
@@ -3443,7 +3444,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 
 <!-- ══ MODAL TOP UP USDT (Rupiah/QRIS) ══ -->
 <div id="topupModal" onclick="if(event.target===this)document.getElementById('topupModal').style.display='none'"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;padding:16px;">
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;padding:16px;">
   <div style="background:#0d0b10;border:1px solid var(--border);border-radius:18px;padding:24px 20px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;">
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -3481,7 +3482,8 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
       </div>
 
       <div id="topupStatusMenunggu" style="font-size:11px;color:var(--muted);margin-bottom:14px;">
-        ⏳ Menunggu konfirmasi — otomatis update di sini setelah pembayaran dicek. Berlaku 30 menit.
+        ⏳ Menunggu konfirmasi — otomatis update di sini setelah terkonfirmasi.<br>
+        (Waktu hitung mundur berjalan <span id="topupCountdown" style="color:var(--gold3);font-weight:700;">00:30:00</span>)
       </div>
 
       <button onclick="topupBatalkanPermintaan()" id="topupBtnBatal"
@@ -3509,7 +3511,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 
 <!-- ══ MODAL ADMIN — KELOLA TOP UP (hanya Dev Wallet) ══ -->
 <div id="topupAdminModal" onclick="if(event.target===this)document.getElementById('topupAdminModal').style.display='none'"
-  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;padding:12px;">
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;padding:12px;">
   <div style="background:#0d0b10;border:1px solid var(--gold);border-radius:18px;padding:20px 16px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;">
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -3755,6 +3757,7 @@ async function topupBuatPermintaan(){
     document.getElementById('topupRingkasUsdt').textContent = data.usdtAmount.toFixed(4) + ' USDT';
 
     topupIdAktif = data.topupId;
+    topupMulaiCountdown(Date.now());
     topupMulaiPolling(data.topupId);
   }catch(err){
     console.error('Gagal buat permintaan top up:', err);
@@ -3763,6 +3766,37 @@ async function topupBuatPermintaan(){
   }finally{
     btn.disabled = false; btn.textContent = 'BUAT PERMINTAAN';
   }
+}
+
+function topupFormatWaktu(detikSisa){
+  const jam = Math.floor(detikSisa / 3600);
+  const menit = Math.floor((detikSisa % 3600) / 60);
+  const detik = detikSisa % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(jam)}:${pad(menit)}:${pad(detik)}`;
+}
+
+function topupMulaiCountdown(waktuMulaiMs){
+  if(topupCountdownInterval) clearInterval(topupCountdownInterval);
+  const BATAS_DETIK = 30 * 60; // 30 menit, harus sama persis dengan batas di backend
+
+  function tick(){
+    const detikBerlalu = Math.floor((Date.now() - waktuMulaiMs) / 1000);
+    const detikSisa = BATAS_DETIK - detikBerlalu;
+    const el = document.getElementById('topupCountdown');
+    if(!el) { clearInterval(topupCountdownInterval); topupCountdownInterval = null; return; }
+
+    if(detikSisa <= 0){
+      el.textContent = '00:00:00';
+      clearInterval(topupCountdownInterval);
+      topupCountdownInterval = null;
+      return;
+    }
+    el.textContent = topupFormatWaktu(detikSisa);
+  }
+
+  tick(); // langsung tampilkan sekali, jangan nunggu 1 detik pertama
+  topupCountdownInterval = setInterval(tick, 1000);
 }
 
 async function topupBatalkanPermintaan(){
@@ -3785,6 +3819,7 @@ async function topupBatalkanPermintaan(){
       return;
     }
     if(topupPollInterval){ clearInterval(topupPollInterval); topupPollInterval = null; }
+    if(topupCountdownInterval){ clearInterval(topupCountdownInterval); topupCountdownInterval = null; }
     topupIdAktif = null;
     topupResetForm();
   }catch(err){
@@ -3804,6 +3839,7 @@ function topupMulaiPolling(topupId){
 
       if(data.status === 'SUKSES'){
         clearInterval(topupPollInterval); topupPollInterval = null;
+        if(topupCountdownInterval){ clearInterval(topupCountdownInterval); topupCountdownInterval = null; }
         topupIdAktif = null;
         document.getElementById('topupStepQris').style.display = 'none';
         document.getElementById('topupStepSukses').style.display = 'block';
@@ -3811,6 +3847,7 @@ function topupMulaiPolling(topupId){
           data.usdt_amount.toFixed(4) + ' USDT sudah dikirim ke wallet kamu.';
       } else if(data.status === 'EXPIRED'){
         clearInterval(topupPollInterval); topupPollInterval = null;
+        if(topupCountdownInterval){ clearInterval(topupCountdownInterval); topupCountdownInterval = null; }
         topupIdAktif = null;
         document.getElementById('topupStatusMenunggu').innerHTML =
           '<span style="color:var(--red);">⌛ Permintaan sudah kedaluwarsa (lewat 30 menit). Tutup dan buat permintaan baru.</span>';
