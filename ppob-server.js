@@ -637,8 +637,18 @@ app.get('/api/topup/active/:wallet', (req, res) => {
   }
 });
 
+/**
+ * Saklar sementara — sama seperti INDC_PAYMENT_ENABLED di ppob.html,
+ * ini pengaman SEBENARNYA (frontend cuma sembunyiin, ini yang beneran
+ * nolak) sambil nunggu QRIS siap. Ganti ke true kalau sudah siap buka.
+ */
+const TOPUP_FEATURE_ENABLED = false;
+
 app.post('/api/topup/request', async (req, res) => {
   try {
+    if (!TOPUP_FEATURE_ENABLED) {
+      return res.status(403).json({ error: 'Fitur ini akan segera dibuka dalam beberapa jam ke depan.' });
+    }
     const { wallet, nominalRupiah } = req.body;
     if (!wallet || !nominalRupiah) {
       return res.status(400).json({ error: 'wallet dan nominalRupiah wajib diisi' });

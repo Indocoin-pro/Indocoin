@@ -796,6 +796,11 @@ let topupPollInterval = null;
 let topupNilaiUntukDisalin = null;
 let topupIdAktif = null;
 let topupCountdownInterval = null;
+// Saklar sementara — nonaktifkan pembuatan permintaan top up baru sambil
+// nunggu QRIS jadi. Ganti ke true kapan aja begitu siap dibuka. Panel
+// admin (lihat antrian, atur fee, dll) TETAP bisa diakses walau ini
+// false — cuma pembuatan permintaan BARU yang dikunci.
+const TOPUP_FEATURE_ENABLED = false;
 let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
@@ -3509,6 +3514,20 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
   </div>
 </div>
 
+<!-- NOTICE: FITUR TOP UP BELUM DIBUKA -->
+<div id="topupBelumBukaOverlay" onclick="if(event.target===this)document.getElementById('topupBelumBukaOverlay').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#0d0b10;border:1px solid var(--gold);border-radius:18px;padding:26px 20px;width:100%;max-width:300px;text-align:center;">
+    <div style="font-size:38px;margin-bottom:12px;">⏳</div>
+    <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:900;color:var(--gold3);letter-spacing:1px;margin-bottom:10px;">TOP UP BELUM DIBUKA</div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:18px;">Fitur ini akan segera dibuka dalam beberapa jam ke depan. Pantau terus ya!</div>
+    <button onclick="document.getElementById('topupBelumBukaOverlay').style.display='none'"
+      style="width:100%;padding:11px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+      MENGERTI
+    </button>
+  </div>
+</div>
+
 <!-- ══ MODAL ADMIN — KELOLA TOP UP (hanya Dev Wallet) ══ -->
 <div id="topupAdminModal" onclick="if(event.target===this)document.getElementById('topupAdminModal').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;padding:12px;">
@@ -3739,6 +3758,10 @@ async function topupSalinNominal(){
 }
 
 async function topupBuatPermintaan(){
+  if(!TOPUP_FEATURE_ENABLED){
+    document.getElementById('topupBelumBukaOverlay').style.display = 'flex';
+    return;
+  }
   const errEl = document.getElementById('topupFormError');
   errEl.style.display = 'none';
   const nominal = parseInt(document.getElementById('topupInputNominal').value, 10);
