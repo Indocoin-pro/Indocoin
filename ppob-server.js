@@ -642,7 +642,7 @@ app.get('/api/topup/active/:wallet', (req, res) => {
  * ini pengaman SEBENARNYA (frontend cuma sembunyiin, ini yang beneran
  * nolak) sambil nunggu QRIS siap. Ganti ke true kalau sudah siap buka.
  */
-const TOPUP_FEATURE_ENABLED = true;
+const TOPUP_FEATURE_ENABLED = false;
 
 app.post('/api/topup/request', async (req, res) => {
   try {
