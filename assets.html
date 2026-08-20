@@ -3690,11 +3690,27 @@ function topupCloseModal(){
 }
 
 async function topupCekRequestAktif(){
-  // Kita tidak punya endpoint khusus "cek request aktif milik wallet X"
-  // yang publik — jadi cara paling simpel: coba POST /api/topup/request
-  // dengan nominal placeholder kalau memang belum ada input, DIHINDARI.
-  // Sebagai gantinya cukup diamkan; kalau user memang punya request
-  // aktif, dia akan lihat pesannya begitu klik "BUAT PERMINTAAN".
+  try{
+    const res = await fetch(API_BASE + '/api/topup/active/' + userAddress);
+    const data = await res.json();
+    if(!data.active) return; // tidak ada yang aktif, biarkan form kosong tampil
+
+    const r = data.active;
+    topupIdAktif = r.topup_id;
+    topupNilaiUntukDisalin = r.nominal_rupiah + Number(r.kode_unik);
+
+    document.getElementById('topupStepForm').style.display = 'none';
+    document.getElementById('topupStepQris').style.display = 'block';
+    document.getElementById('topupTotalBayar').textContent = topupFormatRupiah(topupNilaiUntukDisalin);
+    document.getElementById('topupRingkasNominal').textContent = topupFormatRupiah(r.nominal_rupiah);
+    document.getElementById('topupRingkasFee').textContent = topupFormatRupiah(r.fee_rupiah);
+    document.getElementById('topupRingkasUsdt').textContent = r.usdt_amount.toFixed(4) + ' USDT';
+
+    topupMulaiCountdown(r.created_at); // pakai waktu ASLI dibuat, bukan waktu sekarang
+    topupMulaiPolling(r.topup_id);
+  }catch(err){
+    console.warn('Gagal cek permintaan aktif:', err);
+  }
 }
 
 function topupFormatRupiah(n){

@@ -619,6 +619,24 @@ async function ambilKursUsdtIdrServer() {
  * Body: { wallet, nominalRupiah }
  * Customer minta bikin permintaan top up baru.
  */
+/**
+ * GET /api/topup/active/:wallet
+ * Cek apakah wallet ini masih punya permintaan PENDING yang aktif
+ * (belum lewat 30 menit). Dipakai frontend saat modal dibuka, supaya
+ * kalau user tutup-buka modal lagi, dia tetap diarahkan ke step QRIS +
+ * tombol Batalkan yang benar — bukan form kosong yang bikin permintaan
+ * lama jadi "tersembunyi" dan tidak bisa dibatalkan.
+ */
+app.get('/api/topup/active/:wallet', (req, res) => {
+  try {
+    const active = db.getTopupPendingAktif(req.params.wallet);
+    res.json({ active: active || null });
+  } catch (err) {
+    console.error('[server.js] Error /api/topup/active:', err);
+    res.status(500).json({ error: 'Gagal cek permintaan aktif' });
+  }
+});
+
 app.post('/api/topup/request', async (req, res) => {
   try {
     const { wallet, nominalRupiah } = req.body;
@@ -788,8 +806,13 @@ app.post('/api/admin/topup/confirm', async (req, res) => {
 
     res.json({ success: true, txHash });
   } catch (err) {
-    console.error('[server.js] Error /api/admin/topup/confirm:', err);
-    res.status(500).json({ error: err.reason || err.message || 'Gagal konfirmasi top up' });
+    // Alasan teknis ASLI (termasuk "Stok USDT vault tidak cukup" dari
+    // kontrak) sengaja HANYA dicatat di log server, TIDAK diteruskan
+    // apa adanya ke tampilan panel admin — supaya kalau layar ini
+    // ke-share/demo, tidak kelihatan seperti platform kekurangan dana.
+    // Cek log VPS (pm2 logs ppob-api) kalau perlu tau alasan pastinya.
+    console.error('[server.js] Error /api/admin/topup/confirm (alasan asli):', err.reason || err.message || err);
+    res.status(500).json({ error: 'Konfirmasi belum bisa diproses. Cek kembali beberapa saat lagi.' });
   }
 });
 
