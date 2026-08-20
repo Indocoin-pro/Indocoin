@@ -419,6 +419,185 @@ function catatPakaiIndcHariIni(wallet, orderId) {
   `).run(wallet.toLowerCase(), _tanggalHariIni(), orderId || null, Date.now());
 }
 
+// ═══════════════════════════════════════════════════════════
+// TOP UP USDT PAKAI RUPIAH/QRIS
+// ═══════════════════════════════════════════════════════════
+
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS topup_requests (
+      topup_id       TEXT PRIMARY KEY,
+      wallet_user    TEXT NOT NULL,
+      nominal_rupiah INTEGER NOT NULL,
+      kode_unik      TEXT NOT NULL,
+      fee_rupiah     INTEGER NOT NULL,
+      usdt_amount    REAL NOT NULL,
+      status         TEXT DEFAULT 'PENDING',
+      tx_hash        TEXT,
+      created_at     INTEGER NOT NULL,
+      confirmed_at   INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_topup_wallet ON topup_requests(wallet_user);
+    CREATE INDEX IF NOT EXISTS idx_topup_status ON topup_requests(status);
+
+    CREATE TABLE IF NOT EXISTS topup_fee_tiers (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      dari_rupiah  INTEGER NOT NULL,
+      sampai_rupiah INTEGER,  -- NULL berarti tak terbatas ke atas
+      fee_rupiah   INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS topup_settings (
+      kunci TEXT PRIMARY KEY,
+      nilai TEXT NOT NULL
+    );
+  `);
+
+  // Isi default HANYA kalau tabel masih benar-benar kosong (supaya tidak
+  // menimpa pengaturan yang sudah diubah admin lewat panel)
+  const jumlahTier = db.prepare('SELECT COUNT(*) as n FROM topup_fee_tiers').get().n;
+  if (jumlahTier === 0) {
+    db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)')
+      .run(50000, 100000, 5000);
+  }
+
+  const adaMin = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'min_rupiah'").get();
+  if (!adaMin) {
+    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('min_rupiah', '50000')").run();
+  }
+  const adaMax = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'max_rupiah'").get();
+  if (!adaMax) {
+    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('max_rupiah', '100000')").run();
+  }
+} catch (err) {
+  console.error('[db.js] Migrasi tabel top up gagal:', err.message);
+}
+
+function getTopupSetting(kunci) {
+  const row = db.prepare('SELECT nilai FROM topup_settings WHERE kunci = ?').get(kunci);
+  return row ? Number(row.nilai) : null;
+}
+
+function setTopupSetting(kunci, nilai) {
+  db.prepare(`
+    INSERT INTO topup_settings (kunci, nilai) VALUES (?, ?)
+    ON CONFLICT(kunci) DO UPDATE SET nilai = excluded.nilai
+  `).run(kunci, String(nilai));
+}
+
+function getTopupFeeTiers() {
+  return db.prepare('SELECT * FROM topup_fee_tiers ORDER BY dari_rupiah ASC').all();
+}
+
+function tambahTopupFeeTier(dariRupiah, sampaiRupiah, feeRupiah) {
+  db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)')
+    .run(dariRupiah, sampaiRupiah, feeRupiah);
+}
+
+function ubahTopupFeeTier(id, dariRupiah, sampaiRupiah, feeRupiah) {
+  db.prepare('UPDATE topup_fee_tiers SET dari_rupiah = ?, sampai_rupiah = ?, fee_rupiah = ? WHERE id = ?')
+    .run(dariRupiah, sampaiRupiah, feeRupiah, id);
+}
+
+function hapusTopupFeeTier(id) {
+  db.prepare('DELETE FROM topup_fee_tiers WHERE id = ?').run(id);
+}
+
+/**
+ * Cari fee yang cocok untuk nominal tertentu. Kalau tidak ada tier yang
+ * cocok persis (mis. nominal di luar semua rentang yang didefinisikan),
+ * fallback ke tier TERTINGGI supaya permintaan tidak pernah ditolak
+ * hanya gara-gara konfigurasi tier kurang lengkap.
+ */
+function cariFeeUntukNominal(nominalRupiah) {
+  const tiers = getTopupFeeTiers();
+  if (tiers.length === 0) return 0;
+  for (const t of tiers) {
+    const cocokBawah = nominalRupiah >= t.dari_rupiah;
+    const cocokAtas = t.sampai_rupiah === null || nominalRupiah <= t.sampai_rupiah;
+    if (cocokBawah && cocokAtas) return t.fee_rupiah;
+  }
+  return tiers[tiers.length - 1].fee_rupiah; // fallback: tier tertinggi
+}
+
+/**
+ * Cari 1 request PENDING yang masih aktif (belum lewat 30 menit) milik
+ * wallet ini. Dipakai untuk menegakkan aturan "1 request aktif per wallet".
+ * Request yang sudah lewat 30 menit dianggap EXPIRED di sini (lazy —
+ * ditandai expired saat dicek, bukan lewat proses terpisah yang jalan
+ * sendiri di background).
+ */
+function getTopupPendingAktif(wallet) {
+  const batasWaktu = Date.now() - 30 * 60 * 1000;
+  const row = db.prepare(`
+    SELECT * FROM topup_requests
+    WHERE wallet_user = ? AND status = 'PENDING' AND created_at > ?
+    ORDER BY created_at DESC LIMIT 1
+  `).get(wallet.toLowerCase(), batasWaktu);
+
+  // Tandai expired semua PENDING milik wallet ini yang sudah lewat waktu
+  // (bukan cuma yang barusan dicek), supaya tabel tetap bersih dari
+  // request basi setiap kali wallet ini berinteraksi lagi.
+  db.prepare(`
+    UPDATE topup_requests SET status = 'EXPIRED'
+    WHERE wallet_user = ? AND status = 'PENDING' AND created_at <= ?
+  `).run(wallet.toLowerCase(), batasWaktu);
+
+  return row || null;
+}
+
+/** Cek apakah kode unik ini sudah kepakai request PENDING lain yang
+ * masih aktif dengan nominal asli yang sama (nominal + kode unik yang
+ * sama = angka transfer yang sama, bikin bingung dicocokkan manual). */
+function kodeUnikSudahDipakai(nominalRupiah, kodeUnik) {
+  const batasWaktu = Date.now() - 30 * 60 * 1000;
+  const row = db.prepare(`
+    SELECT 1 FROM topup_requests
+    WHERE status = 'PENDING' AND created_at > ?
+      AND nominal_rupiah = ? AND kode_unik = ?
+  `).get(batasWaktu, nominalRupiah, kodeUnik);
+  return !!row;
+}
+
+function buatTopupRequest({ topupId, wallet, nominalRupiah, kodeUnik, feeRupiah, usdtAmount }) {
+  db.prepare(`
+    INSERT INTO topup_requests (topup_id, wallet_user, nominal_rupiah, kode_unik, fee_rupiah, usdt_amount, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+  `).run(topupId, wallet.toLowerCase(), nominalRupiah, kodeUnik, feeRupiah, usdtAmount, Date.now());
+}
+
+function getTopupRequest(topupId) {
+  return db.prepare('SELECT * FROM topup_requests WHERE topup_id = ?').get(topupId);
+}
+
+/** Riwayat top up milik 1 wallet, SEMUA status — dipakai riwayat.html.
+ * Sekalian tandai yang sudah lewat 30 menit sebagai EXPIRED dulu, biar
+ * status yang ditampilkan selalu akurat, bukan basi. */
+function getTopupHistoryByWallet(wallet) {
+  const batasWaktu = Date.now() - 30 * 60 * 1000;
+  db.prepare(`UPDATE topup_requests SET status = 'EXPIRED' WHERE status = 'PENDING' AND created_at <= ? AND wallet_user = ?`)
+    .run(batasWaktu, wallet.toLowerCase());
+  return db.prepare('SELECT * FROM topup_requests WHERE wallet_user = ? ORDER BY created_at DESC')
+    .all(wallet.toLowerCase());
+}
+
+/** Daftar antrian untuk panel admin — otomatis membersihkan status
+ * expired dulu sebelum ditampilkan, supaya admin tidak lihat request
+ * basi yang sebenarnya sudah lewat waktu. */
+function getTopupPendingList() {
+  const batasWaktu = Date.now() - 30 * 60 * 1000;
+  db.prepare(`UPDATE topup_requests SET status = 'EXPIRED' WHERE status = 'PENDING' AND created_at <= ?`)
+    .run(batasWaktu);
+  return db.prepare(`SELECT * FROM topup_requests WHERE status = 'PENDING' ORDER BY created_at ASC`).all();
+}
+
+function tandaiTopupSukses(topupId, txHash) {
+  db.prepare(`
+    UPDATE topup_requests SET status = 'SUKSES', tx_hash = ?, confirmed_at = ?
+    WHERE topup_id = ?
+  `).run(txHash, Date.now(), topupId);
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -440,5 +619,19 @@ module.exports = {
   getInquiry,
   sudahPakaiIndcHariIni,
   catatPakaiIndcHariIni,
+  getTopupSetting,
+  setTopupSetting,
+  getTopupFeeTiers,
+  tambahTopupFeeTier,
+  ubahTopupFeeTier,
+  hapusTopupFeeTier,
+  cariFeeUntukNominal,
+  getTopupPendingAktif,
+  kodeUnikSudahDipakai,
+  buatTopupRequest,
+  getTopupRequest,
+  getTopupHistoryByWallet,
+  getTopupPendingList,
+  tandaiTopupSukses,
   nonaktifkanProdukHilang,
 };

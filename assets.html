@@ -194,7 +194,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     </div>
 
     <!-- BELI CRYPTO TRANSAK -->
-    <button onclick="openTransak()" style="width:100%;padding:13px 14px;margin-bottom:14px;background:linear-gradient(135deg,#0d2250,#1a3a8f);border:1px solid rgba(41,98,255,0.35);border-radius:12px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+    <button onclick="openTransak()" style="width:100%;padding:13px 14px;margin-bottom:8px;background:linear-gradient(135deg,#0d2250,#1a3a8f);border:1px solid rgba(41,98,255,0.35);border-radius:12px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
       <span style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;white-space:nowrap;">💳 BELI CRYPTO</span>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         <img src="https://indocoin.id/bri.svg" height="14" style="object-fit:contain;border-radius:3px;" onerror="this.outerHTML='<span style=\'background:#003d7a;color:#fff;font-size:7px;font-weight:700;padding:2px 5px;border-radius:3px;\'>BRI</span>'">
@@ -203,6 +203,13 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
         <img src="https://indocoin.id/gopay.svg" height="14" style="object-fit:contain;border-radius:3px;" onerror="this.outerHTML='<span style=\'background:#00AED6;color:#fff;font-size:7px;font-weight:700;padding:2px 5px;border-radius:3px;\'>GoPay</span>'">
         <img src="https://indocoin.id/qris.png" height="14" style="object-fit:contain;border-radius:3px;" onerror="this.outerHTML='<span style=\'background:#E2001A;color:#fff;font-size:7px;font-weight:700;padding:2px 5px;border-radius:3px;\'>QRIS</span>'">
       </div>
+    </button>
+
+    <!-- Tombol Admin Top Up — HANYA muncul kalau connect wallet Dev,
+         disembunyikan default lewat inline style, ditampilkan oleh
+         topupOnWalletReady() -->
+    <button id="btnAdminTopUp" onclick="bukaAdminTopUp()" style="display:none;width:100%;padding:9px 14px;margin-bottom:14px;background:var(--bg3);border:1px solid var(--gold);border-radius:10px;color:var(--gold3);cursor:pointer;align-items:center;justify-content:center;gap:6px;font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:1px;">
+      ⚙️ KELOLA TOP UP (ADMIN)
     </button>
 
     <!-- ══ SWAP & BRIDGE ══ -->
@@ -675,7 +682,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <a href="dashboard.html" class="bnav-item"><span class="bnav-icon">🏠</span><span class="bnav-label">HOME</span></a>
   <a href="earn.html" class="bnav-item active"><span class="bnav-icon">💰</span><span class="bnav-label">EARN</span></a>
   <a href="referral.html" class="bnav-item"><span class="bnav-icon">🌐</span><span class="bnav-label">REFERRAL</span></a>
-  <a href="welcome.html" class="bnav-item"><span class="bnav-icon"><svg width="20" height="19" viewBox="0 0 28 26" fill="none"><rect x="4" y="4" width="20" height="22" rx="1" stroke="#c8922a" stroke-width="1.8" fill="none"/><path d="M4 10 Q14 2 24 10" stroke="#c8922a" stroke-width="1.8" fill="none"/><rect x="6" y="11" width="7" height="13" rx="1" stroke="rgba(200,146,42,0.6)" stroke-width="1" fill="rgba(200,146,42,0.07)"/><rect x="15" y="11" width="7" height="13" rx="1" stroke="rgba(200,146,42,0.6)" stroke-width="1" fill="rgba(200,146,42,0.07)"/><line x1="14" y1="10" x2="14" y2="26" stroke="#c8922a" stroke-width="1"/><circle cx="12" cy="18" r="1.2" fill="#f5c842"/><circle cx="16" cy="18" r="1.2" fill="#f5c842"/><circle cx="14" cy="6" r="2" fill="none" stroke="#f5c842" stroke-width="1"/><circle cx="14" cy="6" r="0.8" fill="#f5c842"/></svg></span><span class="bnav-label">WELCOME</span></a>
+  <a href="presale.html" class="bnav-item"><span class="bnav-icon">🚀</span><span class="bnav-label">PRESALE</span></a>
   <a href="community.html" class="bnav-item"><span class="bnav-icon">💬</span><span class="bnav-label">COMMUNITY</span></a>
 </nav>
 
@@ -781,6 +788,12 @@ const ERC20_ABI = [
 ];
 
 let provider, signer, userAddress;
+const API_BASE = 'https://ppob-api.indocoin.id';
+const DEV_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc';
+let adminToken = null;
+let adminTokenExpiry = 0;
+let topupPollInterval = null;
+let topupNilaiUntukDisalin = null;
 let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
@@ -807,6 +820,7 @@ async function connectWallet() {
     swapLoadTokens();
     showConnected();
     setTimeout(aapInit, 500);
+    topupOnWalletReady();
   } catch(e) { alert("Gagal connect: " + (e.message||e)); }
 }
 
@@ -1342,6 +1356,7 @@ window.addEventListener("load", async () => {
         await loadWalletData();
         swapLoadTokens();
         showConnected();
+        topupOnWalletReady();
         return;
       }
     } catch(e) {}
@@ -2301,8 +2316,12 @@ window.addEventListener('load', () => setTimeout(aapInit, 1500));
 <!-- TRANSAK WIDGET -->
 <script>
 function openTransak() {
-  const popup = document.getElementById('transakComingSoon');
-  if(popup) popup.style.display = 'flex';
+  if(!userAddress){
+    alert('Hubungkan wallet dulu sebelum top up.');
+    return;
+  }
+  document.getElementById('topupModal').style.display = 'flex';
+  topupResetForm();
 }
 </script>
 
@@ -3405,7 +3424,7 @@ document.addEventListener('walletConnected', loadSniperVaultInfo);
 setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 </script>
 
-<!-- POPUP BELI CRYPTO -->
+<!-- POPUP BELI CRYPTO (lama, dibiarkan, sudah tidak dipanggil) -->
 <div id="transakComingSoon" onclick="if(event.target===this)this.style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;">
   <div style="background:#0d0b10;border:1px solid rgba(41,98,255,0.35);border-radius:18px;padding:30px 24px;width:85%;max-width:320px;text-align:center;box-shadow:0 0 50px rgba(41,98,255,0.15);">
@@ -3420,6 +3439,113 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
     </button>
   </div>
 </div>
+
+<!-- ══ MODAL TOP UP USDT (Rupiah/QRIS) ══ -->
+<div id="topupModal" onclick="if(event.target===this)document.getElementById('topupModal').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;padding:16px;">
+  <div style="background:#0d0b10;border:1px solid var(--border);border-radius:18px;padding:24px 20px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:900;color:var(--gold3);letter-spacing:2px;">💳 TOP UP USDT</div>
+      <span onclick="topupCloseModal()" style="cursor:pointer;color:var(--muted);font-size:18px;">✕</span>
+    </div>
+
+    <!-- STEP 1: form input nominal -->
+    <div id="topupStepForm">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.5;">
+        Top up USDT langsung ke wallet kamu pakai QRIS. Minimal <b id="topupMinLabel">Rp50.000</b>, maksimal <b id="topupMaxLabel">Rp100.000</b> per permintaan.
+      </div>
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">NOMINAL (RP)</div>
+      <input id="topupInputNominal" type="number" placeholder="Contoh: 100000"
+        style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:14px;margin-bottom:10px;">
+      <div id="topupFormError" style="color:var(--red);font-size:10px;margin-bottom:10px;display:none;"></div>
+      <button id="topupBtnBuat" onclick="topupBuatPermintaan()"
+        style="width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+        BUAT PERMINTAAN
+      </button>
+    </div>
+
+    <!-- STEP 2: QRIS + kode unik, menunggu konfirmasi -->
+    <div id="topupStepQris" style="display:none;text-align:center;">
+      <img src="https://indocoin.id/qris.png" style="width:100%;max-width:220px;border-radius:10px;margin:0 auto 14px;display:block;background:#fff;padding:8px;" alt="QRIS INDOCOIN">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;">TRANSFER TEPAT SEJUMLAH</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
+        <div id="topupTotalBayar" style="font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--gold3);"></div>
+        <button onclick="topupSalinNominal()" id="topupBtnSalin" title="Salin nominal"
+          style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--muted2);font-size:10px;cursor:pointer;">📋</button>
+      </div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:10px;color:var(--red);margin-bottom:16px;">⚠️ Harus PERSIS, termasuk 3 digit terakhir (kode unik) — jangan dibulatkan.</div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:left;font-size:11px;color:var(--muted2);margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Nominal top up</span><span id="topupRingkasNominal" style="color:var(--text);"></span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Biaya admin</span><span id="topupRingkasFee" style="color:var(--text);"></span></div>
+        <div style="display:flex;justify-content:space-between;"><span>USDT diterima</span><span id="topupRingkasUsdt" style="color:var(--green);font-weight:700;"></span></div>
+      </div>
+
+      <div id="topupStatusMenunggu" style="font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--muted);margin-bottom:14px;">
+        ⏳ Menunggu konfirmasi — otomatis update di sini setelah pembayaran dicek. Berlaku 30 menit.
+      </div>
+
+      <button onclick="topupCloseModal()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--muted2);font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+        TUTUP (tetap diproses di belakang layar)
+      </button>
+    </div>
+
+    <!-- STEP 3: sukses -->
+    <div id="topupStepSukses" style="display:none;text-align:center;">
+      <div style="font-size:44px;margin-bottom:10px;">✅</div>
+      <div style="font-size:13px;font-weight:900;color:var(--green);margin-bottom:10px;">USDT SUDAH MASUK!</div>
+      <div id="topupSuksesDetail" style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--muted2);margin-bottom:18px;"></div>
+      <button onclick="topupCloseModal();location.reload();" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;border-radius:10px;color:#000;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+        OKE, LIHAT SALDO
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL ADMIN — KELOLA TOP UP (hanya Dev Wallet) ══ -->
+<div id="topupAdminModal" onclick="if(event.target===this)document.getElementById('topupAdminModal').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;padding:12px;">
+  <div style="background:#0d0b10;border:1px solid var(--gold);border-radius:18px;padding:20px 16px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:900;color:var(--gold3);letter-spacing:1px;">⚙️ ADMIN TOP UP</div>
+      <span onclick="document.getElementById('topupAdminModal').style.display='none'" style="cursor:pointer;color:var(--muted);font-size:18px;">✕</span>
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--muted2);display:flex;justify-content:space-between;">
+      <span>Saldo Vault USDT</span>
+      <span id="topupAdminVaultBalance" style="color:var(--gold3);font-weight:700;">memuat...</span>
+    </div>
+
+    <!-- Antrian pending -->
+    <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ANTRIAN MENUNGGU KONFIRMASI</div>
+    <div id="topupAdminAntrian" style="margin-bottom:18px;"></div>
+
+    <!-- Pengaturan min/max -->
+    <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">BATAS NOMINAL (RP)</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input id="topupAdminMin" type="number" placeholder="Min" style="flex:1;padding:9px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;">
+      <input id="topupAdminMax" type="number" placeholder="Max" style="flex:1;padding:9px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;">
+      <button onclick="topupAdminSimpanSettings()" style="padding:9px 14px;background:var(--gold);border:none;border-radius:8px;color:#000;font-size:10px;font-weight:700;cursor:pointer;">SIMPAN</button>
+    </div>
+    <div id="topupAdminSettingsMsg" style="font-size:10px;margin-bottom:16px;"></div>
+
+    <!-- Fee tiers -->
+    <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">BIAYA PER RENTANG NOMINAL</div>
+    <div id="topupAdminFeeTiers" style="margin-bottom:10px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      <input id="topupAdminTierDari" type="number" placeholder="Dari" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:10px;">
+      <input id="topupAdminTierSampai" type="number" placeholder="Sampai (kosongin=tak terbatas)" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:10px;">
+      <input id="topupAdminTierFee" type="number" placeholder="Fee" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:10px;">
+      <button onclick="topupAdminTambahTier()" style="padding:8px 12px;background:var(--green);border:none;border-radius:6px;color:#000;font-size:10px;font-weight:700;cursor:pointer;">+</button>
+    </div>
+
+  </div>
+</div>
+
+
 
 <!-- CC FULLSCREEN OVERLAY -->
 <div id="ccFullscreen" style="display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;">
@@ -3526,6 +3652,352 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
         <button onclick="closeSavingsWithdrawModal()" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Orbitron',sans-serif;font-size:9px;cursor:pointer;">BATAL</button>
       </div>
     </div>
+
+<!-- ══ TOP UP USDT — SCRIPT ══ -->
+<script>
+// ── Customer: buka/tutup modal ──
+async function topupResetForm(){
+  document.getElementById('topupStepForm').style.display = 'block';
+  document.getElementById('topupStepQris').style.display = 'none';
+  document.getElementById('topupStepSukses').style.display = 'none';
+  document.getElementById('topupInputNominal').value = '';
+  document.getElementById('topupFormError').style.display = 'none';
+  try{
+    const res = await fetch(API_BASE + '/api/topup/settings');
+    const data = await res.json();
+    document.getElementById('topupMinLabel').textContent = 'Rp' + data.minRupiah.toLocaleString('id-ID');
+    document.getElementById('topupMaxLabel').textContent = 'Rp' + data.maxRupiah.toLocaleString('id-ID');
+    document.getElementById('topupInputNominal').min = data.minRupiah;
+    document.getElementById('topupInputNominal').max = data.maxRupiah;
+  }catch(err){
+    console.warn('Gagal ambil batas top up:', err);
+  }
+
+  // Kalau ternyata wallet ini masih punya request PENDING aktif (misal
+  // user tutup modal terus buka lagi), langsung tampilkan step QRIS-nya
+  // lagi, jangan biarkan dia bikin request baru dan kena error 409.
+  topupCekRequestAktif();
+}
+
+function topupCloseModal(){
+  document.getElementById('topupModal').style.display = 'none';
+  if(topupPollInterval){ clearInterval(topupPollInterval); topupPollInterval = null; }
+}
+
+async function topupCekRequestAktif(){
+  // Kita tidak punya endpoint khusus "cek request aktif milik wallet X"
+  // yang publik — jadi cara paling simpel: coba POST /api/topup/request
+  // dengan nominal placeholder kalau memang belum ada input, DIHINDARI.
+  // Sebagai gantinya cukup diamkan; kalau user memang punya request
+  // aktif, dia akan lihat pesannya begitu klik "BUAT PERMINTAAN".
+}
+
+function topupFormatRupiah(n){
+  return 'Rp' + Number(n).toLocaleString('id-ID');
+}
+
+async function topupSalinNominal(){
+  if(topupNilaiUntukDisalin === null) return;
+  const btn = document.getElementById('topupBtnSalin');
+  try{
+    await navigator.clipboard.writeText(String(topupNilaiUntukDisalin));
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = '📋'; }, 1500);
+  }catch(err){
+    // Beberapa browser dalam-app (mis. wallet browser) kadang tidak
+    // dukung Clipboard API. HINDARI dialog native (prompt/alert) untuk
+    // fallback-nya — browser wallet tertentu pernah macet total gara-
+    // gara itu (lihat insiden alert() sebelumnya). Solusi aman: ganti
+    // teks tombolnya sendiri jadi nominal yang bisa di-tap-hold & salin
+    // manual dari situ.
+    console.warn('Clipboard API gagal, pakai fallback tampilan teks:', err);
+    btn.textContent = String(topupNilaiUntukDisalin);
+    btn.style.userSelect = 'all';
+    setTimeout(() => { btn.textContent = '📋'; }, 4000);
+  }
+}
+
+async function topupBuatPermintaan(){
+  const errEl = document.getElementById('topupFormError');
+  errEl.style.display = 'none';
+  const nominal = parseInt(document.getElementById('topupInputNominal').value, 10);
+  if(!nominal || nominal <= 0){
+    errEl.textContent = 'Masukkan nominal yang valid.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('topupBtnBuat');
+  btn.disabled = true; btn.textContent = 'MEMPROSES...';
+
+  try{
+    const res = await fetch(API_BASE + '/api/topup/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userAddress, nominalRupiah: nominal }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      errEl.textContent = data.error || 'Gagal membuat permintaan.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('topupStepForm').style.display = 'none';
+    document.getElementById('topupStepQris').style.display = 'block';
+    document.getElementById('topupTotalBayar').textContent = topupFormatRupiah(data.totalBayar);
+    topupNilaiUntukDisalin = data.totalBayar;
+    document.getElementById('topupRingkasNominal').textContent = topupFormatRupiah(data.nominalDiminta);
+    document.getElementById('topupRingkasFee').textContent = topupFormatRupiah(data.feeRupiah);
+    document.getElementById('topupRingkasUsdt').textContent = data.usdtAmount.toFixed(4) + ' USDT';
+
+    topupMulaiPolling(data.topupId);
+  }catch(err){
+    console.error('Gagal buat permintaan top up:', err);
+    errEl.textContent = 'Terjadi kesalahan jaringan. Coba lagi.';
+    errEl.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'BUAT PERMINTAAN';
+  }
+}
+
+function topupMulaiPolling(topupId){
+  if(topupPollInterval) clearInterval(topupPollInterval);
+  topupPollInterval = setInterval(async () => {
+    try{
+      const res = await fetch(API_BASE + '/api/topup/status/' + topupId);
+      if(!res.ok) return;
+      const data = await res.json();
+
+      if(data.status === 'SUKSES'){
+        clearInterval(topupPollInterval); topupPollInterval = null;
+        document.getElementById('topupStepQris').style.display = 'none';
+        document.getElementById('topupStepSukses').style.display = 'block';
+        document.getElementById('topupSuksesDetail').textContent =
+          data.usdt_amount.toFixed(4) + ' USDT sudah dikirim ke wallet kamu.';
+      } else if(data.status === 'EXPIRED'){
+        clearInterval(topupPollInterval); topupPollInterval = null;
+        document.getElementById('topupStatusMenunggu').innerHTML =
+          '<span style="color:var(--red);">⌛ Permintaan sudah kedaluwarsa (lewat 30 menit). Tutup dan buat permintaan baru.</span>';
+      }
+    }catch(err){
+      console.warn('Gagal polling status top up:', err);
+    }
+  }, 5000);
+}
+
+// ── Admin: kelola top up ──
+async function topupPastikanSesiAdmin(){
+  const sesiMasihValid = adminToken && Date.now() < adminTokenExpiry;
+  if(sesiMasihValid) return true;
+  try{
+    const message = `INDOCOIN Admin Login\ntimestamp:${Date.now()}`;
+    const signature = await signer.signMessage(message);
+    const res = await fetch(API_BASE + '/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userAddress, message, signature }),
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Gagal login admin.');
+      return false;
+    }
+    const data = await res.json();
+    adminToken = data.token;
+    adminTokenExpiry = data.expiresAt;
+    return true;
+  }catch(err){
+    console.error('Gagal tanda tangan admin:', err);
+    return false;
+  }
+}
+
+async function bukaAdminTopUp(){
+  if(!userAddress || userAddress.toLowerCase() !== DEV_WALLET.toLowerCase()){
+    alert('Fitur ini khusus Dev.');
+    return;
+  }
+  const ok = await topupPastikanSesiAdmin();
+  if(!ok) return;
+  document.getElementById('topupAdminModal').style.display = 'flex';
+  topupAdminMuatSemua();
+}
+
+async function topupAdminMuatSemua(){
+  await Promise.all([
+    topupAdminMuatVaultBalance(),
+    topupAdminMuatAntrian(),
+    topupAdminMuatSettings(),
+    topupAdminMuatFeeTiers(),
+  ]);
+}
+
+async function topupAdminMuatVaultBalance(){
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/vault-balance?token=' + adminToken);
+    const data = await res.json();
+    document.getElementById('topupAdminVaultBalance').textContent = res.ok ? data.balance.toFixed(2) + ' USDT' : '-';
+  }catch(err){
+    document.getElementById('topupAdminVaultBalance').textContent = 'gagal muat';
+  }
+}
+
+async function topupAdminMuatAntrian(){
+  const el = document.getElementById('topupAdminAntrian');
+  el.innerHTML = '<div style="font-size:10px;color:var(--muted);">Memuat...</div>';
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/pending?token=' + adminToken);
+    const data = await res.json();
+    if(!data.pending || data.pending.length === 0){
+      el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:12px;">Tidak ada antrian.</div>';
+      return;
+    }
+    el.innerHTML = data.pending.map(r => `
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:10px;">
+        <div style="color:var(--muted2);word-break:break-all;">${r.wallet_user}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span style="color:var(--gold3);font-weight:700;">${topupFormatRupiah(r.nominal_rupiah + Number(r.kode_unik))}</span>
+          <span style="color:var(--green);">${r.usdt_amount.toFixed(4)} USDT</span>
+        </div>
+        <button onclick="topupAdminKonfirmasi('${r.topup_id}', this)" style="width:100%;margin-top:8px;padding:8px;background:var(--green);border:none;border-radius:6px;color:#000;font-weight:700;font-size:10px;cursor:pointer;">KONFIRMASI SUDAH BAYAR</button>
+      </div>`).join('');
+  }catch(err){
+    el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat antrian.</div>';
+  }
+}
+
+async function topupAdminKonfirmasi(topupId, btn){
+  if(!confirm('Yakin pembayaran ini sudah masuk ke rekening? USDT akan langsung dikirim ke wallet user.')) return;
+  btn.disabled = true; btn.textContent = 'MEMPROSES...';
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, topupId }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || 'Gagal konfirmasi.');
+      btn.disabled = false; btn.textContent = 'KONFIRMASI SUDAH BAYAR';
+      return;
+    }
+    alert('Berhasil! Tx: ' + data.txHash);
+    topupAdminMuatSemua();
+  }catch(err){
+    alert('Gagal konfirmasi: ' + err.message);
+    btn.disabled = false; btn.textContent = 'KONFIRMASI SUDAH BAYAR';
+  }
+}
+
+async function topupAdminMuatSettings(){
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/settings?token=' + adminToken);
+    const data = await res.json();
+    document.getElementById('topupAdminMin').value = data.minRupiah;
+    document.getElementById('topupAdminMax').value = data.maxRupiah;
+  }catch(err){
+    console.warn('Gagal muat settings top up:', err);
+  }
+}
+
+async function topupAdminSimpanSettings(){
+  const msgEl = document.getElementById('topupAdminSettingsMsg');
+  const min = parseInt(document.getElementById('topupAdminMin').value, 10);
+  const max = parseInt(document.getElementById('topupAdminMax').value, 10);
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, minRupiah: min, maxRupiah: max }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      msgEl.style.color = 'var(--red)';
+      msgEl.textContent = data.error || 'Gagal simpan.';
+      return;
+    }
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = 'Tersimpan.';
+  }catch(err){
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Gagal simpan: ' + err.message;
+  }
+}
+
+async function topupAdminMuatFeeTiers(){
+  const el = document.getElementById('topupAdminFeeTiers');
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/fee-tiers?token=' + adminToken);
+    const data = await res.json();
+    if(!data.tiers || data.tiers.length === 0){
+      el.innerHTML = '<div style="font-size:10px;color:var(--muted);">Belum ada rentang fee.</div>';
+      return;
+    }
+    el.innerHTML = data.tiers.map(t => `
+      <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px;margin-bottom:6px;font-size:10px;">
+        <span style="flex:1;color:var(--text);">${topupFormatRupiah(t.dari_rupiah)} – ${t.sampai_rupiah ? topupFormatRupiah(t.sampai_rupiah) : 'tak terbatas'}</span>
+        <span style="color:var(--gold3);font-weight:700;">${topupFormatRupiah(t.fee_rupiah)}</span>
+        <span onclick="topupAdminHapusTier(${t.id})" style="color:var(--red);cursor:pointer;padding:0 4px;">✕</span>
+      </div>`).join('');
+  }catch(err){
+    el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat fee tiers.</div>';
+  }
+}
+
+async function topupAdminTambahTier(){
+  const dari = parseInt(document.getElementById('topupAdminTierDari').value, 10);
+  const sampaiRaw = document.getElementById('topupAdminTierSampai').value.trim();
+  const sampai = sampaiRaw === '' ? null : parseInt(sampaiRaw, 10);
+  const fee = parseInt(document.getElementById('topupAdminTierFee').value, 10);
+  if(!dari || !fee){ alert('Isi minimal "Dari" dan "Fee".'); return; }
+
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/fee-tiers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, action: 'tambah', dariRupiah: dari, sampaiRupiah: sampai, feeRupiah: fee }),
+    });
+    const data = await res.json();
+    if(!res.ok){ alert(data.error || 'Gagal tambah.'); return; }
+    document.getElementById('topupAdminTierDari').value = '';
+    document.getElementById('topupAdminTierSampai').value = '';
+    document.getElementById('topupAdminTierFee').value = '';
+    topupAdminMuatFeeTiers();
+  }catch(err){
+    alert('Gagal tambah tier: ' + err.message);
+  }
+}
+
+async function topupAdminHapusTier(id){
+  if(!confirm('Hapus rentang fee ini?')) return;
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/fee-tiers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, action: 'hapus', id }),
+    });
+    if(!res.ok){ const d = await res.json(); alert(d.error || 'Gagal hapus.'); return; }
+    topupAdminMuatFeeTiers();
+  }catch(err){
+    alert('Gagal hapus tier: ' + err.message);
+  }
+}
+
+// ── Dipanggil langsung dari connectWallet() & auto-connect (BUKAN lewat
+// event 'walletConnected' — event itu ternyata tidak pernah di-dispatch
+// di manapun pada file ini, jadi tidak reliable) ──
+function topupOnWalletReady(){
+  const params = new URLSearchParams(location.search);
+  if(params.get('buka') === 'topup'){
+    setTimeout(openTransak, 300);
+  }
+  if(userAddress && userAddress.toLowerCase() === DEV_WALLET.toLowerCase()){
+    const btn = document.getElementById('btnAdminTopUp');
+    if(btn) btn.style.display = 'inline-flex';
+  }
+}
+</script>
 
 </body>
 </html>

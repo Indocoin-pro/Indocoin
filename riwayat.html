@@ -29,9 +29,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .btn-connect{background:var(--gold);color:#080808;border:none;border-radius:8px;padding:6px 12px;
   font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.5px;cursor:pointer;}
 
-.filters{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:4px 12px 12px;}
+.filters{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:4px 10px 12px;}
 .chip{background:var(--bg2);border:1px solid var(--border2);color:var(--muted2);
-  border-radius:8px;padding:7px 2px;font-size:8.5px;font-family:'Orbitron',sans-serif;cursor:pointer;
+  border-radius:8px;padding:7px 1px;font-size:7.5px;font-family:'Orbitron',sans-serif;cursor:pointer;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
 .chip.active{background:var(--gold);color:#080808;border-color:var(--gold);font-weight:700;}
 
@@ -94,6 +94,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <button class="chip" data-f="Berhasil" onclick="setFilter('Berhasil')">Berhasil</button>
   <button class="chip" data-f="Gagal Terkirim" onclick="setFilter('Gagal Terkirim')">Gagal</button>
   <button class="chip" data-f="Direfund" onclick="setFilter('Direfund')">Direfund</button>
+  <button class="chip" data-f="TopUp" onclick="setFilter('TopUp')">Top Up</button>
 </div>
 
 <div id="list"><div class="loading">Hubungkan wallet untuk melihat riwayat.</div></div>
@@ -148,9 +149,28 @@ async function muatRiwayat(){
   const list = document.getElementById('list');
   list.innerHTML = '<div class="loading">Memuat riwayat...</div>';
   try{
-    const res = await fetch(API_BASE + '/api/orders/history/' + currentAddress);
-    const data = await res.json();
-    allOrders = data.orders || [];
+    const [resOrders, resTopup] = await Promise.all([
+      fetch(API_BASE + '/api/orders/history/' + currentAddress),
+      fetch(API_BASE + '/api/topup/history/' + currentAddress),
+    ]);
+    const dataOrders = await resOrders.json();
+    const dataTopup = await resTopup.json();
+
+    const ppobItems = (dataOrders.orders || []).map(o => ({ ...o, jenis: 'ppob' }));
+    const topupItems = (dataTopup.history || []).map(t => ({
+      jenis: 'topup',
+      orderId: t.topup_id,
+      createdAt: t.created_at,
+      nominalRupiah: t.nominal_rupiah,
+      kodeUnik: t.kode_unik,
+      totalBayar: t.nominal_rupiah + Number(t.kode_unik),
+      feeRupiah: t.fee_rupiah,
+      usdtAmount: t.usdt_amount,
+      status: t.status, // PENDING | SUKSES | EXPIRED
+      txHash: t.tx_hash,
+    }));
+
+    allOrders = [...ppobItems, ...topupItems].sort((a, b) => b.createdAt - a.createdAt);
     render();
   }catch(err){
     console.error('Gagal muat riwayat:', err);
@@ -158,9 +178,27 @@ async function muatRiwayat(){
   }
 }
 
+const WARNA_BADGE_TOPUP = {
+  'SUKSES': 'var(--green)',
+  'PENDING': 'var(--gold)',
+  'EXPIRED': 'var(--red)',
+};
+const LABEL_STATUS_TOPUP = {
+  'SUKSES': 'Berhasil',
+  'PENDING': 'Menunggu',
+  'EXPIRED': 'Kedaluwarsa',
+};
+
 function render(){
   const list = document.getElementById('list');
-  const orders = activeFilter === 'all' ? allOrders : allOrders.filter(o => o.status === activeFilter);
+  let orders;
+  if(activeFilter === 'all'){
+    orders = allOrders;
+  } else if(activeFilter === 'TopUp'){
+    orders = allOrders.filter(o => o.jenis === 'topup');
+  } else {
+    orders = allOrders.filter(o => o.jenis === 'ppob' && o.status === activeFilter);
+  }
 
   if(orders.length === 0){
     list.innerHTML = '<div class="empty">Belum ada riwayat pesanan pada kategori ini.</div>';
@@ -171,6 +209,36 @@ function render(){
   orders.forEach(o => { ORDER_LOOKUP[o.orderId] = o; });
 
   list.innerHTML = orders.map(o => {
+    if(o.jenis === 'topup') return renderKartuTopup(o);
+    return renderKartuPpob(o);
+  }).join('');
+}
+
+function renderKartuTopup(o){
+  const tanggal = new Date(o.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  const warna = WARNA_BADGE_TOPUP[o.status] || 'var(--muted)';
+  const label = LABEL_STATUS_TOPUP[o.status] || o.status;
+
+  const txBaris = o.txHash
+    ? `<div class="card-sn">Tx Hash: <b>${o.txHash.slice(0,10)}...${o.txHash.slice(-6)}</b></div>`
+    : '';
+
+  return `
+    <div class="card">
+      <div class="card-top">
+        <div class="card-produk">💳 Top Up USDT</div>
+        <div class="badge" style="color:${warna};background:${warna}22;">${label}</div>
+      </div>
+      <div class="card-nomor">Bayar: Rp${o.totalBayar.toLocaleString('id-ID')} (kode ${o.kodeUnik}) → ${o.usdtAmount.toFixed(4)} USDT</div>
+      ${txBaris}
+      <div class="card-bottom">
+        <div class="card-tanggal">${tanggal}</div>
+        <div class="card-harga">Rp${o.nominalRupiah.toLocaleString('id-ID')}</div>
+      </div>
+    </div>`;
+}
+
+function renderKartuPpob(o){
     const tanggal = new Date(o.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const hargaTampil = o.harga != null ? 'Rp' + Number(o.harga).toLocaleString('id-ID') : '-';
     const warna = WARNA_BADGE[o.status] || 'var(--muted)';
@@ -210,7 +278,6 @@ function render(){
         ${tombolRefund}
         ${tombolShare}
       </div>`;
-  }).join('');
 }
 
 async function refundManual(orderId, btnEl){

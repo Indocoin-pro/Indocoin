@@ -10,6 +10,7 @@
 
 const express = require('express');
 const { ethers } = require('ethers');
+const axios = require('axios');
 require('dotenv').config();
 
 const db = require('./db');
@@ -17,6 +18,7 @@ const pricing = require('./pricing');
 const digiflazz = require('./digiflazz');
 const settle = require('./settle');
 const blockchain = require('./blockchain');
+const topup = require('./topup');
 const { encodeProductCode } = blockchain;
 
 const app = express();
@@ -591,6 +593,300 @@ app.post('/api/admin/set-harga-referensi', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/admin/set-harga-referensi:', err);
     res.status(500).json({ error: 'Gagal ubah harga referensi' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// TOP UP USDT PAKAI RUPIAH/QRIS
+// ═══════════════════════════════════════════════════════════
+
+/** Ambil kurs USDT/IDR — dihitung SERVER-SIDE (bukan percaya angka dari
+ * client), karena endpoint ini menentukan berapa USDT sungguhan yang
+ * dikirim ke wallet user. Sumbernya sama seperti yang dipakai frontend
+ * (rasio harga BNB dalam IDR vs USD), supaya konsisten. */
+async function ambilKursUsdtIdrServer() {
+  try {
+    const res = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd,idr');
+    return res.data.binancecoin.idr / res.data.binancecoin.usd;
+  } catch (err) {
+    console.warn('[server.js] Gagal ambil kurs top up, pakai fallback 16500:', err.message);
+    return 16500;
+  }
+}
+
+/**
+ * POST /api/topup/request
+ * Body: { wallet, nominalRupiah }
+ * Customer minta bikin permintaan top up baru.
+ */
+app.post('/api/topup/request', async (req, res) => {
+  try {
+    const { wallet, nominalRupiah } = req.body;
+    if (!wallet || !nominalRupiah) {
+      return res.status(400).json({ error: 'wallet dan nominalRupiah wajib diisi' });
+    }
+    const nominal = Number(nominalRupiah);
+    if (!Number.isInteger(nominal) || nominal <= 0) {
+      return res.status(400).json({ error: 'nominalRupiah tidak valid' });
+    }
+
+    const min = db.getTopupSetting('min_rupiah') || 50000;
+    const max = db.getTopupSetting('max_rupiah') || 100000;
+    if (nominal < min || nominal > max) {
+      return res.status(400).json({ error: `Nominal harus antara Rp${min.toLocaleString('id-ID')} - Rp${max.toLocaleString('id-ID')}` });
+    }
+
+    const requestAktif = db.getTopupPendingAktif(wallet);
+    if (requestAktif) {
+      return res.status(409).json({
+        error: 'Kamu masih punya permintaan top up yang aktif. Selesaikan atau tunggu itu dulu.',
+        requestAktif,
+      });
+    }
+
+    // Cari kode unik 3 digit yang belum kepakai untuk nominal yang
+    // sama, di antara request PENDING lain yang masih aktif
+    let kodeUnik;
+    let percobaan = 0;
+    do {
+      kodeUnik = String(Math.floor(Math.random() * 900) + 100); // 100-999
+      percobaan++;
+    } while (db.kodeUnikSudahDipakai(nominal, kodeUnik) && percobaan < 50);
+
+    // Kode unik 3 digit langsung DITAMBAHKAN ke nominal yang diminta,
+    // supaya angka yang harus ditransfer selalu unik dan gampang
+    // dicocokkan ke mutasi bank. Fee & jumlah USDT tetap dihitung dari
+    // nominal ASLI yang diminta user (bukan totalBayar) — selisih
+    // beberapa ratus rupiah dari kode unik itu murni penanda, bukan
+    // nilai top up tambahan.
+    const feeRupiah = db.cariFeeUntukNominal(nominal);
+    const nominalSetelahFee = nominal - feeRupiah;
+    if (nominalSetelahFee <= 0) {
+      return res.status(400).json({ error: 'Nominal terlalu kecil setelah dipotong biaya' });
+    }
+
+    const kurs = await ambilKursUsdtIdrServer();
+    const usdtAmount = nominalSetelahFee / kurs;
+    const totalBayar = nominal + Number(kodeUnik);
+
+    const topupId = ethers.keccak256(ethers.toUtf8Bytes(`${wallet.toLowerCase()}-${nominal}-${kodeUnik}-${Date.now()}`));
+
+    db.buatTopupRequest({ topupId, wallet, nominalRupiah: nominal, kodeUnik, feeRupiah, usdtAmount });
+
+    res.json({
+      topupId,
+      nominalDiminta: nominal,
+      kodeUnik,
+      totalBayar,   // <- ini yang ditampilkan & harus ditransfer persis oleh user
+      feeRupiah,
+      usdtAmount,
+      kurs,
+    });
+  } catch (err) {
+    console.error('[server.js] Error /api/topup/request:', err);
+    res.status(500).json({ error: 'Gagal membuat permintaan top up' });
+  }
+});
+
+/**
+ * GET /api/topup/status/:topupId
+ * Customer cek status permintaan top up-nya (polling dari frontend).
+ */
+/**
+ * GET /api/topup/history/:wallet
+ * Riwayat top up milik 1 wallet, SEMUA status — dipakai riwayat.html.
+ */
+app.get('/api/topup/history/:wallet', (req, res) => {
+  try {
+    const history = db.getTopupHistoryByWallet(req.params.wallet);
+    res.json({ history });
+  } catch (err) {
+    console.error('[server.js] Error /api/topup/history:', err);
+    res.status(500).json({ error: 'Gagal mengambil riwayat top up' });
+  }
+});
+
+app.get('/api/topup/status/:topupId', (req, res) => {
+  try {
+    const request = db.getTopupRequest(req.params.topupId);
+    if (!request) {
+      return res.status(404).json({ error: 'Permintaan tidak ditemukan' });
+    }
+    res.json(request);
+  } catch (err) {
+    console.error('[server.js] Error /api/topup/status:', err);
+    res.status(500).json({ error: 'Gagal mengambil status' });
+  }
+});
+
+/**
+ * GET /api/admin/topup/pending?token=...
+ * Panel admin: lihat antrian top up yang menunggu konfirmasi.
+ */
+app.get('/api/admin/topup/pending', (req, res) => {
+  try {
+    if (!cekSesiValid(req.query.token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    res.json({ pending: db.getTopupPendingList() });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/topup/pending:', err);
+    res.status(500).json({ error: 'Gagal mengambil antrian top up' });
+  }
+});
+
+/**
+ * POST /api/admin/topup/confirm
+ * Body: { token, topupId }
+ * Admin konfirmasi pembayaran Rupiah/QRIS sudah masuk (dicek manual di
+ * mutasi bank) — barulah di sini USDT benar-benar dikirim ke user.
+ */
+app.post('/api/admin/topup/confirm', async (req, res) => {
+  try {
+    const { token, topupId } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!topupId) {
+      return res.status(400).json({ error: 'topupId wajib diisi' });
+    }
+
+    const request = db.getTopupRequest(topupId);
+    if (!request) {
+      return res.status(404).json({ error: 'Permintaan tidak ditemukan' });
+    }
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ error: `Permintaan ini sudah berstatus ${request.status}, tidak bisa dikonfirmasi lagi` });
+    }
+
+    const txHash = await topup.executeTopUp(topupId, request.wallet_user, request.usdt_amount);
+    db.tandaiTopupSukses(topupId, txHash);
+
+    res.json({ success: true, txHash });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/topup/confirm:', err);
+    res.status(500).json({ error: err.reason || err.message || 'Gagal konfirmasi top up' });
+  }
+});
+
+/**
+ * GET /api/admin/topup/settings?token=...
+ * POST /api/admin/topup/settings  Body: { token, minRupiah, maxRupiah }
+ */
+/** GET /api/topup/settings — PUBLIK, customer perlu tau batas min/max
+ * sebelum mengisi form. Data ini tidak sensitif (bukan angka uang
+ * beneran, cuma batasan), jadi sengaja tidak butuh token admin. */
+app.get('/api/topup/settings', (req, res) => {
+  try {
+    res.json({
+      minRupiah: db.getTopupSetting('min_rupiah') || 50000,
+      maxRupiah: db.getTopupSetting('max_rupiah') || 100000,
+    });
+  } catch (err) {
+    console.error('[server.js] Error GET /api/topup/settings:', err);
+    res.status(500).json({ error: 'Gagal mengambil pengaturan top up' });
+  }
+});
+
+app.get('/api/admin/topup/settings', (req, res) => {
+  try {
+    if (!cekSesiValid(req.query.token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    res.json({
+      minRupiah: db.getTopupSetting('min_rupiah') || 50000,
+      maxRupiah: db.getTopupSetting('max_rupiah') || 100000,
+    });
+  } catch (err) {
+    console.error('[server.js] Error GET /api/admin/topup/settings:', err);
+    res.status(500).json({ error: 'Gagal mengambil pengaturan top up' });
+  }
+});
+
+app.post('/api/admin/topup/settings', (req, res) => {
+  try {
+    const { token, minRupiah, maxRupiah } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    const min = Number(minRupiah);
+    const max = Number(maxRupiah);
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min <= 0 || max <= min) {
+      return res.status(400).json({ error: 'minRupiah/maxRupiah tidak valid (max harus lebih besar dari min)' });
+    }
+    db.setTopupSetting('min_rupiah', min);
+    db.setTopupSetting('max_rupiah', max);
+    res.json({ success: true, minRupiah: min, maxRupiah: max });
+  } catch (err) {
+    console.error('[server.js] Error POST /api/admin/topup/settings:', err);
+    res.status(500).json({ error: 'Gagal simpan pengaturan top up' });
+  }
+});
+
+/**
+ * GET /api/admin/topup/fee-tiers?token=...
+ * POST /api/admin/topup/fee-tiers  Body: { token, action, id?, dariRupiah, sampaiRupiah, feeRupiah }
+ * action: 'tambah' | 'ubah' | 'hapus'
+ */
+app.get('/api/admin/topup/fee-tiers', (req, res) => {
+  try {
+    if (!cekSesiValid(req.query.token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    res.json({ tiers: db.getTopupFeeTiers() });
+  } catch (err) {
+    console.error('[server.js] Error GET /api/admin/topup/fee-tiers:', err);
+    res.status(500).json({ error: 'Gagal mengambil daftar fee tier' });
+  }
+});
+
+app.post('/api/admin/topup/fee-tiers', (req, res) => {
+  try {
+    const { token, action, id, dariRupiah, sampaiRupiah, feeRupiah } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+
+    if (action === 'hapus') {
+      if (!id) return res.status(400).json({ error: 'id wajib diisi untuk hapus' });
+      db.hapusTopupFeeTier(id);
+      return res.json({ success: true });
+    }
+
+    const dari = Number(dariRupiah);
+    const sampai = sampaiRupiah === null || sampaiRupiah === '' ? null : Number(sampaiRupiah);
+    const fee = Number(feeRupiah);
+    if (!Number.isInteger(dari) || dari < 0 || !Number.isInteger(fee) || fee < 0) {
+      return res.status(400).json({ error: 'dariRupiah/feeRupiah tidak valid' });
+    }
+    if (sampai !== null && (!Number.isInteger(sampai) || sampai <= dari)) {
+      return res.status(400).json({ error: 'sampaiRupiah harus lebih besar dari dariRupiah, atau dikosongkan' });
+    }
+
+    if (action === 'ubah') {
+      if (!id) return res.status(400).json({ error: 'id wajib diisi untuk ubah' });
+      db.ubahTopupFeeTier(id, dari, sampai, fee);
+    } else {
+      db.tambahTopupFeeTier(dari, sampai, fee);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[server.js] Error POST /api/admin/topup/fee-tiers:', err);
+    res.status(500).json({ error: 'Gagal simpan fee tier' });
+  }
+});
+
+/** GET /api/admin/topup/vault-balance?token=... — saldo USDT di TopUpVault */
+app.get('/api/admin/topup/vault-balance', async (req, res) => {
+  try {
+    if (!cekSesiValid(req.query.token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    const balance = await topup.getVaultBalance();
+    res.json({ balance });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/topup/vault-balance:', err);
+    res.status(500).json({ error: 'Gagal mengambil saldo vault' });
   }
 });
 
