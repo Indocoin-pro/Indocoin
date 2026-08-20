@@ -1291,8 +1291,11 @@ async function mulaiProsesBeli(){
       const allowance = await usdtContract.allowance(currentAddress, PPOB_GATEWAY_ADDR);
 
       if(allowance < totalUsdt){
-        setBuyStatus('Approve USDT di wallet...', '');
-        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, totalUsdt);
+        setBuyStatus('Approve USDT di wallet (sekali saja, pembelian berikutnya tidak perlu lagi)...', '');
+        // Approve jumlah BESAR (bukan pas-pasan sejumlah totalUsdt) —
+        // supaya sisa allowance-nya masih cukup buat pembelian
+        // berikutnya, tidak perlu approve ulang tiap kali beli.
+        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, ethers.MaxUint256);
         await txApprove.wait();
       }
 
@@ -1607,8 +1610,8 @@ async function bayarSekarangPasca(){
       const usdtContract = new ethers.Contract(USDT_ADDR, ERC20_ABI, signer);
       const allowance = await usdtContract.allowance(currentAddress, PPOB_GATEWAY_ADDR);
       if(allowance < totalUsdt){
-        setPascaStatus2('Approve USDT di wallet...', '');
-        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, totalUsdt);
+        setPascaStatus2('Approve USDT di wallet (sekali saja, pembelian berikutnya tidak perlu lagi)...', '');
+        const txApprove = await usdtContract.approve(PPOB_GATEWAY_ADDR, ethers.MaxUint256);
         await txApprove.wait();
       }
       setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
