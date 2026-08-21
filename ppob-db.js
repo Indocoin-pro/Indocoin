@@ -505,9 +505,9 @@ try {
   if (jumlahTier === 0) {
     const stmt = db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)');
     stmt.run(10000, 50000, 1000);     // Rp10rb - Rp50rb   → fee Rp1.000
-    stmt.run(50001, 100000, 2000);    // Rp50rb - Rp100rb  → fee Rp2.000
-    stmt.run(100001, 150000, 3500);   // Rp100rb - Rp150rb → fee Rp3.500
-    stmt.run(150001, 200000, 5000);   // Rp150rb - Rp200rb → fee Rp5.000
+    stmt.run(50001, 100000, 1700);    // Rp50rb - Rp100rb  → fee Rp1.700
+    stmt.run(100001, 150000, 2300);   // Rp100rb - Rp150rb → fee Rp2.300
+    stmt.run(150001, 200000, 3000);   // Rp150rb - Rp200rb → fee Rp3.000
   }
 
   const adaMin = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'min_rupiah'").get();
