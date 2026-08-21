@@ -119,9 +119,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
 .ledger{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;}
 .prow{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border2);gap:12px;position:relative;}
-.cutoff-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;}
-.cutoff-dot.cutoff-jadwal{background:var(--red);}
-.cutoff-dot.harga-lewat-batas{background:var(--red);animation:kedipMerah 1s infinite;}
+.cutoff-dot{position:absolute;top:-4px;right:-4px;font-size:12px;line-height:1;z-index:1;}
+.cutoff-dot.harga-lewat-batas{animation:kedipMerah 1s infinite;}
 @keyframes kedipMerah{0%,100%{opacity:1;}50%{opacity:0.25;}}
 .prow:last-child{border-bottom:none;}
 .prow-price{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold2);flex-shrink:0;min-width:76px;}
@@ -914,11 +913,12 @@ function renderProdukGabungan(){
   window.PRODUK_LOOKUP = {};
   produk.forEach(p => { window.PRODUK_LOOKUP[p.kodeProduk] = p; });
 
-  document.getElementById('ledger-produk').innerHTML = produk.map(p => `
+  document.getElementById('ledger-produk').innerHTML = produk.map(p => {
+    const dotHtml = PRODUK_MERAH[p.kodeProduk]
+      ? `<span class="cutoff-dot harga-lewat-batas" title="Harga seller melebihi batas max — segera atur ulang di Digiflazz">⛔</span>`
+      : (p.sedangCutOff ? `<span class="cutoff-dot cutoff-jadwal" title="Sedang cut off terjadwal dari seller">⛔</span>` : '');
+    return `
     <div class="prow">
-      ${PRODUK_MERAH[p.kodeProduk]
-        ? `<span class="cutoff-dot harga-lewat-batas" title="Harga seller melebihi batas max — segera atur ulang di Digiflazz"></span>`
-        : (p.sedangCutOff ? `<span class="cutoff-dot cutoff-jadwal" title="Sedang cut off terjadwal dari seller"></span>` : '')}
       <div>
         ${isPasca ? `
           <div class="prow-price" style="font-size:11px;">Cek Tagihan</div>
@@ -933,10 +933,14 @@ function renderProdukGabungan(){
         <div class="prow-name">${p.namaProduk}</div>
         <div class="prow-desc">${p._submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
       </div>
-      ${isPasca
-        ? `<button class="btn-beli" onclick="bukaBayarPascabayar('${p.kodeProduk}')">BAYAR</button>`
-        : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
-    </div>`).join('');
+      <div style="position:relative;">
+        ${dotHtml}
+        ${isPasca
+          ? `<button class="btn-beli" onclick="bukaBayarPascabayar('${p.kodeProduk}')">BAYAR</button>`
+          : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
+      </div>
+    </div>`;
+  }).join('');
 
   showScreen('produk'); renderBreadcrumb();
 }
