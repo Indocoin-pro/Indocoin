@@ -118,7 +118,11 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .pascabayar-note-text b{color:var(--green);}
 
 .ledger{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;}
-.prow{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border2);gap:12px;}
+.prow{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border2);gap:12px;position:relative;}
+.cutoff-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;}
+.cutoff-dot.cutoff-jadwal{background:var(--red);}
+.cutoff-dot.harga-lewat-batas{background:var(--red);animation:kedipMerah 1s infinite;}
+@keyframes kedipMerah{0%,100%{opacity:1;}50%{opacity:0.25;}}
 .prow:last-child{border-bottom:none;}
 .prow-price{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold2);flex-shrink:0;min-width:76px;}
 .prow-price-ref{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);text-decoration:line-through;min-width:76px;}
@@ -614,11 +618,22 @@ const PASCA_LOGO = {
 // Struktur asli dari /api/catalog: { kategori: { brand: [produk, ...] } }
 // Dipisah jadi pra/pasca di sini berdasarkan nama kategori "Pascabayar".
 let RAW_CATALOG = {};
+let PRODUK_MERAH = {}; // { kodeProduk: {lastError, updatedAt} } — hasil /api/produk/status-cutoff
+
+async function muatStatusCutOff(){
+  try{
+    const res = await fetch(API_BASE + '/api/produk/status-cutoff');
+    const data = await res.json();
+    PRODUK_MERAH = data.merah || {};
+  }catch(err){
+    console.warn('Gagal ambil status cut off produk:', err);
+  }
+}
 
 async function loadCatalog(){
   document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Memuat katalog...</div>';
   try{
-    const res = await fetch(API_BASE + '/api/catalog');
+    const [res] = await Promise.all([fetch(API_BASE + '/api/catalog'), muatStatusCutOff()]);
     const data = await res.json();
     // Cek eksplisit: kalau server balikin { error: "..." } (respons gagal),
     // JANGAN dianggap sebagai data katalog asli — dulu ini pernah salah
@@ -901,6 +916,9 @@ function renderProdukGabungan(){
 
   document.getElementById('ledger-produk').innerHTML = produk.map(p => `
     <div class="prow">
+      ${PRODUK_MERAH[p.kodeProduk]
+        ? `<span class="cutoff-dot harga-lewat-batas" title="Harga seller melebihi batas max — segera atur ulang di Digiflazz"></span>`
+        : (p.sedangCutOff ? `<span class="cutoff-dot cutoff-jadwal" title="Sedang cut off terjadwal dari seller"></span>` : '')}
       <div>
         ${isPasca ? `
           <div class="prow-price" style="font-size:11px;">Cek Tagihan</div>
@@ -1713,10 +1731,11 @@ function renderPanelAdmin(){
     const selisih = p.hargaJual - modal;
     const warnaSelisih = selisih < 0 ? 'var(--red)' : (selisih === 0 ? 'var(--muted)' : 'var(--green)');
     const labelSelisih = selisih < 0 ? `RUGI Rp${Math.abs(selisih).toLocaleString('id-ID')}` : `+Rp${selisih.toLocaleString('id-ID')}`;
+    const statusCutOff = PRODUK_MERAH[p.kodeProduk];
     return `
     <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div class="admin-row-info">
-        <div class="admin-row-name">${p.namaProduk}</div>
+        <div class="admin-row-name">${p.namaProduk} ${statusCutOff ? `<span style="color:var(--red);font-size:9px;font-weight:700;">🔴 HARGA MELEBIHI BATAS</span>` : ''}</div>
         <div class="admin-row-modal">Modal: Rp${modal.toLocaleString('id-ID')} · Sekarang: Rp${p.hargaJual.toLocaleString('id-ID')} · Selisih: <span style="color:${warnaSelisih};font-weight:700;">${labelSelisih}</span></div>
       </div>
       <div style="display:flex;gap:6px;">
@@ -1724,8 +1743,33 @@ function renderPanelAdmin(){
         <input class="admin-row-input" style="flex:1;width:auto;" type="number" placeholder="Harga dicoret (opsional)" id="admin-ref-${p.kodeProduk}" value="${p.hargaReferensi || ''}">
         <button class="admin-row-save" onclick="simpanHargaAdmin('${p.kodeProduk}')">SIMPAN</button>
       </div>
+      ${statusCutOff ? `<button onclick="resetCutOffAdmin('${p.kodeProduk}')" style="padding:8px;background:transparent;border:1px solid var(--green);color:var(--green);border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;">✅ TANDAI SUDAH DIPERBAIKI (HIJAU LAGI)</button>` : ''}
     </div>`;
   }).join('');
+}
+
+async function resetCutOffAdmin(kodeProduk){
+  const sesiMasihValid = adminToken && Date.now() < adminTokenExpiry;
+  if(!sesiMasihValid){
+    const berhasil = await mintaTandaTanganAdmin();
+    if(!berhasil) return;
+  }
+  try{
+    const res = await fetch(API_BASE + '/api/admin/produk/reset-cutoff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, kodeProduk }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || 'Gagal reset status.');
+      return;
+    }
+    delete PRODUK_MERAH[kodeProduk];
+    renderPanelAdmin();
+  }catch(err){
+    alert('Gagal reset status: ' + err.message);
+  }
 }
 
 async function simpanHargaAdmin(kodeProduk){

@@ -67,7 +67,7 @@ async function syncCatalog() {
     // final, cuma supaya kolom database tidak kosong.
     const hargaModal = p.price != null ? p.price : (p.admin || 0);
 
-    db.upsertProduct(p.buyer_sku_code, p.product_name, p.brand, p.category, p.type || 'Umum', p.desc || '', hargaModal, isPascabayar, sellerStatus, p.commission);
+    db.upsertProduct(p.buyer_sku_code, p.product_name, p.brand, p.category, p.type || 'Umum', p.desc || '', hargaModal, isPascabayar, sellerStatus, p.commission, p.start_cut_off, p.end_cut_off);
     count++;
     if (isPascabayar) countPascabayar++;
     kodeProdukAktif.push(p.buyer_sku_code);

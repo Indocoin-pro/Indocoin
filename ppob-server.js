@@ -402,6 +402,7 @@ app.get('/api/catalog', (req, res) => {
         hargaReferensi: p.harga_referensi || null,
         biayaAdminTambahan: p.biaya_admin_tambahan || null,
         isPascabayar: !!p.is_pascabayar,
+        sedangCutOff: db.apakahSedangCutOff(p.start_cut_off, p.end_cut_off),
       });
     }
 
@@ -942,6 +943,45 @@ app.get('/api/admin/topup/vault-balance', async (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/admin/topup/vault-balance:', err);
     res.status(500).json({ error: 'Gagal mengambil saldo vault' });
+  }
+});
+
+/**
+ * GET /api/produk/status-cutoff
+ * Publik — daftar kode produk yang lagi MERAH (cut off), dipakai
+ * frontend buat nampilin titik merah di pojok kanan atas kotak produk.
+ * Cuma balikin yang merah (produk hijau itu default, tidak dikirim).
+ */
+app.get('/api/produk/status-cutoff', (req, res) => {
+  try {
+    res.json({ merah: db.getSemuaProdukMerah() });
+  } catch (err) {
+    console.error('[server.js] Error /api/produk/status-cutoff:', err);
+    res.status(500).json({ error: 'Gagal mengambil status cut off' });
+  }
+});
+
+/**
+ * POST /api/admin/produk/reset-cutoff
+ * Body: { token, kodeProduk }
+ * Admin manual tandai produk ini balik HIJAU — dipakai kalau admin
+ * sudah yakin harga sudah dibetulkan duluan, tidak perlu nunggu ada
+ * transaksi sukses lagi buat auto-clear.
+ */
+app.post('/api/admin/produk/reset-cutoff', (req, res) => {
+  try {
+    const { token, kodeProduk } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!kodeProduk) {
+      return res.status(400).json({ error: 'kodeProduk wajib diisi' });
+    }
+    db.tandaiSuksesProdukManual(kodeProduk);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/produk/reset-cutoff:', err);
+    res.status(500).json({ error: 'Gagal reset status produk' });
   }
 });
 

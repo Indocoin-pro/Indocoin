@@ -121,6 +121,20 @@ try {
   }
 }
 
+// Jadwal cut off RESMI dari Digiflazz sendiri (field start_cut_off /
+// end_cut_off di response price-list mereka) — disimpan format "HH:MM"
+// PERSIS seperti yang Digiflazz kirim. Dipakai untuk tandai produk
+// SEBELUM ada yang sempat gagal beli, bukan reaktif seperti rc:69.
+try {
+  db.exec(`ALTER TABLE products ADD COLUMN start_cut_off TEXT;`);
+  db.exec(`ALTER TABLE products ADD COLUMN end_cut_off TEXT;`);
+  console.log('[db.js] Migrasi: kolom start_cut_off/end_cut_off ditambahkan.');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) {
+    console.error('[db.js] Migrasi cut off gagal:', err.message);
+  }
+}
+
 try {
   db.exec(`ALTER TABLE pasca_inquiries ADD COLUMN komisi_digiflazz INTEGER DEFAULT 0;`);
   console.log('[db.js] Migrasi: kolom pasca_inquiries.komisi_digiflazz ditambahkan.');
@@ -276,10 +290,10 @@ function getProduct(kodeProduk) {
  * harga_jual_manual sama sekali, supaya harga yang sudah diatur Dev
  * tidak pernah tertimpa oleh sync berkala.
  */
-function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar, sellerStatus, komisi) {
+function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar, sellerStatus, komisi, startCutOff, endCutOff) {
   db.prepare(`
-    INSERT INTO products (kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, is_pascabayar, seller_status, komisi, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO products (kode_produk, nama_produk, brand, category, type, deskripsi, harga_modal, is_pascabayar, seller_status, komisi, start_cut_off, end_cut_off, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(kode_produk) DO UPDATE SET
       nama_produk = excluded.nama_produk,
       category = excluded.category,
@@ -289,8 +303,40 @@ function upsertProduct(kodeProduk, namaProduk, brand, category, type, deskripsi,
       is_pascabayar = excluded.is_pascabayar,
       seller_status = excluded.seller_status,
       komisi = excluded.komisi,
+      start_cut_off = excluded.start_cut_off,
+      end_cut_off = excluded.end_cut_off,
       updated_at = excluded.updated_at
-  `).run(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar ? 1 : 0, sellerStatus, komisi || 0, Date.now());
+  `).run(kodeProduk, namaProduk, brand, category, type, deskripsi, hargaModal, isPascabayar ? 1 : 0, sellerStatus, komisi || 0, startCutOff || null, endCutOff || null, Date.now());
+}
+
+/**
+ * Cek apakah waktu SEKARANG (waktu server, WIB kalau VPS di-set WIB —
+ * lihat catatan di bawah) berada di dalam jendela cut off produk ini.
+ * Digiflazz kirim jam TANPA tanggal ("23:45"), dan kalau start > end
+ * artinya jendelanya MELEWATI TENGAH MALAM (mis. 23:45 → 00:15) —
+ * ditangani khusus di bawah.
+ *
+ * PENTING: ini asumsi jam server = WIB (zona waktu Digiflazz). Kalau
+ * VPS di-set UTC, hasil ini akan meleset — cek `date` di VPS kalau ragu.
+ */
+function apakahSedangCutOff(startCutOff, endCutOff) {
+  if (!startCutOff || !endCutOff || startCutOff === '00:00' && endCutOff === '00:00') return false;
+
+  const sekarang = new Date();
+  const menitSekarang = sekarang.getHours() * 60 + sekarang.getMinutes();
+
+  const [sh, sm] = startCutOff.split(':').map(Number);
+  const [eh, em] = endCutOff.split(':').map(Number);
+  const menitStart = sh * 60 + sm;
+  const menitEnd = eh * 60 + em;
+
+  if (menitStart <= menitEnd) {
+    // Jendela normal dalam 1 hari, mis. 08:00 - 09:00
+    return menitSekarang >= menitStart && menitSekarang < menitEnd;
+  } else {
+    // Jendela melewati tengah malam, mis. 23:45 - 00:15
+    return menitSekarang >= menitStart || menitSekarang < menitEnd;
+  }
 }
 
 /**
@@ -591,6 +637,58 @@ function getTopupPendingList() {
   return db.prepare(`SELECT * FROM topup_requests WHERE status = 'PENDING' ORDER BY created_at ASC`).all();
 }
 
+// ═══════════════════════════════════════════════════════════
+// TANDA CUT OFF PRODUK (harga seller lebih tinggi dari batas buyer)
+// ═══════════════════════════════════════════════════════════
+
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS product_cutoff_status (
+      kode_produk TEXT PRIMARY KEY,
+      status      TEXT NOT NULL DEFAULT 'hijau', -- 'hijau' atau 'merah'
+      last_error  TEXT,
+      updated_at  INTEGER NOT NULL
+    );
+  `);
+} catch (err) {
+  console.error('[db.js] Migrasi tabel product_cutoff_status gagal:', err.message);
+}
+
+/** Tandai produk ini MERAH (cut off) — dipanggil listener saat deteksi
+ * error rc:69 (harga seller > batas buyer). */
+function tandaiCutOff(kodeProduk, errorDetail) {
+  db.prepare(`
+    INSERT INTO product_cutoff_status (kode_produk, status, last_error, updated_at)
+    VALUES (?, 'merah', ?, ?)
+    ON CONFLICT(kode_produk) DO UPDATE SET status = 'merah', last_error = excluded.last_error, updated_at = excluded.updated_at
+  `).run(kodeProduk, errorDetail || null, Date.now());
+}
+
+/** Tandai produk ini HIJAU lagi — dipanggil otomatis begitu ada
+ * transaksi produk ini yang SUKSES (self-healing), atau manual oleh
+ * admin lewat panel kalau sudah yakin harga sudah dibetulkan duluan. */
+function tandaiSuksesProduk(kodeProduk) {
+  db.prepare(`
+    INSERT INTO product_cutoff_status (kode_produk, status, last_error, updated_at)
+    VALUES (?, 'hijau', NULL, ?)
+    ON CONFLICT(kode_produk) DO UPDATE SET status = 'hijau', last_error = NULL, updated_at = excluded.updated_at
+  `).run(kodeProduk, Date.now());
+}
+
+/** Ambil status SEMUA produk sekaligus (buat frontend, 1x fetch bukan
+ * per-produk) — cuma balikin yang statusnya MERAH, biar payload kecil
+ * (produk hijau itu default, tidak perlu dikirim satu-satu). */
+function getSemuaProdukMerah() {
+  const rows = db.prepare(`SELECT kode_produk, last_error, updated_at FROM product_cutoff_status WHERE status = 'merah'`).all();
+  const map = {};
+  rows.forEach(r => { map[r.kode_produk] = { lastError: r.last_error, updatedAt: r.updated_at }; });
+  return map;
+}
+
+function tandaiSuksesProdukManual(kodeProduk) {
+  tandaiSuksesProduk(kodeProduk);
+}
+
 function tandaiTopupSukses(topupId, txHash) {
   db.prepare(`
     UPDATE topup_requests SET status = 'SUKSES', tx_hash = ?, confirmed_at = ?
@@ -627,6 +725,7 @@ module.exports = {
   getOrderHistoryByWallet,
   getProduct,
   upsertProduct,
+  apakahSedangCutOff,
   setHargaJualManual,
   setHargaReferensi,
   setBiayaAdminTambahan,
@@ -651,6 +750,10 @@ module.exports = {
   getTopupHistoryByWallet,
   getTopupPendingList,
   tandaiTopupSukses,
+  tandaiCutOff,
+  tandaiSuksesProduk,
+  getSemuaProdukMerah,
+  tandaiSuksesProdukManual,
   batalkanTopupRequest,
   nonaktifkanProdukHilang,
 };
