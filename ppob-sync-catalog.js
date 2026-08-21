@@ -82,6 +82,12 @@ async function syncCatalog() {
 }
 
 syncCatalog().catch((err) => {
-  console.error('[sync-catalog] Gagal sync:', err.message);
+  // err.message ("Request failed with status code 400") tidak pernah
+  // menjelaskan KENAPA — alasan aslinya ada di body respons Digiflazz
+  // sendiri, sebelumnya kebuang begitu saja.
+  const detailAsli = err.response?.data
+    ? JSON.stringify(err.response.data)
+    : err.message;
+  console.error('[sync-catalog] Gagal sync:', detailAsli);
   process.exit(1);
 });
