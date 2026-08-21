@@ -503,17 +503,20 @@ try {
   // menimpa pengaturan yang sudah diubah admin lewat panel)
   const jumlahTier = db.prepare('SELECT COUNT(*) as n FROM topup_fee_tiers').get().n;
   if (jumlahTier === 0) {
-    db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)')
-      .run(50000, 100000, 5000);
+    const stmt = db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)');
+    stmt.run(10000, 50000, 1000);     // Rp10rb - Rp50rb   → fee Rp1.000
+    stmt.run(50001, 100000, 2000);    // Rp50rb - Rp100rb  → fee Rp2.000
+    stmt.run(100001, 150000, 3500);   // Rp100rb - Rp150rb → fee Rp3.500
+    stmt.run(150001, 200000, 5000);   // Rp150rb - Rp200rb → fee Rp5.000
   }
 
   const adaMin = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'min_rupiah'").get();
   if (!adaMin) {
-    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('min_rupiah', '50000')").run();
+    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('min_rupiah', '10000')").run();
   }
   const adaMax = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'max_rupiah'").get();
   if (!adaMax) {
-    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('max_rupiah', '100000')").run();
+    db.prepare("INSERT INTO topup_settings (kunci, nilai) VALUES ('max_rupiah', '200000')").run();
   }
 } catch (err) {
   console.error('[db.js] Migrasi tabel top up gagal:', err.message);
