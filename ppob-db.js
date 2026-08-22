@@ -640,6 +640,23 @@ function getTopupPendingList() {
   return db.prepare(`SELECT * FROM topup_requests WHERE status = 'PENDING' ORDER BY created_at ASC`).all();
 }
 
+/**
+ * Daftar permintaan yang sudah EXPIRED (lewat 30 menit) tapi BELUM
+ * PERNAH dikonfirmasi — dipakai tab "Kedaluwarsa" di panel admin.
+ * Ini jaring pengaman untuk kasus user transfer TELAT (uang tetap
+ * masuk ke rekening admin, cuma lewat dari jendela 30 menit sistem).
+ * Dibatasi 7 hari ke belakang saja, biar tidak numpuk selamanya kalau
+ * memang tidak pernah dikonfirmasi (kadaluarsa permanen).
+ */
+function getTopupExpiredList() {
+  const batas7Hari = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return db.prepare(`
+    SELECT * FROM topup_requests
+    WHERE status = 'EXPIRED' AND created_at > ?
+    ORDER BY created_at DESC
+  `).all(batas7Hari);
+}
+
 // ═══════════════════════════════════════════════════════════
 // TANDA CUT OFF PRODUK (harga seller lebih tinggi dari batas buyer)
 // ═══════════════════════════════════════════════════════════
@@ -752,6 +769,7 @@ module.exports = {
   getTopupRequest,
   getTopupHistoryByWallet,
   getTopupPendingList,
+  getTopupExpiredList,
   tandaiTopupSukses,
   tandaiCutOff,
   tandaiSuksesProduk,

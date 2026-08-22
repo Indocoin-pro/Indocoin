@@ -3564,6 +3564,12 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
     <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">ANTRIAN MENUNGGU KONFIRMASI</div>
     <div id="topupAdminAntrian" style="margin-bottom:18px;"></div>
 
+    <div onclick="topupAdminToggleExpired()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:8px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1px;">⚠️ KEDALUWARSA (transfer telat, belum dikonfirmasi) <span id="topupExpiredCount"></span></div>
+      <span id="topupExpiredChevron" style="color:var(--muted);font-size:10px;">▼</span>
+    </div>
+    <div id="topupAdminExpired" style="margin-bottom:18px;display:none;"></div>
+
     <!-- Pengaturan min/max -->
     <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">BATAS NOMINAL (RP)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -3962,6 +3968,7 @@ async function topupAdminMuatSemua(){
   await Promise.all([
     topupAdminMuatVaultBalance(),
     topupAdminMuatAntrian(),
+    topupAdminMuatExpired(),
     topupAdminMuatSettings(),
     topupAdminMuatFeeTiers(),
   ]);
@@ -3998,6 +4005,43 @@ async function topupAdminMuatAntrian(){
       </div>`).join('');
   }catch(err){
     el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat antrian.</div>';
+  }
+}
+
+function topupAdminToggleExpired(){
+  const el = document.getElementById('topupAdminExpired');
+  const chevron = document.getElementById('topupExpiredChevron');
+  const sedangTerbuka = el.style.display !== 'none';
+  el.style.display = sedangTerbuka ? 'none' : 'block';
+  chevron.textContent = sedangTerbuka ? '▼' : '▲';
+}
+
+async function topupAdminMuatExpired(){
+  const el = document.getElementById('topupAdminExpired');
+  el.innerHTML = '<div style="font-size:10px;color:var(--muted);">Memuat...</div>';
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/expired?token=' + adminToken);
+    const data = await res.json();
+    document.getElementById('topupExpiredCount').textContent = data.expired?.length ? `(${data.expired.length})` : '';
+    if(!data.expired || data.expired.length === 0){
+      el.innerHTML = '<div style="font-size:10px;color:var(--muted);text-align:center;padding:12px;">Tidak ada yang kedaluwarsa.</div>';
+      return;
+    }
+    el.innerHTML = data.expired.map(r => {
+      const waktu = new Date(r.created_at).toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      return `
+      <div style="background:var(--bg3);border:1px solid var(--red);border-radius:8px;padding:10px;margin-bottom:8px;font-size:10px;">
+        <div style="color:var(--muted2);word-break:break-all;">${r.wallet_user}</div>
+        <div style="color:var(--muted);margin-top:2px;">Diminta: ${waktu}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span style="color:var(--gold3);font-weight:700;">${topupFormatRupiah(r.nominal_rupiah + Number(r.kode_unik))}</span>
+          <span style="color:var(--green);">${r.usdt_amount.toFixed(4)} USDT</span>
+        </div>
+        <button onclick="topupAdminKonfirmasi('${r.topup_id}', this)" style="width:100%;margin-top:8px;padding:8px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:10px;cursor:pointer;">KONFIRMASI (CEK DULU UANG SUDAH MASUK)</button>
+      </div>`;
+    }).join('');
+  }catch(err){
+    el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat daftar kedaluwarsa.</div>';
   }
 }
 

@@ -787,6 +787,24 @@ app.get('/api/admin/topup/pending', (req, res) => {
 });
 
 /**
+ * GET /api/admin/topup/expired?token=...
+ * Jaring pengaman untuk user yang transfer TELAT (lewat 30 menit) —
+ * daftar permintaan EXPIRED yang belum pernah dikonfirmasi, masih bisa
+ * dikonfirmasi manual kalau admin cek uangnya memang sudah masuk.
+ */
+app.get('/api/admin/topup/expired', (req, res) => {
+  try {
+    if (!cekSesiValid(req.query.token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    res.json({ expired: db.getTopupExpiredList() });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/topup/expired:', err);
+    res.status(500).json({ error: 'Gagal mengambil daftar kedaluwarsa' });
+  }
+});
+
+/**
  * POST /api/admin/topup/confirm
  * Body: { token, topupId }
  * Admin konfirmasi pembayaran Rupiah/QRIS sudah masuk (dicek manual di
@@ -806,7 +824,7 @@ app.post('/api/admin/topup/confirm', async (req, res) => {
     if (!request) {
       return res.status(404).json({ error: 'Permintaan tidak ditemukan' });
     }
-    if (request.status !== 'PENDING') {
+    if (request.status !== 'PENDING' && request.status !== 'EXPIRED') {
       return res.status(400).json({ error: `Permintaan ini sudah berstatus ${request.status}, tidak bisa dikonfirmasi lagi` });
     }
 
