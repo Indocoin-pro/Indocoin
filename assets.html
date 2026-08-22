@@ -3531,6 +3531,21 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
   </div>
 </div>
 
+<!-- NOTICE: KONFIRMASI HAPUS PERMANEN (admin, expired list) -->
+<div id="topupKonfirmHapusOverlay" onclick="if(event.target===this)document.getElementById('topupKonfirmHapusOverlay').style.display='none'"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#0d0b10;border:1px solid var(--red);border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
+    <div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:8px;">Hapus permanen permintaan ini?</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:20px;">Pastikan sudah dicek mutasi bank dan yakin user memang tidak pernah transfer. Tindakan ini tidak bisa dibatalkan.</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('topupKonfirmHapusOverlay').style.display='none'"
+        style="flex:1;padding:11px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--muted2);font-size:10px;font-weight:700;cursor:pointer;">BATAL</button>
+      <button onclick="topupEksekusiHapusExpired()"
+        style="flex:1;padding:11px;background:var(--red);border:none;border-radius:10px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;">YA, HAPUS</button>
+    </div>
+  </div>
+</div>
+
 <!-- NOTICE: FITUR TOP UP BELUM DIBUKA -->
 <div id="topupBelumBukaOverlay" onclick="if(event.target===this)document.getElementById('topupBelumBukaOverlay').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
@@ -4038,10 +4053,39 @@ async function topupAdminMuatExpired(){
           <span style="color:var(--green);">${r.usdt_amount.toFixed(4)} USDT</span>
         </div>
         <button onclick="topupAdminKonfirmasi('${r.topup_id}', this)" style="width:100%;margin-top:8px;padding:8px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:10px;cursor:pointer;">KONFIRMASI (CEK DULU UANG SUDAH MASUK)</button>
+        <button onclick="topupAdminHapusExpired('${r.topup_id}', this)" style="width:100%;margin-top:6px;padding:8px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-weight:700;font-size:10px;cursor:pointer;">🗑️ HAPUS (tidak pernah transfer)</button>
       </div>`;
     }).join('');
   }catch(err){
     el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat daftar kedaluwarsa.</div>';
+  }
+}
+
+let topupIdUntukDihapus = null;
+
+function topupAdminHapusExpired(topupId, btn){
+  topupIdUntukDihapus = topupId;
+  document.getElementById('topupKonfirmHapusOverlay').style.display = 'flex';
+}
+
+async function topupEksekusiHapusExpired(){
+  document.getElementById('topupKonfirmHapusOverlay').style.display = 'none';
+  if(!topupIdUntukDihapus) return;
+  try{
+    const res = await fetch(API_BASE + '/api/admin/topup/hapus-expired', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, topupId: topupIdUntukDihapus }),
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || 'Gagal menghapus.');
+      return;
+    }
+    topupIdUntukDihapus = null;
+    topupAdminMuatExpired();
+  }catch(err){
+    alert('Gagal menghapus: ' + err.message);
   }
 }
 

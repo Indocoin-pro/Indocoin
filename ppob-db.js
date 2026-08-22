@@ -281,6 +281,56 @@ function getOrderHistoryByWallet(walletUser) {
   `).all(walletUser);
 }
 
+/**
+ * Ringkasan portofolio PERMANEN (bukan cuma 50 terakhir) — total belanja
+ * & jumlah transaksi sepanjang waktu wallet ini. HANYA menghitung order
+ * yang statusnya SUKSES — yang gagal/direfund tidak ikut terhitung
+ * karena uangnya kembali/tidak pernah benar-benar "terbelanjakan".
+ * Dipakai bagian "Portofolio Saya" di riwayat.html, di bawah 50 entri
+ * terbaru yang tampil normal.
+ */
+function getPortofolioSummary(walletUser) {
+  const row = db.prepare(`
+    SELECT
+      COUNT(*) AS total_transaksi,
+      COALESCE(SUM(COALESCE(p.harga_jual_manual, p.harga_modal, pi.total_bayar, 0)), 0) AS total_belanja,
+      MIN(om.created_at) AS sejak
+    FROM order_meta om
+    LEFT JOIN products p ON p.kode_produk = om.product_code
+    LEFT JOIN pasca_inquiries pi ON pi.order_id = om.order_id
+    WHERE om.wallet_user = ? AND om.digiflazz_status = 'Sukses'
+  `).get(walletUser);
+  return {
+    totalTransaksi: row.total_transaksi || 0,
+    totalBelanja: row.total_belanja || 0,
+    sejak: row.sejak || null,
+  };
+}
+
+/**
+ * Cari transaksi LAMA (di luar 50 terbaru) berdasarkan kata kunci nama
+ * produk atau nomor tujuan — dipakai kotak pencarian di bagian
+ * portofolio, supaya user tetap bisa menemukan transaksi spesifik dari
+ * masa lalu tanpa perlu menampilkan semua riwayat sekaligus.
+ */
+function cariRiwayatLama(walletUser, keyword) {
+  const like = `%${keyword}%`;
+  return db.prepare(`
+    SELECT
+      om.order_id, om.customer_no, om.product_code,
+      om.digiflazz_status, om.created_at,
+      p.nama_produk,
+      COALESCE(p.harga_jual_manual, p.harga_modal) AS harga_prabayar,
+      pi.total_bayar AS harga_pascabayar
+    FROM order_meta om
+    LEFT JOIN products p ON p.kode_produk = om.product_code
+    LEFT JOIN pasca_inquiries pi ON pi.order_id = om.order_id
+    WHERE om.wallet_user = ? AND (p.nama_produk LIKE ? OR om.customer_no LIKE ?)
+    ORDER BY om.created_at DESC
+    LIMIT 30
+  `).all(walletUser, like, like);
+}
+
 function getProduct(kodeProduk) {
   return db.prepare('SELECT * FROM products WHERE kode_produk = ?').get(kodeProduk);
 }
@@ -734,6 +784,22 @@ function batalkanTopupRequest(topupId, wallet) {
   return true;
 }
 
+/**
+ * Hapus PERMANEN permintaan yang sudah EXPIRED — dipakai admin setelah
+ * dipastikan manual (cek mutasi bank 2-3 hari) bahwa user memang tidak
+ * pernah transfer. Sengaja dibatasi HANYA status EXPIRED — tidak bisa
+ * dipakai menghapus PENDING/SUKSES, supaya tidak kepakai tidak sengaja
+ * menghapus transaksi yang masih aktif atau sudah selesai.
+ */
+function hapusTopupExpired(topupId) {
+  const request = getTopupRequest(topupId);
+  if (!request) return false;
+  if (request.status !== 'EXPIRED') return false;
+
+  db.prepare(`DELETE FROM topup_requests WHERE topup_id = ?`).run(topupId);
+  return true;
+}
+
 module.exports = {
   registerOrder,
   getOrderMeta,
@@ -743,6 +809,8 @@ module.exports = {
   incrementRetry,
   getPendingOrders,
   getOrderHistoryByWallet,
+  getPortofolioSummary,
+  cariRiwayatLama,
   getProduct,
   upsertProduct,
   apakahSedangCutOff,
@@ -776,5 +844,6 @@ module.exports = {
   getSemuaProdukMerah,
   tandaiSuksesProdukManual,
   batalkanTopupRequest,
+  hapusTopupExpired,
   nonaktifkanProdukHilang,
 };

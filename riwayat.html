@@ -99,6 +99,30 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
 <div id="list"><div class="loading">Hubungkan wallet untuk melihat riwayat.</div></div>
 
+<div id="portofolioSection" style="display:none;margin:16px 12px;padding:16px;background:var(--bg2);border:1px solid var(--gold);border-radius:14px;">
+  <div style="font-size:10px;color:var(--gold3);letter-spacing:1px;font-weight:700;margin-bottom:10px;">📦 PORTOFOLIO SAYA</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:11px;color:var(--muted2);">Total Belanja</span>
+    <span id="portofolioTotalBelanja" style="font-size:13px;color:var(--gold3);font-weight:700;">...</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:11px;color:var(--muted2);">Total Transaksi</span>
+    <span id="portofolioTotalTransaksi" style="font-size:13px;color:var(--text);font-weight:700;">...</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+    <span style="font-size:11px;color:var(--muted2);">Bergabung Sejak</span>
+    <span id="portofolioSejak" style="font-size:11px;color:var(--muted);">...</span>
+  </div>
+
+  <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">CARI TRANSAKSI LAMA (di luar 50 terakhir)</div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;">
+    <input id="cariLamaInput" type="text" placeholder="Nama produk atau nomor tujuan..."
+      style="flex:1;padding:9px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:11px;">
+    <button onclick="cariTransaksiLama()" style="padding:9px 14px;background:var(--gold);border:none;border-radius:8px;color:#000;font-size:10px;font-weight:700;cursor:pointer;">CARI</button>
+  </div>
+  <div id="cariLamaHasil"></div>
+</div>
+
 <div class="bukti-overlay" id="buktiOverlay">
   <div class="bukti-box">
     <img id="buktiImg" alt="Bukti transaksi">
@@ -149,12 +173,14 @@ async function muatRiwayat(){
   const list = document.getElementById('list');
   list.innerHTML = '<div class="loading">Memuat riwayat...</div>';
   try{
-    const [resOrders, resTopup] = await Promise.all([
+    const [resOrders, resTopup, resPortofolio] = await Promise.all([
       fetch(API_BASE + '/api/orders/history/' + currentAddress),
       fetch(API_BASE + '/api/topup/history/' + currentAddress),
+      fetch(API_BASE + '/api/orders/portofolio/' + currentAddress),
     ]);
     const dataOrders = await resOrders.json();
     const dataTopup = await resTopup.json();
+    const dataPortofolio = await resPortofolio.json();
 
     const ppobItems = (dataOrders.orders || []).map(o => ({ ...o, jenis: 'ppob' }));
     const topupItems = (dataTopup.history || []).map(t => ({
@@ -172,6 +198,7 @@ async function muatRiwayat(){
 
     allOrders = [...ppobItems, ...topupItems].sort((a, b) => b.createdAt - a.createdAt);
     render();
+    renderPortofolio(dataPortofolio);
   }catch(err){
     console.error('Gagal muat riwayat:', err);
     list.innerHTML = '<div class="empty" style="color:var(--red);">Gagal memuat riwayat. Tarik untuk coba lagi.</div>';
@@ -278,6 +305,44 @@ function renderKartuPpob(o){
         ${tombolRefund}
         ${tombolShare}
       </div>`;
+}
+
+function renderPortofolio(data){
+  const section = document.getElementById('portofolioSection');
+  section.style.display = 'block';
+  document.getElementById('portofolioTotalBelanja').textContent = 'Rp' + (data.totalBelanja || 0).toLocaleString('id-ID');
+  document.getElementById('portofolioTotalTransaksi').textContent = (data.totalTransaksi || 0) + ' transaksi';
+  document.getElementById('portofolioSejak').textContent = data.sejak
+    ? new Date(data.sejak).toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
+    : '-';
+}
+
+async function cariTransaksiLama(){
+  const keyword = document.getElementById('cariLamaInput').value.trim();
+  const hasilEl = document.getElementById('cariLamaHasil');
+  if(keyword.length < 2){
+    hasilEl.innerHTML = '<div style="font-size:10px;color:var(--red);margin-top:6px;">Ketik minimal 2 huruf.</div>';
+    return;
+  }
+  hasilEl.innerHTML = '<div style="font-size:10px;color:var(--muted);margin-top:6px;">Mencari...</div>';
+  try{
+    const res = await fetch(API_BASE + '/api/orders/cari-lama/' + currentAddress + '?q=' + encodeURIComponent(keyword));
+    const data = await res.json();
+    if(!data.hasil || data.hasil.length === 0){
+      hasilEl.innerHTML = '<div style="font-size:10px;color:var(--muted);margin-top:6px;">Tidak ditemukan.</div>';
+      return;
+    }
+    hasilEl.innerHTML = '<div style="margin-top:8px;">' + data.hasil.map(r => {
+      const harga = r.harga_prabayar ?? r.harga_pascabayar ?? 0;
+      const tanggal = new Date(r.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+      return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:11px;">
+        <span style="color:var(--text);">${r.nama_produk || r.product_code}<br><span style="color:var(--muted);font-size:9px;">${tanggal}</span></span>
+        <span style="color:var(--gold3);font-weight:700;">Rp${Number(harga).toLocaleString('id-ID')}</span>
+      </div>`;
+    }).join('') + '</div>';
+  }catch(err){
+    hasilEl.innerHTML = '<div style="font-size:10px;color:var(--red);margin-top:6px;">Gagal mencari.</div>';
+  }
 }
 
 async function refundManual(orderId, btnEl){

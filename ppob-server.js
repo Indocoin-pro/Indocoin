@@ -219,6 +219,43 @@ app.post('/api/orders/register', (req, res) => {
 });
 
 /** Riwayat pesanan milik 1 wallet — dipakai fitur Riwayat di frontend. */
+/**
+ * GET /api/orders/portofolio/:wallet
+ * Ringkasan permanen (total belanja & jumlah transaksi sepanjang
+ * waktu) — dipakai bagian "Portofolio Saya" di riwayat.html.
+ */
+app.get('/api/orders/portofolio/:wallet', (req, res) => {
+  try {
+    const wallet = req.params.wallet;
+    if (!wallet) {
+      return res.status(400).json({ error: 'Alamat wallet wajib diisi' });
+    }
+    res.json(db.getPortofolioSummary(wallet.toLowerCase()));
+  } catch (err) {
+    console.error('[server.js] Error /api/orders/portofolio:', err);
+    res.status(500).json({ error: 'Gagal mengambil ringkasan portofolio' });
+  }
+});
+
+/**
+ * GET /api/orders/cari-lama/:wallet?q=keyword
+ * Cari transaksi lama (di luar 50 terbaru) berdasarkan nama produk
+ * atau nomor tujuan.
+ */
+app.get('/api/orders/cari-lama/:wallet', (req, res) => {
+  try {
+    const wallet = req.params.wallet;
+    const keyword = req.query.q;
+    if (!wallet || !keyword || keyword.trim().length < 2) {
+      return res.status(400).json({ error: 'Kata kunci minimal 2 karakter' });
+    }
+    res.json({ hasil: db.cariRiwayatLama(wallet.toLowerCase(), keyword.trim()) });
+  } catch (err) {
+    console.error('[server.js] Error /api/orders/cari-lama:', err);
+    res.status(500).json({ error: 'Gagal mencari transaksi lama' });
+  }
+});
+
 app.get('/api/orders/history/:wallet', (req, res) => {
   try {
     const wallet = req.params.wallet;
@@ -801,6 +838,33 @@ app.get('/api/admin/topup/expired', (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/admin/topup/expired:', err);
     res.status(500).json({ error: 'Gagal mengambil daftar kedaluwarsa' });
+  }
+});
+
+/**
+ * POST /api/admin/topup/hapus-expired
+ * Body: { token, topupId }
+ * Hapus PERMANEN permintaan yang sudah dipastikan admin tidak pernah
+ * dibayar user (biasanya setelah 2-3 hari dicek manual). Hanya bisa
+ * dipakai untuk status EXPIRED (dijamin di db.js), bukan yang lain.
+ */
+app.post('/api/admin/topup/hapus-expired', (req, res) => {
+  try {
+    const { token, topupId } = req.body;
+    if (!cekSesiValid(token)) {
+      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
+    }
+    if (!topupId) {
+      return res.status(400).json({ error: 'topupId wajib diisi' });
+    }
+    const berhasil = db.hapusTopupExpired(topupId);
+    if (!berhasil) {
+      return res.status(400).json({ error: 'Tidak bisa dihapus — pastikan statusnya memang Kedaluwarsa.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[server.js] Error /api/admin/topup/hapus-expired:', err);
+    res.status(500).json({ error: 'Gagal menghapus permintaan' });
   }
 });
 
