@@ -25,6 +25,7 @@ const CACHE_FILES = [
   "/arbibot.html",
   "/guild.html",
   "/guruku.html",
+  "/ai-center.html",
   "/indowar.html",
   "/battle-arena.html",
   "/staking-1.html",
