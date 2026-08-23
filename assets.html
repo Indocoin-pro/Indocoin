@@ -3481,7 +3481,11 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
         <button onclick="topupSalinNominal()" id="topupBtnSalin" title="Salin nominal"
           style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--muted2);font-size:10px;cursor:pointer;display:flex;align-items:center;gap:4px;">📋 <span id="topupBtnSalinLabel">Salin</span></button>
       </div>
-      <div style="font-size:10px;color:var(--red);margin-bottom:16px;">⚠️ Harus PERSIS, termasuk 3 digit terakhir (kode unik).</div>
+      <div style="font-size:9px;font-style:italic;color:var(--red);margin-bottom:16px;line-height:1.5;text-align:left;">
+        ⚠️ Transfer harus sesuai nominal di atas secara persis, termasuk 3 digit kode unik.<br><br>
+        Kekurangan biaya administrasi akan dipotong otomatis dari USDT yang diterima, disertai denda sebesar 1x lipat biaya administrasi.<br><br>
+        Kode unik adalah identitas otomatis transaksi Anda dalam sistem kami. Ketidaksesuaian kode menyebabkan transaksi di luar jangkauan verifikasi otomatis, sehingga diproses melalui pencocokan manual oleh tim kami dan dapat memakan waktu lebih lama.
+      </div>
 
       <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:12px;text-align:left;font-size:11px;color:var(--muted2);margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Nominal top up</span><span id="topupRingkasNominal" style="color:var(--text);"></span></div>
@@ -4017,6 +4021,7 @@ async function topupAdminMuatAntrian(){
           <span style="color:var(--green);">${r.usdt_amount.toFixed(4)} USDT</span>
         </div>
         <button onclick="topupAdminKonfirmasi('${r.topup_id}', this)" style="width:100%;margin-top:8px;padding:8px;background:var(--green);border:none;border-radius:6px;color:#000;font-weight:700;font-size:10px;cursor:pointer;">KONFIRMASI SUDAH BAYAR</button>
+        <button onclick="topupAdminKonfirmasi('${r.topup_id}', this, true)" style="width:100%;margin-top:6px;padding:7px;background:transparent;border:1px solid var(--gold);color:var(--gold3);border-radius:6px;font-weight:700;font-size:9px;cursor:pointer;">⚠️ Fee Belum Termasuk (potong 2x fee dari USDT)</button>
       </div>`).join('');
   }catch(err){
     el.innerHTML = '<div style="font-size:10px;color:var(--red);">Gagal memuat antrian.</div>';
@@ -4053,6 +4058,7 @@ async function topupAdminMuatExpired(){
           <span style="color:var(--green);">${r.usdt_amount.toFixed(4)} USDT</span>
         </div>
         <button onclick="topupAdminKonfirmasi('${r.topup_id}', this)" style="width:100%;margin-top:8px;padding:8px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:10px;cursor:pointer;">KONFIRMASI (CEK DULU UANG SUDAH MASUK)</button>
+        <button onclick="topupAdminKonfirmasi('${r.topup_id}', this, true)" style="width:100%;margin-top:6px;padding:7px;background:transparent;border:1px solid var(--gold);color:var(--gold3);border-radius:6px;font-weight:700;font-size:9px;cursor:pointer;">⚠️ Fee Belum Termasuk (potong 2x fee dari USDT)</button>
         <button onclick="topupAdminHapusExpired('${r.topup_id}', this)" style="width:100%;margin-top:6px;padding:8px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-weight:700;font-size:10px;cursor:pointer;">🗑️ HAPUS (tidak pernah transfer)</button>
       </div>`;
     }).join('');
@@ -4089,26 +4095,31 @@ async function topupEksekusiHapusExpired(){
   }
 }
 
-async function topupAdminKonfirmasi(topupId, btn){
-  if(!confirm('Yakin pembayaran ini sudah masuk ke rekening? USDT akan langsung dikirim ke wallet user.')) return;
+async function topupAdminKonfirmasi(topupId, btn, potongFee){
+  const pesanKonfirmasi = potongFee
+    ? 'Yakin? User HANYA transfer sejumlah nominal top up (tanpa fee & kode unik di atasnya). USDT akan dikirim setelah dipotong 2x fee dari dalamnya (fee normal + kompensasi pencocokan manual) — bukan senilai penuh.'
+    : 'Yakin pembayaran ini sudah masuk ke rekening SESUAI nominal yang diminta (termasuk fee)? USDT akan langsung dikirim ke wallet user.';
+  if(!confirm(pesanKonfirmasi)) return;
+
+  const teksAsli = btn.textContent;
   btn.disabled = true; btn.textContent = 'MEMPROSES...';
   try{
     const res = await fetch(API_BASE + '/api/admin/topup/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: adminToken, topupId }),
+      body: JSON.stringify({ token: adminToken, topupId, potongFee: !!potongFee }),
     });
     const data = await res.json();
     if(!res.ok){
       alert(data.error || 'Gagal konfirmasi.');
-      btn.disabled = false; btn.textContent = 'KONFIRMASI SUDAH BAYAR';
+      btn.disabled = false; btn.textContent = teksAsli;
       return;
     }
-    alert('Berhasil! Tx: ' + data.txHash);
+    alert('Berhasil! USDT terkirim: ' + data.usdtAmountDikirim.toFixed(4) + ' — Tx: ' + data.txHash);
     topupAdminMuatSemua();
   }catch(err){
     alert('Gagal konfirmasi: ' + err.message);
-    btn.disabled = false; btn.textContent = 'KONFIRMASI SUDAH BAYAR';
+    btn.disabled = false; btn.textContent = teksAsli;
   }
 }
 

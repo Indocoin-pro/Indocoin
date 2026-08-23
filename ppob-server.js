@@ -710,12 +710,15 @@ app.post('/api/topup/request', async (req, res) => {
       });
     }
 
-    // Cari kode unik 3 digit yang belum kepakai untuk nominal yang
-    // sama, di antara request PENDING lain yang masih aktif
+    // Cari kode unik yang belum kepakai untuk nominal yang sama, di
+    // antara request PENDING lain yang masih aktif. Rentang SENGAJA
+    // dikecilkan (000-150, bukan 100-999) supaya user tidak salah
+    // kira kode unik ini sebagai "nilai tambahan" yang perlu mereka
+    // hitung — cukup terlihat seperti ekor kode kecil di belakang.
     let kodeUnik;
     let percobaan = 0;
     do {
-      kodeUnik = String(Math.floor(Math.random() * 900) + 100); // 100-999
+      kodeUnik = String(Math.floor(Math.random() * 151)).padStart(3, '0'); // 000-150
       percobaan++;
     } while (db.kodeUnikSudahDipakai(nominal, kodeUnik) && percobaan < 50);
 
@@ -876,7 +879,7 @@ app.post('/api/admin/topup/hapus-expired', (req, res) => {
  */
 app.post('/api/admin/topup/confirm', async (req, res) => {
   try {
-    const { token, topupId } = req.body;
+    const { token, topupId, potongFee } = req.body;
     if (!cekSesiValid(token)) {
       return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
     }
@@ -892,10 +895,26 @@ app.post('/api/admin/topup/confirm', async (req, res) => {
       return res.status(400).json({ error: `Permintaan ini sudah berstatus ${request.status}, tidak bisa dikonfirmasi lagi` });
     }
 
-    const txHash = await topup.executeTopUp(topupId, request.wallet_user, request.usdt_amount);
-    db.tandaiTopupSukses(topupId, txHash);
+    // Jalur normal: kirim USDT sesuai perhitungan awal (nominal penuh,
+    // sudah asumsi fee ditransfer terpisah di atasnya oleh user).
+    //
+    // Jalur "potong fee dari USDT": dipakai kalau user TERBUKTI hanya
+    // transfer sejumlah nominal top up saja (lupa menambahkan fee +
+    // kode unik di atasnya). Potongannya 2x fee normal — bukan cuma
+    // menutup fee yang tidak terbayar, tapi juga "kompensasi" karena
+    // tanpa kode unik, admin harus mencocokkan transaksi secara manual
+    // lewat waktu transfer. Dihitung dengan kurs yang SAMA seperti
+    // perhitungan awal (bukan kurs baru), supaya tetap konsisten.
+    let usdtAmountDikirim = request.usdt_amount;
+    if (potongFee) {
+      const potongan2x = request.fee_rupiah * 2;
+      usdtAmountDikirim = request.usdt_amount * (request.nominal_rupiah - potongan2x) / request.nominal_rupiah;
+    }
 
-    res.json({ success: true, txHash });
+    const txHash = await topup.executeTopUp(topupId, request.wallet_user, usdtAmountDikirim);
+    db.tandaiTopupSukses(topupId, txHash, potongFee ? usdtAmountDikirim : null);
+
+    res.json({ success: true, txHash, usdtAmountDikirim });
   } catch (err) {
     // Alasan teknis ASLI (termasuk "Stok USDT vault tidak cukup" dari
     // kontrak) sengaja HANYA dicatat di log server, TIDAK diteruskan
