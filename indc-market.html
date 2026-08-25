@@ -397,11 +397,11 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
           <span id="tfDropLabel">24H</span><span style="font-size:8px;">▾</span>
         </button>
         <div id="tfDropMenu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:99;overflow:hidden;min-width:80px;">
-          <div onclick="selTf('1H','1H')"   class="ct-opt">1H</div>
-          <div onclick="selTf('7H','7H')"   class="ct-opt">7H</div>
-          <div onclick="selTf('1D','1D')"   class="ct-opt">1D</div>
-          <div onclick="selTf('24H','24H')" class="ct-opt" style="color:var(--gold);font-weight:700;">✓ 24H</div>
-          <div onclick="selTf('7D','7D')"   class="ct-opt">7D</div>
+          <div id="tf-opt-1H"  onclick="selTf('1H','1H')"   class="ct-opt">1H</div>
+          <div id="tf-opt-7H"  onclick="selTf('7H','7H')"   class="ct-opt">7H</div>
+          <div id="tf-opt-1D"  onclick="selTf('1D','1D')"   class="ct-opt">1D</div>
+          <div id="tf-opt-24H" onclick="selTf('24H','24H')" class="ct-opt" style="color:var(--gold);font-weight:700;">✓ 24H</div>
+          <div id="tf-opt-7D"  onclick="selTf('7D','7D')"   class="ct-opt">7D</div>
         </div>
       </div>
 
@@ -1497,21 +1497,9 @@ function _getLine() {
     ? _chartPricePoints
     : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
   const seen = new Set();
-  const pts = src.filter(d=>d.price>0 && (d.time||0) >= CHART_START_MS).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+  return src.filter(d=>d.price>0 && (d.time||0) >= CHART_START_MS).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
     .sort((a,b)=>a.time-b.time)
     .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
-
-  // Filter jendela waktu sesuai timeframe aktif (1H = 1 jam terakhir, 24H = 24 jam terakhir, dst)
-  const lineWindowMs = {
-    '5M':5*60*1000,'15M':15*60*1000,'1H':60*60*1000,
-    '6H':6*60*60*1000,'7H':7*60*60*1000,'1D':24*60*60*1000,
-    '24H':24*60*60*1000,'7D':7*24*60*60*1000,'30D':30*24*60*60*1000
-  };
-  const winMs = lineWindowMs[_chartTf] || 60*60*1000;
-  const nowSec = Math.floor(Date.now()/1000);
-  const startSec = nowSec - Math.floor(winMs/1000);
-  const filtered = pts.filter(p => p.time >= startSec);
-  return filtered.length >= 2 ? filtered : pts;
 }
 
 function _calcEmaLw(period, data) {
@@ -1857,6 +1845,17 @@ function selectChartType(type, label) {
   document.getElementById('chartTypeLabel').textContent = label;
   document.getElementById('chartDropdown').style.display = 'none';
   switchChartType(type);
+  _updateTfMenuForType(type);
+}
+function _updateTfMenuForType(type) {
+  const isLine = (type === 'line' || type === 'area');
+  ['1H','7H','1D','7D'].forEach(tf => {
+    const el = document.getElementById('tf-opt-'+tf);
+    if (el) el.style.display = isLine ? 'none' : 'block';
+  });
+  if (isLine && _chartTf !== '24H') {
+    selTf('24H','24H');
+  }
 }
 function switchChartType(type) {
   _chartType = type;
@@ -2426,6 +2425,7 @@ window.addEventListener('load', async () => {
   fbInit();
   // Init chart TANPA render dulu — chart akan dirender setelah data siap
   _initLw();
+  _updateTfMenuForType(_chartType);
 
   // Auto-connect dulu kalau wallet sudah pernah connect
   if (window.ethereum) {
