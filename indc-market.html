@@ -1402,6 +1402,7 @@ function _getOhlc() {
   const intervalMs  = intervalSec * 1000;
 
   const MARKET_DEPLOY_MS = 1748596283000; // 30 Mei 2026
+  const CHART_START_MS   = 1780938000000; // 9 Juni 2026 00:00 WIB — data sebelum ini disembunyikan permanen (crash awal listing)
   const now = Date.now();
 
   // Kumpulkan semua titik harga nyata
@@ -1431,6 +1432,9 @@ function _getOhlc() {
 
   // 4. Harga sekarang sebagai titik terakhir
   if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: now });
+
+  // Buang data sebelum batas tanggal (permanen)
+  rawPts = rawPts.filter(d => d.time >= CHART_START_MS);
 
   // Sort dan dedupe
   rawPts.sort((a,b) => a.time - b.time);
@@ -1488,11 +1492,12 @@ function _getOhlc() {
 }
 
 function _getLine() {
+  const CHART_START_MS = 1780938000000; // 9 Juni 2026 00:00 WIB — sama dengan batas di _getOhlc
   const src = (_chartPricePoints && _chartPricePoints.length > 0)
     ? _chartPricePoints
     : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
   const seen = new Set();
-  return src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+  return src.filter(d=>d.price>0 && (d.time||0) >= CHART_START_MS).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
     .sort((a,b)=>a.time-b.time)
     .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
 }
