@@ -1501,19 +1501,17 @@ function _getLine() {
     .sort((a,b)=>a.time-b.time)
     .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
 
-  // Kelompokkan (bucket) sesuai timeframe aktif supaya granularitas Line ikut berubah seperti Candle.
-  // Ini logic terpisah, tidak memakai/mengubah apapun dari _getOhlc().
-  const lineMins = { '5M':5,'15M':15,'1H':60,'6H':360,'7H':420,'1D':1440,'24H':1440,'7D':10080,'30D':43200 };
-  const lineIntervalSec = (lineMins[_chartTf] || 60) * 60;
-  const lineBuckets = {};
-  const lineOrder = [];
-  pts.forEach(p => {
-    const key = Math.floor(p.time / lineIntervalSec) * lineIntervalSec;
-    if (!(key in lineBuckets)) lineOrder.push(key);
-    lineBuckets[key] = p.value;
-  });
-  const bucketed = lineOrder.sort((a,b)=>a-b).map(k => ({ time:k, value:lineBuckets[k] }));
-  return bucketed.length >= 2 ? bucketed : pts;
+  // Filter jendela waktu sesuai timeframe aktif (1H = 1 jam terakhir, 24H = 24 jam terakhir, dst)
+  const lineWindowMs = {
+    '5M':5*60*1000,'15M':15*60*1000,'1H':60*60*1000,
+    '6H':6*60*60*1000,'7H':7*60*60*1000,'1D':24*60*60*1000,
+    '24H':24*60*60*1000,'7D':7*24*60*60*1000,'30D':30*24*60*60*1000
+  };
+  const winMs = lineWindowMs[_chartTf] || 60*60*1000;
+  const nowSec = Math.floor(Date.now()/1000);
+  const startSec = nowSec - Math.floor(winMs/1000);
+  const filtered = pts.filter(p => p.time >= startSec);
+  return filtered.length >= 2 ? filtered : pts;
 }
 
 function _calcEmaLw(period, data) {
@@ -1558,7 +1556,10 @@ function _render() {
           _applyEma(ld);
         }
       }
-      setTimeout(_updateHLMarkers, 50);
+      setTimeout(() => {
+        if (_lwChart && targetType !== 'candle') _lwChart.timeScale().fitContent();
+        _updateHLMarkers();
+      }, 50);
       return; // tidak perlu recreate
     } catch(e) {
       // Jika gagal update → fall through ke recreate
@@ -1605,7 +1606,11 @@ function _render() {
   }
 
   _currentSeriesType = targetType;
-  _lwChart.timeScale().scrollToRealTime();
+  if (targetType === 'candle') {
+    _lwChart.timeScale().scrollToRealTime();
+  } else {
+    _lwChart.timeScale().fitContent();
+  }
 
   setTimeout(_updateHLMarkers, 50);
 }
