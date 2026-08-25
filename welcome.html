@@ -702,7 +702,7 @@ body{background:#030303;overflow:hidden;font-family:'Rajdhani',sans-serif;color:
     </div>
     <div class="input-row">
       <div class="input-wrap">
-        <input type="number" id="inpUsdt" placeholder="Jumlah USDT (Min $1)" oninput="calcStakePreview()">
+        <input type="text" inputmode="decimal" id="inpUsdt" placeholder="Jumlah USDT (Min $1)" oninput="calcStakePreview()">
         <span class="input-suffix">USDT</span>
       </div>
       <button class="btn-max" onclick="setMaxUsdt()">MAX</button>
@@ -980,7 +980,8 @@ const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 let _provider,_signer,_wallet,_welcome,_indc,_usdt,_market,_master;
 let _globalStopped = false;
 let _claimPosIdx = 0, _claimType = 0;
-let _indcPrice = 0.003; // fallback
+let _indcPrice = 0.003; // fallback — cuma dipakai kalau _priceLoaded masih false
+let _priceLoaded = false; // true cuma kalau harga BENERAN sukses kebaca dari blockchain
 
 function fmtI(v){return parseFloat(v).toLocaleString('id-ID',{maximumFractionDigits:2});}
 function fromI(v,dec){return Number(BigInt(v.toString()))/Math.pow(10,dec);}
@@ -1009,18 +1010,42 @@ function calcPreview(){
   document.getElementById('cUsdtDay').textContent = '$'+(perDay*_indcPrice).toFixed(4);
 }
 
+/* ── Baca input USDT — terima titik ATAU koma sebagai desimal ── */
+function getUsdtInput(){
+  const raw = (document.getElementById('inpUsdt').value || '').trim();
+  const normalized = raw.replace(',', '.'); // "1,1" → "1.1"
+  return parseFloat(normalized) || 0;
+}
+
 function calcStakePreview(){
-  const usdt = parseFloat(document.getElementById('inpUsdt').value)||0;
-  if(usdt <= 0 || _indcPrice <= 0){
-    document.getElementById('indcPreview').textContent    = '0 INDC';
-    document.getElementById('rewardDayPreview').textContent = '0 INDC';
+  const usdt = getUsdtInput();
+  const previewEl = document.getElementById('indcPreview');
+  const rewardEl  = document.getElementById('rewardDayPreview');
+
+  if(usdt <= 0){
+    previewEl.textContent = '0 INDC';
+    rewardEl.textContent  = '0 INDC';
     return;
   }
+
+  // Harga belum sukses kebaca dari blockchain — jangan tampilin estimasi ngasal
+  if(!_priceLoaded){
+    previewEl.textContent = 'Memuat...';
+    rewardEl.textContent  = 'Memuat...';
+    previewEl.style.color = 'var(--muted)';
+    rewardEl.style.color  = 'var(--muted)';
+    return;
+  }
+
+  // Harga udah kebaca — balikin warna emas normal
+  previewEl.style.color = '';
+  rewardEl.style.color  = '';
+
   // User dapat INDC setara 99.5% dari USDT yang dibayar
   const indc = (usdt * 0.995) / _indcPrice;
   const perDay = indc * 0.01;
-  document.getElementById('indcPreview').textContent    = fmtI(indc)+' INDC';
-  document.getElementById('rewardDayPreview').textContent = fmtI(perDay)+' INDC';
+  previewEl.textContent = fmtI(indc)+' INDC';
+  rewardEl.textContent  = fmtI(perDay)+' INDC';
 }
 
 function setMaxUsdt(){
@@ -1120,6 +1145,8 @@ async function loadContractInfo(){
       const lockedN = fromI(locked, SC.INDC_DEC);
       const priceN  = fromI(price,  18);
       _indcPrice    = priceN > 0 ? priceN : 0.003;
+      _priceLoaded  = priceN > 0;
+      calcStakePreview(); // refresh estimasi begitu harga asli udah kebaca
 
       const poolM = poolN >= 1e6 ? (poolN/1e6).toFixed(2)+'M' : poolN >= 1e3 ? (poolN/1e3).toFixed(1)+'K' : fmtI(poolN);
       document.getElementById('rewardPoolDisp').textContent  = poolM+' INDC';
@@ -1245,7 +1272,7 @@ async function handleApproveStake(){
 
 async function approveUsdt(){
   if(!_wallet){await connectWallet();return;}
-  const val = parseFloat(document.getElementById('inpUsdt').value||'0');
+  const val = getUsdtInput();
   if(!val || val <= 0){ setMsg('Masukkan jumlah USDT terlebih dahulu.','var(--red)'); return; }
   try{
     const bal = await _usdt.balanceOf(_wallet);
@@ -1276,7 +1303,7 @@ async function approveUsdt(){
 /* ── STAKE WITH USDT — 1 transaksi ── */
 async function doStakeWithUsdt(){
   if(!_wallet){await connectWallet();return;}
-  const usdtVal = parseFloat(document.getElementById('inpUsdt').value)||0;
+  const usdtVal = getUsdtInput();
   if(usdtVal < 1){setMsg('Minimum $1 USDT','var(--red)');return;}
   if(usdtVal > 1000){setMsg('Maksimum $1,000 USDT','var(--red)');return;}
 
@@ -1591,6 +1618,7 @@ window.doStakeWithUsdt      = doStakeWithUsdt;
 window.handleApproveStake   = handleApproveStake;
 window.setMaxUsdt           = setMaxUsdt;
 window.calcStakePreview     = calcStakePreview;
+window.getUsdtInput         = getUsdtInput;
 window.calcPreview          = calcPreview;
 window.switchTab            = switchTab;
 
