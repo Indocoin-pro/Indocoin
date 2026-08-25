@@ -1472,27 +1472,13 @@ function _getOhlc() {
 }
 
 function _getLine() {
-  // Sumber data sama persis dengan _getOhlc() supaya konsisten & histori scrollable penuh
-  let rawPts = [];
-
-  if (window._fbPrices && window._fbPrices.length > 0) {
-    window._fbPrices.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
-  }
-  if (_chartPricePoints && _chartPricePoints.length > 0) {
-    _chartPricePoints.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
-  }
-  if (_allHistory && _allHistory.length > 0) {
-    _allHistory.forEach(h => {
-      const price = parseFloat(ethers.formatUnits(h.price, 18));
-      if (price > 0) rawPts.push({ price, time: Number(h.timestamp) * 1000 });
-    });
-  }
-  if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: Date.now() });
-
-  rawPts.sort((a,b) => a.time - b.time);
-  rawPts = rawPts.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
-
-  return rawPts.map(d => ({ time: Math.floor(d.time/1000), value: d.price }));
+  const src = (_chartPricePoints && _chartPricePoints.length > 0)
+    ? _chartPricePoints
+    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
+  const seen = new Set();
+  return src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
+    .sort((a,b)=>a.time-b.time)
+    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
 }
 
 function _calcEmaLw(period, data) {
@@ -1537,10 +1523,7 @@ function _render() {
           _applyEma(ld);
         }
       }
-      setTimeout(() => {
-        if (_lwChart && targetType !== 'candle') _lwChart.timeScale().fitContent();
-        _updateHLMarkers();
-      }, 50);
+      setTimeout(_updateHLMarkers, 50);
       return; // tidak perlu recreate
     } catch(e) {
       // Jika gagal update → fall through ke recreate
@@ -1587,11 +1570,7 @@ function _render() {
   }
 
   _currentSeriesType = targetType;
-  if (targetType === 'candle') {
-    _lwChart.timeScale().scrollToRealTime();
-  } else {
-    _lwChart.timeScale().fitContent();
-  }
+  _lwChart.timeScale().scrollToRealTime();
 
   setTimeout(_updateHLMarkers, 50);
 }
