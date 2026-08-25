@@ -1536,7 +1536,10 @@ function _render() {
           _applyEma(ld);
         }
       }
-      setTimeout(_updateHLMarkers, 50);
+      setTimeout(() => {
+        if (_lwChart && targetType !== 'candle') _lwChart.timeScale().fitContent();
+        _updateHLMarkers();
+      }, 50);
       return; // tidak perlu recreate
     } catch(e) {
       // Jika gagal update → fall through ke recreate
@@ -1583,7 +1586,11 @@ function _render() {
   }
 
   _currentSeriesType = targetType;
-  _lwChart.timeScale().scrollToRealTime();
+  if (targetType === 'candle') {
+    _lwChart.timeScale().scrollToRealTime();
+  } else {
+    _lwChart.timeScale().fitContent();
+  }
 
   setTimeout(_updateHLMarkers, 50);
 }
