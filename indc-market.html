@@ -1472,26 +1472,27 @@ function _getOhlc() {
 }
 
 function _getLine() {
-  const src = (_chartPricePoints && _chartPricePoints.length > 0)
-    ? _chartPricePoints
-    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
-  const seen = new Set();
-  const all = src.filter(d=>d.price>0).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
-    .sort((a,b)=>a.time-b.time)
-    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
+  // Sumber data sama persis dengan _getOhlc() supaya konsisten & histori scrollable penuh
+  let rawPts = [];
 
-  // Filter hanya dalam window timeframe aktif (samakan dengan _getOhlc)
-  const tfWindowMs = {
-    '5M':5*60*1000,'15M':15*60*1000,'1H':60*60*1000,
-    '6H':6*60*60*1000,'7H':7*60*60*1000,'1D':24*60*60*1000,
-    '24H':24*60*60*1000,'7D':7*24*60*60*1000,'30D':30*24*60*60*1000
-  };
-  const windowMs = tfWindowMs[_chartTf] || 60*60*1000;
-  const nowSec = Math.floor(Date.now()/1000);
-  const startSec = nowSec - Math.floor(windowMs/1000);
-  const filtered = all.filter(d => d.time >= startSec);
-  // Jika hasil filter kosong (data lama semua), fallback tampilkan semua yang ada
-  return filtered.length >= 2 ? filtered : all;
+  if (window._fbPrices && window._fbPrices.length > 0) {
+    window._fbPrices.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
+  }
+  if (_chartPricePoints && _chartPricePoints.length > 0) {
+    _chartPricePoints.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
+  }
+  if (_allHistory && _allHistory.length > 0) {
+    _allHistory.forEach(h => {
+      const price = parseFloat(ethers.formatUnits(h.price, 18));
+      if (price > 0) rawPts.push({ price, time: Number(h.timestamp) * 1000 });
+    });
+  }
+  if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: Date.now() });
+
+  rawPts.sort((a,b) => a.time - b.time);
+  rawPts = rawPts.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
+
+  return rawPts.map(d => ({ time: Math.floor(d.time/1000), value: d.price }));
 }
 
 function _calcEmaLw(period, data) {
