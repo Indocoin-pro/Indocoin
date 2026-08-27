@@ -1493,13 +1493,27 @@ function _getOhlc() {
 
 function _getLine() {
   const CHART_START_MS = 1780938000000; // 9 Juni 2026 00:00 WIB — sama dengan batas di _getOhlc
-  const src = (_chartPricePoints && _chartPricePoints.length > 0)
-    ? _chartPricePoints
-    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
-  const seen = new Set();
-  return src.filter(d=>d.price>0 && (d.time||0) >= CHART_START_MS).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
-    .sort((a,b)=>a.time-b.time)
-    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
+  let rawPts = [];
+
+  if (window._fbPrices && window._fbPrices.length > 0) {
+    window._fbPrices.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
+  }
+  if (_chartPricePoints && _chartPricePoints.length > 0) {
+    _chartPricePoints.forEach(p => { if (p.price > 0) rawPts.push({ price: p.price, time: p.time }); });
+  }
+  if (_allHistory && _allHistory.length > 0) {
+    _allHistory.forEach(h => {
+      const price = parseFloat(ethers.formatUnits(h.price, 18));
+      if (price > 0) rawPts.push({ price, time: Number(h.timestamp) * 1000 });
+    });
+  }
+  if (_currentPrice > 0) rawPts.push({ price: _currentPrice, time: Date.now() });
+
+  rawPts = rawPts.filter(d => d.time >= CHART_START_MS);
+  rawPts.sort((a,b) => a.time - b.time);
+  rawPts = rawPts.filter((d,i,arr) => i === 0 || d.time !== arr[i-1].time);
+
+  return rawPts.map(d => ({ time: Math.floor(d.time/1000), value: d.price }));
 }
 
 function _calcEmaLw(period, data) {
