@@ -1284,6 +1284,7 @@ let _emaActive  = { 7:false, 25:false, 99:false };
 let _chartPricePoints = [];
 let _chartType  = 'area';
 let _chartTf    = '24H';
+let _forceFitOnRender = false; // true kalau render ini karena user sengaja ganti timeframe/tipe chart
 let _chartData  = { labels:[], prices:[] };
 
 const TF_ORDER  = ['5M','15M','1H','6H','1D','7H','24H','7D','30D'];
@@ -1575,7 +1576,10 @@ function _render() {
         }
       }
       setTimeout(() => {
-        if (_lwChart && targetType !== 'candle') _lwChart.timeScale().fitContent();
+        if (_lwChart && targetType !== 'candle' && _forceFitOnRender) {
+          _lwChart.timeScale().fitContent();
+        }
+        _forceFitOnRender = false;
         _updateHLMarkers();
       }, 50);
       return; // tidak perlu recreate
@@ -1701,7 +1705,22 @@ function _chartZoom(factor) {
   if (!range) return;
   const anchor = range.to; // ujung kanan (data terbaru) jadi titik jangkar tetap
   const newWidth = (range.to - range.from) * factor;
-  ts.setVisibleLogicalRange({ from: anchor - newWidth, to: anchor });
+  const target = { from: anchor - newWidth, to: anchor };
+  ts.setVisibleLogicalRange(target);
+
+  // Debug sementara: catat sebelum/sesudah biar kelihatan kalau ada yang mentok
+  const dbg = document.getElementById('debugDataOutput');
+  if (dbg) {
+    dbg.style.display = 'block';
+    const after = ts.getVisibleLogicalRange();
+    const barsInfo = (_lwSeries && _lwSeries.data) ? '' : '';
+    dbg.textContent =
+      'ZOOM factor=' + factor + '\n' +
+      'range SEBELUM: from=' + range.from.toFixed(2) + ' to=' + range.to.toFixed(2) + ' (lebar=' + (range.to-range.from).toFixed(2) + ')\n' +
+      'target diminta: from=' + target.from.toFixed(2) + ' to=' + target.to.toFixed(2) + '\n' +
+      'range SESUDAH (dibaca ulang dari chart): from=' + (after ? after.from.toFixed(2) : 'null') + ' to=' + (after ? after.to.toFixed(2) : 'null') + '\n' +
+      (after && Math.abs(after.from - range.from) < 0.01 && Math.abs(after.to - range.to) < 0.01 ? '>>> TIDAK BERUBAH (mentok/ditolak chart)' : '>>> BERUBAH NORMAL');
+  }
 }
 
 function _updateHLMarkers() {
@@ -1948,11 +1967,13 @@ function _updateTfMenuForType(type) {
 }
 function switchChartType(type) {
   _chartType = type;
+  _forceFitOnRender = true; // user sengaja ganti tipe chart, boleh fitContent
   if (_lwChart) _render();
 }
 
 function switchTf(tf, btn) {
   _chartTf = tf;
+  _forceFitOnRender = true; // user sengaja ganti timeframe, boleh fitContent
   _tfIndex = TF_ORDER.indexOf(tf);
   document.querySelectorAll('.tf:not(.ema-btn):not([id^="chartType"]):not([onclick^="tfP"]):not([onclick^="tfN"])').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
