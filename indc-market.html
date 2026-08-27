@@ -463,16 +463,6 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
       <span id="chartRangeLabel">1 Jam terakhir</span>
       <span>⛓ Onchain · Aman · Transparan</span>
     </div>
-    <button id="btnDebugData" onclick="_debugDataShape()" style="display:none;margin-top:10px;width:100%;padding:8px;font-size:10px;font-family:'Share Tech Mono',monospace;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.35);border-radius:8px;color:#c8922a;cursor:pointer;">🔍 DEBUG: Lihat Bentuk Data Mentah (sementara)</button>
-    <script>
-      if (new URLSearchParams(location.search).get('debug') === '1') {
-        document.addEventListener('DOMContentLoaded', () => {
-          const b = document.getElementById('btnDebugData');
-          if (b) b.style.display = 'block';
-        });
-      }
-    </script>
-    <div id="debugDataOutput" style="display:none;margin-top:8px;padding:10px;background:#111;color:#0f0;font-size:9px;font-family:monospace;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;"></div>
   </div>
 
   <!-- 2 KOLOM -->
@@ -1503,34 +1493,11 @@ function _getOhlc() {
 }
 
 function _getLine() {
-  const CHART_START_MS = 1780938000000; // 9 Juni 2026 00:00 WIB — sama dengan batas di _getOhlc
-
-  // Terbukti dari debug data live: window._fbPrices adalah sumber paling bersih & tebal
-  // (3675 titik, 0 duplikat, rentang Juni-Agustus). Sumber lain (_chartPricePoints, _allHistory)
-  // terbukti punya duplikat/format beda yang bikin garis patah-patah, jadi tidak dipakai lagi.
-  const src = (window._fbPrices && window._fbPrices.length > 0)
-    ? window._fbPrices
-    : (_chartPricePoints && _chartPricePoints.length > 0)
-      ? _chartPricePoints
-      : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
-
-  const filtered = src.filter(d => d.price > 0 && (d.time||0) >= CHART_START_MS);
-  filtered.sort((a,b) => a.time - b.time);
-
-  // Dedup di level DETIK (bukan milidetik) — ini yang kemarin kelewat dan bikin bentrok
-  const seenSec = new Set();
-  const out = [];
-  filtered.forEach(d => {
-    const t = Math.floor(d.time / 1000);
-    if (!seenSec.has(t)) {
-      seenSec.add(t);
-      out.push({ time: t, value: d.price });
-    } else {
-      out[out.length - 1].value = d.price; // titik terakhir di detik yang sama menang
-    }
-  });
-
-  return out;
+  // Line pakai data yang SAMA PERSIS dengan Candle (_getOhlc), cuma diambil harga
+  // penutupan (close) tiap candle untuk digambar sebagai garis. _getOhlc() sendiri
+  // tidak diubah sama sekali di sini, cuma dipanggil/dibaca.
+  const ohlc = _getOhlc();
+  return ohlc.map(c => ({ time: c.time, value: c.close }));
 }
 
 function _calcEmaLw(period, data) {
@@ -1640,64 +1607,6 @@ function _render() {
 function initChart() { _initLw(); }
 function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
 
-function _safeStringify(d) {
-  try {
-    return JSON.stringify(d, (k, v) => typeof v === 'bigint' ? (v.toString() + 'n') : v);
-  } catch(e) {
-    try {
-      const plain = {};
-      Object.keys(d).forEach(k => { plain[k] = (typeof d[k] === 'bigint') ? d[k].toString()+'n' : (typeof d[k] === 'object' ? '[object]' : d[k]); });
-      return JSON.stringify(plain);
-    } catch(e2) {
-      return '(gagal ditampilkan: ' + e.message + ')';
-    }
-  }
-}
-
-function _debugDataShape() {
-  const out = document.getElementById('debugDataOutput');
-  out.style.display = 'block';
-  let lines = [];
-  try {
-
-  function sampleInfo(name, arr, getTime) {
-    lines.push('=== ' + name + ' ===');
-    if (!arr || arr.length === 0) { lines.push('(kosong / tidak ada)'); lines.push(''); return; }
-    lines.push('Jumlah titik: ' + arr.length);
-    let times = [];
-    try { times = arr.map(getTime).filter(t => t && !isNaN(t)); } catch(e) { lines.push('(gagal baca time: ' + e.message + ')'); }
-    if (times.length === 0) { lines.push('(semua time invalid/gagal dibaca)'); lines.push(''); return; }
-    const minT = Math.min(...times), maxT = Math.max(...times);
-    lines.push('Time paling lama : ' + minT + '  (' + new Date(minT).toISOString() + ')');
-    lines.push('Time paling baru : ' + maxT + '  (' + new Date(maxT).toISOString() + ')');
-    // cek duplikat kalau dibulatkan ke detik
-    const seconds = times.map(t => Math.floor(t/1000));
-    const uniqueSec = new Set(seconds);
-    lines.push('Titik unik per-detik: ' + uniqueSec.size + ' dari ' + seconds.length + ' (selisih = duplikat)');
-    lines.push('Contoh 3 data pertama (raw):');
-    arr.slice(0,3).forEach(d => lines.push('  ' + _safeStringify(d)));
-    lines.push('Contoh 3 data terakhir (raw):');
-    arr.slice(-3).forEach(d => lines.push('  ' + _safeStringify(d)));
-    lines.push('');
-  }
-
-  lines.push('_chartTf saat ini: ' + _chartTf);
-  lines.push('_chartType saat ini: ' + _chartType);
-  lines.push('');
-
-  sampleInfo('window._fbPrices', window._fbPrices, p => p.time);
-  sampleInfo('_chartPricePoints', typeof _chartPricePoints !== 'undefined' ? _chartPricePoints : null, p => p.time);
-  sampleInfo('_allHistory (h.timestamp x1000)', typeof _allHistory !== 'undefined' ? _allHistory : null, h => Number(h.timestamp) * 1000);
-  lines.push('_currentPrice: ' + (typeof _currentPrice !== 'undefined' ? _currentPrice : 'undefined'));
-
-  out.textContent = lines.join('\n');
-  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } catch(e) {
-    lines.push('');
-    lines.push('!!! ERROR SAAT DEBUG: ' + e.message);
-    out.textContent = lines.join('\n');
-  }
-}
 function _chartZoom(factor) {
   if (!_lwChart) return;
   const ts = _lwChart.timeScale();
@@ -1705,22 +1614,7 @@ function _chartZoom(factor) {
   if (!range) return;
   const anchor = range.to; // ujung kanan (data terbaru) jadi titik jangkar tetap
   const newWidth = (range.to - range.from) * factor;
-  const target = { from: anchor - newWidth, to: anchor };
-  ts.setVisibleLogicalRange(target);
-
-  // Debug sementara: catat sebelum/sesudah biar kelihatan kalau ada yang mentok
-  const dbg = document.getElementById('debugDataOutput');
-  if (dbg) {
-    dbg.style.display = 'block';
-    const after = ts.getVisibleLogicalRange();
-    const barsInfo = (_lwSeries && _lwSeries.data) ? '' : '';
-    dbg.textContent =
-      'ZOOM factor=' + factor + '\n' +
-      'range SEBELUM: from=' + range.from.toFixed(2) + ' to=' + range.to.toFixed(2) + ' (lebar=' + (range.to-range.from).toFixed(2) + ')\n' +
-      'target diminta: from=' + target.from.toFixed(2) + ' to=' + target.to.toFixed(2) + '\n' +
-      'range SESUDAH (dibaca ulang dari chart): from=' + (after ? after.from.toFixed(2) : 'null') + ' to=' + (after ? after.to.toFixed(2) : 'null') + '\n' +
-      (after && Math.abs(after.from - range.from) < 0.01 && Math.abs(after.to - range.to) < 0.01 ? '>>> TIDAK BERUBAH (mentok/ditolak chart)' : '>>> BERUBAH NORMAL');
-  }
+  ts.setVisibleLogicalRange({ from: anchor - newWidth, to: anchor });
 }
 
 function _updateHLMarkers() {
