@@ -463,6 +463,16 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
       <span id="chartRangeLabel">1 Jam terakhir</span>
       <span>⛓ Onchain · Aman · Transparan</span>
     </div>
+    <button id="btnDebugData" onclick="_debugDataShape()" style="display:none;margin-top:10px;width:100%;padding:8px;font-size:10px;font-family:'Share Tech Mono',monospace;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.35);border-radius:8px;color:#c8922a;cursor:pointer;">🔍 DEBUG: Lihat Bentuk Data Mentah (sementara)</button>
+    <script>
+      if (new URLSearchParams(location.search).get('debug') === '1') {
+        document.addEventListener('DOMContentLoaded', () => {
+          const b = document.getElementById('btnDebugData');
+          if (b) b.style.display = 'block';
+        });
+      }
+    </script>
+    <div id="debugDataOutput" style="display:none;margin-top:8px;padding:10px;background:#111;color:#0f0;font-size:9px;font-family:monospace;border-radius:8px;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;"></div>
   </div>
 
   <!-- 2 KOLOM -->
@@ -1605,6 +1615,44 @@ function _render() {
 
 function initChart() { _initLw(); }
 function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
+
+function _debugDataShape() {
+  const out = document.getElementById('debugDataOutput');
+  out.style.display = 'block';
+  let lines = [];
+
+  function sampleInfo(name, arr, getTime) {
+    lines.push('=== ' + name + ' ===');
+    if (!arr || arr.length === 0) { lines.push('(kosong / tidak ada)'); lines.push(''); return; }
+    lines.push('Jumlah titik: ' + arr.length);
+    const times = arr.map(getTime).filter(t => t && !isNaN(t));
+    if (times.length === 0) { lines.push('(semua time invalid)'); lines.push(''); return; }
+    const minT = Math.min(...times), maxT = Math.max(...times);
+    lines.push('Time paling lama : ' + minT + '  (' + new Date(minT).toISOString() + ')');
+    lines.push('Time paling baru : ' + maxT + '  (' + new Date(maxT).toISOString() + ')');
+    // cek duplikat kalau dibulatkan ke detik
+    const seconds = times.map(t => Math.floor(t/1000));
+    const uniqueSec = new Set(seconds);
+    lines.push('Titik unik per-detik: ' + uniqueSec.size + ' dari ' + seconds.length + ' (selisih = duplikat)');
+    lines.push('Contoh 3 data pertama (raw):');
+    arr.slice(0,3).forEach(d => lines.push('  ' + JSON.stringify(d)));
+    lines.push('Contoh 3 data terakhir (raw):');
+    arr.slice(-3).forEach(d => lines.push('  ' + JSON.stringify(d)));
+    lines.push('');
+  }
+
+  lines.push('_chartTf saat ini: ' + _chartTf);
+  lines.push('_chartType saat ini: ' + _chartType);
+  lines.push('');
+
+  sampleInfo('window._fbPrices', window._fbPrices, p => p.time);
+  sampleInfo('_chartPricePoints', typeof _chartPricePoints !== 'undefined' ? _chartPricePoints : null, p => p.time);
+  sampleInfo('_allHistory (h.timestamp x1000)', typeof _allHistory !== 'undefined' ? _allHistory : null, h => Number(h.timestamp) * 1000);
+  lines.push('_currentPrice: ' + (typeof _currentPrice !== 'undefined' ? _currentPrice : 'undefined'));
+
+  out.textContent = lines.join('\n');
+  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 function _chartZoom(factor) {
   if (!_lwChart) return;
   const ts = _lwChart.timeScale();
