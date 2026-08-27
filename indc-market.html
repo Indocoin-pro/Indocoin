@@ -1503,13 +1503,33 @@ function _getOhlc() {
 
 function _getLine() {
   const CHART_START_MS = 1780938000000; // 9 Juni 2026 00:00 WIB — sama dengan batas di _getOhlc
-  const src = (_chartPricePoints && _chartPricePoints.length > 0)
-    ? _chartPricePoints
-    : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
-  const seen = new Set();
-  return src.filter(d=>d.price>0 && (d.time||0) >= CHART_START_MS).map(d=>({ time:Math.floor((d.time||0)/1000), value:d.price }))
-    .sort((a,b)=>a.time-b.time)
-    .filter(d=>{ if(seen.has(d.time)) return false; seen.add(d.time); return true; });
+
+  // Terbukti dari debug data live: window._fbPrices adalah sumber paling bersih & tebal
+  // (3675 titik, 0 duplikat, rentang Juni-Agustus). Sumber lain (_chartPricePoints, _allHistory)
+  // terbukti punya duplikat/format beda yang bikin garis patah-patah, jadi tidak dipakai lagi.
+  const src = (window._fbPrices && window._fbPrices.length > 0)
+    ? window._fbPrices
+    : (_chartPricePoints && _chartPricePoints.length > 0)
+      ? _chartPricePoints
+      : _chartData.prices.map((p,i) => ({ price:p, time:_chartData.labels[i].getTime() }));
+
+  const filtered = src.filter(d => d.price > 0 && (d.time||0) >= CHART_START_MS);
+  filtered.sort((a,b) => a.time - b.time);
+
+  // Dedup di level DETIK (bukan milidetik) — ini yang kemarin kelewat dan bikin bentrok
+  const seenSec = new Set();
+  const out = [];
+  filtered.forEach(d => {
+    const t = Math.floor(d.time / 1000);
+    if (!seenSec.has(t)) {
+      seenSec.add(t);
+      out.push({ time: t, value: d.price });
+    } else {
+      out[out.length - 1].value = d.price; // titik terakhir di detik yang sama menang
+    }
+  });
+
+  return out;
 }
 
 function _calcEmaLw(period, data) {
