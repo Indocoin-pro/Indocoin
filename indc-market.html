@@ -1543,8 +1543,8 @@ function _render() {
         }
       }
       setTimeout(() => {
-        if (_lwChart && targetType !== 'candle' && _forceFitOnRender) {
-          _lwChart.timeScale().fitContent();
+        if (_lwChart && _forceFitOnRender) {
+          _setDefaultZoomView();
         }
         _forceFitOnRender = false;
         _updateHLMarkers();
@@ -1595,17 +1595,26 @@ function _render() {
   }
 
   _currentSeriesType = targetType;
-  if (targetType === 'candle') {
-    _lwChart.timeScale().scrollToRealTime();
-  } else {
-    _lwChart.timeScale().fitContent();
-  }
+  _setDefaultZoomView();
 
   setTimeout(_updateHLMarkers, 50);
 }
 
 function initChart() { _initLw(); }
-function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
+function resetZoom() { _setDefaultZoomView(); }
+
+const DEFAULT_ZOOM_BARS = 28;
+function _setDefaultZoomView() {
+  if (!_lwChart) return;
+  const ts = _lwChart.timeScale();
+  ts.fitContent();
+  setTimeout(() => {
+    const range = ts.getVisibleLogicalRange();
+    if (!range) return;
+    const to = range.to;
+    ts.setVisibleLogicalRange({ from: to - DEFAULT_ZOOM_BARS, to: to });
+  }, 60);
+}
 
 function _chartZoom(factor) {
   if (!_lwChart) return;
