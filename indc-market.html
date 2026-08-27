@@ -1616,17 +1616,33 @@ function _render() {
 function initChart() { _initLw(); }
 function resetZoom() { if (_lwChart) _lwChart.timeScale().fitContent(); }
 
+function _safeStringify(d) {
+  try {
+    return JSON.stringify(d, (k, v) => typeof v === 'bigint' ? (v.toString() + 'n') : v);
+  } catch(e) {
+    try {
+      const plain = {};
+      Object.keys(d).forEach(k => { plain[k] = (typeof d[k] === 'bigint') ? d[k].toString()+'n' : (typeof d[k] === 'object' ? '[object]' : d[k]); });
+      return JSON.stringify(plain);
+    } catch(e2) {
+      return '(gagal ditampilkan: ' + e.message + ')';
+    }
+  }
+}
+
 function _debugDataShape() {
   const out = document.getElementById('debugDataOutput');
   out.style.display = 'block';
   let lines = [];
+  try {
 
   function sampleInfo(name, arr, getTime) {
     lines.push('=== ' + name + ' ===');
     if (!arr || arr.length === 0) { lines.push('(kosong / tidak ada)'); lines.push(''); return; }
     lines.push('Jumlah titik: ' + arr.length);
-    const times = arr.map(getTime).filter(t => t && !isNaN(t));
-    if (times.length === 0) { lines.push('(semua time invalid)'); lines.push(''); return; }
+    let times = [];
+    try { times = arr.map(getTime).filter(t => t && !isNaN(t)); } catch(e) { lines.push('(gagal baca time: ' + e.message + ')'); }
+    if (times.length === 0) { lines.push('(semua time invalid/gagal dibaca)'); lines.push(''); return; }
     const minT = Math.min(...times), maxT = Math.max(...times);
     lines.push('Time paling lama : ' + minT + '  (' + new Date(minT).toISOString() + ')');
     lines.push('Time paling baru : ' + maxT + '  (' + new Date(maxT).toISOString() + ')');
@@ -1635,9 +1651,9 @@ function _debugDataShape() {
     const uniqueSec = new Set(seconds);
     lines.push('Titik unik per-detik: ' + uniqueSec.size + ' dari ' + seconds.length + ' (selisih = duplikat)');
     lines.push('Contoh 3 data pertama (raw):');
-    arr.slice(0,3).forEach(d => lines.push('  ' + JSON.stringify(d)));
+    arr.slice(0,3).forEach(d => lines.push('  ' + _safeStringify(d)));
     lines.push('Contoh 3 data terakhir (raw):');
-    arr.slice(-3).forEach(d => lines.push('  ' + JSON.stringify(d)));
+    arr.slice(-3).forEach(d => lines.push('  ' + _safeStringify(d)));
     lines.push('');
   }
 
@@ -1652,6 +1668,11 @@ function _debugDataShape() {
 
   out.textContent = lines.join('\n');
   out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch(e) {
+    lines.push('');
+    lines.push('!!! ERROR SAAT DEBUG: ' + e.message);
+    out.textContent = lines.join('\n');
+  }
 }
 function _chartZoom(factor) {
   if (!_lwChart) return;
