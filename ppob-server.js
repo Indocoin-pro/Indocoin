@@ -81,12 +81,30 @@ const QUOTE_VALIDITY_SECONDS = 3 * 60; // 3 menit, sesuai kesepakatan
  */
 const INDC_PAYMENT_ENABLED = false;
 
+/**
+ * Jendela cut off GLOBAL — 23:30 sampai 00:30 WIB, saat mayoritas
+ * seller Digiflazz tutup buku harian. Ini pengaman SEBENARNYA (frontend
+ * cuma tampilkan popup, ini yang beneran nolak) — mengasumsikan jam
+ * server = WIB (sudah dikonfirmasi lewat `date` di VPS sebelumnya).
+ */
+function sedangJamCutOffGlobal() {
+  const sekarang = new Date();
+  const menitSekarang = sekarang.getHours() * 60 + sekarang.getMinutes();
+  const menitMulai = 23 * 60 + 30;
+  const menitSelesai = 0 * 60 + 30;
+  return menitSekarang >= menitMulai || menitSekarang < menitSelesai;
+}
+
 app.post('/api/quote', async (req, res) => {
   try {
     const { orderId, kodeProduk, usdtIdrRate, metode, wallet } = req.body;
 
     if (!orderId || !kodeProduk || !usdtIdrRate) {
       return res.status(400).json({ error: 'orderId, kodeProduk, dan usdtIdrRate wajib diisi' });
+    }
+
+    if (sedangJamCutOffGlobal()) {
+      return res.status(403).json({ error: 'Pembelian produk PPOB sedang dijeda sementara pukul 23:30–00:30 WIB. Silakan coba lagi setelah pukul 00:30 WIB.' });
     }
 
     if (metode === 'indc') {
@@ -439,7 +457,6 @@ app.get('/api/catalog', (req, res) => {
         hargaReferensi: p.harga_referensi || null,
         biayaAdminTambahan: p.biaya_admin_tambahan || null,
         isPascabayar: !!p.is_pascabayar,
-        sedangCutOff: db.apakahSedangCutOff(p.start_cut_off, p.end_cut_off),
       });
     }
 
@@ -1044,45 +1061,6 @@ app.get('/api/admin/topup/vault-balance', async (req, res) => {
   } catch (err) {
     console.error('[server.js] Error /api/admin/topup/vault-balance:', err);
     res.status(500).json({ error: 'Gagal mengambil saldo vault' });
-  }
-});
-
-/**
- * GET /api/produk/status-cutoff
- * Publik — daftar kode produk yang lagi MERAH (cut off), dipakai
- * frontend buat nampilin titik merah di pojok kanan atas kotak produk.
- * Cuma balikin yang merah (produk hijau itu default, tidak dikirim).
- */
-app.get('/api/produk/status-cutoff', (req, res) => {
-  try {
-    res.json({ merah: db.getSemuaProdukMerah() });
-  } catch (err) {
-    console.error('[server.js] Error /api/produk/status-cutoff:', err);
-    res.status(500).json({ error: 'Gagal mengambil status cut off' });
-  }
-});
-
-/**
- * POST /api/admin/produk/reset-cutoff
- * Body: { token, kodeProduk }
- * Admin manual tandai produk ini balik HIJAU — dipakai kalau admin
- * sudah yakin harga sudah dibetulkan duluan, tidak perlu nunggu ada
- * transaksi sukses lagi buat auto-clear.
- */
-app.post('/api/admin/produk/reset-cutoff', (req, res) => {
-  try {
-    const { token, kodeProduk } = req.body;
-    if (!cekSesiValid(token)) {
-      return res.status(401).json({ error: 'Sesi admin tidak valid atau sudah kedaluwarsa' });
-    }
-    if (!kodeProduk) {
-      return res.status(400).json({ error: 'kodeProduk wajib diisi' });
-    }
-    db.tandaiSuksesProdukManual(kodeProduk);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[server.js] Error /api/admin/produk/reset-cutoff:', err);
-    res.status(500).json({ error: 'Gagal reset status produk' });
   }
 });
 

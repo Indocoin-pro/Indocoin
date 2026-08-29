@@ -119,9 +119,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 
 .ledger{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;overflow:hidden;}
 .prow{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border2);gap:12px;position:relative;}
-.cutoff-dot{position:absolute;top:-4px;right:-4px;font-size:12px;line-height:1;z-index:1;}
-.cutoff-dot.harga-lewat-batas{animation:kedipMerah 1s infinite;}
-@keyframes kedipMerah{0%,100%{opacity:1;}50%{opacity:0.25;}}
+
 .prow:last-child{border-bottom:none;}
 .prow-price{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--gold2);flex-shrink:0;min-width:76px;}
 .prow-price-ref{font-family:'Share Tech Mono',monospace;font-size:9.5px;color:var(--muted);text-decoration:line-through;min-width:76px;}
@@ -397,6 +395,19 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 </div>
 
+<!-- NOTICE: JEDA CUT OFF GLOBAL (23:30-00:30 WIB) -->
+<div class="modal-overlay" id="cutOffGlobalOverlay">
+  <div class="modal-card">
+    <div class="modal-topbar"></div>
+    <div class="success-body">
+      <div class="success-icon">⏳</div>
+      <div class="success-title">Layanan Sedang Dijeda Sementara</div>
+      <div class="success-desc">Pembelian produk PPOB dijeda sementara pukul 23:30–00:30 WIB sebagai bagian dari pemeliharaan sistem terjadwal secara rutin. Layanan akan kembali normal setelah pukul 00:30 WIB.</div>
+      <button class="modal-ok" onclick="document.getElementById('cutOffGlobalOverlay').classList.remove('show')">MENGERTI</button>
+    </div>
+  </div>
+</div>
+
 <!-- NOTICE INDC NONAKTIF SEMENTARA -->
 <div class="modal-overlay" id="indcNoticeOverlay">
   <div class="modal-card">
@@ -617,22 +628,11 @@ const PASCA_LOGO = {
 // Struktur asli dari /api/catalog: { kategori: { brand: [produk, ...] } }
 // Dipisah jadi pra/pasca di sini berdasarkan nama kategori "Pascabayar".
 let RAW_CATALOG = {};
-let PRODUK_MERAH = {}; // { kodeProduk: {lastError, updatedAt} } — hasil /api/produk/status-cutoff
-
-async function muatStatusCutOff(){
-  try{
-    const res = await fetch(API_BASE + '/api/produk/status-cutoff');
-    const data = await res.json();
-    PRODUK_MERAH = data.merah || {};
-  }catch(err){
-    console.warn('Gagal ambil status cut off produk:', err);
-  }
-}
 
 async function loadCatalog(){
   document.getElementById('grid-kategori').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:20px;">Memuat katalog...</div>';
   try{
-    const [res] = await Promise.all([fetch(API_BASE + '/api/catalog'), muatStatusCutOff()]);
+    const res = await fetch(API_BASE + '/api/catalog');
     const data = await res.json();
     // Cek eksplisit: kalau server balikin { error: "..." } (respons gagal),
     // JANGAN dianggap sebagai data katalog asli — dulu ini pernah salah
@@ -914,9 +914,6 @@ function renderProdukGabungan(){
   produk.forEach(p => { window.PRODUK_LOOKUP[p.kodeProduk] = p; });
 
   document.getElementById('ledger-produk').innerHTML = produk.map(p => {
-    const dotHtml = PRODUK_MERAH[p.kodeProduk]
-      ? `<span class="cutoff-dot harga-lewat-batas" title="Harga seller melebihi batas max — segera atur ulang di Digiflazz">⛔</span>`
-      : (p.sedangCutOff ? `<span class="cutoff-dot cutoff-jadwal" title="Sedang cut off terjadwal dari seller">⛔</span>` : '');
     return `
     <div class="prow">
       <div>
@@ -933,12 +930,9 @@ function renderProdukGabungan(){
         <div class="prow-name">${p.namaProduk}</div>
         <div class="prow-desc">${p._submenu}${p.deskripsi ? ' · ' + p.deskripsi : ''}</div>
       </div>
-      <div style="position:relative;">
-        ${dotHtml}
-        ${isPasca
-          ? `<button class="btn-beli" onclick="bukaBayarPascabayar('${p.kodeProduk}')">BAYAR</button>`
-          : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
-      </div>
+      ${isPasca
+        ? `<button class="btn-beli" onclick="bukaBayarPascabayar('${p.kodeProduk}')">BAYAR</button>`
+        : `<button class="btn-beli" onclick="bukaModalBeli('${p.kodeProduk}')">BELI</button>`}
     </div>`;
   }).join('');
 
@@ -1123,7 +1117,32 @@ function cekBolehTransaksi(fungsiStatus){
   return true;
 }
 
+/**
+ * Jendela cut off GLOBAL — 23:30 sampai 00:30 WIB, saat mayoritas
+ * seller Digiflazz melakukan tutup buku harian. Daripada tandain
+ * per-produk (rawan meleset & kompleks), lebih aman kunci sementara
+ * SEMUA pembelian di jam ini, otomatis kebuka lagi begitu lewat 00:30 —
+ * tidak perlu admin pencet apapun.
+ */
+function sedangJamCutOffGlobal(){
+  const sekarang = new Date();
+  const menitSekarang = sekarang.getHours() * 60 + sekarang.getMinutes();
+  const menitMulai = 23 * 60 + 30;  // 23:30
+  const menitSelesai = 0 * 60 + 30; // 00:30
+  // Jendela melewati tengah malam (23:30 -> 00:30)
+  return menitSekarang >= menitMulai || menitSekarang < menitSelesai;
+}
+
+function tampilkanPopupCutOffGlobal(){
+  const overlay = document.getElementById('cutOffGlobalOverlay');
+  if(overlay) overlay.classList.add('show');
+}
+
 function bukaModalBeli(kodeProduk){
+  if(sedangJamCutOffGlobal()){
+    tampilkanPopupCutOffGlobal();
+    return;
+  }
   if(!currentAddress){
     window.connectWallet();
     return;
@@ -1469,6 +1488,10 @@ async function muatRiwayat(){
 let pascaState = { produk: null, orderId: null, metode: 'usdt', totalBayar: 0, saldoUsdt: 0, saldoIndc: 0, saldoBnb: 0 };
 
 function bukaBayarPascabayar(kodeProduk){
+  if(sedangJamCutOffGlobal()){
+    tampilkanPopupCutOffGlobal();
+    return;
+  }
   if(!currentAddress){
     window.connectWallet();
     return;
@@ -1735,11 +1758,10 @@ function renderPanelAdmin(){
     const selisih = p.hargaJual - modal;
     const warnaSelisih = selisih < 0 ? 'var(--red)' : (selisih === 0 ? 'var(--muted)' : 'var(--green)');
     const labelSelisih = selisih < 0 ? `RUGI Rp${Math.abs(selisih).toLocaleString('id-ID')}` : `+Rp${selisih.toLocaleString('id-ID')}`;
-    const statusCutOff = PRODUK_MERAH[p.kodeProduk];
     return `
     <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:6px;">
       <div class="admin-row-info">
-        <div class="admin-row-name">${p.namaProduk} ${statusCutOff ? `<span style="color:var(--red);font-size:9px;font-weight:700;">🔴 HARGA MELEBIHI BATAS</span>` : ''}</div>
+        <div class="admin-row-name">${p.namaProduk}</div>
         <div class="admin-row-modal">Modal: Rp${modal.toLocaleString('id-ID')} · Sekarang: Rp${p.hargaJual.toLocaleString('id-ID')} · Selisih: <span style="color:${warnaSelisih};font-weight:700;">${labelSelisih}</span></div>
       </div>
       <div style="display:flex;gap:6px;">
@@ -1747,33 +1769,8 @@ function renderPanelAdmin(){
         <input class="admin-row-input" style="flex:1;width:auto;" type="number" placeholder="Harga dicoret (opsional)" id="admin-ref-${p.kodeProduk}" value="${p.hargaReferensi || ''}">
         <button class="admin-row-save" onclick="simpanHargaAdmin('${p.kodeProduk}')">SIMPAN</button>
       </div>
-      ${statusCutOff ? `<button onclick="resetCutOffAdmin('${p.kodeProduk}')" style="padding:8px;background:transparent;border:1px solid var(--green);color:var(--green);border-radius:8px;font-size:10px;font-weight:700;cursor:pointer;">✅ TANDAI SUDAH DIPERBAIKI (HIJAU LAGI)</button>` : ''}
     </div>`;
   }).join('');
-}
-
-async function resetCutOffAdmin(kodeProduk){
-  const sesiMasihValid = adminToken && Date.now() < adminTokenExpiry;
-  if(!sesiMasihValid){
-    const berhasil = await mintaTandaTanganAdmin();
-    if(!berhasil) return;
-  }
-  try{
-    const res = await fetch(API_BASE + '/api/admin/produk/reset-cutoff', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: adminToken, kodeProduk }),
-    });
-    const data = await res.json();
-    if(!res.ok){
-      alert(data.error || 'Gagal reset status.');
-      return;
-    }
-    delete PRODUK_MERAH[kodeProduk];
-    renderPanelAdmin();
-  }catch(err){
-    alert('Gagal reset status: ' + err.message);
-  }
 }
 
 async function simpanHargaAdmin(kodeProduk){
