@@ -554,10 +554,12 @@ try {
   const jumlahTier = db.prepare('SELECT COUNT(*) as n FROM topup_fee_tiers').get().n;
   if (jumlahTier === 0) {
     const stmt = db.prepare('INSERT INTO topup_fee_tiers (dari_rupiah, sampai_rupiah, fee_rupiah) VALUES (?, ?, ?)');
-    stmt.run(10000, 50000, 1000);     // Rp10rb - Rp50rb   → fee Rp1.000
-    stmt.run(50001, 100000, 1700);    // Rp50rb - Rp100rb  → fee Rp1.700
-    stmt.run(100001, 150000, 2300);   // Rp100rb - Rp150rb → fee Rp2.300
-    stmt.run(150001, 200000, 3000);   // Rp150rb - Rp200rb → fee Rp3.000
+    stmt.run(10000, 50000, 1000);      // Rp10rb - Rp50rb   → fee Rp1.000
+    stmt.run(50001, 80000, 1260);      // Rp50rb - Rp80rb   → fee Rp1.260
+    stmt.run(80001, 110000, 1520);     // Rp80rb - Rp110rb  → fee Rp1.520
+    stmt.run(110001, 140000, 1780);    // Rp110rb - Rp140rb → fee Rp1.780
+    stmt.run(140001, 170000, 2040);    // Rp140rb - Rp170rb → fee Rp2.040
+    stmt.run(170001, 200000, 2300);    // Rp170rb - Rp200rb → fee Rp2.300
   }
 
   const adaMin = db.prepare("SELECT 1 FROM topup_settings WHERE kunci = 'min_rupiah'").get();
@@ -759,11 +761,21 @@ function tandaiSuksesProdukManual(kodeProduk) {
   tandaiSuksesProduk(kodeProduk);
 }
 
-function tandaiTopupSukses(topupId, txHash) {
-  db.prepare(`
-    UPDATE topup_requests SET status = 'SUKSES', tx_hash = ?, confirmed_at = ?
-    WHERE topup_id = ?
-  `).run(txHash, Date.now(), topupId);
+function tandaiTopupSukses(topupId, txHash, usdtAmountAktual) {
+  if (usdtAmountAktual != null) {
+    // Dipakai jalur "potong fee dari USDT" — catat jumlah USDT yang
+    // BENERAN dikirim (beda dari perhitungan awal), supaya riwayat
+    // tetap akurat sesuai kejadian sebenarnya.
+    db.prepare(`
+      UPDATE topup_requests SET status = 'SUKSES', tx_hash = ?, confirmed_at = ?, usdt_amount = ?
+      WHERE topup_id = ?
+    `).run(txHash, Date.now(), usdtAmountAktual, topupId);
+  } else {
+    db.prepare(`
+      UPDATE topup_requests SET status = 'SUKSES', tx_hash = ?, confirmed_at = ?
+      WHERE topup_id = ?
+    `).run(txHash, Date.now(), topupId);
+  }
 }
 
 /**
