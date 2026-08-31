@@ -1505,7 +1505,7 @@ body {
   <a class="bnav-item" href="earn.html"><span class="bnav-icon">💰</span>EARN</a>
   <a class="bnav-item" href="referral.html"><span class="bnav-icon">🌐</span>REFERRAL</a>
   <a class="bnav-item" href="welcome.html" style="color:#c8922a"><span class="bnav-icon"><svg width="20" height="19" viewBox="0 0 28 26" fill="none"><rect x="4" y="4" width="20" height="22" rx="1" stroke="#c8922a" stroke-width="1.8" fill="none"/><path d="M4 10 Q14 2 24 10" stroke="#c8922a" stroke-width="1.8" fill="none"/><rect x="6" y="11" width="7" height="13" rx="1" stroke="rgba(200,146,42,0.6)" stroke-width="1" fill="rgba(200,146,42,0.07)"/><rect x="15" y="11" width="7" height="13" rx="1" stroke="rgba(200,146,42,0.6)" stroke-width="1" fill="rgba(200,146,42,0.07)"/><line x1="14" y1="10" x2="14" y2="26" stroke="#c8922a" stroke-width="1"/><circle cx="12" cy="18" r="1.2" fill="#f5c842"/><circle cx="16" cy="18" r="1.2" fill="#f5c842"/><circle cx="14" cy="6" r="2" fill="none" stroke="#f5c842" stroke-width="1"/><circle cx="14" cy="6" r="0.8" fill="#f5c842"/></svg></span>WELCOME</a>
-  <a class="bnav-item" href="community.html"><span class="bnav-icon">💬</span>COMMUNITY</a>
+  <a class="bnav-item" href="community.html" style="position:relative;"><span class="bnav-icon" style="position:relative;display:inline-block;">💬<span id="communityUnreadBadge" style="display:none;position:absolute;top:-6px;right:-10px;background:#e11d48;color:#fff;font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:8px;min-width:14px;text-align:center;font-family:sans-serif;">0</span></span>COMMUNITY</a>
 </nav>
 
 <!-- FIREBASE -->
@@ -1513,6 +1513,7 @@ body {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, query, where, getDocs, limit, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, query as rtdbQuery, orderByChild, startAt } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
@@ -1526,12 +1527,44 @@ const firebaseConfig = {
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+const rtdb = getDatabase(app, "https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app");
 
 // Expose ke window agar bisa diakses dari script non-module
 window._auth = auth;
 window._db   = db;
 window._doc  = doc;
 window._getDoc = getDoc;
+
+// Badge unread pesan Community di nav bottom
+async function _updateCommunityUnreadBadge(uid) {
+  try {
+    const readSnap = await rtdbGet(rtdbRef(rtdb, 'community_reads/' + uid));
+    let lastRead = readSnap.exists() ? readSnap.val() : null;
+
+    if (lastRead === null) {
+      // Belum pernah tercatat — set baseline ke sekarang, jangan hitung histori lama
+      lastRead = Date.now();
+      await rtdbSet(rtdbRef(rtdb, 'community_reads/' + uid), lastRead);
+      return; // 0 unread untuk user baru
+    }
+
+    const q = rtdbQuery(rtdbRef(rtdb, 'community_chat'), orderByChild('ts'), startAt(lastRead + 1));
+    const msgSnap = await rtdbGet(q);
+    const count = msgSnap.exists() ? Object.keys(msgSnap.val()).length : 0;
+
+    const badge = document.getElementById('communityUnreadBadge');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    console.warn('Gagal hitung unread community:', e);
+  }
+}
 
 onAuthStateChanged(auth, user => {
   if(user){
@@ -1540,6 +1573,8 @@ onAuthStateChanged(auth, user => {
 
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('navUser').textContent = name;
+
+    _updateCommunityUnreadBadge(user.uid);
 
     const hour = new Date().getHours();
     const salam = hour < 12 ? 'Selamat Pagi' : hour < 15 ? 'Selamat Siang' : hour < 18 ? 'Selamat Sore' : 'Selamat Malam';

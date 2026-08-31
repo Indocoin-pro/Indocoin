@@ -526,6 +526,16 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// Catat waktu terakhir baca community chat, dipakai untuk badge unread di dashboard
+function _markCommunityRead() {
+  if (!currentUser) return;
+  try { set(ref(db, 'community_reads/' + currentUser.uid), Date.now()); } catch(e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') _markCommunityRead();
+});
+window.addEventListener('pagehide', _markCommunityRead);
+
 // ===== AUTH =====
 onAuthStateChanged(auth, user => {
   if (user) {
