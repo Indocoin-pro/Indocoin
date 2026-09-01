@@ -1734,11 +1734,31 @@ const MARKET_ADDR_FOR_LISTING = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
 const MARKET_ABI_FOR_LISTING = [
   "function getMarketStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint256,uint256)"
 ];
+// Multi-RPC failover — sama seperti pola yang dipakai di indc-market.html,
+// biar gak gagal cuma karena 1 RPC lagi rewel
+const BSC_RPCS_FOR_LISTING = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc-dataseed3.binance.org/',
+  'https://bsc-dataseed4.binance.org/',
+  'https://rpc.ankr.com/bsc',
+];
+async function getBscProviderForListing() {
+  for (const rpc of BSC_RPCS_FOR_LISTING) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc, { name: 'bnb', chainId: 56 });
+      await p.getBlockNumber();
+      return p;
+    } catch(e) { continue; }
+  }
+  throw new Error('Semua RPC BSC tidak tersedia');
+}
+
 async function loadListingProgress(retryCount){
   retryCount = retryCount || 0;
   const pctEl  = document.getElementById('listingPct');
   try{
-    const provider = new ethers.providers.JsonRpcProvider(RPC, { name: 'bnb', chainId: 56 });
+    const provider = await getBscProviderForListing();
     const mkt = new ethers.Contract(MARKET_ADDR_FOR_LISTING, MARKET_ABI_FOR_LISTING, provider);
     const stats = await mkt.getMarketStats();
     const lpProgress = stats[6];
