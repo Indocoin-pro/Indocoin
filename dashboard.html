@@ -1744,6 +1744,15 @@ const BSC_RPCS_FOR_LISTING = [
   'https://rpc.ankr.com/bsc',
 ];
 async function getBscProviderForListing() {
+  // Prioritas 1: numpang wallet yang udah konek (cepat, sama seperti indc-market.html)
+  if (window.ethereum) {
+    try {
+      const wp = new ethers.providers.Web3Provider(window.ethereum);
+      await wp.getBlockNumber();
+      return wp;
+    } catch(e) { /* lanjut ke fallback RPC publik */ }
+  }
+  // Prioritas 2: fallback multi-RPC publik
   for (const rpc of BSC_RPCS_FOR_LISTING) {
     try {
       const p = new ethers.providers.JsonRpcProvider(rpc, { name: 'bnb', chainId: 56 });
