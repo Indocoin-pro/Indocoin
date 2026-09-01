@@ -1734,10 +1734,11 @@ const MARKET_ADDR_FOR_LISTING = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
 const MARKET_ABI_FOR_LISTING = [
   "function getMarketStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint256,uint256)"
 ];
-async function loadListingProgress(){
+async function loadListingProgress(retryCount){
+  retryCount = retryCount || 0;
   const pctEl  = document.getElementById('listingPct');
   try{
-    const provider = new ethers.providers.JsonRpcProvider(RPC);
+    const provider = new ethers.providers.JsonRpcProvider(RPC, { name: 'bnb', chainId: 56 });
     const mkt = new ethers.Contract(MARKET_ADDR_FOR_LISTING, MARKET_ABI_FOR_LISTING, provider);
     const stats = await mkt.getMarketStats();
     const lpProgress = stats[6];
@@ -1747,7 +1748,9 @@ async function loadListingProgress(){
     if (pctEl)  pctEl.textContent  = progPct + '%';
   } catch(e) {
     console.warn('Gagal load listing progress:', e);
-    if (pctEl) pctEl.textContent = 'ERR: ' + (e.message || e).toString().slice(0,40);
+    if (retryCount < 1) {
+      setTimeout(() => loadListingProgress(retryCount + 1), 3000);
+    }
   }
 }
 
