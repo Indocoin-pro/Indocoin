@@ -766,6 +766,14 @@ body {
 .s1-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:2px; padding:0 2px; transform:translateY(-4px); }
 .s1-lbl { font-family:'Orbitron',sans-serif; font-size:9px; color:rgba(250,204,21,0.7); letter-spacing:1px; flex-shrink:0; }
 .s1-val { font-family:'Share Tech Mono',monospace; font-size:8px; color:#e8a830; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:6px; }
+
+.listing-progress-row { display:flex; align-items:center; gap:6px; margin-top:4px; padding:0 2px; }
+.listing-bar-track { flex:1; height:4px; background:rgba(255,255,255,0.12); border-radius:2px; overflow:hidden; position:relative; }
+.listing-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,#f5c842,#facc15); border-radius:2px; position:relative; overflow:hidden; transition:width 0.6s ease; }
+.listing-bar-fill::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.9),transparent); animation:listingShimmer 1.8s ease-in-out infinite; }
+@keyframes listingShimmer { 0%{left:-100%;} 100%{left:200%;} }
+.listing-pct { font-family:'Share Tech Mono',monospace; font-size:9.5px; font-weight:700; color:#facc15; flex-shrink:0; }
+.listing-note { font-family:'Share Tech Mono',monospace; font-size:7.5px; font-style:italic; color:rgba(250,204,21,0.55); white-space:nowrap; flex-shrink:0; }
 /* Slide 2: quote */
 .q-divider { width:2px; height:52px; background:linear-gradient(180deg,transparent,rgba(250,204,21,0.5),transparent); flex-shrink:0; }
 .q-wrap    { flex:1; min-width:0; padding-left:8px; display:flex; flex-direction:column; justify-content:center; }
@@ -949,10 +957,13 @@ body {
         <div class="s1-inner">
           <div class="tk-row"><div class="tk-text tk-r1">✦ VISI INDOCOIN ✦ VISI INDOCOIN ✦ VISI INDOCOIN ✦ VISI INDOCOIN ✦ VISI INDOCOIN ✦</div></div>
           <div class="tk-row"><div class="tk-text tk-r2">EKONOMI DIGITAL INDONESIA &nbsp;&nbsp;&nbsp;&nbsp; EKONOMI DIGITAL INDONESIA &nbsp;&nbsp;&nbsp;&nbsp; EKONOMI DIGITAL INDONESIA</div></div>
-          <div class="tk-row"><div class="tk-text tk-r3">PLATFORM KRIPTO INDONESIA ◆ PLATFORM KRIPTO INDONESIA ◆ PLATFORM KRIPTO INDONESIA ◆</div></div>
           <div class="s1-bottom">
-            <div class="s1-lbl">🎯 TARGET</div>
-            <div class="s1-val">Listing DEX Q2 2026 ✦ Listing CEX Q2 2027</div>
+            <div class="s1-lbl">🎯 PROGRESS LISTING DEX</div>
+          </div>
+          <div class="listing-progress-row">
+            <div class="listing-bar-track"><div class="listing-bar-fill" id="listingBarFill"></div></div>
+            <div class="listing-pct" id="listingPct">0.0%</div>
+            <div class="listing-note">*bisa lebih cepat dari jadwal</div>
           </div>
         </div>
       </div>
@@ -1583,6 +1594,8 @@ onAuthStateChanged(auth, user => {
 
     loadPresaleData();
     setInterval(loadPresaleData, 15000); // Auto-refresh progress presale tiap 15 detik
+    loadListingProgress();
+    setInterval(loadListingProgress, 15000); // Auto-refresh progress listing tiap 15 detik
     loadPaidAdsBanners(); // Load banner iklan
 
   } else {
@@ -1715,6 +1728,27 @@ const MASTER_ABI = [
 // Token sold start dari 1,217,643
 const INITIAL_SOLD = 1530184; // Total INDC terjual per 17 Apr 2026 (dihitung dari on-chain)
 const TOTAL_SUPPLY = 10000000; // Target presale (bukan total supply token)
+
+// Progress listing DEX — data sama persis dengan yang ditampilkan di INDC Market
+const MARKET_ADDR_FOR_LISTING = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+const MARKET_ABI_FOR_LISTING = [
+  "function getMarketStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,uint256,uint256)"
+];
+async function loadListingProgress(){
+  try{
+    const provider = new ethers.providers.JsonRpcProvider(RPC);
+    const mkt = new ethers.Contract(MARKET_ADDR_FOR_LISTING, MARKET_ABI_FOR_LISTING, provider);
+    const stats = await mkt.getMarketStats();
+    const lpProgress = stats[6];
+    const progPct = (Number(lpProgress) / 100).toFixed(1);
+    const fillEl = document.getElementById('listingBarFill');
+    const pctEl  = document.getElementById('listingPct');
+    if (fillEl) fillEl.style.width = Math.min(100, parseFloat(progPct)) + '%';
+    if (pctEl)  pctEl.textContent  = progPct + '%';
+  } catch(e) {
+    console.warn('Gagal load listing progress:', e);
+  }
+}
 
 async function loadPresaleData(){
   try{
