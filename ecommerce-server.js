@@ -174,41 +174,59 @@ app.post('/api/quote', async (req, res) => {
   });
 });
 
+/**
+ * items: [{ link, hargaModal, fee }, ...] — hasil dari beberapa kali
+ * panggilan /api/quote sebelumnya (satu per produk di keranjang).
+ * Server yang hitung ulang & jumlahkan totalnya sendiri (jangan percaya
+ * total dari frontend begitu saja) sebelum menandatangani quote gabungan.
+ */
 app.post('/api/orders/register', async (req, res) => {
-  const {
-    orderId, userWallet, link, alamatPenerima, hargaModal, fee,
-    modalUsdt, profitUsdt, sumber,
-  } = req.body;
+  const { orderId, userWallet, items, alamatPenerima, sumber } = req.body;
 
-  if (!orderId || !userWallet || !link || !alamatPenerima) {
+  if (!orderId || !userWallet || !Array.isArray(items) || !items.length || !alamatPenerima) {
     return res.status(400).json({ error: 'Field wajib belum lengkap' });
   }
 
-  const platform = fetcher.deteksiPlatform(link);
-  const cached = db.ambilCache(link, 24 * 3600);
-
-  db.simpanOrderBaru({
-    orderId,
-    userWallet,
-    linkProduk: link,
-    platform,
-    namaProduk: cached?.namaProduk || null,
-    fotoUrl: cached?.fotoUrl || [],
-    hargaModal,
-    feeAdmin: fee,
-    alamatPenerima,
-    sumber: sumber || 'paste_link',
+  const itemsLengkap = items.map((it) => {
+    const platform = fetcher.deteksiPlatform(it.link);
+    const cached = db.ambilCache(it.link, 24 * 3600);
+    return {
+      link: it.link,
+      platform,
+      namaProduk: cached?.namaProduk || null,
+      fotoUrl: cached?.fotoUrl || [],
+      hargaModal: it.hargaModal,
+      fee: it.fee,
+    };
   });
 
-  // Tanda tangani quote SAAT INI (dipanggil berbarengan dgn register,
-  // supaya expiry-nya sinkron dgn waktu user benar-benar akan bayar).
-  const orderRef = pricing.buatOrderRef(link, orderId);
+  const hargaModalTotal = itemsLengkap.reduce((s, it) => s + it.hargaModal, 0);
+  const feeTotal = itemsLengkap.reduce((s, it) => s + it.fee, 0);
+
+  const cekLimit = pricing.hitungFeeEcommerce(hargaModalTotal, feeTotal); // dipakai cuma buat cek cap total, bukan hitung ulang fee
+  if (hargaModalTotal + feeTotal > (Number(process.env.MAX_ORDER_RUPIAH || pricing.FEE_HARGA_MAX + pricing.FEE_MAX))) {
+    return res.status(400).json({ error: 'Total keranjang melebihi batas maksimal order' });
+  }
+
+  db.simpanOrderBaru({ orderId, userWallet, items: itemsLengkap, alamatPenerima, sumber: sumber || 'paste_link' });
+
+  const kurs = await ambilKursUsdtIdr();
+  const modalUsdt = pricing.rupiahKeUsdt18(hargaModalTotal, kurs);
+  const profitUsdt = pricing.rupiahKeUsdt18(feeTotal, kurs);
+
+  // orderRef menyegel SEMUA link produk dalam keranjang (bukan cuma satu),
+  // supaya quote ini terikat persis ke isi keranjang yang sedang di-checkout.
+  const orderRef = pricing.buatOrderRef(itemsLengkap.map((it) => it.link).join(','), orderId);
   const { signature, expiry } = await pricing.signQuote(
-    orderId, orderRef, BigInt(modalUsdt), BigInt(profitUsdt),
+    orderId, orderRef, modalUsdt, profitUsdt,
     process.env.ECOMMERCE_GATEWAY_ADDRESS
   );
 
-  res.json({ sukses: true, orderRef, signature, expiry });
+  res.json({
+    sukses: true, orderRef, signature, expiry,
+    modalUsdt: modalUsdt.toString(), profitUsdt: profitUsdt.toString(),
+    hargaModalTotal, feeTotal,
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────

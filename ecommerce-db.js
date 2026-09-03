@@ -22,12 +22,13 @@ db.exec(`
     order_id            TEXT PRIMARY KEY,
     user_wallet          TEXT NOT NULL,
     link_produk          TEXT NOT NULL,
+    items_json            TEXT,                -- JSON array SEMUA produk dalam order ini (satu keranjang, bisa >1 item)
     platform              TEXT,               -- 'shopee' | 'tokopedia'
     nama_produk           TEXT,
     foto_url              TEXT,               -- JSON array string
-    harga_modal           INTEGER NOT NULL,    -- Rupiah, produk+ongkir
-    fee_admin             INTEGER NOT NULL,    -- Rupiah
-    alamat_penerima       TEXT NOT NULL,       -- JSON: nama, telp, alamat lengkap
+    harga_modal           INTEGER NOT NULL,    -- Rupiah, TOTAL semua item (produk+ongkir)
+    fee_admin             INTEGER NOT NULL,    -- Rupiah, TOTAL fee semua item
+    alamat_penerima       TEXT NOT NULL,       -- JSON: nama, telp, alamat lengkap (SATU alamat utk semua item)
     sumber                TEXT DEFAULT 'paste_link', -- 'paste_link' | 'katalog'
     onchain_status        TEXT DEFAULT 'CREATED',
     is_cod                INTEGER DEFAULT 0,
@@ -92,22 +93,36 @@ const now = () => Math.floor(Date.now() / 1000);
 // ORDERS META
 // ─────────────────────────────────────────────────────────────────
 
+/**
+ * @param {Array} items  [{ link, platform, namaProduk, fotoUrl, hargaModal, fee }, ...]
+ *   Satu order bisa berisi >1 produk (satu keranjang), SELAMA satu alamat
+ *   yang sama. hargaModal/feeAdmin yang disimpan di kolom utama = TOTAL
+ *   dari seluruh item (buat tampilan ringkas riwayat & panel admin).
+ */
 function simpanOrderBaru({
-  orderId, userWallet, linkProduk, platform, namaProduk, fotoUrl,
-  hargaModal, feeAdmin, alamatPenerima, sumber,
+  orderId, userWallet, items, alamatPenerima, sumber,
 }) {
   const t = now();
+  const hargaModalTotal = items.reduce((sum, it) => sum + it.hargaModal, 0);
+  const feeTotal = items.reduce((sum, it) => sum + it.fee, 0);
+  const itemPertama = items[0];
+
   db.prepare(`
     INSERT INTO orders_meta
-      (order_id, user_wallet, link_produk, platform, nama_produk, foto_url,
+      (order_id, user_wallet, link_produk, items_json, platform, nama_produk, foto_url,
        harga_modal, fee_admin, alamat_penerima, sumber, onchain_status,
        created_at, updated_at)
-    VALUES (@orderId, @userWallet, @linkProduk, @platform, @namaProduk, @fotoUrl,
+    VALUES (@orderId, @userWallet, @linkProduk, @itemsJson, @platform, @namaProduk, @fotoUrl,
        @hargaModal, @feeAdmin, @alamatPenerima, @sumber, 'CREATED', @t, @t)
   `).run({
-    orderId, userWallet, linkProduk, platform, namaProduk,
-    fotoUrl: JSON.stringify(fotoUrl || []),
-    hargaModal, feeAdmin,
+    orderId, userWallet,
+    linkProduk: itemPertama.link,
+    itemsJson: JSON.stringify(items),
+    platform: itemPertama.platform,
+    namaProduk: items.length > 1 ? `${itemPertama.namaProduk} +${items.length - 1} lainnya` : itemPertama.namaProduk,
+    fotoUrl: JSON.stringify(itemPertama.fotoUrl || []),
+    hargaModal: hargaModalTotal,
+    feeAdmin: feeTotal,
     alamatPenerima: JSON.stringify(alamatPenerima),
     sumber: sumber || 'paste_link',
     t,
