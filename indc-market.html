@@ -245,7 +245,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .hcol:last-child{text-align:right;}
 .hist-list{flex:1;overflow-y:auto;max-height:220px;}
 .hist-row{
-  display:grid;grid-template-columns:1fr 1fr;gap:2px;
+  display:grid;grid-template-columns:1fr auto 1fr;gap:2px;
   padding:7px 4px;border-bottom:1px solid var(--cream2);
   align-items:center;animation:fadeIn 0.3s ease;
 }
@@ -260,6 +260,8 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 }
 .hr-badge.buy{background:#f0faf4;color:var(--green);}
 .hr-badge.sell{background:#fff5f5;color:var(--red);}
+.hr-mid{text-align:center;}
+.hr-buyback{font-family:'DM Mono',monospace;font-size:8px;font-style:italic;color:var(--gold);white-space:nowrap;}
 .hr-right{text-align:right;}
 .hr-usdt{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);display:block;}
 .hr-time{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);}
@@ -736,6 +738,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 //  CONFIG
 // ═══════════════════════════════════════════
 const MARKET_ADDR      = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+const PPOB_GATEWAY_ADDR_FOR_HISTORY = '0x67B27bCd448a71AF974B24a8220DD7Ea650c77A5'; // dipakai buat nandain entri "Buyback" dari PPOB di Riwayat
 const INDC_ADDR        = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
 const USDT_ADDR        = '0x55d398326f99059fF775485246999027B3197955';
 const MASTER_ADDR      = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
@@ -1241,12 +1244,14 @@ function renderHistory() {
     const usdt  = h.usdtAmount ? parseFloat(ethers.formatUnits(h.usdtAmount, 18)) : null;
     const dt    = new Date(h.timestamp * 1000).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
     const isBuy = h.type === 'beli';
+    const isBuyback = h.wallet && h.wallet.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase();
     return `
     <div class="hist-row">
       <div>
         <span class="hr-indc ${isBuy ? 'buy' : 'sell'}">${isBuy ? '+' : '-'}${fmtN(indc)}</span>
         <span class="hr-badge ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'BELI' : 'JUAL'}</span>
       </div>
+      <div class="hr-mid">${isBuyback ? '<span class="hr-buyback">Buyback</span>' : ''}</div>
       <div class="hr-right">
         <span class="hr-usdt">${usdt !== null ? '$' + usdt.toFixed(1) : '—'}</span>
         <span class="hr-time">${dt}</span>
