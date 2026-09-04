@@ -895,6 +895,33 @@ async function fbLoadPrices() {
 let _histFilter   = 'all';
 let _allHistory   = [];
 let _allCombined  = []; // gabungan beli + jual
+let _buybackSeqMap = {};  // peta nomor urut buyback, dihitung dari SELURUH sejarah trade
+let _buybackSeqLoaded = false;
+
+// Hitung nomor urut buyback dari SELURUH sejarah trade (bukan cuma 50 terakhir yang tampil).
+// Dijalankan sekali di background, hasilnya dipakai renderHistory.
+async function _loadBuybackSequence(mkt, totalTrades) {
+  try {
+    const BATCH = 200;
+    let all = [];
+    for (let from = 0; from < totalTrades; from += BATCH) {
+      const count = Math.min(BATCH, totalTrades - from);
+      const chunk = await mkt.getTradeHistory(from, count);
+      all = all.concat(chunk);
+    }
+    const map = {};
+    let n = 0;
+    all
+      .filter(h => h.buyer && h.buyer.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase())
+      .sort((a,b) => Number(a.timestamp) - Number(b.timestamp))
+      .forEach(h => { map[Number(h.timestamp) + '_' + h.indcAmount.toString()] = ++n; });
+    _buybackSeqMap = map;
+    _buybackSeqLoaded = true;
+    renderHistory(); // render ulang biar nomornya langsung kepakai
+  } catch(e) {
+    console.warn('Gagal hitung urutan buyback:', e);
+  }
+}
 
 // ═══════════════════════════════════════════
 //  WALLET
@@ -1043,6 +1070,11 @@ async function loadMarketData() {
         }
 
         document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
+
+        // Hitung nomor urut buyback dari seluruh sejarah — sekali saja, jalan di background
+        if (!_buybackSeqLoaded && total > 0) {
+          _loadBuybackSequence(mkt, Number(total));
+        }
 
       } catch(e) {
         console.error('getTradeHistory/volume error:', e);
@@ -1239,22 +1271,13 @@ function renderHistory() {
     return;
   }
 
-  // Hitung nomor urut buyback dari SELURUH riwayat (bukan cuma yang tampil),
-  // diurut kronologis dari yang paling lama = nomor 1. Otomatis bertambah tiap ada buyback baru.
-  const buybackSeq = {};
-  let _bbCounter = 0;
-  [..._allCombined]
-    .filter(x => x.wallet && x.wallet.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase())
-    .sort((a,b) => a.timestamp - b.timestamp)
-    .forEach(x => { buybackSeq[x.timestamp + '_' + x.indcAmount] = ++_bbCounter; });
-
   el.innerHTML = data.map(h => {
     const indc  = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
     const usdt  = h.usdtAmount ? parseFloat(ethers.formatUnits(h.usdtAmount, 18)) : null;
     const dt    = new Date(h.timestamp * 1000).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
     const isBuy = h.type === 'beli';
     const isBuyback = h.wallet && h.wallet.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase();
-    const bbNo = isBuyback ? (buybackSeq[h.timestamp + '_' + h.indcAmount] || '') : '';
+    const bbNo = isBuyback ? (_buybackSeqMap[Number(h.timestamp) + '_' + h.indcAmount.toString()] || '') : '';
     return `
     <div class="hist-row">
       <div>
