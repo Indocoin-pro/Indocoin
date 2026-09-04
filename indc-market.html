@@ -245,7 +245,7 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 .hcol:last-child{text-align:right;}
 .hist-list{flex:1;overflow-y:auto;max-height:220px;}
 .hist-row{
-  display:grid;grid-template-columns:1fr auto 1fr;gap:2px;
+  display:grid;grid-template-columns:1fr 1fr;gap:2px;
   padding:7px 4px;border-bottom:1px solid var(--cream2);
   align-items:center;animation:fadeIn 0.3s ease;
 }
@@ -260,11 +260,11 @@ body{background:var(--cream);font-family:'DM Sans',sans-serif;padding-bottom:80p
 }
 .hr-badge.buy{background:#f0faf4;color:var(--green);}
 .hr-badge.sell{background:#fff5f5;color:var(--red);}
-.hr-mid{text-align:center;}
-.hr-buyback{font-family:'DM Mono',monospace;font-size:8px;font-style:italic;color:var(--text3);white-space:nowrap;}
 .hr-right{text-align:right;}
-.hr-usdt{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);display:block;}
-.hr-time{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);}
+.hr-usdt-line{display:flex;align-items:baseline;justify-content:flex-end;gap:12px;}
+.hr-buyback{font-family:'DM Mono',monospace;font-size:8px;font-style:italic;color:var(--text3);white-space:nowrap;}
+.hr-usdt{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);}
+.hr-time{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);display:block;}
 
 /* LISTING STATUS */
 .listing-status{
@@ -1239,21 +1239,33 @@ function renderHistory() {
     return;
   }
 
+  // Hitung nomor urut buyback dari SELURUH riwayat (bukan cuma yang tampil),
+  // diurut kronologis dari yang paling lama = nomor 1. Otomatis bertambah tiap ada buyback baru.
+  const buybackSeq = {};
+  let _bbCounter = 0;
+  [..._allCombined]
+    .filter(x => x.wallet && x.wallet.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase())
+    .sort((a,b) => a.timestamp - b.timestamp)
+    .forEach(x => { buybackSeq[x.timestamp + '_' + x.indcAmount] = ++_bbCounter; });
+
   el.innerHTML = data.map(h => {
     const indc  = parseFloat(ethers.formatUnits(h.indcAmount, INDC_DEC));
     const usdt  = h.usdtAmount ? parseFloat(ethers.formatUnits(h.usdtAmount, 18)) : null;
     const dt    = new Date(h.timestamp * 1000).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
     const isBuy = h.type === 'beli';
     const isBuyback = h.wallet && h.wallet.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase();
+    const bbNo = isBuyback ? (buybackSeq[h.timestamp + '_' + h.indcAmount] || '') : '';
     return `
     <div class="hist-row">
       <div>
         <span class="hr-indc ${isBuy ? 'buy' : 'sell'}">${isBuy ? '+' : '-'}${fmtN(indc)}</span>
         <span class="hr-badge ${isBuy ? 'buy' : 'sell'}">${isBuy ? 'BELI' : 'JUAL'}</span>
       </div>
-      <div class="hr-mid">${isBuyback ? '<span class="hr-buyback">Buyback</span>' : ''}</div>
       <div class="hr-right">
-        <span class="hr-usdt">${usdt !== null ? '$' + usdt.toFixed(1) : '—'}</span>
+        <div class="hr-usdt-line">
+          ${isBuyback ? `<span class="hr-buyback">Buyback ${bbNo}</span>` : ''}
+          <span class="hr-usdt">${usdt !== null ? '$' + usdt.toFixed(1) : '—'}</span>
+        </div>
         <span class="hr-time">${dt}</span>
       </div>
     </div>`;
