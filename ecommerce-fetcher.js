@@ -65,25 +65,126 @@ async function _resolveLinkPenuh(link) {
 // yang penting dijaga strukturnya.
 // ─────────────────────────────────────────────────────────────────
 
-async function _strategiUtama(linkPenuh, platform) {
-  await _jagaJarakRequest();
-  // Implementasi: baca data produk dari halaman/endpoint publik yang
-  // sama dipakai halaman produk itu sendiri untuk render (Shopee: PDP
-  // data endpoint; Tokopedia: GraphQL publik product detail).
-  // Diserahkan ke tim buat isi endpoint spesifik terkini + parsing-nya,
-  // supaya gampang di-patch sendiri kalau formatnya berubah tanpa perlu
-  // sentuh bagian lain file ini.
-  throw new Error('NOT_IMPLEMENTED_STRATEGI_UTAMA');
+const HEADERS_BROWSER = {
+  'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
+};
+
+/**
+ * Ambil angka harga dari berbagai bentuk yang mungkin muncul di JSON-LD
+ * (kadang "150000", kadang "150000.00", kadang string ada "Rp").
+ */
+function _parseHarga(nilai) {
+  if (nilai === null || nilai === undefined) return null;
+  const angka = Number(String(nilai).replace(/[^\d.]/g, ''));
+  return Number.isFinite(angka) && angka > 0 ? Math.round(angka) : null;
 }
 
+/**
+ * Cari objek Product di dalam JSON-LD (bisa berupa objek tunggal, array,
+ * atau dibungkus di dalam @graph — ketiga bentuk ini umum dipakai platform
+ * besar termasuk Shopee/Tokopedia untuk SEO/rich-snippet Google).
+ */
+function _cariProductDiJsonLd(parsed) {
+  if (!parsed) return null;
+  const kandidat = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+  for (const item of kandidat) {
+    if (item && (item['@type'] === 'Product' || (Array.isArray(item['@type']) && item['@type'].includes('Product')))) {
+      return item;
+    }
+  }
+  return null;
+}
+
+/**
+ * STRATEGI UTAMA — baca JSON-LD (schema.org Product) dari HTML halaman
+ * produk. Ini data yang SENGAJA disediakan platform e-commerce untuk
+ * dibaca mesin (Google Shopping, rich snippet pencarian) — jadi lebih
+ * stabil dibanding endpoint internal yang tidak terdokumentasi.
+ */
+async function _strategiUtama(linkPenuh, platform) {
+  await _jagaJarakRequest();
+
+  const res = await axios.get(linkPenuh, { headers: HEADERS_BROWSER, timeout: TIMEOUT_MS });
+  const html = res.data;
+
+  const blokJsonLd = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  let product = null;
+
+  for (const blok of blokJsonLd) {
+    try {
+      const parsed = JSON.parse(blok[1].trim());
+      product = _cariProductDiJsonLd(parsed);
+      if (product) break;
+    } catch {
+      // blok JSON-LD ini rusak/gak valid, lanjut coba blok berikutnya
+    }
+  }
+
+  if (!product) throw new Error('JSON-LD Product tidak ditemukan di halaman');
+
+  const offers = Array.isArray(product.offers) ? product.offers[0] : product.offers;
+  const hargaModal = _parseHarga(offers?.price ?? offers?.lowPrice ?? product.price);
+  if (!hargaModal) throw new Error('Harga tidak ditemukan di JSON-LD');
+
+  const fotoRaw = product.image;
+  const fotoUrl = Array.isArray(fotoRaw) ? fotoRaw : (fotoRaw ? [fotoRaw] : []);
+
+  return {
+    namaProduk: product.name || null,
+    deskripsi: product.description || null,
+    fotoUrl,
+    hargaModal,
+    namaToko: product.brand?.name || offers?.seller?.name || null,
+    lokasiToko: null,
+    rating: product.aggregateRating?.ratingValue ? Number(product.aggregateRating.ratingValue) : null,
+    jumlahTerjual: null,
+    stokStatus: offers?.availability ? (String(offers.availability).toLowerCase().includes('outofstock') ? 'habis' : 'tersedia') : null,
+  };
+}
+
+/**
+ * STRATEGI CADANGAN — kalau JSON-LD gak ada/gak lengkap, coba baca
+ * Open Graph meta tags (og:title, og:image, og:description). Ini juga
+ * data publik standar buat preview link (WhatsApp, Facebook, dll), jadi
+ * hampir semua halaman produk punya ini — tapi biasanya TIDAK ada harga
+ * di sini, jadi tetap butuh hargaModal ketemu lewat cara lain, atau
+ * fallback ke isi manual kalau tetap gak ada.
+ */
 async function _strategiCadangan(linkPenuh, platform) {
   await _jagaJarakRequest();
-  // Strategi kedua — dicoba kalau strategi utama gagal (format berubah,
-  // di-rate-limit, dll). Boleh pakai pendekatan lebih sederhana (mis.
-  // parsing meta-tag Open Graph di HTML halaman: og:title, og:image,
-  // og:description) yang lebih jarang berubah dibanding endpoint data
-  // internal, walau infonya kurang lengkap (biasanya gak dapat harga).
-  throw new Error('NOT_IMPLEMENTED_STRATEGI_CADANGAN');
+
+  const res = await axios.get(linkPenuh, { headers: HEADERS_BROWSER, timeout: TIMEOUT_MS });
+  const html = res.data;
+
+  const ambilMeta = (properti) => {
+    const m = html.match(new RegExp(`<meta[^>]*property=["']${properti}["'][^>]*content=["']([^"']*)["']`, 'i'))
+      || html.match(new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*property=["']${properti}["']`, 'i'));
+    return m ? m[1] : null;
+  };
+
+  const namaProduk = ambilMeta('og:title');
+  const fotoOg = ambilMeta('og:image');
+  const deskripsi = ambilMeta('og:description');
+  const hargaOg = ambilMeta('product:price:amount') || ambilMeta('og:price:amount');
+  const hargaModal = _parseHarga(hargaOg);
+
+  if (!namaProduk || !hargaModal) {
+    throw new Error('Data minimum (nama+harga) tidak lengkap dari Open Graph');
+  }
+
+  return {
+    namaProduk,
+    deskripsi,
+    fotoUrl: fotoOg ? [fotoOg] : [],
+    hargaModal,
+    namaToko: null,
+    lokasiToko: null,
+    rating: null,
+    jumlahTerjual: null,
+    stokStatus: null,
+  };
 }
 
 /**

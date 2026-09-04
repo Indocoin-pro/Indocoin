@@ -174,13 +174,37 @@ app.post('/api/quote', async (req, res) => {
   const { link, feeManual } = req.body;
   if (!link) return res.status(400).json({ error: 'link wajib diisi' });
 
-  const hasilFetch = await fetcher.fetchDetailProduk(link);
+  // Kalau link ini sudah ada di katalog & sudah punya data (baik dari
+  // auto-fetch maupun isi manual admin), PAKAI itu dulu — jangan coba
+  // fetch ulang ke Shopee/Tokopedia (percuma, sering gagal lagi & bikin
+  // produk yang udah diisi manual malah keliatan error terus).
+  const dariKatalog = db.ambilKatalogByLink(link);
+  let hasilFetch;
+  if (dariKatalog && dariKatalog.harga_modal) {
+    hasilFetch = {
+      berhasil: true,
+      data: {
+        namaProduk: dariKatalog.nama_produk,
+        deskripsi: dariKatalog.deskripsi,
+        fotoUrl: JSON.parse(dariKatalog.foto_url || '[]'),
+        hargaModal: dariKatalog.harga_modal,
+        namaToko: dariKatalog.nama_toko,
+        rating: dariKatalog.rating,
+        stokStatus: dariKatalog.stok_status,
+        platform: dariKatalog.platform,
+      },
+    };
+  } else {
+    hasilFetch = await fetcher.fetchDetailProduk(link);
+  }
+
   if (!hasilFetch.berhasil) {
     return res.json({ berhasil: false, alasan: hasilFetch.alasan });
   }
 
   const hargaModal = hasilFetch.data.hargaModal;
-  const feeInfo = pricing.hitungFeeEcommerce(hargaModal, feeManual ?? null);
+  const feeManualDariKatalog = dariKatalog && dariKatalog.fee_manual != null ? dariKatalog.fee_manual : null;
+  const feeInfo = pricing.hitungFeeEcommerce(hargaModal, feeManual ?? feeManualDariKatalog);
   if (!feeInfo.diizinkan) {
     return res.json({ berhasil: false, alasan: feeInfo.alasanTolak });
   }

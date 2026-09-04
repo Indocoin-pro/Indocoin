@@ -214,6 +214,10 @@ function hapusKatalog(linkProduk) {
   db.prepare(`UPDATE katalog_produk SET aktif = 0, updated_at = ? WHERE link_produk = ?`).run(now(), linkProduk);
 }
 
+function ambilKatalogByLink(linkProduk) {
+  return db.prepare(`SELECT * FROM katalog_produk WHERE link_produk = ? AND aktif = 1`).get(linkProduk);
+}
+
 function ambilKatalogAktif(kategori) {
   if (kategori) {
     return db.prepare(`SELECT * FROM katalog_produk WHERE aktif = 1 AND kategori = ? ORDER BY updated_at DESC`).all(kategori);
@@ -271,6 +275,7 @@ module.exports = {
   tandaiKatalogGagalFetch,
   setFeeManualKatalog,
   hapusKatalog,
+  ambilKatalogByLink,
   ambilKatalogAktif,
   ambilSemuaKatalogPerluRefresh,
   ambilCache,
