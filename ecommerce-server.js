@@ -132,6 +132,26 @@ app.post('/api/admin/katalog/tambah', verifikasiAdmin, async (req, res) => {
   res.json({ sukses: true, autoFetchBerhasil: hasil.berhasil });
 });
 
+/**
+ * Isi/perbarui detail produk MANUAL — dipakai selama ecommerce-fetcher.js
+ * belum lengkap (atau kapan pun admin mau override hasil auto-fetch).
+ */
+app.post('/api/admin/katalog/manual', verifikasiAdmin, (req, res) => {
+  const { link, namaProduk, deskripsi, fotoUrl, hargaModal, namaToko } = req.body;
+  if (!link || !namaProduk || !hargaModal) {
+    return res.status(400).json({ error: 'link, namaProduk, dan hargaModal wajib diisi' });
+  }
+  db.updateDetailKatalog(link, {
+    namaProduk,
+    deskripsi: deskripsi || '',
+    fotoUrl: Array.isArray(fotoUrl) ? fotoUrl : (fotoUrl ? [fotoUrl] : []),
+    hargaModal: Number(hargaModal),
+    namaToko: namaToko || '',
+    stokStatus: 'tersedia',
+  });
+  res.json({ sukses: true });
+});
+
 app.post('/api/admin/katalog/hapus', verifikasiAdmin, (req, res) => {
   const { link } = req.body;
   db.hapusKatalog(link);

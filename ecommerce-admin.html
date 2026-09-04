@@ -115,9 +115,29 @@ label{font-size:11px;color:var(--muted);margin-top:8px;display:block;}
         <label>Kategori</label>
         <input id="inputKatalogKategori" placeholder="Elektronik, Fashion, dll">
         <div class="btn-row">
-          <button class="btn btn-sukses" onclick="tambahKatalog()">+ Tambah ke Katalog</button>
+          <button class="btn btn-sukses" onclick="tambahKatalog()">+ Tambah ke Katalog (coba auto-fetch)</button>
         </div>
       </div>
+
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--gold3);margin-bottom:6px;">✏️ Isi Manual (kalau auto-fetch gagal)</div>
+        <label>Link produk (harus sudah ditambah di atas dulu)</label>
+        <input id="manualLink" placeholder="https://shopee.co.id/...">
+        <label>Nama Produk</label>
+        <input id="manualNama" placeholder="Nama produk">
+        <label>Harga (Rupiah, produk+ongkir)</label>
+        <input id="manualHarga" type="number" placeholder="Contoh: 150000">
+        <label>Nama Toko</label>
+        <input id="manualToko" placeholder="Nama toko/seller">
+        <label>Link Foto (satu URL dulu, boleh kosong)</label>
+        <input id="manualFoto" placeholder="https://...jpg">
+        <label>Deskripsi (boleh kosong)</label>
+        <textarea id="manualDeskripsi" rows="2" placeholder="Deskripsi singkat produk"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="isiManual()">💾 Simpan Isi Manual</button>
+        </div>
+      </div>
+
       <div id="katalogList"></div>
     </div>
   </div>
@@ -390,9 +410,38 @@ async function tambahKatalog(){
     });
     const data = await res.json();
     if(!data.sukses) throw new Error(data.error || 'Gagal');
-    toast(data.autoFetchBerhasil ? 'Produk ditambahkan & data ter-fetch otomatis.' : 'Ditambahkan, tapi auto-fetch gagal — cek manual.');
+    toast(data.autoFetchBerhasil ? 'Produk ditambahkan & data ter-fetch otomatis.' : 'Ditambahkan, tapi auto-fetch gagal — isi manual di bawah.');
+    document.getElementById('manualLink').value = link;
     document.getElementById('inputKatalogLink').value = '';
     document.getElementById('inputKatalogKategori').value = '';
+    muatKatalog();
+  }catch(err){ toast('Gagal: '+err.message); }
+}
+
+async function isiManual(){
+  const link = document.getElementById('manualLink').value.trim();
+  const namaProduk = document.getElementById('manualNama').value.trim();
+  const hargaModal = document.getElementById('manualHarga').value;
+  const namaToko = document.getElementById('manualToko').value.trim();
+  const fotoUrl = document.getElementById('manualFoto').value.trim();
+  const deskripsi = document.getElementById('manualDeskripsi').value.trim();
+
+  if(!link || !namaProduk || !hargaModal){ toast('Link, nama, dan harga wajib diisi'); return; }
+
+  try{
+    const res = await fetch(`${API_BASE}/admin/katalog/manual`, {
+      method:'POST', headers:{'Content-Type':'application/json','x-wallet-address':_wallet},
+      body: JSON.stringify({ link, namaProduk, hargaModal, namaToko, fotoUrl, deskripsi })
+    });
+    const data = await res.json();
+    if(!data.sukses) throw new Error(data.error || 'Gagal (pastikan link ini sudah ditambah dulu lewat tombol di atas)');
+    toast('Isi manual tersimpan.');
+    document.getElementById('manualLink').value = '';
+    document.getElementById('manualNama').value = '';
+    document.getElementById('manualHarga').value = '';
+    document.getElementById('manualToko').value = '';
+    document.getElementById('manualFoto').value = '';
+    document.getElementById('manualDeskripsi').value = '';
     muatKatalog();
   }catch(err){ toast('Gagal: '+err.message); }
 }
