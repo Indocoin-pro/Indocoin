@@ -898,26 +898,67 @@ let _allCombined  = []; // gabungan beli + jual
 let _buybackSeqMap = {};  // peta nomor urut buyback, dihitung dari SELURUH sejarah trade
 let _buybackSeqLoaded = false;
 
-// Hitung nomor urut buyback dari SELURUH sejarah trade (bukan cuma 50 terakhir yang tampil).
-// Dijalankan sekali di background, hasilnya dipakai renderHistory.
+// Nomor urut buyback disimpan di Firebase (pola sama seperti market/totalVolume),
+// supaya saat halaman dibuka angkanya langsung nongol bareng data lain — tidak menghitung ulang 600+ trade.
 async function _loadBuybackSequence(mkt, totalTrades) {
   try {
-    const BATCH = 200;
-    let all = [];
-    for (let from = 0; from < totalTrades; from += BATCH) {
-      const count = Math.min(BATCH, totalTrades - from);
-      const chunk = await mkt.getTradeHistory(from, count);
-      all = all.concat(chunk);
+    // 1. Ambil hasil hitungan tersimpan (instan)
+    const snap = await firebase.database().ref('market/buyback').once('value');
+    const saved = snap.val() || {};
+    const savedMap        = saved.map            || {};
+    const savedCount      = saved.count          || 0;
+    const savedLastIndex  = saved.lastTradeIndex || 0;
+
+    // Langsung pakai yang tersimpan dulu supaya nomor cepat tampil
+    if (Object.keys(savedMap).length > 0) {
+      _buybackSeqMap = savedMap;
+      _buybackSeqLoaded = true;
+      if (typeof _lastHistoryHash !== 'undefined') _lastHistoryHash = '';
+      renderHistory();
     }
-    const map = {};
-    let n = 0;
-    all
+
+    // 2. Kalau sudah paling baru, selesai — tidak perlu tarik apa-apa
+    if (savedLastIndex >= totalTrades) return;
+
+    // 3. Tarik hanya trade yang belum terhitung (pertama kali = semua, berikutnya = sedikit)
+    const BATCH = 50;
+    let fresh = [];
+    for (let from = savedLastIndex; from < totalTrades; from += BATCH) {
+      const count = Math.min(BATCH, totalTrades - from);
+      try {
+        const chunk = await mkt.getTradeHistory(from, count);
+        fresh = fresh.concat(chunk);
+      } catch(err) {
+        try {
+          await new Promise(r => setTimeout(r, 400));
+          const chunk2 = await mkt.getTradeHistory(from, count);
+          fresh = fresh.concat(chunk2);
+        } catch(err2) {
+          console.warn('Batch buyback gagal di index', from, err2);
+          return; // jangan simpan hasil setengah jadi
+        }
+      }
+    }
+
+    // 4. Lanjutkan penomoran dari hitungan sebelumnya
+    const map = Object.assign({}, savedMap);
+    let n = savedCount;
+    fresh
       .filter(h => h.buyer && h.buyer.toLowerCase() === PPOB_GATEWAY_ADDR_FOR_HISTORY.toLowerCase())
       .sort((a,b) => Number(a.timestamp) - Number(b.timestamp))
       .forEach(h => { map[Number(h.timestamp) + '_' + h.indcAmount.toString()] = ++n; });
+
     _buybackSeqMap = map;
     _buybackSeqLoaded = true;
-    renderHistory(); // render ulang biar nomornya langsung kepakai
+    if (typeof _lastHistoryHash !== 'undefined') _lastHistoryHash = '';
+    renderHistory();
+
+    // 5. Simpan supaya pembukaan berikutnya instan
+    await firebase.database().ref('market/buyback').set({
+      map:            map,
+      count:          n,
+      lastTradeIndex: totalTrades,
+    });
   } catch(e) {
     console.warn('Gagal hitung urutan buyback:', e);
   }
@@ -1072,7 +1113,7 @@ async function loadMarketData() {
         document.getElementById('statTrades').textContent = '$' + fmtN(volumeUsdt);
 
         // Hitung nomor urut buyback dari seluruh sejarah — sekali saja, jalan di background
-        if (!_buybackSeqLoaded && total > 0) {
+        if (total > 0) {
           _loadBuybackSequence(mkt, Number(total));
         }
 
