@@ -28,6 +28,8 @@ const ECOMMERCE_GATEWAY_ABI = [
   'function activeOrderCount(address) external view returns (uint256)',
   'function getRedemptionVaultStatus() external view returns (uint256 available, uint256 reserved)',
   'function getPoolStatus() external view returns (uint256 buybackPending, uint256 burnPending, uint256 nextBuybackThreshold, uint256 nextBurnThreshold)',
+  'function isAdmin(address) external view returns (bool)',
+  'function owner() external view returns (address)',
 ];
 
 const PAYMENT_METHOD = { 0: 'USDT', 1: 'PLATFORM_INDC', 2: 'EXTERNAL_INDC' };
