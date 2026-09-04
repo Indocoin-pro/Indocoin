@@ -92,7 +92,11 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
     <div class="nav-brand-main">INDOCOIN</div>
     <div class="nav-brand-sub">E-COMMERCE</div>
   </div>
-  <button class="cart-btn" onclick="bukaKeranjang()">🛒<span id="cartCount" class="cart-count" style="display:none">0</span></button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="cart-btn" style="font-size:11px;padding:8px 10px;" onclick="window.location.href='ecommerce-riwayat.html'">🕐 Riwayat</button>
+    <button id="btnAdminEcommerce" class="cart-btn" style="display:none;font-size:11px;padding:8px 10px;border-color:rgba(34,197,94,0.4);color:var(--green);" onclick="window.location.href='ecommerce-admin.html'">📝 Admin</button>
+    <button class="cart-btn" onclick="bukaKeranjang()">🛒<span id="cartCount" class="cart-count" style="display:none">0</span></button>
+  </div>
 </div>
 
 <div class="container">
@@ -130,13 +134,14 @@ body{background:var(--dark);color:var(--text);font-family:'Rajdhani',sans-serif;
 <div id="toast" class="toast"></div>
 
 <script>
-const API_BASE = '/api'; // sesuaikan ke domain backend e-commerce
+const API_BASE = 'https://ecommerce-api.indocoin.id/api';
 
 const SC = {
   ECOMMERCE_GATEWAY: '0xD60A746f440CE4424634b76e68349e7d6B7bB739',
   USDT: '0x55d398326f99059fF775485246999027B3197955',
   INDC: '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   CHAIN_ID: 56,
+  DEV_WALLET: '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc',
 };
 
 const GATEWAY_ABI = [
@@ -147,6 +152,13 @@ const ERC20_ABI = [
   'function approve(address spender, uint256 amount) external returns (bool)',
   'function allowance(address owner, address spender) external view returns (uint256)',
 ];
+
+function cekTombolAdmin(){
+  const btn = document.getElementById('btnAdminEcommerce');
+  if(!btn) return;
+  const isDev = _wallet && _wallet.toLowerCase() === SC.DEV_WALLET.toLowerCase();
+  btn.style.display = isDev ? 'inline-block' : 'none';
+}
 
 let _wallet = null, _provider = null, _signer = null;
 let _keranjang = [];
@@ -166,7 +178,17 @@ async function connectWalletJikaBelum(){
   _wallet = accounts[0];
   _provider = new ethers.providers.Web3Provider(window.ethereum);
   _signer = _provider.getSigner();
+  cekTombolAdmin();
   return _wallet;
+}
+
+// Auto-cek kalau wallet sudah terhubung sebelumnya (tab lain / kunjungan sebelumnya),
+// biar tombol Admin langsung muncul tanpa perlu klik connect dulu.
+if(window.ethereum && window.ethereum.selectedAddress){
+  _wallet = window.ethereum.selectedAddress;
+  _provider = new ethers.providers.Web3Provider(window.ethereum);
+  _signer = _provider.getSigner();
+  cekTombolAdmin();
 }
 
 let _kategoriAktif = null;
