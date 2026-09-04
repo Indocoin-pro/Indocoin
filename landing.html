@@ -1095,7 +1095,8 @@ footer {
 
     <input type="tel" id="signUpPhone" placeholder="Nomor HP (contoh: 08123456789)">
 
-    <input type="email" id="signUpEmail" placeholder="Alamat Email">
+    <input type="email" id="signUpEmail" placeholder="Alamat Email" onblur="checkEmailDomain(this.value)">
+    <div id="emailDomainWarn" style="display:none;color:#dc2626;font-size:11px;margin-top:-8px;margin-bottom:8px;"></div>
 
     <div class="pass-wrap">
       <input type="password" id="signUpPass" placeholder="Password (min 8 karakter)" oninput="checkStrength(this.value)">
@@ -1229,6 +1230,36 @@ async function saveUser(user, name='', phone='', referral='', wallet=''){
 }
 
 // Sign Up
+// Whitelist domain email yang diterima saat daftar
+const ALLOWED_EMAIL_DOMAINS = ['gmail.com','yahoo.com','yahoo.co.id','outlook.com','hotmail.com','live.com','icloud.com'];
+const EMAIL_DOMAIN_DISPLAY_NAMES = { 'gmail.com':'Gmail', 'yahoo.com':'Yahoo', 'yahoo.co.id':'Yahoo', 'outlook.com':'Outlook', 'hotmail.com':'Hotmail', 'live.com':'Live', 'icloud.com':'iCloud' };
+function getAllowedEmailDomainsText() {
+  const names = ALLOWED_EMAIL_DOMAINS.map(d => EMAIL_DOMAIN_DISPLAY_NAMES[d] || d);
+  return [...new Set(names)].join(', ');
+}
+function getEmailDomainErrorMsg() {
+  return 'Hanya email ' + getAllowedEmailDomainsText() + ' yang diterima';
+}
+function isEmailDomainAllowed(email) {
+  const parts = (email || '').trim().toLowerCase().split('@');
+  if (parts.length !== 2) return false;
+  return ALLOWED_EMAIL_DOMAINS.includes(parts[1]);
+}
+window.checkEmailDomain = (email) => {
+  const warn = document.getElementById('emailDomainWarn');
+  const input = document.getElementById('signUpEmail');
+  if (!email) { warn.style.display = 'none'; input.style.borderColor = ''; return; }
+  if (!email.includes('@')) { warn.style.display = 'none'; input.style.borderColor = ''; return; } // masih ngetik, belum sampai @
+  if (!isEmailDomainAllowed(email)) {
+    warn.textContent = getEmailDomainErrorMsg();
+    warn.style.display = 'block';
+    input.style.borderColor = '#dc2626';
+  } else {
+    warn.style.display = 'none';
+    input.style.borderColor = '';
+  }
+};
+
 window.doSignUp = async () => {
   const name  = document.getElementById('signUpName').value.trim();
   const phone = document.getElementById('signUpPhone').value.trim();
@@ -1242,6 +1273,9 @@ window.doSignUp = async () => {
   // Validasi
   if(!name||!phone||!email||!pass||!pass2){
     st.textContent='Lengkapi semua field yang wajib!'; st.className='modal-status error'; return;
+  }
+  if(!isEmailDomainAllowed(email)){
+    st.textContent=getEmailDomainErrorMsg()+'!'; st.className='modal-status error'; return;
   }
   if(pass !== pass2){
     st.textContent='Password tidak cocok! Coba lagi.'; st.className='modal-status error'; return;
@@ -1407,6 +1441,11 @@ window.doForgotPass = async () => {
 window.loginGoogle = async () => {
   try{
     const result = await signInWithPopup(auth, googleProvider);
+    if(!isEmailDomainAllowed(result.user.email)){
+      await signOut(auth);
+      alert(getEmailDomainErrorMsg() + '. Akun Google kamu (' + result.user.email + ') tidak bisa dipakai.');
+      return;
+    }
     await saveUser(result.user);
     localStorage.setItem('indocoin_loggedin', '1');
     closeModals();
