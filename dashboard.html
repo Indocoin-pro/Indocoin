@@ -1557,6 +1557,7 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+window._authInstance = auth; // expose ke window biar gak ada masalah scope di manapun
 const db   = getFirestore(app);
 const rtdb = getDatabase(app, "https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app");
 
@@ -1837,6 +1838,31 @@ async function loadPresaleData(){
 
 // Connect Wallet
 // ── GUARD MENU: blokir semua navigasi menu sampai wallet diverifikasi cocok ──
+// Toast global gaya INDOCOIN — pengganti alert() bawaan browser yang gak konsisten tampilannya
+window.showIndoToast = (msg, isWarning) => {
+  let el = document.getElementById('_indoToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_indoToast';
+    el.style.cssText = `
+      position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+      z-index:99998;padding:14px 20px;border-radius:12px;
+      font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;
+      max-width:88%;text-align:center;line-height:1.5;
+      background:linear-gradient(135deg,#1a1a2e,#0f172a);
+      transition:opacity .3s, transform .3s;pointer-events:none;
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+    document.body.appendChild(el);
+  }
+  el.style.border = isWarning ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(250,204,21,0.4)';
+  el.style.color = isWarning ? '#fca5a5' : '#facc15';
+  el.textContent = (isWarning ? '⚠️ ' : '') + msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(8px)'; }, 3200);
+};
+
 window._walletVerified = false;
 document.addEventListener('click', (e) => {
   if (window._walletVerified) return; // sudah aman, biarkan normal
@@ -1844,7 +1870,7 @@ document.addEventListener('click', (e) => {
   if (el) {
     e.preventDefault();
     e.stopPropagation();
-    alert('Hubungkan wallet yang benar terlebih dahulu untuk mengakses fitur ini.');
+    showIndoToast('Hubungkan wallet yang benar terlebih dahulu untuk mengakses fitur ini.', true);
   }
 }, true);
 
@@ -1855,9 +1881,10 @@ window.connectWallet = async () => {
     const addr = accounts[0];
 
     // ── CEK KECOCOKAN WALLET SEBELUM LANJUT APAPUN ──────────
-    if (auth.currentUser) {
+    const _authRef = (typeof window._authInstance !== 'undefined' && window._authInstance) ? window._authInstance : (typeof auth !== 'undefined' ? auth : null);
+    if (_authRef && _authRef.currentUser) {
       try {
-        const userSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const userSnap = await getDoc(doc(db, 'users', _authRef.currentUser.uid));
         const registeredWallet = userSnap.exists() ? (userSnap.data().wallet || '') : '';
         if (registeredWallet && registeredWallet.toLowerCase() !== addr.toLowerCase()) {
           document.getElementById('walletMismatchRegistered').textContent = registeredWallet.slice(0,6)+'...'+registeredWallet.slice(-4);
