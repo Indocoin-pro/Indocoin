@@ -1881,10 +1881,10 @@ window.connectWallet = async () => {
     const addr = accounts[0];
 
     // ── CEK KECOCOKAN WALLET SEBELUM LANJUT APAPUN ──────────
-    const _authRef = (typeof window._authInstance !== 'undefined' && window._authInstance) ? window._authInstance : (typeof auth !== 'undefined' ? auth : null);
-    if (_authRef && _authRef.currentUser) {
-      try {
-        const userSnap = await getDoc(doc(db, 'users', _authRef.currentUser.uid));
+    try {
+      const authInst = window._authInstance;
+      if (authInst && authInst.currentUser) {
+        const userSnap = await getDoc(doc(db, 'users', authInst.currentUser.uid));
         const registeredWallet = userSnap.exists() ? (userSnap.data().wallet || '') : '';
         if (registeredWallet && registeredWallet.toLowerCase() !== addr.toLowerCase()) {
           document.getElementById('walletMismatchRegistered').textContent = registeredWallet.slice(0,6)+'...'+registeredWallet.slice(-4);
@@ -1892,7 +1892,10 @@ window.connectWallet = async () => {
           document.getElementById('walletMismatchOverlay').style.display = 'flex';
           return; // stop total, jangan lanjut proses apapun
         }
-      } catch(mismatchErr) { console.warn('Gagal cek kecocokan wallet:', mismatchErr); }
+      }
+    } catch(mismatchErr) {
+      console.warn('Gagal cek kecocokan wallet:', mismatchErr);
+      // Gagal cek = jangan blokir user gara-gara bug internal, lanjut proses normal di bawah
     }
     // ─────────────────────────────────────────────────────────
 
@@ -1934,7 +1937,7 @@ window.connectWallet = async () => {
     // Cek referral on-chain — tampilkan gate kalau belum terdaftar
     autoRegisterReferral(addr, provider);
 
-  }catch(e){ console.error(e); alert('DEBUG connectWallet error: ' + (e.message || e)); }
+  }catch(e){ console.error(e); }
 };
 
 // ═══ REFERRAL GATE — DASHBOARD.HTML ═══
