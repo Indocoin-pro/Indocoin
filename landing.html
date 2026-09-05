@@ -1687,15 +1687,12 @@ function switchToSignUp(){ closeModals(); showSignUp(); }
 // Dengan begitu, ganti akun di HP yang sama tidak akan ketukar preferensinya.
 
 // Gerbang utama tiap ada yang klik "Masuk"
-// PENTING: form login dibuka SEKETIKA, pengecekan Firebase jalan belakangan.
-// Ini supaya tombol Masuk tidak pernah terasa "mati" walau koneksi lambat.
-window.handleMasukClick = () => {
-  showSignIn(); // langsung buka, tanpa nunggu apapun
-
+// Gerbang utama tiap ada yang klik "Masuk"
+// Form login dibuka SEKETIKA, cek Firestore jalan belakangan supaya tombol tidak terasa mati.
+function handleMasukClick() {
+  showSignIn();
   const u = auth.currentUser;
-  if (!u) return; // belum ada sesi -> cukup form login biasa
-
-  // Cek belakangan: kalau akun ini pilih mode tanpa login, ganti tampilan ke Layar 2
+  if (!u) return;
   getDoc(doc(db, 'users', u.uid)).then(snap => {
     const mode = snap.exists() ? snap.data().noLoginMode : null;
     if (mode === true) {
@@ -1704,9 +1701,9 @@ window.handleMasukClick = () => {
     }
   }).catch(e => {
     console.warn('Gagal baca preferensi login:', e);
-    // biarkan form login yang sudah terbuka — user tetap bisa masuk
   });
-};
+}
+window.handleMasukClick = handleMasukClick;
 // Layar 2, tombol "Lanjutkan Tanpa Login" — tetap dicek kecocokan wallet-nya
 window.continueNoLogin = async () => {
   const u = auth.currentUser;
@@ -1767,7 +1764,7 @@ window.chooseNoLoginMode = async (enable) => {
   window.location.href = 'dashboard.html';
 };
 // Dipanggil abis login sukses (email maupun Google) — cek akun ini udah pernah pilih mode belum
-window.proceedAfterLogin = async () => {
+async function proceedAfterLogin() {
   const u = auth.currentUser;
   if (!u) { window.location.href = 'dashboard.html'; return; }
   try {
@@ -1784,7 +1781,8 @@ window.proceedAfterLogin = async () => {
     console.warn('Gagal baca preferensi login:', e);
     window.location.href = 'dashboard.html';
   }
-};
+}
+window.proceedAfterLogin = proceedAfterLogin;
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
   // Layar pilihan login wajib dijawab — jangan bisa ditutup dengan klik di luar kotak
