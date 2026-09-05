@@ -1212,6 +1212,7 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+window._authInstance = auth; // expose ke window biar gak ada masalah scope di manapun
 const db   = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
@@ -1666,7 +1667,7 @@ function switchToSignUp(){ closeModals(); showSignUp(); }
 window.handleMasukClick = () => {
   const mode = localStorage.getItem('indocoin_no_login_mode');
   const savedUid = localStorage.getItem('indocoin_no_login_uid');
-  const activeUid = auth.currentUser ? auth.currentUser.uid : null;
+  const activeUid = (window._authInstance && window._authInstance.currentUser) ? window._authInstance.currentUser.uid : null;
   // Cuma tampilkan Layar 2 kalau mode aktif DAN akun yang lagi aktif sekarang SAMA seperti yang milih mode itu
   if (mode === 'on' && savedUid && activeUid && savedUid === activeUid) {
     document.getElementById('masukChoiceModal').classList.add('active');
@@ -1683,7 +1684,7 @@ window.continueNoLogin = () => {
 window.switchToLoginFromChoice = async () => {
   localStorage.setItem('indocoin_no_login_mode', 'off');
   localStorage.removeItem('indocoin_no_login_uid');
-  try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
+  try { await setPersistence(window._authInstance, browserSessionPersistence); } catch(e) {}
   closeModals();
   showSignIn();
 };
@@ -1694,13 +1695,14 @@ window.showNoLoginOffer = () => {
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
   localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
-  if (enable && auth.currentUser) {
-    localStorage.setItem('indocoin_no_login_uid', auth.currentUser.uid);
+  const _u = window._authInstance ? window._authInstance.currentUser : null;
+  if (enable && _u) {
+    localStorage.setItem('indocoin_no_login_uid', _u.uid);
   } else {
     localStorage.removeItem('indocoin_no_login_uid');
   }
   try {
-    await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
+    await setPersistence(window._authInstance, enable ? browserLocalPersistence : browserSessionPersistence);
   } catch(e) { console.warn('Gagal set persistence:', e); }
   document.getElementById('noLoginOfferModal').classList.remove('active');
   window.location.href = 'dashboard.html';
