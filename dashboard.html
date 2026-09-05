@@ -1836,6 +1836,18 @@ async function loadPresaleData(){
 }
 
 // Connect Wallet
+// ── GUARD MENU: blokir semua navigasi menu sampai wallet diverifikasi cocok ──
+window._walletVerified = false;
+document.addEventListener('click', (e) => {
+  if (window._walletVerified) return; // sudah aman, biarkan normal
+  const el = e.target.closest('.menu-item, .other-item, .bnav-item');
+  if (el) {
+    e.preventDefault();
+    e.stopPropagation();
+    alert('Hubungkan wallet yang benar terlebih dahulu untuk mengakses fitur ini.');
+  }
+}, true);
+
 window.connectWallet = async () => {
   if(!window.ethereum){ alert('Install MetaMask atau buka di dApp browser!'); return; }
   try{
@@ -1887,6 +1899,7 @@ window.connectWallet = async () => {
     document.getElementById('walletBadge').textContent = '✅ Terhubung';
     document.getElementById('walletBadge').className = 'wallet-badge';
     document.getElementById('connectBtn').style.display = 'none';
+    window._walletVerified = true; // baru dibuka aksesnya di titik ini — sudah lolos cek kecocokan wallet
 
     // Simpan wallet ke localStorage untuk auto connect di halaman lain
     if (typeof window._saveWallet === 'function') window._saveWallet(addr);
@@ -1894,7 +1907,7 @@ window.connectWallet = async () => {
     // Cek referral on-chain — tampilkan gate kalau belum terdaftar
     autoRegisterReferral(addr, provider);
 
-  }catch(e){ console.error(e); }
+  }catch(e){ console.error(e); alert('DEBUG connectWallet error: ' + (e.message || e)); }
 };
 
 // ═══ REFERRAL GATE — DASHBOARD.HTML ═══
