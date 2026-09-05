@@ -949,11 +949,6 @@ footer {
       INDOCOIN
     </div>
     <div class="nav-right">
-      <div class="nav-price">
-        <span class="np-dot"></span>
-        <span class="np-label">INDC</span>
-        <span class="np-val" id="navPrice">$0.003</span>
-      </div>
       <div class="lang-switch">
         <button class="lang-btn active" id="langID" onclick="setLang('id')">🇮🇩 ID</button>
         <button class="lang-btn" id="langEN" onclick="setLang('en')">🇬🇧 EN</button>
@@ -1174,8 +1169,8 @@ footer {
 <!-- ===== FIREBASE ===== -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
@@ -1240,6 +1235,54 @@ function getAllowedEmailDomainsText() {
 function getEmailDomainErrorMsg() {
   return 'Email tidak valid, coba yang lain';
 }
+
+// Fingerprint perangkat: gabungan ciri khas browser di-hash SHA-256, dipakai buat batasi maks 10 akun per perangkat
+const MAX_ACCOUNTS_PER_DEVICE = 10;
+async function getDeviceFingerprint() {
+  let canvasData = '';
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('INDOCOIN-fp-2026', 2, 2);
+    canvasData = canvas.toDataURL();
+  } catch(e) { /* canvas gak didukung, lanjut tanpa itu */ }
+
+  const raw = [
+    navigator.userAgent,
+    navigator.language,
+    navigator.hardwareConcurrency || '',
+    navigator.deviceMemory || '',
+    (screen.width||0) + 'x' + (screen.height||0),
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    navigator.platform,
+    canvasData
+  ].join('|||');
+
+  const enc = new TextEncoder().encode(raw);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function isDeviceAllowedToRegister() {
+  try {
+    const fp = await getDeviceFingerprint();
+    const snap = await getDoc(doc(db, 'deviceFingerprints', fp));
+    const count = snap.exists() ? (snap.data().count || 0) : 0;
+    return { allowed: count < MAX_ACCOUNTS_PER_DEVICE, fp };
+  } catch(e) {
+    console.warn('Gagal cek fingerprint, izinkan lanjut:', e);
+    return { allowed: true, fp: null }; // gagal cek -> jangan blokir user gara-gara error teknis
+  }
+}
+async function incrementDeviceFingerprint(fp) {
+  if (!fp) return;
+  try {
+    await setDoc(doc(db, 'deviceFingerprints', fp), { count: increment(1) }, { merge: true });
+  } catch(e) { console.warn('Gagal update fingerprint counter:', e); }
+}
+
 function isEmailDomainAllowed(email) {
   const parts = (email || '').trim().toLowerCase().split('@');
   if (parts.length !== 2) return false;
@@ -1289,6 +1332,15 @@ window.doSignUp = async () => {
 
   st.textContent = 'Mendaftar...'; st.className = 'modal-status';
 
+  // ── CEK BATAS AKUN PER PERANGKAT (FINGERPRINT) ────────────
+  const deviceCheck = await isDeviceAllowedToRegister();
+  if (!deviceCheck.allowed) {
+    st.textContent = 'Batas pendaftaran dari perangkat ini sudah tercapai';
+    st.className = 'modal-status error';
+    return;
+  }
+  // ──────────────────────────────────────────────────────────
+
   // ── CEK WALLET DUPLIKAT VIA FIREBASE ──────────────────────
   let walletAddr = '';
   try {
@@ -1313,6 +1365,7 @@ window.doSignUp = async () => {
     cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
     await saveUser(cred.user, name, phone, ref, walletAddr);
+    await incrementDeviceFingerprint(deviceCheck.fp);
 
     // Kirim email verifikasi
     await sendEmailVerification(cred.user);
@@ -1445,6 +1498,16 @@ window.loginGoogle = async () => {
       await signOut(auth);
       alert(getEmailDomainErrorMsg() + '. Akun Google kamu (' + result.user.email + ') tidak bisa dipakai.');
       return;
+    }
+    const addInfo = getAdditionalUserInfo(result);
+    if (addInfo && addInfo.isNewUser) {
+      const deviceCheck = await isDeviceAllowedToRegister();
+      if (!deviceCheck.allowed) {
+        await signOut(auth);
+        alert('Batas pendaftaran dari perangkat ini sudah tercapai.');
+        return;
+      }
+      await incrementDeviceFingerprint(deviceCheck.fp);
     }
     await saveUser(result.user);
     localStorage.setItem('indocoin_loggedin', '1');
@@ -1749,7 +1812,6 @@ async function loadStats(){
     const raised = await contract.totalRaised();
     const r = parseFloat(ethers.utils.formatUnits(raised, 18));
     document.getElementById('statSold').textContent = Math.floor(r/0.003).toLocaleString()+' INDC';
-    document.getElementById('navPrice').textContent = '$0.003';
   }catch(e){ document.getElementById('statSold').textContent = '—'; }
 }
 </script>
