@@ -1499,25 +1499,6 @@ window.doSignIn = async () => {
       await signOut(auth);
       return;
     }
-    // ── CEK KECOCOKAN WALLET DENGAN AKUN ──────────────────
-    try {
-      if (window.ethereum) {
-        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(()=>[]);
-        const activeWallet = (accs && accs[0]) ? accs[0].toLowerCase() : '';
-        if (activeWallet) {
-          const uSnap = await getDoc(doc(db, 'users', cred.user.uid));
-          const regWallet = (uSnap.exists() ? (uSnap.data().wallet || '') : '').toLowerCase();
-          if (regWallet && regWallet !== activeWallet) {
-            st.innerHTML = '⚠️ Wallet tidak cocok!<br><small style="font-size:11px">Wallet yang aktif di perangkat ini bukan wallet yang terdaftar untuk akun ini. Silakan ganti wallet di aplikasi wallet Anda, lalu coba lagi.</small>';
-            st.className = 'modal-status error';
-            await signOut(auth);
-            return;
-          }
-        }
-      }
-    } catch(wErr) { console.warn('Gagal cek kecocokan wallet:', wErr); }
-    // ───────────────────────────────────────────────────────
-
     st.textContent = '✅ Berhasil! Menghubungkan wallet...';
     st.className = 'modal-status';
     localStorage.setItem('indocoin_loggedin', '1');
@@ -1674,119 +1655,54 @@ function showSignIn(){
 function closeModals(){
   document.getElementById('signUpModal').classList.remove('active');
   document.getElementById('signInModal').classList.remove('active');
-  const nlo = document.getElementById('noLoginOfferModal');
-  nlo.classList.remove('active');
-  nlo.style.display = '';
+  document.getElementById('noLoginOfferModal').classList.remove('active');
   document.getElementById('masukChoiceModal').classList.remove('active');
 }
 function switchToSignIn(){ closeModals(); handleMasukClick(); }
 function switchToSignUp(){ closeModals(); showSignUp(); }
 
 // ── MODE TANPA LOGIN ──────────────────────────────────────
-// Preferensi disimpan di Firestore (users/{uid}.noLoginMode) supaya nempel ke AKUN, bukan ke HP.
-// Dengan begitu, ganti akun di HP yang sama tidak akan ketukar preferensinya.
-
-// Gerbang utama tiap ada yang klik "Masuk"
-// Gerbang utama tiap ada yang klik "Masuk"
-// Form login dibuka SEKETIKA, cek Firestore jalan belakangan supaya tombol tidak terasa mati.
-function handleMasukClick() {
-  showSignIn();
-  const u = auth.currentUser;
-  if (!u) return;
-  getDoc(doc(db, 'users', u.uid)).then(snap => {
-    const mode = snap.exists() ? snap.data().noLoginMode : null;
-    if (mode === true) {
-      document.getElementById('signInModal').classList.remove('active');
-      document.getElementById('masukChoiceModal').classList.add('active');
-    }
-  }).catch(e => {
-    console.warn('Gagal baca preferensi login:', e);
-  });
-}
-window.handleMasukClick = handleMasukClick;
-// Layar 2, tombol "Lanjutkan Tanpa Login" — tetap dicek kecocokan wallet-nya
-window.continueNoLogin = async () => {
-  const u = auth.currentUser;
-  try {
-    if (u && window.ethereum) {
-      const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(()=>[]);
-      const activeWallet = (accs && accs[0]) ? accs[0].toLowerCase() : '';
-      if (activeWallet) {
-        const uSnap = await getDoc(doc(db, 'users', u.uid));
-        const regWallet = (uSnap.exists() ? (uSnap.data().wallet || '') : '').toLowerCase();
-        if (regWallet && regWallet !== activeWallet) {
-          closeModals();
-          await signOut(auth);
-          showSignIn();
-          const st = document.getElementById('signInStatus');
-          if (st) {
-            st.innerHTML = '⚠️ Wallet tidak cocok!<br><small style="font-size:11px">Wallet yang aktif di perangkat ini bukan wallet yang terdaftar untuk akun ini. Silakan ganti wallet di aplikasi wallet Anda, lalu coba lagi.</small>';
-            st.className = 'modal-status error';
-          }
-          return;
-        }
-      }
-    }
-  } catch(wErr) { console.warn('Gagal cek kecocokan wallet:', wErr); }
+window.handleMasukClick = () => {
+  if (localStorage.getItem('indocoin_no_login_mode') === 'on') {
+    document.getElementById('masukChoiceModal').classList.add('active');
+  } else {
+    showSignIn();
+  }
+};
+// Layar 2, tombol "Lanjutkan Tanpa Login"
+window.continueNoLogin = () => {
   closeModals();
   window.location.href = 'dashboard.html';
 };
 // Layar 2, tombol "Aktifkan Login"
 window.switchToLoginFromChoice = async () => {
-  try {
-    if (auth.currentUser) {
-      await setDoc(doc(db, 'users', auth.currentUser.uid), { noLoginMode: false }, { merge: true });
-    }
-    await setPersistence(auth, browserLocalPersistence);
-  } catch(e) { console.warn('Gagal simpan preferensi:', e); }
+  localStorage.setItem('indocoin_no_login_mode', 'off');
+  try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
   closeModals();
   showSignIn();
 };
 // Layar 1, dipanggil sekali abis login pertama kali sukses
 window.showNoLoginOffer = () => {
-  const m = document.getElementById('noLoginOfferModal');
-  m.classList.add('active');
-  // Paksa tampil lewat style langsung juga, supaya tidak bisa tertimpa proses lain
-  m.style.display = 'flex';
-  m.style.zIndex = '99999';
+  document.getElementById('noLoginOfferModal').classList.add('active');
 };
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
-  const m = document.getElementById('noLoginOfferModal');
+  localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
   try {
-    if (auth.currentUser) {
-      await setDoc(doc(db, 'users', auth.currentUser.uid), { noLoginMode: !!enable }, { merge: true });
-    }
-    await setPersistence(auth, browserLocalPersistence);
-  } catch(e) { console.warn('Gagal simpan preferensi:', e); }
-  m.classList.remove('active');
-  m.style.display = '';
+    await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
+  } catch(e) { console.warn('Gagal set persistence:', e); }
+  document.getElementById('noLoginOfferModal').classList.remove('active');
   window.location.href = 'dashboard.html';
 };
-// Dipanggil abis login sukses (email maupun Google) — cek akun ini udah pernah pilih mode belum
-async function proceedAfterLogin() {
-  const u = auth.currentUser;
-  if (!u) { window.location.href = 'dashboard.html'; return; }
-  try {
-    const snap = await getDoc(doc(db, 'users', u.uid));
-    const mode = snap.exists() ? snap.data().noLoginMode : undefined;
-    if (mode === undefined || mode === null) {
-      // Pastikan modal lain sudah tertutup dulu, baru tampilkan Layar 1
-      closeModals();
-      setTimeout(() => { showNoLoginOffer(); }, 50);
-    } else {
-      window.location.href = 'dashboard.html';
-    }
-  } catch(e) {
-    console.warn('Gagal baca preferensi login:', e);
+window.proceedAfterLogin = () => {
+  if (localStorage.getItem('indocoin_no_login_mode') === null) {
+    showNoLoginOffer();
+  } else {
     window.location.href = 'dashboard.html';
   }
-}
-window.proceedAfterLogin = proceedAfterLogin;
+};
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
-  // Layar pilihan login wajib dijawab — jangan bisa ditutup dengan klik di luar kotak
-  if (m.id === 'noLoginOfferModal' || m.id === 'masukChoiceModal') return;
   m.addEventListener('click', e=>{ if(e.target===m) closeModals(); });
 });
 
