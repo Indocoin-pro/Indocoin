@@ -1685,21 +1685,25 @@ function switchToSignUp(){ closeModals(); showSignUp(); }
 // Dengan begitu, ganti akun di HP yang sama tidak akan ketukar preferensinya.
 
 // Gerbang utama tiap ada yang klik "Masuk"
-window.handleMasukClick = async () => {
+// PENTING: form login dibuka SEKETIKA, pengecekan Firebase jalan belakangan.
+// Ini supaya tombol Masuk tidak pernah terasa "mati" walau koneksi lambat.
+window.handleMasukClick = () => {
+  showSignIn(); // langsung buka, tanpa nunggu apapun
+
   const u = auth.currentUser;
-  if (!u) { showSignIn(); return; } // belum ada sesi -> login normal
-  try {
-    const snap = await getDoc(doc(db, 'users', u.uid));
+  if (!u) return; // belum ada sesi -> cukup form login biasa
+
+  // Cek belakangan: kalau akun ini pilih mode tanpa login, ganti tampilan ke Layar 2
+  getDoc(doc(db, 'users', u.uid)).then(snap => {
     const mode = snap.exists() ? snap.data().noLoginMode : null;
     if (mode === true) {
+      document.getElementById('signInModal').classList.remove('active');
       document.getElementById('masukChoiceModal').classList.add('active');
-    } else {
-      showSignIn();
     }
-  } catch(e) {
+  }).catch(e => {
     console.warn('Gagal baca preferensi login:', e);
-    showSignIn(); // gagal baca -> aman, minta login normal
-  }
+    // biarkan form login yang sudah terbuka — user tetap bisa masuk
+  });
 };
 // Layar 2, tombol "Lanjutkan Tanpa Login" — tetap dicek kecocokan wallet-nya
 window.continueNoLogin = async () => {
