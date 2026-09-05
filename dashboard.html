@@ -874,6 +874,26 @@ body {
 </head>
 <body>
 
+<!-- OVERLAY: WALLET TIDAK COCOK — block total, tanpa tombol tutup -->
+<div id="walletMismatchOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(5,5,10,0.97);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;">
+  <div style="max-width:380px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+    <h2 style="color:#facc15;font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:1px;margin-bottom:14px;">WALLET TIDAK COCOK</h2>
+    <p style="color:#e8ddc8;font-size:13px;line-height:1.7;margin-bottom:16px;">
+      Wallet yang terhubung sekarang berbeda dengan wallet yang terdaftar di akun ini. Untuk keamanan, akses dashboard dihentikan.
+    </p>
+    <div style="background:#12121f;border:1px solid #3a3a4a;border-radius:10px;padding:12px;margin-bottom:16px;font-family:'Share Tech Mono',monospace;font-size:11px;text-align:left;">
+      <div style="color:#9a8c78;margin-bottom:4px;">Wallet terdaftar:</div>
+      <div id="walletMismatchRegistered" style="color:#2dd4bf;margin-bottom:10px;">—</div>
+      <div style="color:#9a8c78;margin-bottom:4px;">Wallet aktif sekarang:</div>
+      <div id="walletMismatchActive" style="color:#ef4444;">—</div>
+    </div>
+    <p style="color:#9a8c78;font-size:12px;line-height:1.6;">
+      Buka TokenPocket, alihkan ke wallet yang benar, lalu muat ulang halaman ini.
+    </p>
+  </div>
+</div>
+
 <!-- BG LOGO -->
 <div id="bgLogo">
   <img src="1772782967104.png" alt="">
@@ -1821,6 +1841,22 @@ window.connectWallet = async () => {
   try{
     const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
     const addr = accounts[0];
+
+    // ── CEK KECOCOKAN WALLET SEBELUM LANJUT APAPUN ──────────
+    if (auth.currentUser) {
+      try {
+        const userSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const registeredWallet = userSnap.exists() ? (userSnap.data().wallet || '') : '';
+        if (registeredWallet && registeredWallet.toLowerCase() !== addr.toLowerCase()) {
+          document.getElementById('walletMismatchRegistered').textContent = registeredWallet.slice(0,6)+'...'+registeredWallet.slice(-4);
+          document.getElementById('walletMismatchActive').textContent = addr.slice(0,6)+'...'+addr.slice(-4);
+          document.getElementById('walletMismatchOverlay').style.display = 'flex';
+          return; // stop total, jangan lanjut proses apapun
+        }
+      } catch(mismatchErr) { console.warn('Gagal cek kecocokan wallet:', mismatchErr); }
+    }
+    // ─────────────────────────────────────────────────────────
+
     const provider = new ethers.providers.Web3Provider(window.ethereum);
 
     // Cek chain BSC
