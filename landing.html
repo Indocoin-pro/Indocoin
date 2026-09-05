@@ -1212,7 +1212,6 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-window._authInstance = auth; // expose ke window biar gak ada masalah scope di manapun
 const db   = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
@@ -1665,11 +1664,7 @@ function switchToSignUp(){ closeModals(); showSignUp(); }
 // ── MODE TANPA LOGIN ──────────────────────────────────────
 // Gerbang utama tiap ada yang klik "Masuk" — cek mode tersimpan DAN pastikan akun yang aktif sekarang sama
 window.handleMasukClick = () => {
-  const mode = localStorage.getItem('indocoin_no_login_mode');
-  const savedUid = localStorage.getItem('indocoin_no_login_uid');
-  const activeUid = (window._authInstance && window._authInstance.currentUser) ? window._authInstance.currentUser.uid : null;
-  // Cuma tampilkan Layar 2 kalau mode aktif DAN akun yang lagi aktif sekarang SAMA seperti yang milih mode itu
-  if (mode === 'on' && savedUid && activeUid && savedUid === activeUid) {
+  if (localStorage.getItem('indocoin_no_login_mode') === 'on') {
     document.getElementById('masukChoiceModal').classList.add('active');
   } else {
     showSignIn();
@@ -1683,8 +1678,7 @@ window.continueNoLogin = () => {
 // Layar 2, tombol "Aktifkan Login"
 window.switchToLoginFromChoice = async () => {
   localStorage.setItem('indocoin_no_login_mode', 'off');
-  localStorage.removeItem('indocoin_no_login_uid');
-  try { await setPersistence(window._authInstance, browserSessionPersistence); } catch(e) {}
+  try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
   closeModals();
   showSignIn();
 };
@@ -1695,14 +1689,8 @@ window.showNoLoginOffer = () => {
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
   localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
-  const _u = window._authInstance ? window._authInstance.currentUser : null;
-  if (enable && _u) {
-    localStorage.setItem('indocoin_no_login_uid', _u.uid);
-  } else {
-    localStorage.removeItem('indocoin_no_login_uid');
-  }
   try {
-    await setPersistence(window._authInstance, enable ? browserLocalPersistence : browserSessionPersistence);
+    await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
   } catch(e) { console.warn('Gagal set persistence:', e); }
   document.getElementById('noLoginOfferModal').classList.remove('active');
   window.location.href = 'dashboard.html';
