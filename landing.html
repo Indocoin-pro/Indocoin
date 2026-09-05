@@ -1088,7 +1088,12 @@ footer {
 
     <input type="text" id="signUpName" placeholder="Nama Lengkap">
 
-    <input type="tel" id="signUpPhone" placeholder="Nomor HP (contoh: 08123456789)">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <div style="flex:0 0 auto;min-width:90px;display:flex;align-items:center;justify-content:center;background:#12121f;border:1px solid #3a3a4a;border-radius:10px;">
+        <canvas id="capCanvas" width="90" height="44" onclick="drawCaptcha()" style="cursor:pointer;" title="Klik untuk ganti kode"></canvas>
+      </div>
+      <input type="text" id="signUpCaptcha" placeholder="Ketik kode di kiri" maxlength="6" style="flex:1;">
+    </div>
 
     <input type="email" id="signUpEmail" placeholder="Alamat Email" onblur="checkEmailDomain(this.value)">
     <div id="emailDomainWarn" style="display:none;color:#dc2626;font-size:11px;margin-top:-8px;margin-bottom:8px;"></div>
@@ -1238,6 +1243,38 @@ function getEmailDomainErrorMsg() {
 
 // Fingerprint perangkat: gabungan ciri khas browser di-hash SHA-256, dipakai buat batasi maks 10 akun per perangkat
 const MAX_ACCOUNTS_PER_DEVICE = 10;
+// Captcha kode gambar (ganti nomor HP) — nutup celah bot spam sederhana
+window._captchaCode = '';
+function drawCaptcha() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // tanpa 0/O/1/I biar gak ambigu
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  window._captchaCode = code;
+
+  const canvas = document.getElementById('capCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#12121f';
+  ctx.fillRect(0, 0, 90, 44);
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = 'rgba(200,146,42,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(Math.random()*90, Math.random()*44);
+    ctx.lineTo(Math.random()*90, Math.random()*44);
+    ctx.stroke();
+  }
+  ctx.font = 'bold 16px monospace';
+  ctx.fillStyle = '#f5c842';
+  for (let i = 0; i < code.length; i++) {
+    ctx.save();
+    ctx.translate(8 + i*13, 28);
+    ctx.rotate((Math.random()-0.5)*0.4);
+    ctx.fillText(code[i], 0, 0);
+    ctx.restore();
+  }
+}
+window.drawCaptcha = drawCaptcha;
+
 async function getDeviceFingerprint() {
   let canvasData = '';
   try {
@@ -1305,17 +1342,20 @@ window.checkEmailDomain = (email) => {
 
 window.doSignUp = async () => {
   const name  = document.getElementById('signUpName').value.trim();
-  const phone = document.getElementById('signUpPhone').value.trim();
   const email = document.getElementById('signUpEmail').value.trim();
   const pass  = document.getElementById('signUpPass').value;
   const pass2 = document.getElementById('signUpPass2').value;
   const ref   = document.getElementById('signUpRef').value.trim();
   const tos   = document.getElementById('signUpTos').checked;
   const st    = document.getElementById('signUpStatus');
+  const captchaInput = document.getElementById('signUpCaptcha').value.trim().toUpperCase();
 
   // Validasi
-  if(!name||!phone||!email||!pass||!pass2){
+  if(!name||!email||!pass||!pass2){
     st.textContent='Lengkapi semua field yang wajib!'; st.className='modal-status error'; return;
+  }
+  if(captchaInput !== window._captchaCode){
+    st.textContent='Kode captcha salah, coba lagi!'; st.className='modal-status error'; drawCaptcha(); return;
   }
   if(!isEmailDomainAllowed(email)){
     st.textContent=getEmailDomainErrorMsg()+'!'; st.className='modal-status error'; return;
@@ -1364,7 +1404,7 @@ window.doSignUp = async () => {
   try{
     cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, {displayName: name});
-    await saveUser(cred.user, name, phone, ref, walletAddr);
+    await saveUser(cred.user, name, '', ref, walletAddr);
     await incrementDeviceFingerprint(deviceCheck.fp);
 
     // Kirim email verifikasi
@@ -1563,6 +1603,7 @@ function generateStars(){
 // ===== MODALS =====
 function showSignUp(){
   document.getElementById('signUpModal').classList.add('active');
+  setTimeout(drawCaptcha, 50); // tunggu sebentar biar canvas sudah ke-render
   // Auto-populate kode referral dari localStorage
   const savedRef = localStorage.getItem('indocoin_ref') || '';
   const refInput = document.getElementById('signUpRef');
