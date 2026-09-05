@@ -980,7 +980,7 @@ footer {
     <!-- AUTH BUTTONS -->
     <div class="auth-box">
       <button class="btn-primary" onclick="showSignUp()">📝 DAFTAR SEKARANG</button>
-      <button class="btn-secondary" onclick="showSignIn()">🔑 MASUK</button>
+      <button class="btn-secondary" onclick="handleMasukClick()">🔑 MASUK</button>
 
       <div class="divider">atau</div>
 
@@ -1136,6 +1136,31 @@ footer {
 </div>
 
 <!-- ===== MODAL SIGN IN ===== -->
+<div class="modal-overlay" id="noLoginOfferModal">
+  <div class="modal" style="max-width:360px;">
+    <h3 style="color:var(--gold);margin-bottom:14px;">Aktifkan Mode Tanpa Login?</h3>
+    <p style="color:#e8ddc8;font-size:13px;line-height:1.6;margin-bottom:10px;">
+      Kamu bisa masuk tanpa perlu isi email & password lagi di kunjungan berikutnya.
+    </p>
+    <p style="color:#9a8c78;font-size:12px;line-height:1.6;margin-bottom:18px;">
+      Kami tetap sarankan pakai login setiap masuk — ini lapisan pengaman kedua di luar PIN wallet kamu.
+    </p>
+    <button class="btn-primary" onclick="chooseNoLoginMode(true)">Aktifkan Tanpa Login</button>
+    <button class="btn-secondary" style="margin-top:10px" onclick="chooseNoLoginMode(false)">Tetap Pakai Login</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="masukChoiceModal">
+  <div class="modal" style="max-width:360px;">
+    <h3 style="color:var(--gold);margin-bottom:14px;">Selamat Datang Kembali</h3>
+    <p style="color:#e8ddc8;font-size:13px;line-height:1.6;margin-bottom:18px;">
+      Anda dapat melanjutkan tanpa login, atau mengaktifkan login untuk keamanan tambahan.
+    </p>
+    <button class="btn-primary" onclick="continueNoLogin()">Lanjutkan Tanpa Login</button>
+    <button class="btn-secondary" style="margin-top:10px" onclick="switchToLoginFromChoice()">Aktifkan Login</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="signInModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModals()">✕</button>
@@ -1151,11 +1176,7 @@ footer {
       <span class="eye-btn" onclick="togglePass('signInPass',this)">👁️</span>
     </div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:-6px 0 12px">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(250,204,21,0.7);letter-spacing:1px;">
-        <input type="checkbox" id="rememberMe" style="accent-color:#facc15;width:14px;height:14px;cursor:pointer;">
-        Ingat Saya
-      </label>
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin:-6px 0 12px">
       <a onclick="doForgotPass()" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(250,204,21,0.6);cursor:pointer;letter-spacing:1px;">🔑 Lupa Password?</a>
     </div>
 
@@ -1176,7 +1197,7 @@ footer {
 <!-- ===== FIREBASE ===== -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail, getAdditionalUserInfo } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail, getAdditionalUserInfo, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1466,7 +1487,6 @@ window.doSignIn = async () => {
   const email = document.getElementById('signInEmail').value.trim();
   const pass  = document.getElementById('signInPass').value;
   const st    = document.getElementById('signInStatus');
-  const remember = document.getElementById('rememberMe').checked;
   if(!email||!pass){ st.textContent='Lengkapi email & password!'; st.className='modal-status error'; return; }
   st.textContent = '⏳ Masuk...'; st.className = 'modal-status';
   try{
@@ -1478,14 +1498,6 @@ window.doSignIn = async () => {
       window._unverifiedUser = cred.user;
       await signOut(auth);
       return;
-    }
-    // Simpan email jika Remember Me dicentang
-    if(remember){
-      localStorage.setItem('indc_remember_email', email);
-      localStorage.setItem('indc_remember', '1');
-    } else {
-      localStorage.removeItem('indc_remember_email');
-      localStorage.removeItem('indc_remember');
     }
     st.textContent = '✅ Berhasil! Menghubungkan wallet...';
     st.className = 'modal-status';
@@ -1515,7 +1527,7 @@ window.doSignIn = async () => {
         }
       } catch(e) { /* gagal cek — lanjut dashboard */ }
 
-      window.location.href = 'dashboard.html';
+      proceedAfterLogin();
     }, 800);
   }catch(e){
     st.textContent = e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'
@@ -1572,7 +1584,8 @@ window.loginGoogle = async () => {
     localStorage.setItem('indocoin_loggedin', '1');
     closeModals();
     const fromG = new URLSearchParams(location.search).get('from');
-    window.location.href = fromG === 'referral' ? 'referral.html' : 'dashboard.html';
+    if (fromG === 'referral') { window.location.href = 'referral.html'; return; }
+    proceedAfterLogin();
   }catch(e){ console.error(e); }
 };
 
@@ -1638,22 +1651,58 @@ function showSignUp(){
 }
 function showSignIn(){
   document.getElementById('signInModal').classList.add('active');
-  // Auto-isi email jika Remember Me aktif
-  const savedEmail = localStorage.getItem('indc_remember_email');
-  const isRemember = localStorage.getItem('indc_remember');
-  if(savedEmail && isRemember){
-    document.getElementById('signInEmail').value = savedEmail;
-    document.getElementById('rememberMe').checked = true;
-    // Fokus ke password langsung
-    setTimeout(()=>{ document.getElementById('signInPass').focus(); }, 200);
-  }
 }
 function closeModals(){
   document.getElementById('signUpModal').classList.remove('active');
   document.getElementById('signInModal').classList.remove('active');
+  document.getElementById('noLoginOfferModal').classList.remove('active');
+  document.getElementById('masukChoiceModal').classList.remove('active');
 }
-function switchToSignIn(){ closeModals(); showSignIn(); }
+function switchToSignIn(){ closeModals(); handleMasukClick(); }
 function switchToSignUp(){ closeModals(); showSignUp(); }
+
+// ── MODE TANPA LOGIN ──────────────────────────────────────
+// Gerbang utama tiap ada yang klik "Masuk" — cek dulu mode yang tersimpan
+window.handleMasukClick = () => {
+  if (localStorage.getItem('indocoin_no_login_mode') === 'on') {
+    document.getElementById('masukChoiceModal').classList.add('active');
+  } else {
+    showSignIn();
+  }
+};
+// Layar 2, tombol "Lanjutkan Tanpa Login"
+window.continueNoLogin = () => {
+  closeModals();
+  window.location.href = 'dashboard.html';
+};
+// Layar 2, tombol "Aktifkan Login"
+window.switchToLoginFromChoice = async () => {
+  localStorage.setItem('indocoin_no_login_mode', 'off');
+  try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
+  closeModals();
+  showSignIn();
+};
+// Layar 1, dipanggil sekali abis login pertama kali sukses
+window.showNoLoginOffer = () => {
+  document.getElementById('noLoginOfferModal').classList.add('active');
+};
+// Layar 1, pilihan tombolnya
+window.chooseNoLoginMode = async (enable) => {
+  localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
+  try {
+    await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
+  } catch(e) { console.warn('Gagal set persistence:', e); }
+  document.getElementById('noLoginOfferModal').classList.remove('active');
+  window.location.href = 'dashboard.html';
+};
+// Dipanggil abis login sukses (email maupun Google) — cek udah pernah pilih mode belum
+window.proceedAfterLogin = () => {
+  if (localStorage.getItem('indocoin_no_login_mode') === null) {
+    showNoLoginOffer();
+  } else {
+    window.location.href = 'dashboard.html';
+  }
+};
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
   m.addEventListener('click', e=>{ if(e.target===m) closeModals(); });
