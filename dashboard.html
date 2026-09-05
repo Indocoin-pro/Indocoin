@@ -874,26 +874,6 @@ body {
 </head>
 <body>
 
-<!-- OVERLAY: WALLET TIDAK COCOK — block total, tanpa tombol tutup -->
-<div id="walletMismatchOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(5,5,10,0.97);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:24px;">
-  <div style="max-width:380px;text-align:center;">
-    <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-    <h2 style="color:#facc15;font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:1px;margin-bottom:14px;">WALLET TIDAK COCOK</h2>
-    <p style="color:#e8ddc8;font-size:13px;line-height:1.7;margin-bottom:16px;">
-      Wallet yang terhubung sekarang berbeda dengan wallet yang terdaftar di akun ini. Untuk keamanan, akses dashboard dihentikan.
-    </p>
-    <div style="background:#12121f;border:1px solid #3a3a4a;border-radius:10px;padding:12px;margin-bottom:16px;font-family:'Share Tech Mono',monospace;font-size:11px;text-align:left;">
-      <div style="color:#9a8c78;margin-bottom:4px;">Wallet terdaftar:</div>
-      <div id="walletMismatchRegistered" style="color:#2dd4bf;margin-bottom:10px;">—</div>
-      <div style="color:#9a8c78;margin-bottom:4px;">Wallet aktif sekarang:</div>
-      <div id="walletMismatchActive" style="color:#ef4444;">—</div>
-    </div>
-    <p style="color:#9a8c78;font-size:12px;line-height:1.6;">
-      Buka TokenPocket, alihkan ke wallet yang benar, lalu muat ulang halaman ini.
-    </p>
-  </div>
-</div>
-
 <!-- BG LOGO -->
 <div id="bgLogo">
   <img src="1772782967104.png" alt="">
@@ -1557,7 +1537,6 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-window._authInstance = auth; // expose ke window biar gak ada masalah scope di manapun
 const db   = getFirestore(app);
 const rtdb = getDatabase(app, "https://indocoin-network-default-rtdb.asia-southeast1.firebasedatabase.app");
 
@@ -1837,68 +1816,11 @@ async function loadPresaleData(){
 }
 
 // Connect Wallet
-// ── GUARD MENU: blokir semua navigasi menu sampai wallet diverifikasi cocok ──
-// Toast global gaya INDOCOIN — pengganti alert() bawaan browser yang gak konsisten tampilannya
-window.showIndoToast = (msg, isWarning) => {
-  let el = document.getElementById('_indoToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = '_indoToast';
-    el.style.cssText = `
-      position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-      z-index:99998;padding:14px 20px;border-radius:12px;
-      font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;
-      max-width:88%;text-align:center;line-height:1.5;
-      background:linear-gradient(135deg,#1a1a2e,#0f172a);
-      transition:opacity .3s, transform .3s;pointer-events:none;
-      box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
-    document.body.appendChild(el);
-  }
-  el.style.border = isWarning ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(250,204,21,0.4)';
-  el.style.color = isWarning ? '#fca5a5' : '#facc15';
-  el.textContent = (isWarning ? '⚠️ ' : '') + msg;
-  el.style.opacity = '1';
-  el.style.transform = 'translateX(-50%) translateY(0)';
-  clearTimeout(el._t);
-  el._t = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(8px)'; }, 3200);
-};
-
-window._walletVerified = false;
-document.addEventListener('click', (e) => {
-  if (window._walletVerified) return; // sudah aman, biarkan normal
-  const el = e.target.closest('.menu-item, .other-item, .bnav-item');
-  if (el) {
-    e.preventDefault();
-    e.stopPropagation();
-    showIndoToast('Hubungkan wallet yang benar terlebih dahulu untuk mengakses fitur ini.', true);
-  }
-}, true);
-
 window.connectWallet = async () => {
   if(!window.ethereum){ alert('Install MetaMask atau buka di dApp browser!'); return; }
   try{
     const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
     const addr = accounts[0];
-
-    // ── CEK KECOCOKAN WALLET SEBELUM LANJUT APAPUN ──────────
-    try {
-      const authInst = window._authInstance;
-      if (authInst && authInst.currentUser) {
-        const userSnap = await getDoc(doc(db, 'users', authInst.currentUser.uid));
-        const registeredWallet = userSnap.exists() ? (userSnap.data().wallet || '') : '';
-        if (registeredWallet && registeredWallet.toLowerCase() !== addr.toLowerCase()) {
-          document.getElementById('walletMismatchRegistered').textContent = registeredWallet.slice(0,6)+'...'+registeredWallet.slice(-4);
-          document.getElementById('walletMismatchActive').textContent = addr.slice(0,6)+'...'+addr.slice(-4);
-          document.getElementById('walletMismatchOverlay').style.display = 'flex';
-          return; // stop total, jangan lanjut proses apapun
-        }
-      }
-    } catch(mismatchErr) {
-      console.warn('Gagal cek kecocokan wallet:', mismatchErr);
-      // Gagal cek = jangan blokir user gara-gara bug internal, lanjut proses normal di bawah
-    }
-    // ─────────────────────────────────────────────────────────
-
     const provider = new ethers.providers.Web3Provider(window.ethereum);
 
     // Cek chain BSC
@@ -1929,7 +1851,6 @@ window.connectWallet = async () => {
     document.getElementById('walletBadge').textContent = '✅ Terhubung';
     document.getElementById('walletBadge').className = 'wallet-badge';
     document.getElementById('connectBtn').style.display = 'none';
-    window._walletVerified = true; // baru dibuka aksesnya di titik ini — sudah lolos cek kecocokan wallet
 
     // Simpan wallet ke localStorage untuk auto connect di halaman lain
     if (typeof window._saveWallet === 'function') window._saveWallet(addr);
