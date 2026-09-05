@@ -1766,7 +1766,9 @@ window.proceedAfterLogin = async () => {
     const snap = await getDoc(doc(db, 'users', u.uid));
     const mode = snap.exists() ? snap.data().noLoginMode : undefined;
     if (mode === undefined || mode === null) {
-      showNoLoginOffer(); // akun ini belum pernah ditanya
+      // Pastikan modal lain sudah tertutup dulu, baru tampilkan Layar 1
+      closeModals();
+      setTimeout(() => { showNoLoginOffer(); }, 50);
     } else {
       window.location.href = 'dashboard.html';
     }
@@ -1777,6 +1779,8 @@ window.proceedAfterLogin = async () => {
 };
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
+  // Layar pilihan login wajib dijawab — jangan bisa ditutup dengan klik di luar kotak
+  if (m.id === 'noLoginOfferModal' || m.id === 'masukChoiceModal') return;
   m.addEventListener('click', e=>{ if(e.target===m) closeModals(); });
 });
 
