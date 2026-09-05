@@ -1662,9 +1662,13 @@ function switchToSignIn(){ closeModals(); handleMasukClick(); }
 function switchToSignUp(){ closeModals(); showSignUp(); }
 
 // ── MODE TANPA LOGIN ──────────────────────────────────────
-// Gerbang utama tiap ada yang klik "Masuk" — cek dulu mode yang tersimpan
+// Gerbang utama tiap ada yang klik "Masuk" — cek mode tersimpan DAN pastikan akun yang aktif sekarang sama
 window.handleMasukClick = () => {
-  if (localStorage.getItem('indocoin_no_login_mode') === 'on') {
+  const mode = localStorage.getItem('indocoin_no_login_mode');
+  const savedUid = localStorage.getItem('indocoin_no_login_uid');
+  const activeUid = auth.currentUser ? auth.currentUser.uid : null;
+  // Cuma tampilkan Layar 2 kalau mode aktif DAN akun yang lagi aktif sekarang SAMA seperti yang milih mode itu
+  if (mode === 'on' && savedUid && activeUid && savedUid === activeUid) {
     document.getElementById('masukChoiceModal').classList.add('active');
   } else {
     showSignIn();
@@ -1678,6 +1682,7 @@ window.continueNoLogin = () => {
 // Layar 2, tombol "Aktifkan Login"
 window.switchToLoginFromChoice = async () => {
   localStorage.setItem('indocoin_no_login_mode', 'off');
+  localStorage.removeItem('indocoin_no_login_uid');
   try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
   closeModals();
   showSignIn();
@@ -1689,6 +1694,11 @@ window.showNoLoginOffer = () => {
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
   localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
+  if (enable && auth.currentUser) {
+    localStorage.setItem('indocoin_no_login_uid', auth.currentUser.uid);
+  } else {
+    localStorage.removeItem('indocoin_no_login_uid');
+  }
   try {
     await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
   } catch(e) { console.warn('Gagal set persistence:', e); }
