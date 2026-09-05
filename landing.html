@@ -1674,7 +1674,9 @@ function showSignIn(){
 function closeModals(){
   document.getElementById('signUpModal').classList.remove('active');
   document.getElementById('signInModal').classList.remove('active');
-  document.getElementById('noLoginOfferModal').classList.remove('active');
+  const nlo = document.getElementById('noLoginOfferModal');
+  nlo.classList.remove('active');
+  nlo.style.display = '';
   document.getElementById('masukChoiceModal').classList.remove('active');
 }
 function switchToSignIn(){ closeModals(); handleMasukClick(); }
@@ -1738,24 +1740,30 @@ window.switchToLoginFromChoice = async () => {
     if (auth.currentUser) {
       await setDoc(doc(db, 'users', auth.currentUser.uid), { noLoginMode: false }, { merge: true });
     }
-    await setPersistence(auth, browserSessionPersistence);
+    await setPersistence(auth, browserLocalPersistence);
   } catch(e) { console.warn('Gagal simpan preferensi:', e); }
   closeModals();
   showSignIn();
 };
 // Layar 1, dipanggil sekali abis login pertama kali sukses
 window.showNoLoginOffer = () => {
-  document.getElementById('noLoginOfferModal').classList.add('active');
+  const m = document.getElementById('noLoginOfferModal');
+  m.classList.add('active');
+  // Paksa tampil lewat style langsung juga, supaya tidak bisa tertimpa proses lain
+  m.style.display = 'flex';
+  m.style.zIndex = '99999';
 };
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
+  const m = document.getElementById('noLoginOfferModal');
   try {
     if (auth.currentUser) {
       await setDoc(doc(db, 'users', auth.currentUser.uid), { noLoginMode: !!enable }, { merge: true });
     }
-    await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
+    await setPersistence(auth, browserLocalPersistence);
   } catch(e) { console.warn('Gagal simpan preferensi:', e); }
-  document.getElementById('noLoginOfferModal').classList.remove('active');
+  m.classList.remove('active');
+  m.style.display = '';
   window.location.href = 'dashboard.html';
 };
 // Dipanggil abis login sukses (email maupun Google) — cek akun ini udah pernah pilih mode belum
