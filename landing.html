@@ -399,29 +399,6 @@ nav {
 }
 .btn-google svg { width: 20px; height: 20px; }
 
-.btn-wallet {
-  width: 100%;
-  padding: 13px;
-  background: rgba(30,58,138,0.3);
-  color: #60a5fa;
-  border: 1px solid rgba(96,165,250,0.3);
-  border-radius: 12px;
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-.btn-wallet:hover {
-  background: rgba(30,58,138,0.5);
-  border-color: rgba(96,165,250,0.6);
-  transform: translateY(-2px);
-}
 
 /* ===== STATS ===== */
 .stats {
@@ -507,33 +484,6 @@ nav {
 .feat-desc { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4; }
 
 /* ===== NAV MENU GRID ===== */
-.nav-menu-grid {
-  display: grid;
-  grid-template-columns: repeat(3,1fr);
-  gap: 8px;
-  padding: 0 20px;
-  max-width: 480px;
-  margin: 0 auto 20px;
-}
-.nav-menu-item {
-  background: rgba(15,23,42,0.7);
-  border: 1px solid rgba(250,204,21,0.12);
-  border-radius: 12px;
-  padding: 12px 8px;
-  text-align: center;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.3s;
-}
-.nav-menu-item:hover {
-  border-color: rgba(250,204,21,0.35);
-  background: rgba(250,204,21,0.05);
-  transform: translateY(-2px);
-}
 .nmi-icon { font-size: 22px; }
 .nmi-label {
   font-family: 'Orbitron', sans-serif;
@@ -996,12 +946,12 @@ footer {
     <!-- STATS -->
     <div class="stats">
       <div class="stat">
-        <div class="stat-val" id="statPrice">—</div>
-        <div class="stat-lbl">Harga INDC</div>
+        <div class="stat-val">100+</div>
+        <div class="stat-lbl">Fitur</div>
       </div>
       <div class="stat">
-        <div class="stat-val" id="statMember">—</div>
-        <div class="stat-lbl">Total Member</div>
+        <div class="stat-val">ON-CHAIN</div>
+        <div class="stat-lbl">Transparan</div>
       </div>
       <div class="stat">
         <div class="stat-val">BSC</div>
@@ -1692,7 +1642,6 @@ function skipIntro(){
     intro.style.display = 'none';
     document.getElementById('landing').style.display = 'block';
     generateStars();
-    loadStats();
   }, 800);
 }
 
@@ -1789,15 +1738,6 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{
 });
 
 // ===== CONNECT WALLET =====
-async function connectWallet(){
-  if(!window.ethereum){ alert('Install MetaMask atau buka di dApp browser!'); return; }
-  try{
-    const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
-    const addr = accounts[0];
-    const short = addr.slice(0,6)+'...'+addr.slice(-4);
-    alert('✅ Wallet terhubung: '+short+'\n\nSilakan Sign Up atau Sign In untuk melanjutkan.');
-  }catch(e){ console.error(e); }
-}
 
 // ===== POPUP KEUNGGULAN =====
 function showFeatInfo(icon, title, desc) {
@@ -1808,23 +1748,8 @@ function showFeatInfo(icon, title, desc) {
 }
 
 // ===== POPUP WAJIB LOGIN =====
-function requireLogin(url, title, desc) {
-  // Cek apakah sudah login via Firebase
-  if (window._isLoggedIn) {
-    window.location.href = url;
-    return;
-  }
-  document.getElementById('lgIcon').textContent = title.split(' ')[0];
-  document.getElementById('lgTitle').textContent = title + ' — LOGIN DIPERLUKAN';
-  document.getElementById('lgDesc').textContent = desc + '. Silakan daftar atau masuk terlebih dahulu untuk mengakses fitur ini.';
-  window._pendingUrl = url;
-  document.getElementById('loginGateModal').classList.add('active');
-}
 
 // ===== PRESALE INFO =====
-function showPresaleInfo() {
-  document.getElementById('presaleInfoModal').classList.add('active');
-}
 
 function copyCA() {
   const addr = '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571';
@@ -1892,8 +1817,8 @@ const translations = {
     btnMasuk: '🔑 MASUK',
     btnGoogle: 'Sudah Daftar? Masuk dengan Google',
     btnWallet: '🦊 Connect Wallet',
-    statPrice: 'Harga INDC',
-    statSold: 'Total Member',
+    statPrice: 'Fitur',
+    statSold: 'Transparan',
     statNet: 'Network',
   },
   en: {
@@ -1903,8 +1828,8 @@ const translations = {
     btnMasuk: '🔑 SIGN IN',
     btnGoogle: 'Already Registered? Continue with Google',
     btnWallet: '🦊 Connect Wallet',
-    statPrice: 'INDC Price',
-    statSold: 'Total Members',
+    statPrice: 'Features',
+    statSold: 'Transparent',
     statNet: 'Network',
   }
 };
@@ -1991,58 +1916,6 @@ function setLang(lang) {
   }
 })();
 
-// ===== LOAD STATS =====
-// Dipanggil begitu halaman siap, tidak bergantung pada intro —
-// supaya statistik tetap terisi lewat jalur masuk manapun.
-window.addEventListener('load', () => { loadStats(); });
-
-async function loadStats(){
-  const MARKET_CA = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
-  const MASTER_CA = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
-  const BASE_MEMBER = 75; // samakan dengan referral.html
-  const RPCS = [
-    'https://bsc-dataseed1.binance.org/',
-    'https://bsc-dataseed2.binance.org/',
-    'https://bsc-dataseed3.binance.org/',
-    'https://rpc.ankr.com/bsc'
-  ];
-
-  let provider = null;
-  for (const rpc of RPCS){
-    try{
-      const p = new ethers.providers.JsonRpcProvider(rpc);
-      await Promise.race([
-        p.getBlockNumber(),
-        new Promise((_,rej) => setTimeout(() => rej('timeout'), 3000))
-      ]);
-      provider = p;
-      break;
-    }catch(e){ continue; }
-  }
-  if (!provider) provider = new ethers.providers.JsonRpcProvider(RPCS[0]);
-
-  // Harga INDC dari market internal
-  try{
-    const mkt = new ethers.Contract(MARKET_CA, ["function currentPrice() view returns(uint256)"], provider);
-    const price = await mkt.currentPrice();
-    const val = parseFloat(ethers.utils.formatUnits(price, 18));
-    document.getElementById('statPrice').textContent = '$' + val.toFixed(5);
-  }catch(e){
-    console.warn('Gagal ambil harga INDC:', e);
-    document.getElementById('statPrice').textContent = '—';
-  }
-
-  // Total member dari ReferralMaster
-  try{
-    const mst = new ethers.Contract(MASTER_CA, ["function totalMembers() view returns(uint256)"], provider);
-    const members = await mst.totalMembers();
-    const real = parseInt(members.toString());
-    document.getElementById('statMember').textContent = (BASE_MEMBER + real).toLocaleString('id-ID');
-  }catch(e){
-    console.warn('Gagal ambil total member:', e);
-    document.getElementById('statMember').textContent = BASE_MEMBER.toString();
-  }
-}
 </script>
 <!-- ===== MODAL KEUNGGULAN ===== -->
 <div class="modal-overlay" id="featModal">
