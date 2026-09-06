@@ -2004,47 +2004,52 @@ function setLang(lang) {
 })();
 
 // ===== LOAD STATS =====
-const _LP_MARKET_CA = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
-const _LP_MASTER_CA = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
-const _LP_BASE_MEMBER = 75; // samakan dengan referral.html
-const _LP_RPCS = [
-  'https://bsc-dataseed1.binance.org/',
-  'https://bsc-dataseed2.binance.org/',
-  'https://bsc-dataseed3.binance.org/',
-  'https://rpc.ankr.com/bsc'
-];
-async function _lpProvider(){
-  for (const rpc of _LP_RPCS){
+async function loadStats(){
+  const MARKET_CA = '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E';
+  const MASTER_CA = '0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9';
+  const BASE_MEMBER = 75; // samakan dengan referral.html
+  const RPCS = [
+    'https://bsc-dataseed1.binance.org/',
+    'https://bsc-dataseed2.binance.org/',
+    'https://bsc-dataseed3.binance.org/',
+    'https://rpc.ankr.com/bsc'
+  ];
+
+  let provider = null;
+  for (const rpc of RPCS){
     try{
-      const p = new ethers.providers.JsonRpcProvider(rpc, { name:'bnb', chainId:56 });
-      await p.getBlockNumber();
-      return p;
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      await Promise.race([
+        p.getBlockNumber(),
+        new Promise((_,rej) => setTimeout(() => rej('timeout'), 3000))
+      ]);
+      provider = p;
+      break;
     }catch(e){ continue; }
   }
-  throw new Error('RPC tidak tersedia');
-}
-async function loadStats(){
-  let provider;
-  try { provider = await _lpProvider(); }
-  catch(e){
-    document.getElementById('statPrice').textContent = '—';
-    document.getElementById('statMember').textContent = _LP_BASE_MEMBER.toString();
-    return;
-  }
+  if (!provider) provider = new ethers.providers.JsonRpcProvider(RPCS[0]);
+
   // Harga INDC dari market internal
   try{
-    const mkt = new ethers.Contract(_LP_MARKET_CA, ["function currentPrice() view returns(uint256)"], provider);
+    const mkt = new ethers.Contract(MARKET_CA, ["function currentPrice() view returns(uint256)"], provider);
     const price = await mkt.currentPrice();
     const val = parseFloat(ethers.utils.formatUnits(price, 18));
     document.getElementById('statPrice').textContent = '$' + val.toFixed(5);
-  }catch(e){ document.getElementById('statPrice').textContent = '—'; }
+  }catch(e){
+    console.warn('Gagal ambil harga INDC:', e);
+    document.getElementById('statPrice').textContent = '—';
+  }
+
   // Total member dari ReferralMaster
   try{
-    const mst = new ethers.Contract(_LP_MASTER_CA, ["function totalMembers() view returns(uint256)"], provider);
+    const mst = new ethers.Contract(MASTER_CA, ["function totalMembers() view returns(uint256)"], provider);
     const members = await mst.totalMembers();
     const real = parseInt(members.toString());
-    document.getElementById('statMember').textContent = (_LP_BASE_MEMBER + real).toLocaleString('id-ID');
-  }catch(e){ document.getElementById('statMember').textContent = _LP_BASE_MEMBER.toString(); }
+    document.getElementById('statMember').textContent = (BASE_MEMBER + real).toLocaleString('id-ID');
+  }catch(e){
+    console.warn('Gagal ambil total member:', e);
+    document.getElementById('statMember').textContent = BASE_MEMBER.toString();
+  }
 }
 </script>
 <!-- ===== MODAL KEUNGGULAN ===== -->
