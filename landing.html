@@ -1694,11 +1694,18 @@ function switchToSignUp(){ closeModals(); showSignUp(); }
 
 // ── MODE TANPA LOGIN ──────────────────────────────────────
 window.handleMasukClick = () => {
-  if (localStorage.getItem('indocoin_no_login_mode') === 'on') {
-    document.getElementById('masukChoiceModal').classList.add('active');
-  } else {
-    showSignIn();
-  }
+  try {
+    const mode     = localStorage.getItem('indocoin_no_login_mode');
+    const savedUid = localStorage.getItem('indocoin_no_login_uid');
+    const aktifUid = (auth && auth.currentUser) ? auth.currentUser.uid : null;
+    // Mode tanpa login hanya berlaku untuk akun yang dulu memilihnya.
+    // Kalau di HP ini akunnya berganti, jangan dipakai — minta login biasa.
+    if (mode === 'on' && savedUid && aktifUid && savedUid === aktifUid) {
+      document.getElementById('masukChoiceModal').classList.add('active');
+      return;
+    }
+  } catch(e) { /* apa pun yang gagal, jatuh ke login biasa di bawah */ }
+  showSignIn();
 };
 // Layar 2, tombol "Lanjutkan Tanpa Login"
 window.continueNoLogin = () => {
@@ -1708,6 +1715,7 @@ window.continueNoLogin = () => {
 // Layar 2, tombol "Aktifkan Login"
 window.switchToLoginFromChoice = async () => {
   localStorage.setItem('indocoin_no_login_mode', 'off');
+  try { localStorage.removeItem('indocoin_no_login_uid'); } catch(e) {}
   try { await setPersistence(auth, browserSessionPersistence); } catch(e) {}
   closeModals();
   showSignIn();
@@ -1719,6 +1727,10 @@ window.showNoLoginOffer = () => {
 // Layar 1, pilihan tombolnya
 window.chooseNoLoginMode = async (enable) => {
   localStorage.setItem('indocoin_no_login_mode', enable ? 'on' : 'off');
+  try {
+    if (enable && auth.currentUser) localStorage.setItem('indocoin_no_login_uid', auth.currentUser.uid);
+    else localStorage.removeItem('indocoin_no_login_uid');
+  } catch(e) {}
   try {
     await setPersistence(auth, enable ? browserLocalPersistence : browserSessionPersistence);
   } catch(e) { console.warn('Gagal set persistence:', e); }
