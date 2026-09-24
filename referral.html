@@ -1196,6 +1196,7 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
     let berhasil = false;
 
     // Coba tiap blok pakai RPC yang sedang aktif; kalau gagal, ganti RPC lain
+    let pesanErrorTerakhir = '';
     for (let coba = 0; coba < RPC_LIST_LOGS.length && !berhasil; coba++) {
       try {
         const rpc = RPC_LIST_LOGS[(rpcIndex + coba) % RPC_LIST_LOGS.length];
@@ -1206,7 +1207,10 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
         for (const ev of events) total = total.add(ev.args.value);
         rpcIndex = (rpcIndex + coba) % RPC_LIST_LOGS.length; // tetap di RPC yang berhasil
         berhasil = true;
-      } catch(e) { continue; }
+      } catch(e) {
+        pesanErrorTerakhir = (e && e.message) ? e.message : String(e);
+        continue;
+      }
     }
 
     if (berhasil) {
@@ -1215,7 +1219,7 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
       // Berhenti di titik gagal (bukan dilewati) — supaya bagian ini dicoba lagi
       // di kunjungan berikutnya, tidak hilang permanen dari perhitungan
       adaBagianGagal = true;
-      console.warn('Blok', from, '-', to, 'gagal di semua RPC, dihentikan di sini');
+      console.warn('Blok', from, '-', to, 'gagal di SEMUA RPC. Pesan error terakhir:', pesanErrorTerakhir);
       break;
     }
     from = to + 1;
@@ -1272,20 +1276,20 @@ async function loadAll() {
     // langsung oleh kontrak Welcome ke wallet ini. Ini sumber data yang akurat,
     // karena bonus dari Welcome dibayar internal oleh kontrak itu sendiri,
     // bukan lewat ReferralMaster (makanya getBonusHistory selalu kosong untuk bonus ini).
+    // SENGAJA TIDAK di-await — biar jalan di belakang layar, tidak menghalangi downline render.
     document.getElementById('statBonus').textContent = 'Menghitung...';
-    try {
-      const hasil = await hitungTotalBonusWelcome(myAddr, provider);
+    hitungTotalBonusWelcome(myAddr, provider).then(hasil => {
       const tanda = hasil.lengkap ? '' : ' *';
       document.getElementById('statBonus').textContent =
         hasil.total.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT' + tanda;
       if (!hasil.lengkap) {
         document.getElementById('statBonus').title =
-          'Sebagian data mungkin belum termuat karena gangguan jaringan. Coba muat ulang halaman.';
+          'Sebagian data belum termuat — kemungkinan RPC tidak menyimpan riwayat sejauh itu. Cek console untuk detail.';
       }
-    } catch(e) {
+    }).catch(e => {
       console.warn('Gagal hitung total bonus USDT:', e);
       document.getElementById('statBonus').textContent = '0 USDT';
-    }
+    });
 
     // Level counts
     const levelCounts = await cMaster.getLevelCounts(myAddr);
