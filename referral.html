@@ -1138,20 +1138,52 @@ async function initWallet() {
 // ═══════════════════════════════════════
 // HITUNG TOTAL BONUS USDT DARI WELCOME
 // Dijumlah dari event Transfer USDT yang dikirim kontrak Welcome
-// langsung ke wallet member — ini sumber data on-chain yang akurat,
-// mencakup seluruh riwayat sejak kontrak Welcome pertama kali aktif.
+// langsung ke wallet member. Diambil lewat API BscScan/Etherscan
+// (bukan RPC langsung) — RPC publik gratis menolak pencarian riwayat
+// sejauh ini ("archive request"), sedangkan API BscScan menyimpan
+// riwayat penuh tanpa batas semacam itu.
 // ═══════════════════════════════════════
-const WELCOME_CA_REF = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
-const USDT_CA_REF    = '0x55d398326f99059fF775485246999027B3197955';
-const USDT_EVENT_ABI = ["event Transfer(address indexed from, address indexed to, uint256 value)"];
-const RPC_LIST_LOGS = [
-  "https://bsc-dataseed1.binance.org/",
-  "https://bsc-dataseed2.binance.org/",
-  "https://bsc-dataseed3.binance.org/",
-  "https://bsc-dataseed4.binance.org/",
-  "https://rpc.ankr.com/bsc",
-  "https://bsc.publicnode.com"
-];
+const WELCOME_CA_REF   = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
+const USDT_CA_REF      = '0x55d398326f99059fF775485246999027B3197955';
+const ETHERSCAN_API_KEY = '377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2';
+const TRANSFER_TOPIC0  = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+function _padAddrKeTopic(addr) {
+  return '0x000000000000000000000000' + addr.slice(2).toLowerCase();
+}
+
+async function _ambilLogTransferWelcome(wallet, fromBlock, toBlock) {
+  const topic1 = _padAddrKeTopic(WELCOME_CA_REF); // from = kontrak Welcome
+  const topic2 = _padAddrKeTopic(wallet);          // to   = wallet member
+  let semuaLog = [];
+  let page = 1;
+  const offset = 1000; // maksimal per halaman dari API BscScan
+
+  while (true) {
+    const url = 'https://api.etherscan.io/v2/api?chainid=56&module=logs&action=getLogs'
+      + '&address=' + USDT_CA_REF
+      + '&topic0=' + TRANSFER_TOPIC0 + '&topic0_1_opr=and'
+      + '&topic1=' + topic1 + '&topic1_2_opr=and'
+      + '&topic2=' + topic2
+      + '&fromBlock=' + fromBlock + '&toBlock=' + toBlock
+      + '&page=' + page + '&offset=' + offset
+      + '&apikey=' + ETHERSCAN_API_KEY;
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    if (json.status !== '1' || !Array.isArray(json.result)) {
+      // "No records found" itu wajar kalau memang belum ada bonus sama sekali
+      if (json.message && json.message.toLowerCase().includes('no records')) break;
+      throw new Error('API BscScan: ' + (json.message || json.result || 'gagal tanpa keterangan'));
+    }
+
+    semuaLog = semuaLog.concat(json.result);
+    if (json.result.length < offset) break; // halaman terakhir sudah tercapai
+    page++;
+  }
+  return semuaLog;
+}
 
 async function hitungTotalBonusWelcome(wallet, providerUtama) {
   const walletKey = wallet.toLowerCase();
@@ -1161,8 +1193,8 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
   const BLOK_AWAL_WELCOME = 102364030;
 
   // 1. Baca dulu apa yang sudah pernah dihitung dan disimpan sebelumnya.
-  // Firebase di sini cuma bonus kecepatan — kalau gagal di titik manapun (baca
-  // ATAU sekadar bikin referensinya), perhitungan tetap lanjut dari awal, bukan berhenti total.
+  // Firebase di sini cuma bonus kecepatan — kalau gagal di titik manapun,
+  // perhitungan tetap lanjut dari awal, bukan berhenti total.
   let total = ethers.BigNumber.from(0);
   let blokTerakhir = BLOK_AWAL_WELCOME;
   let cacheRef = null;
@@ -1180,52 +1212,24 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
 
   const latestBlock = await providerUtama.getBlockNumber();
 
-  // Sudah pernah dihitung sampai blok terbaru — tidak perlu scan apa pun, langsung tampil
+  // Sudah pernah dihitung sampai blok terbaru — tidak perlu apa-apa lagi
   if (blokTerakhir >= latestBlock) {
     return { total: parseFloat(ethers.utils.formatUnits(total, 18)), lengkap: true };
   }
 
-  // 2. Cuma scan blok yang BARU sejak terakhir dihitung — bukan dari awal lagi
-  const CHUNK = 5000; // batas aman sekali panggil untuk RPC publik
-  let adaBagianGagal = false;
-  let pesanErrorFinal = '';
-  let rpcIndex = 0;
-  let from = blokTerakhir + 1;
-  let blokBerhasilTerakhir = blokTerakhir;
-
-  while (from <= latestBlock) {
-    const to = Math.min(from + CHUNK - 1, latestBlock);
-    let berhasil = false;
-
-    // Coba tiap blok pakai RPC yang sedang aktif; kalau gagal, ganti RPC lain
-    let pesanErrorTerakhir = '';
-    for (let coba = 0; coba < RPC_LIST_LOGS.length && !berhasil; coba++) {
-      try {
-        const rpc = RPC_LIST_LOGS[(rpcIndex + coba) % RPC_LIST_LOGS.length];
-        const p = new ethers.providers.JsonRpcProvider(rpc);
-        const usdtCoba = new ethers.Contract(USDT_CA_REF, USDT_EVENT_ABI, p);
-        const filterCoba = usdtCoba.filters.Transfer(WELCOME_CA_REF, wallet);
-        const events = await usdtCoba.queryFilter(filterCoba, from, to);
-        for (const ev of events) total = total.add(ev.args.value);
-        rpcIndex = (rpcIndex + coba) % RPC_LIST_LOGS.length; // tetap di RPC yang berhasil
-        berhasil = true;
-      } catch(e) {
-        pesanErrorTerakhir = (e && e.message) ? e.message : String(e);
-        continue;
-      }
+  // 2. Ambil transaksi baru sejak terakhir dihitung, lewat API (bukan RPC)
+  try {
+    const logs = await _ambilLogTransferWelcome(wallet, blokTerakhir + 1, latestBlock);
+    for (const log of logs) {
+      total = total.add(ethers.BigNumber.from(log.data));
     }
-
-    if (berhasil) {
-      blokBerhasilTerakhir = to;
-    } else {
-      // Berhenti di titik gagal (bukan dilewati) — supaya bagian ini dicoba lagi
-      // di kunjungan berikutnya, tidak hilang permanen dari perhitungan
-      adaBagianGagal = true;
-      pesanErrorFinal = 'Blok ' + from + '-' + to + ': ' + pesanErrorTerakhir;
-      console.warn('Blok', from, '-', to, 'gagal di SEMUA RPC. Pesan error terakhir:', pesanErrorTerakhir);
-      break;
-    }
-    from = to + 1;
+  } catch(e) {
+    console.warn('Gagal ambil data dari API BscScan:', e);
+    return {
+      total: parseFloat(ethers.utils.formatUnits(total, 18)),
+      lengkap: false,
+      errorMsg: (e && e.message) ? e.message : String(e)
+    };
   }
 
   // 3. Simpan hasil terbaru — kunjungan berikutnya tinggal nambah dari titik ini
@@ -1233,18 +1237,14 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
     if (!cacheRef) cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
     await set(cacheRef, {
       totalWei: total.toString(),
-      lastBlockScanned: blokBerhasilTerakhir,
+      lastBlockScanned: latestBlock,
       updatedAt: Date.now()
     });
   } catch(e) {
     console.warn('Gagal simpan cache bonus:', e);
   }
 
-  return {
-    total: parseFloat(ethers.utils.formatUnits(total, 18)),
-    lengkap: !adaBagianGagal,
-    errorMsg: pesanErrorFinal
-  };
+  return { total: parseFloat(ethers.utils.formatUnits(total, 18)), lengkap: true };
 }
 
 // ═══════════════════════════════════════
