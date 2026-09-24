@@ -767,6 +767,7 @@ body::before {
     <div class="stat-card">
       <div class="stat-val" id="statBonus">0 USDT</div>
       <div class="stat-lbl">BONUS USDT REFERRAL</div>
+      <div id="statBonusDebug" style="display:none; font-size:9px; color:#c94040; margin-top:4px; word-break:break-all; line-height:1.4;"></div>
     </div>
   </div>
 
@@ -1187,6 +1188,7 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
   // 2. Cuma scan blok yang BARU sejak terakhir dihitung — bukan dari awal lagi
   const CHUNK = 5000; // batas aman sekali panggil untuk RPC publik
   let adaBagianGagal = false;
+  let pesanErrorFinal = '';
   let rpcIndex = 0;
   let from = blokTerakhir + 1;
   let blokBerhasilTerakhir = blokTerakhir;
@@ -1219,6 +1221,7 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
       // Berhenti di titik gagal (bukan dilewati) — supaya bagian ini dicoba lagi
       // di kunjungan berikutnya, tidak hilang permanen dari perhitungan
       adaBagianGagal = true;
+      pesanErrorFinal = 'Blok ' + from + '-' + to + ': ' + pesanErrorTerakhir;
       console.warn('Blok', from, '-', to, 'gagal di SEMUA RPC. Pesan error terakhir:', pesanErrorTerakhir);
       break;
     }
@@ -1239,7 +1242,8 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
 
   return {
     total: parseFloat(ethers.utils.formatUnits(total, 18)),
-    lengkap: !adaBagianGagal
+    lengkap: !adaBagianGagal,
+    errorMsg: pesanErrorFinal
   };
 }
 
@@ -1283,12 +1287,16 @@ async function loadAll() {
       document.getElementById('statBonus').textContent =
         hasil.total.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT' + tanda;
       if (!hasil.lengkap) {
-        document.getElementById('statBonus').title =
-          'Sebagian data belum termuat — kemungkinan RPC tidak menyimpan riwayat sejauh itu. Cek console untuk detail.';
+        const dbg = document.getElementById('statBonusDebug');
+        dbg.style.display = 'block';
+        dbg.textContent = 'Error: ' + (hasil.errorMsg || 'tidak diketahui');
       }
     }).catch(e => {
       console.warn('Gagal hitung total bonus USDT:', e);
       document.getElementById('statBonus').textContent = '0 USDT';
+      const dbg = document.getElementById('statBonusDebug');
+      dbg.style.display = 'block';
+      dbg.textContent = 'Error: ' + ((e && e.message) ? e.message : String(e));
     });
 
     // Level counts
