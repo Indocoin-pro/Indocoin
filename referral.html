@@ -1138,52 +1138,60 @@ async function initWallet() {
 // ═══════════════════════════════════════
 // HITUNG TOTAL BONUS USDT DARI WELCOME
 // Dijumlah dari event Transfer USDT yang dikirim kontrak Welcome
-// langsung ke wallet member. Diambil lewat API BscScan/Etherscan
-// (bukan RPC langsung) — RPC publik gratis menolak pencarian riwayat
-// sejauh ini ("archive request"), sedangkan API BscScan menyimpan
-// riwayat penuh tanpa batas semacam itu.
+// langsung ke wallet member. Diambil lewat API MegaNode (BSCTrace) —
+// direkomendasikan resmi oleh BNB Chain sebagai pengganti BscScan API
+// yang sudah dihentikan; Etherscan V2 tidak lagi punya paket gratis
+// khusus BSC, sedangkan MegaNode masih menyediakannya.
 // ═══════════════════════════════════════
-const WELCOME_CA_REF   = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
-const USDT_CA_REF      = '0x55d398326f99059fF775485246999027B3197955';
-const ETHERSCAN_API_KEY = '377SAM1HKRJRXRG83SK8DMSH4E7W7DRYH2';
-const TRANSFER_TOPIC0  = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+const WELCOME_CA_REF  = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
+const USDT_CA_REF     = '0x55d398326f99059fF775485246999027B3197955';
+const MEGANODE_API_KEY = 'bd4b2496c62445c2ba00a207672952d8';
+const MEGANODE_URL    = 'https://bsc-mainnet.nodereal.io/v1/' + MEGANODE_API_KEY;
 
-function _padAddrKeTopic(addr) {
-  return '0x000000000000000000000000' + addr.slice(2).toLowerCase();
-}
+async function _ambilLogTransferWelcome(wallet, fromBlockAwal, toBlockAkhir) {
+  let semuaTransfer = [];
+  // MegaNode membatasi maksimal 100.000 blok per panggilan — dipecah bertahap
+  const MAKS_RENTANG = 99999;
 
-async function _ambilLogTransferWelcome(wallet, fromBlock, toBlock) {
-  const topic1 = _padAddrKeTopic(WELCOME_CA_REF); // from = kontrak Welcome
-  const topic2 = _padAddrKeTopic(wallet);          // to   = wallet member
-  let semuaLog = [];
-  let page = 1;
-  const offset = 1000; // maksimal per halaman dari API BscScan
+  let awal = fromBlockAwal;
+  while (awal <= toBlockAkhir) {
+    const akhir = Math.min(awal + MAKS_RENTANG, toBlockAkhir);
+    let pageKey = null;
 
-  while (true) {
-    const url = 'https://api.etherscan.io/v2/api?chainid=56&module=logs&action=getLogs'
-      + '&address=' + USDT_CA_REF
-      + '&topic0=' + TRANSFER_TOPIC0 + '&topic0_1_opr=and'
-      + '&topic1=' + topic1 + '&topic1_2_opr=and'
-      + '&topic2=' + topic2
-      + '&fromBlock=' + fromBlock + '&toBlock=' + toBlock
-      + '&page=' + page + '&offset=' + offset
-      + '&apikey=' + ETHERSCAN_API_KEY;
+    do {
+      const params = {
+        category: ["20"], // transfer token BEP-20 saja
+        fromBlock: '0x' + awal.toString(16),
+        toBlock: '0x' + akhir.toString(16),
+        fromAddress: WELCOME_CA_REF,
+        toAddress: wallet,
+        contractAddresses: [USDT_CA_REF],
+        order: "asc",
+        maxCount: "0x3e8" // 1000, maksimal per halaman
+      };
+      if (pageKey) params.pageKey = pageKey;
 
-    const res = await fetch(url);
-    const json = await res.json();
+      const res = await fetch(MEGANODE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: "2.0", method: "nr_getAssetTransfers", params: [params], id: 1 })
+      });
+      const json = await res.json();
 
-    if (json.status !== '1' || !Array.isArray(json.result)) {
-      // "No records found" itu wajar kalau memang belum ada bonus sama sekali
-      if (json.message && json.message.toLowerCase().includes('no records')) break;
-      const detail = (typeof json.result === 'string') ? json.result : JSON.stringify(json.result);
-      throw new Error('API BscScan status=' + json.status + ' message=' + json.message + ' result=' + detail);
-    }
+      if (json.error) {
+        throw new Error('MegaNode: ' + (json.error.message || JSON.stringify(json.error)));
+      }
 
-    semuaLog = semuaLog.concat(json.result);
-    if (json.result.length < offset) break; // halaman terakhir sudah tercapai
-    page++;
+      const hasil = json.result;
+      if (hasil && Array.isArray(hasil.transfers)) {
+        semuaTransfer = semuaTransfer.concat(hasil.transfers);
+      }
+      pageKey = (hasil && hasil.pageKey) ? hasil.pageKey : null;
+    } while (pageKey);
+
+    awal = akhir + 1;
   }
-  return semuaLog;
+  return semuaTransfer;
 }
 
 async function hitungTotalBonusWelcome(wallet, providerUtama) {
@@ -1220,12 +1228,12 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
 
   // 2. Ambil transaksi baru sejak terakhir dihitung, lewat API (bukan RPC)
   try {
-    const logs = await _ambilLogTransferWelcome(wallet, blokTerakhir + 1, latestBlock);
-    for (const log of logs) {
-      total = total.add(ethers.BigNumber.from(log.data));
+    const transfers = await _ambilLogTransferWelcome(wallet, blokTerakhir + 1, latestBlock);
+    for (const tr of transfers) {
+      total = total.add(ethers.BigNumber.from(tr.value));
     }
   } catch(e) {
-    console.warn('Gagal ambil data dari API BscScan:', e);
+    console.warn('Gagal ambil data dari API MegaNode:', e);
     return {
       total: parseFloat(ethers.utils.formatUnits(total, 18)),
       lengkap: false,
