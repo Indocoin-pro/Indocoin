@@ -1136,125 +1136,25 @@ async function initWallet() {
 }
 
 // ═══════════════════════════════════════
-// HITUNG TOTAL BONUS USDT DARI WELCOME
-// Dijumlah dari event Transfer USDT yang dikirim kontrak Welcome
-// langsung ke wallet member. Diambil lewat API MegaNode (BSCTrace) —
-// direkomendasikan resmi oleh BNB Chain sebagai pengganti BscScan API
-// yang sudah dihentikan; Etherscan V2 tidak lagi punya paket gratis
-// khusus BSC, sedangkan MegaNode masih menyediakannya.
 // ═══════════════════════════════════════
-const WELCOME_CA_REF  = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
-const USDT_CA_REF     = '0x55d398326f99059fF775485246999027B3197955';
-const MEGANODE_API_KEY = 'bd4b2496c62445c2ba00a207672952d8';
-const MEGANODE_URL    = 'https://bsc-mainnet.nodereal.io/v1/' + MEGANODE_API_KEY;
-
-async function _ambilLogTransferWelcome(wallet, fromBlockAwal, toBlockAkhir) {
-  let semuaTransfer = [];
-  // MegaNode membatasi maksimal 100.000 blok per panggilan — dipecah bertahap
-  const MAKS_RENTANG = 99999;
-
-  let awal = fromBlockAwal;
-  while (awal <= toBlockAkhir) {
-    const akhir = Math.min(awal + MAKS_RENTANG, toBlockAkhir);
-    let pageKey = null;
-
-    do {
-      const params = {
-        category: ["20"], // transfer token BEP-20 saja
-        fromBlock: '0x' + awal.toString(16),
-        toBlock: '0x' + akhir.toString(16),
-        fromAddress: WELCOME_CA_REF,
-        toAddress: wallet,
-        contractAddresses: [USDT_CA_REF],
-        order: "asc",
-        maxCount: "0x3e8" // 1000, maksimal per halaman
-      };
-      if (pageKey) params.pageKey = pageKey;
-
-      const res = await fetch(MEGANODE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "nr_getAssetTransfers", params: [params], id: 1 })
-      });
-      const json = await res.json();
-
-      if (json.error) {
-        throw new Error('MegaNode: ' + (json.error.message || JSON.stringify(json.error)));
-      }
-
-      const hasil = json.result;
-      if (hasil && Array.isArray(hasil.transfers)) {
-        semuaTransfer = semuaTransfer.concat(hasil.transfers);
-      }
-      pageKey = (hasil && hasil.pageKey) ? hasil.pageKey : null;
-    } while (pageKey);
-
-    awal = akhir + 1;
-  }
-  return semuaTransfer;
-}
-
-async function hitungTotalBonusWelcome(wallet, providerUtama) {
+// BACA TOTAL BONUS USDT DARI WELCOME
+// Angkanya TIDAK dihitung di sini sama sekali — dihitung terpisah
+// oleh script di VPS (sync-bonus-welcome.js) yang jalan terjadwal
+// lewat cron, mencakup SEMUA member sekaligus. Halaman ini cuma
+// membaca hasilnya dari Firebase, makanya selalu instan buat
+// siapa pun yang buka, tidak ada yang pernah menunggu hitungan.
+// ═══════════════════════════════════════
+async function bacaTotalBonusWelcome(wallet) {
   const walletKey = wallet.toLowerCase();
-
-  // Blok pasti saat kontrak Welcome pertama kali dibuat (dikonfirmasi dari BscScan,
-  // transaksi "Contract Created") — dipakai kalau wallet ini belum pernah dihitung sama sekali
-  const BLOK_AWAL_WELCOME = 102364030;
-
-  // 1. Baca dulu apa yang sudah pernah dihitung dan disimpan sebelumnya.
-  // Firebase di sini cuma bonus kecepatan — kalau gagal di titik manapun,
-  // perhitungan tetap lanjut dari awal, bukan berhenti total.
-  let total = ethers.BigNumber.from(0);
-  let blokTerakhir = BLOK_AWAL_WELCOME;
-  let cacheRef = null;
-  try {
-    cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
-    const snap = await get(cacheRef);
-    if (snap.exists()) {
-      const data = snap.val();
-      total = ethers.BigNumber.from(data.totalWei || '0');
-      blokTerakhir = data.lastBlockScanned || BLOK_AWAL_WELCOME;
-    }
-  } catch(e) {
-    console.warn('Gagal baca cache bonus, hitung dari awal:', e);
+  const snap = await get(ref(_fbDb, 'referralBonus/' + walletKey));
+  if (snap.exists()) {
+    const data = snap.val();
+    const totalWei = ethers.BigNumber.from(data.totalWei || '0');
+    return parseFloat(ethers.utils.formatUnits(totalWei, 18));
   }
-
-  const latestBlock = await providerUtama.getBlockNumber();
-
-  // Sudah pernah dihitung sampai blok terbaru — tidak perlu apa-apa lagi
-  if (blokTerakhir >= latestBlock) {
-    return { total: parseFloat(ethers.utils.formatUnits(total, 18)), lengkap: true };
-  }
-
-  // 2. Ambil transaksi baru sejak terakhir dihitung, lewat API (bukan RPC)
-  try {
-    const transfers = await _ambilLogTransferWelcome(wallet, blokTerakhir + 1, latestBlock);
-    for (const tr of transfers) {
-      total = total.add(ethers.BigNumber.from(tr.value));
-    }
-  } catch(e) {
-    console.warn('Gagal ambil data dari API MegaNode:', e);
-    return {
-      total: parseFloat(ethers.utils.formatUnits(total, 18)),
-      lengkap: false,
-      errorMsg: (e && e.message) ? e.message : String(e)
-    };
-  }
-
-  // 3. Simpan hasil terbaru — kunjungan berikutnya tinggal nambah dari titik ini
-  try {
-    if (!cacheRef) cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
-    await set(cacheRef, {
-      totalWei: total.toString(),
-      lastBlockScanned: latestBlock,
-      updatedAt: Date.now()
-    });
-  } catch(e) {
-    console.warn('Gagal simpan cache bonus:', e);
-  }
-
-  return { total: parseFloat(ethers.utils.formatUnits(total, 18)), lengkap: true };
+  return 0; // belum pernah dapat bonus, atau belum sempat disinkron dari VPS
 }
+
 
 // ═══════════════════════════════════════
 // LOAD DATA
@@ -1285,23 +1185,14 @@ async function loadAll() {
     // Stats
     document.getElementById('statTotal').textContent = info.totalDownlineCount.toString();
 
-    // Total Bonus USDT — dijumlah dari seluruh event Transfer USDT yang dikirim
-    // langsung oleh kontrak Welcome ke wallet ini. Ini sumber data yang akurat,
-    // karena bonus dari Welcome dibayar internal oleh kontrak itu sendiri,
-    // bukan lewat ReferralMaster (makanya getBonusHistory selalu kosong untuk bonus ini).
-    // SENGAJA TIDAK di-await — biar jalan di belakang layar, tidak menghalangi downline render.
-    document.getElementById('statBonus').textContent = 'Menghitung...';
-    hitungTotalBonusWelcome(myAddr, provider).then(hasil => {
-      const tanda = hasil.lengkap ? '' : ' *';
+    // Total Bonus USDT — dibaca langsung dari Firebase, sudah dihitung
+    // sebelumnya oleh script terjadwal di VPS. Tidak ada perhitungan
+    // apa pun di sini, jadi selalu instan.
+    bacaTotalBonusWelcome(myAddr).then(total => {
       document.getElementById('statBonus').textContent =
-        hasil.total.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT' + tanda;
-      if (!hasil.lengkap) {
-        const dbg = document.getElementById('statBonusDebug');
-        dbg.style.display = 'block';
-        dbg.textContent = 'Error: ' + (hasil.errorMsg || 'tidak diketahui');
-      }
+        total.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT';
     }).catch(e => {
-      console.warn('Gagal hitung total bonus USDT:', e);
+      console.warn('Gagal baca total bonus USDT:', e);
       document.getElementById('statBonus').textContent = '0 USDT';
       const dbg = document.getElementById('statBonusDebug');
       dbg.style.display = 'block';
