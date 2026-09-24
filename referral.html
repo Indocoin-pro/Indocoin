@@ -33,6 +33,11 @@ window._fbSaveMember = async (wallet, upline) => {
     });
   } catch(e) { console.warn('FB save member:', e); }
 };
+// Dibocorkan ke window supaya bisa dipakai dari blok kode biasa (bukan module) di bawah
+window._fbGetBonus = async (path) => {
+  const snap = await get(ref(_fbDb, path));
+  return snap.exists() ? snap.val() : null;
+};
 </script>
 <style>
 :root {
@@ -1146,9 +1151,8 @@ async function initWallet() {
 // ═══════════════════════════════════════
 async function bacaTotalBonusWelcome(wallet) {
   const walletKey = wallet.toLowerCase();
-  const snap = await get(ref(_fbDb, 'referralBonus/' + walletKey));
-  if (snap.exists()) {
-    const data = snap.val();
+  const data = await window._fbGetBonus('referralBonus/' + walletKey);
+  if (data) {
     const totalWei = ethers.BigNumber.from(data.totalWei || '0');
     return parseFloat(ethers.utils.formatUnits(totalWei, 18));
   }
