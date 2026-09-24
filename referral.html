@@ -803,8 +803,8 @@ body::before {
       <div class="stat-lbl">DIRECT (L1)</div>
     </div>
     <div class="stat-card">
-      <div class="stat-val" id="statBonus">0 INDC</div>
-      <div class="stat-lbl">TOTAL BONUS</div>
+      <div class="stat-val" id="statBonus">0 USDT</div>
+      <div class="stat-lbl">BONUS USDT REFERRAL</div>
     </div>
   </div>
 
@@ -1185,7 +1185,7 @@ async function loadAll() {
       document.getElementById('uplineCard').style.display = 'none';
       document.getElementById('statTotal').textContent = '0';
       document.getElementById('statDirect').textContent = '0';
-      document.getElementById('statBonus').textContent = '0 INDC';
+      document.getElementById('statBonus').textContent = '0 USDT';
       renderEmptyDownline();
       renderEmptyBonus();
       renderPrograms([]);
@@ -1199,11 +1199,24 @@ async function loadAll() {
     }
 
     // Stats
-    // totalRefBonus dalam INDC (9 dec) — semua program v2 bayar INDC
-    const totalBonus = parseFloat(ethers.utils.formatUnits(info.totalRefBonus, 9))
-                       .toLocaleString('id-ID', {maximumFractionDigits: 0});
     document.getElementById('statTotal').textContent = info.totalDownlineCount.toString();
-    document.getElementById('statBonus').textContent = totalBonus+' INDC';
+
+    // Total Bonus USDT — dijumlah dari seluruh riwayat bonus program Welcome (program 0),
+    // otomatis terbaca dari awal peluncuran program karena getBonusHistory mengembalikan riwayat penuh
+    try {
+      const bonusHist = await cMaster.getBonusHistory(myAddr);
+      let totalUsdtBonus = 0;
+      for (let i = 0; i < bonusHist.programs.length; i++) {
+        if (parseInt(bonusHist.programs[i]) === 0) {
+          totalUsdtBonus += parseFloat(ethers.utils.formatUnits(bonusHist.amounts[i], 18));
+        }
+      }
+      document.getElementById('statBonus').textContent =
+        totalUsdtBonus.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT';
+    } catch(e) {
+      console.warn('Gagal hitung total bonus USDT:', e);
+      document.getElementById('statBonus').textContent = '0 USDT';
+    }
 
     // Level counts
     const levelCounts = await cMaster.getLevelCounts(myAddr);
