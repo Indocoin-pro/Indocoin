@@ -12,7 +12,7 @@
 <script src="wallet-auto-connect.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 const _fbApp = initializeApp({
   apiKey:"AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
   authDomain:"indocoin-network.firebaseapp.com",
@@ -1173,6 +1173,107 @@ async function initWallet() {
 }
 
 // ═══════════════════════════════════════
+// HITUNG TOTAL BONUS USDT DARI WELCOME
+// Dijumlah dari event Transfer USDT yang dikirim kontrak Welcome
+// langsung ke wallet member — ini sumber data on-chain yang akurat,
+// mencakup seluruh riwayat sejak kontrak Welcome pertama kali aktif.
+// ═══════════════════════════════════════
+const WELCOME_CA_REF = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
+const USDT_CA_REF    = '0x55d398326f99059fF775485246999027B3197955';
+const USDT_EVENT_ABI = ["event Transfer(address indexed from, address indexed to, uint256 value)"];
+const RPC_LIST_LOGS = [
+  "https://bsc-dataseed1.binance.org/",
+  "https://bsc-dataseed2.binance.org/",
+  "https://bsc-dataseed3.binance.org/",
+  "https://bsc-dataseed4.binance.org/",
+  "https://rpc.ankr.com/bsc",
+  "https://bsc.publicnode.com"
+];
+
+async function hitungTotalBonusWelcome(wallet, providerUtama) {
+  const walletKey = wallet.toLowerCase();
+  const cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
+
+  // Blok pasti saat kontrak Welcome pertama kali dibuat (dikonfirmasi dari BscScan,
+  // transaksi "Contract Created") — dipakai kalau wallet ini belum pernah dihitung sama sekali
+  const BLOK_AWAL_WELCOME = 102364030;
+
+  // 1. Baca dulu apa yang sudah pernah dihitung dan disimpan sebelumnya
+  let total = ethers.BigNumber.from(0);
+  let blokTerakhir = BLOK_AWAL_WELCOME;
+  try {
+    const snap = await get(cacheRef);
+    if (snap.exists()) {
+      const data = snap.val();
+      total = ethers.BigNumber.from(data.totalWei || '0');
+      blokTerakhir = data.lastBlockScanned || BLOK_AWAL_WELCOME;
+    }
+  } catch(e) {
+    console.warn('Gagal baca cache bonus, hitung dari awal:', e);
+  }
+
+  const latestBlock = await providerUtama.getBlockNumber();
+
+  // Sudah pernah dihitung sampai blok terbaru — tidak perlu scan apa pun, langsung tampil
+  if (blokTerakhir >= latestBlock) {
+    return { total: parseFloat(ethers.utils.formatUnits(total, 18)), lengkap: true };
+  }
+
+  // 2. Cuma scan blok yang BARU sejak terakhir dihitung — bukan dari awal lagi
+  const CHUNK = 5000; // batas aman sekali panggil untuk RPC publik
+  let adaBagianGagal = false;
+  let rpcIndex = 0;
+  let from = blokTerakhir + 1;
+  let blokBerhasilTerakhir = blokTerakhir;
+
+  while (from <= latestBlock) {
+    const to = Math.min(from + CHUNK - 1, latestBlock);
+    let berhasil = false;
+
+    // Coba tiap blok pakai RPC yang sedang aktif; kalau gagal, ganti RPC lain
+    for (let coba = 0; coba < RPC_LIST_LOGS.length && !berhasil; coba++) {
+      try {
+        const rpc = RPC_LIST_LOGS[(rpcIndex + coba) % RPC_LIST_LOGS.length];
+        const p = new ethers.providers.JsonRpcProvider(rpc);
+        const usdtCoba = new ethers.Contract(USDT_CA_REF, USDT_EVENT_ABI, p);
+        const filterCoba = usdtCoba.filters.Transfer(WELCOME_CA_REF, wallet);
+        const events = await usdtCoba.queryFilter(filterCoba, from, to);
+        for (const ev of events) total = total.add(ev.args.value);
+        rpcIndex = (rpcIndex + coba) % RPC_LIST_LOGS.length; // tetap di RPC yang berhasil
+        berhasil = true;
+      } catch(e) { continue; }
+    }
+
+    if (berhasil) {
+      blokBerhasilTerakhir = to;
+    } else {
+      // Berhenti di titik gagal (bukan dilewati) — supaya bagian ini dicoba lagi
+      // di kunjungan berikutnya, tidak hilang permanen dari perhitungan
+      adaBagianGagal = true;
+      console.warn('Blok', from, '-', to, 'gagal di semua RPC, dihentikan di sini');
+      break;
+    }
+    from = to + 1;
+  }
+
+  // 3. Simpan hasil terbaru — kunjungan berikutnya tinggal nambah dari titik ini
+  try {
+    await set(cacheRef, {
+      totalWei: total.toString(),
+      lastBlockScanned: blokBerhasilTerakhir,
+      updatedAt: Date.now()
+    });
+  } catch(e) {
+    console.warn('Gagal simpan cache bonus:', e);
+  }
+
+  return {
+    total: parseFloat(ethers.utils.formatUnits(total, 18)),
+    lengkap: !adaBagianGagal
+  };
+}
+
+// ═══════════════════════════════════════
 // LOAD DATA
 // ═══════════════════════════════════════
 async function loadAll() {
@@ -1201,18 +1302,20 @@ async function loadAll() {
     // Stats
     document.getElementById('statTotal').textContent = info.totalDownlineCount.toString();
 
-    // Total Bonus USDT — dijumlah dari seluruh riwayat bonus program Welcome (program 0),
-    // otomatis terbaca dari awal peluncuran program karena getBonusHistory mengembalikan riwayat penuh
+    // Total Bonus USDT — dijumlah dari seluruh event Transfer USDT yang dikirim
+    // langsung oleh kontrak Welcome ke wallet ini. Ini sumber data yang akurat,
+    // karena bonus dari Welcome dibayar internal oleh kontrak itu sendiri,
+    // bukan lewat ReferralMaster (makanya getBonusHistory selalu kosong untuk bonus ini).
+    document.getElementById('statBonus').textContent = 'Menghitung...';
     try {
-      const bonusHist = await cMaster.getBonusHistory(myAddr);
-      let totalUsdtBonus = 0;
-      for (let i = 0; i < bonusHist.programs.length; i++) {
-        if (parseInt(bonusHist.programs[i]) === 0) {
-          totalUsdtBonus += parseFloat(ethers.utils.formatUnits(bonusHist.amounts[i], 18));
-        }
-      }
+      const hasil = await hitungTotalBonusWelcome(myAddr, provider);
+      const tanda = hasil.lengkap ? '' : ' *';
       document.getElementById('statBonus').textContent =
-        totalUsdtBonus.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT';
+        hasil.total.toLocaleString('id-ID', {maximumFractionDigits: 4}) + ' USDT' + tanda;
+      if (!hasil.lengkap) {
+        document.getElementById('statBonus').title =
+          'Sebagian data mungkin belum termuat karena gangguan jaringan. Coba muat ulang halaman.';
+      }
     } catch(e) {
       console.warn('Gagal hitung total bonus USDT:', e);
       document.getElementById('statBonus').textContent = '0 USDT';
