@@ -604,31 +604,6 @@ body::before {
 .bs-bar-wrap-new { flex:1; background:rgba(0,0,0,.3); border-radius:20px; height:9px; overflow:hidden; }
 .bs-pct-new { font-family:'Orbitron',monospace; font-size:11px; font-weight:700; width:32px; text-align:right; flex-shrink:0; }
 
-/* ═══ NAV PAGES ═══ */
-.nav-pages {
-  margin:10px 14px 0; animation:fadeUp .4s ease .4s both;
-}
-.np-title { font-family:'Orbitron',monospace; font-size:11px; color:var(--gold); letter-spacing:2px; margin-bottom:10px; text-align:center; }
-.np-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
-.np-btn {
-  display:block; text-align:center; padding:10px 6px;
-  background:var(--panel); border:1px solid rgba(255,215,0,.12);
-  border-radius:10px; color:var(--dim); text-decoration:none;
-  font-size:10px; font-weight:600; transition:all .2s;
-  line-height:1.3;
-}
-.np-btn:hover, .np-btn.np-active {
-  background:rgba(255,215,0,.08); border-color:rgba(255,215,0,.35);
-  color:var(--gold); box-shadow:0 0 10px rgba(255,215,0,.1);
-}
-.np-btn.np-locked {
-  cursor:pointer; position:relative;
-}
-.np-btn.np-locked:hover {
-  background:rgba(255,215,0,.06); border-color:rgba(255,215,0,.25);
-  color:var(--gold);
-}
-
 /* ═══ EARN MSG POPUP ═══ */
 .earn-popup {
   display:none; position:fixed; inset:0; z-index:999;
@@ -772,20 +747,7 @@ body::before {
   </div>
 
   <!-- TOMBOL NAVIGASI KE PAGE LAIN -->
-  <div class="nav-pages">
-    <div class="np-title">🚀 JELAJAHI PROGRAM</div>
-    <div class="np-grid">
-      <span class="np-btn np-locked" onclick="showEarnMsg()">💎 Growth Lock</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">📈 Dynamic Level</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">⚡ Flexi Yield</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">🚀 Boost Level</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">💠 Locked Diamond</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">🔄 Auto Compound</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">🌐 Referral Power</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">🦅 Garuda Force</span>
-      <span class="np-btn np-locked" onclick="showEarnMsg()">📌 Point Vault</span>
-    </div>
-  </div>
+
 
 </div>
 
@@ -1192,16 +1154,19 @@ const RPC_LIST_LOGS = [
 
 async function hitungTotalBonusWelcome(wallet, providerUtama) {
   const walletKey = wallet.toLowerCase();
-  const cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
 
   // Blok pasti saat kontrak Welcome pertama kali dibuat (dikonfirmasi dari BscScan,
   // transaksi "Contract Created") — dipakai kalau wallet ini belum pernah dihitung sama sekali
   const BLOK_AWAL_WELCOME = 102364030;
 
-  // 1. Baca dulu apa yang sudah pernah dihitung dan disimpan sebelumnya
+  // 1. Baca dulu apa yang sudah pernah dihitung dan disimpan sebelumnya.
+  // Firebase di sini cuma bonus kecepatan — kalau gagal di titik manapun (baca
+  // ATAU sekadar bikin referensinya), perhitungan tetap lanjut dari awal, bukan berhenti total.
   let total = ethers.BigNumber.from(0);
   let blokTerakhir = BLOK_AWAL_WELCOME;
+  let cacheRef = null;
   try {
+    cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
     const snap = await get(cacheRef);
     if (snap.exists()) {
       const data = snap.val();
@@ -1258,6 +1223,7 @@ async function hitungTotalBonusWelcome(wallet, providerUtama) {
 
   // 3. Simpan hasil terbaru — kunjungan berikutnya tinggal nambah dari titik ini
   try {
+    if (!cacheRef) cacheRef = ref(_fbDb, 'referralBonus/' + walletKey);
     await set(cacheRef, {
       totalWei: total.toString(),
       lastBlockScanned: blokBerhasilTerakhir,
