@@ -922,7 +922,9 @@ const RPC_LIST  = [
   "https://bsc-dataseed3.binance.org/",
   "https://bsc-dataseed4.binance.org/",
   "https://rpc.ankr.com/bsc",
-  "https://bsc.publicnode.com"
+  "https://bsc.publicnode.com",
+  "https://bsc-rpc.publicnode.com",
+  "https://binance.llamarpc.com"
 ];
 const RPC       = RPC_LIST[0];
 
@@ -1476,37 +1478,36 @@ function toast(ico, msg) {
 }
 
 // Cari RPC terbaik yang aktif
-async function getBestRPC() {
-  for (const rpc of RPC_LIST) {
-    try {
-      const p = new ethers.providers.JsonRpcProvider(rpc);
-      await Promise.race([
-        p.getBlockNumber(),
-        new Promise((_,rej) => setTimeout(() => rej('timeout'), 3000))
-      ]);
-      return rpc;
-    } catch(e) { continue; }
-  }
-  return RPC_LIST[0];
-}
-
 // Load platform stats (tanpa connect wallet)
 async function loadPlatformStats() {
   // Base offset untuk daya tarik platform baru
   const BASE_MEMBER = 75;
   const BASE_STAKER = 17;
-  try {
-    const bestRPC = await getBestRPC();
-    const readProvider = new ethers.providers.JsonRpcProvider(bestRPC);
-    const abiExt = [
-      {"inputs":[],"name":"totalMembers","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
-    ];
-    const cExt = new ethers.Contract(MASTER_CA, abiExt, readProvider);
-    const members = await cExt.totalMembers();
-    const realCount = parseInt(members.toString());
+  const abiExt = [
+    {"inputs":[],"name":"totalMembers","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+  ];
+
+  let realCount = null;
+  for (const rpc of RPC_LIST) {
+    try {
+      const readProvider = new ethers.providers.JsonRpcProvider(rpc);
+      const cExt = new ethers.Contract(MASTER_CA, abiExt, readProvider);
+      const members = await Promise.race([
+        cExt.totalMembers(),
+        new Promise((_, rej) => setTimeout(() => rej('timeout'), 4000))
+      ]);
+      realCount = parseInt(members.toString());
+      break; // berhasil, tidak perlu coba RPC lain
+    } catch(e) {
+      continue; // RPC ini gagal, langsung coba RPC berikutnya
+    }
+  }
+
+  if (realCount !== null) {
     document.getElementById('psTotalMember').textContent = (BASE_MEMBER + realCount).toLocaleString('id-ID');
     document.getElementById('psTotalStaker').textContent = (BASE_STAKER + realCount).toLocaleString('id-ID');
-  } catch(e) {
+  } else {
+    // Semua RPC gagal — baru di titik ini fallback dipakai
     document.getElementById('psTotalMember').textContent = BASE_MEMBER.toString();
     document.getElementById('psTotalStaker').textContent = BASE_STAKER.toString();
   }
