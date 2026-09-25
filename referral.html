@@ -1027,6 +1027,26 @@ const STAKING_CONTRACTS = [
       );
       return amtA.gt(0) || amtB.gt(0);
     }
+  },
+  {
+    // Welcome: getPositionCount() + getPosition() per index, cek ada minimal 1 posisi aktif
+    id: 0, name: "Welcome",
+    ca: "0xE96A96fbf0DbF778Ce142aEae47254E94c440903",
+    abi: [
+      "function getPositionCount(address user) view returns (uint256)",
+      "function getPosition(address user, uint256 idx) view returns (uint256 indcStaked, uint256 usdtEquivalent, uint256 startTime, uint256 lastCheckpoint, uint256 reward, bool active, bool checkpointPending, uint256 nextCheckpointTime)"
+    ],
+    check: async (c, addr) => {
+      const count = await c.getPositionCount(addr);
+      const n = parseInt(count.toString());
+      if (n === 0) return false;
+      for (let i = 0; i < n; i++) {
+        const pos = await c.getPosition(addr, i);
+        const active = pos.active !== undefined ? pos.active : pos[5];
+        if (active === true) return true;
+      }
+      return false;
+    }
   }
 ];
 
