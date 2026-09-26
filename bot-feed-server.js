@@ -254,6 +254,7 @@ const PC_ROOT_ADDRESSES = [
 ];
 
 const PC_TREE_FILE = path.join(__dirname, 'member-tree-cache.json');
+const PC_DOWNLINE_MAP_FILE = path.join(__dirname, 'downline-map-cache.json');
 const PC_CRAWL_INTERVAL_MS = 15 * 60 * 1000;
 const MASTER_TREE_ABI = ["function getDirectDownlines(address _user) view returns (address[])"];
 
@@ -265,6 +266,19 @@ function pcSaveKnownAddrs() {
   try { fs.writeFileSync(PC_TREE_FILE, JSON.stringify([...pcKnownAddrs])); } catch(e) {}
 }
 let pcKnownAddrs = pcLoadKnownAddrs();
+
+// Peta lengkap "wallet ini punya downline langsung siapa aja" — { addr: [child,...] }.
+// Ini yang bikin daftar per-level bisa diambil instan & LENGKAP (tanpa batasan
+// 50 node/level kayak cara lama di browser), karena tinggal jalan di peta yang
+// sudah ada, bukan nanya ke blockchain lagi tiap kali.
+function pcLoadDownlineMap() {
+  try { return JSON.parse(fs.readFileSync(PC_DOWNLINE_MAP_FILE, 'utf-8')); }
+  catch(e) { return {}; }
+}
+function pcSaveDownlineMap() {
+  try { fs.writeFileSync(PC_DOWNLINE_MAP_FILE, JSON.stringify(downlineMap)); } catch(e) {}
+}
+let downlineMap = pcLoadDownlineMap();
 
 async function pcGetDirectDownlines(addr) {
   const provider = await pcGetProvider();
@@ -280,7 +294,8 @@ async function pcGetDirectDownlines(addr) {
 }
 
 // Telusuri pohon downline level demi level (BFS) dari root, kumpulkan SEMUA
-// alamat yang pernah ketemu, dan antrekan yang belum pernah dicek program-nya.
+// alamat yang pernah ketemu, catat siapa-punya-downline-siapa (downlineMap),
+// dan antrekan yang belum pernah dicek program-nya.
 async function crawlDownlineTree() {
   if (PC_ROOT_ADDRESSES.length === 0) {
     console.log('⚠️ PC_ROOT_ADDRESSES masih kosong — isi dulu alamat wallet paling atas biar tree crawler jalan.');
@@ -290,6 +305,7 @@ async function crawlDownlineTree() {
   let newlyFound = 0;
   let depth = 0;
   const BATCH = 5;
+  const freshMap = {}; // dibangun ulang tiap crawl, biar downline yang lepas/baru ikut ke-update
 
   while (frontier.length > 0 && depth < 20) { // guard: maks 20 level kedalaman
     depth++;
@@ -297,7 +313,9 @@ async function crawlDownlineTree() {
     for (let i = 0; i < frontier.length; i += BATCH) {
       const chunk = frontier.slice(i, i + BATCH);
       const results = await Promise.all(chunk.map(a => pcGetDirectDownlines(a)));
-      for (const downlines of results) {
+      chunk.forEach((addr, idx) => {
+        const downlines = results[idx];
+        freshMap[addr] = downlines;
         for (const d of downlines) {
           if (!pcKnownAddrs.has(d)) {
             pcKnownAddrs.add(d);
@@ -306,14 +324,16 @@ async function crawlDownlineTree() {
           if (!pcIsFresh(d)) pcQueue.add(d); // antrekan buat dicek/refresh program-nya
           nextFrontier.push(d);
         }
-      }
+      });
       await new Promise(r => setTimeout(r, 300)); // jeda kecil antar batch, hemat RPC
     }
     frontier = nextFrontier;
   }
 
+  downlineMap = freshMap;
+  pcSaveDownlineMap();
   if (newlyFound > 0) pcSaveKnownAddrs();
-  console.log(`🌳 Tree crawl selesai: ${newlyFound} member baru, total dikenal ${pcKnownAddrs.size}, ${pcQueue.size} diantrekan buat dicek.`);
+  console.log(`🌳 Tree crawl selesai: ${newlyFound} member baru, total dikenal ${pcKnownAddrs.size}, ${Object.keys(downlineMap).length} node dipetakan, ${pcQueue.size} diantrekan buat dicek.`);
 }
 
 setInterval(crawlDownlineTree, PC_CRAWL_INTERVAL_MS);
@@ -460,6 +480,33 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   
+  // Route: /api/downline-level?address=0x...&level=N — ambil daftar downline
+  // di level tertentu dari PETA yang sudah dikumpulkan tree crawler (instan,
+  // LENGKAP, tanpa batasan 50 node/level seperti cara lama di browser).
+  if (req.method === 'GET' && req.url.startsWith('/api/downline-level')) {
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      const rootAddr = (u.searchParams.get('address') || '').toLowerCase();
+      const level = parseInt(u.searchParams.get('level') || '0', 10);
+      if (!rootAddr || !level || level < 1 || level > 15) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'invalid address/level' }));
+      }
+      let frontier = [rootAddr];
+      for (let d = 0; d < level; d++) {
+        const next = [];
+        for (const a of frontier) next.push(...(downlineMap[a] || []));
+        frontier = [...new Set(next)];
+        if (frontier.length === 0) break;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ address: rootAddr, level, downlines: frontier }));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'downline-level error', msg: e.message }));
+    }
+  }
+
   // Route: /api/member-programs?addresses=0xabc,0xdef,...
   if (req.method === 'GET' && req.url.startsWith('/api/member-programs')) {
     try {

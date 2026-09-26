@@ -1322,14 +1322,38 @@ async function toggleLevel(lvl) {
   }
 }
 
-// Ambil semua downline di level tertentu secara rekursif
+// Ambil semua downline di level tertentu.
+// 1) Coba dulu dari server (peta dari tree crawler) — instan & LENGKAP, tanpa
+//    batasan 50 node/level kayak cara lama.
+// 2) Fallback: hitung langsung ke blockchain (kalau server belum sempat
+//    memetakan wallet ini, atau server lagi gak bisa dihubungi).
 async function getDownlineAtLevel(rootAddr, targetLevel) {
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 4000);
+    const url = `https://bot-feed.indocoin.id/api/downline-level?address=${rootAddr.toLowerCase()}&level=${targetLevel}`;
+    const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(to);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.downlines) && json.downlines.length > 0) {
+        return json.downlines;
+      }
+    }
+  } catch(e) { /* server tidak bisa dihubungi / belum ada datanya, lanjut fallback */ }
+
+  return getDownlineAtLevelDirectFromChain(rootAddr, targetLevel);
+}
+
+// Cara lama: hitung langsung ke blockchain, rekursif, dibatasi 50 node/level
+// biar gak membanjiri RPC dari HP. Cuma dipakai kalau server belum ada
+// datanya (misal wallet baru yang belum kejaring tree crawler).
+async function getDownlineAtLevelDirectFromChain(rootAddr, targetLevel) {
   if (targetLevel === 1) {
     return await cMaster.getDirectDownlines(rootAddr);
   }
 
-  // Ambil semua downline di level sebelumnya, lalu ambil direct downlines mereka
-  const prevLevel = await getDownlineAtLevel(rootAddr, targetLevel - 1);
+  const prevLevel = await getDownlineAtLevelDirectFromChain(rootAddr, targetLevel - 1);
   if (prevLevel.length === 0) return [];
 
   // Batasi pencarian untuk performa (max 50 node per level)
