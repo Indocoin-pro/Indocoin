@@ -91,8 +91,8 @@ msRefresh();
 // ═══════════════════════════════════════════════════════════════
 const PC_CACHE_FILE = path.join(__dirname, 'program-cache.json');
 const PC_TTL_MS      = 60 * 60 * 1000; // dianggap "segar" 60 menit sebelum di-refresh diam-diam
-const PC_CONCURRENCY = 5;              // maks 5 wallet diproses bersamaan di server
-const PC_TICK_MS     = 1000;           // antar batch, biar RPC gak digebuk
+const PC_CONCURRENCY = 8;              // maks 8 wallet diproses bersamaan di server (dinaikkan biar catch-up lebih cepat)
+const PC_TICK_MS     = 800;            // antar batch, biar RPC gak digebuk
 
 const PC_ABI_HELPERS = {
   GrowthLock: ["function getUserStakes(address user) view returns (tuple(uint8 optionId,uint256 amount,uint256 indcReward,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool principalPending)[])"],
@@ -239,6 +239,85 @@ setInterval(async () => {
   pcSaveCounter++;
   if (pcSaveCounter % 3 === 0) pcSaveCache(); // jangan nulis disk tiap tick, cukup tiap 3x
 }, PC_TICK_MS);
+
+// ═══════════════════════════════════════════════════════════════
+//  TREE CRAWLER — inti dari "cek semua duluan, simpan". Mulai dari
+//  wallet paling atas (root), telusuri SEMUA downline turun-temurun
+//  pakai getDirectDownlines(), lalu setiap alamat yang ketemu langsung
+//  diantrekan ke pcQueue di atas buat dicek program-nya. Jalan sendiri
+//  di background tiap 15 menit — TIDAK nunggu ada yang buka halaman.
+// ═══════════════════════════════════════════════════════════════
+// ISI di sini alamat wallet paling atas jaringan referral (root/genesis),
+// huruf kecil semua. Bisa lebih dari satu kalau ada beberapa cabang akar.
+const PC_ROOT_ADDRESSES = [
+  "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc" // dev wallet — dipakai konsisten di earn.html, welcome.html, ppob-server.js, dll
+];
+
+const PC_TREE_FILE = path.join(__dirname, 'member-tree-cache.json');
+const PC_CRAWL_INTERVAL_MS = 15 * 60 * 1000;
+const MASTER_TREE_ABI = ["function getDirectDownlines(address _user) view returns (address[])"];
+
+function pcLoadKnownAddrs() {
+  try { return new Set(JSON.parse(fs.readFileSync(PC_TREE_FILE, 'utf-8'))); }
+  catch(e) { return new Set(); }
+}
+function pcSaveKnownAddrs() {
+  try { fs.writeFileSync(PC_TREE_FILE, JSON.stringify([...pcKnownAddrs])); } catch(e) {}
+}
+let pcKnownAddrs = pcLoadKnownAddrs();
+
+async function pcGetDirectDownlines(addr) {
+  const provider = await pcGetProvider();
+  if (!provider) return [];
+  try {
+    const c = new ethers.Contract(MS_MASTER_CA, MASTER_TREE_ABI, provider);
+    const list = await Promise.race([
+      c.getDirectDownlines(addr),
+      new Promise((_,rej)=>setTimeout(()=>rej('timeout'), 6000))
+    ]);
+    return list.map(a => a.toLowerCase());
+  } catch(e) { return []; }
+}
+
+// Telusuri pohon downline level demi level (BFS) dari root, kumpulkan SEMUA
+// alamat yang pernah ketemu, dan antrekan yang belum pernah dicek program-nya.
+async function crawlDownlineTree() {
+  if (PC_ROOT_ADDRESSES.length === 0) {
+    console.log('⚠️ PC_ROOT_ADDRESSES masih kosong — isi dulu alamat wallet paling atas biar tree crawler jalan.');
+    return;
+  }
+  let frontier = PC_ROOT_ADDRESSES.map(a => a.toLowerCase());
+  let newlyFound = 0;
+  let depth = 0;
+  const BATCH = 5;
+
+  while (frontier.length > 0 && depth < 20) { // guard: maks 20 level kedalaman
+    depth++;
+    const nextFrontier = [];
+    for (let i = 0; i < frontier.length; i += BATCH) {
+      const chunk = frontier.slice(i, i + BATCH);
+      const results = await Promise.all(chunk.map(a => pcGetDirectDownlines(a)));
+      for (const downlines of results) {
+        for (const d of downlines) {
+          if (!pcKnownAddrs.has(d)) {
+            pcKnownAddrs.add(d);
+            newlyFound++;
+          }
+          if (!pcIsFresh(d)) pcQueue.add(d); // antrekan buat dicek/refresh program-nya
+          nextFrontier.push(d);
+        }
+      }
+      await new Promise(r => setTimeout(r, 300)); // jeda kecil antar batch, hemat RPC
+    }
+    frontier = nextFrontier;
+  }
+
+  if (newlyFound > 0) pcSaveKnownAddrs();
+  console.log(`🌳 Tree crawl selesai: ${newlyFound} member baru, total dikenal ${pcKnownAddrs.size}, ${pcQueue.size} diantrekan buat dicek.`);
+}
+
+setInterval(crawlDownlineTree, PC_CRAWL_INTERVAL_MS);
+crawlDownlineTree(); // langsung mulai begitu servis nyala, gak nunggu ada yang buka halaman
 
 // Cache 2 detik biar tidak overload disk
 let cache = null;
