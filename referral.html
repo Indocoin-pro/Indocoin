@@ -720,6 +720,25 @@ body::before {
       <div class="ps-lbl">PROGRAM AKTIF</div>
     </div>
   </div>
+  <script>
+  // Tampilkan angka INSTAN dari cache (localStorage) begitu elemen ada di DOM,
+  // jangan tunggu koneksi wallet / RPC blockchain. Kalau device ini belum
+  // pernah punya cache (kunjungan pertama), biarkan "—" dulu — JANGAN tampilkan
+  // angka dasar (75/17) sebagai tebakan, karena nanti keliatan "loncat" begitu
+  // angka asli datang (mis. 75 -> 626), yang malah bikin bingung/curiga.
+  (function(){
+    var mEl = document.getElementById('psTotalMember');
+    var sEl = document.getElementById('psTotalStaker');
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem('indocoin_platform_stats') || 'null'); } catch(e) {}
+    if (cached && typeof cached.member === 'number' && typeof cached.staker === 'number') {
+      mEl.textContent = cached.member.toLocaleString('id-ID');
+      sEl.textContent = cached.staker.toLocaleString('id-ID');
+    }
+    // Kalau belum ada cache: dibiarkan "—", nanti diisi langsung dengan angka
+    // final begitu loadPlatformStats() selesai — tidak ada nilai sementara.
+  })();
+  </script>
 
     <!-- CARA KERJA -->
   <div class="howto-card">
@@ -1492,39 +1511,76 @@ function toast(ico, msg) {
   setTimeout(() => el.classList.remove('on'), 3000);
 }
 
-// Cari RPC terbaik yang aktif
-// Load platform stats (tanpa connect wallet)
+// Refresh platform stats di background (angka instan sudah tampil dari cache,
+// lihat inline script di dekat #psTotalMember). Urutan sumber data:
+//   1) member-stats-server (VPS) — paling cepat, JSON kecil, tanpa nunggu RPC
+//   2) fallback: query langsung ke blockchain (kalau server VPS mati/gagal)
+const STATS_CACHE_KEY = 'indocoin_platform_stats';
+const STATS_API = 'https://bot-feed.indocoin.id/api/member-stats'; // numpang di service bot-feed yang sudah ada
+
+function applyStats(member, staker, skipCache) {
+  document.getElementById('psTotalMember').textContent = member.toLocaleString('id-ID');
+  document.getElementById('psTotalStaker').textContent = staker.toLocaleString('id-ID');
+  if (!skipCache) {
+    try {
+      localStorage.setItem(STATS_CACHE_KEY, JSON.stringify({ member, staker, ts: Date.now() }));
+    } catch(e) {}
+  }
+}
+
 async function loadPlatformStats() {
   // Base offset untuk daya tarik platform baru
   const BASE_MEMBER = 75;
   const BASE_STAKER = 17;
+
+  // 1) Coba ambil dari member-stats-server dulu — biasanya balas <1 detik
+  //    karena cuma JSON kecil, server yang sudah nyimpen angka terakhir.
+  try {
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 2500);
+    const res = await fetch(STATS_API, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.member === 'number' && typeof data.staker === 'number') {
+        applyStats(data.member, data.staker);
+        return; // sukses, tidak perlu fallback ke blockchain
+      }
+    }
+  } catch(e) {
+    // server VPS tidak bisa dihubungi → lanjut fallback di bawah
+  }
+
+  // 2) Fallback: tembak semua RPC blockchain bareng-bareng, pakai yang tercepat
   const abiExt = [
     {"inputs":[],"name":"totalMembers","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
   ];
-
   let realCount = null;
-  for (const rpc of RPC_LIST) {
-    try {
+  try {
+    const attempts = RPC_LIST.map(rpc => (async () => {
       const readProvider = new ethers.providers.JsonRpcProvider(rpc);
       const cExt = new ethers.Contract(MASTER_CA, abiExt, readProvider);
       const members = await Promise.race([
         cExt.totalMembers(),
         new Promise((_, rej) => setTimeout(() => rej('timeout'), 4000))
       ]);
-      realCount = parseInt(members.toString());
-      break; // berhasil, tidak perlu coba RPC lain
-    } catch(e) {
-      continue; // RPC ini gagal, langsung coba RPC berikutnya
-    }
+      return parseInt(members.toString());
+    })());
+    realCount = await Promise.any(attempts);
+  } catch(e) {
+    realCount = null; // semua RPC gagal
   }
 
   if (realCount !== null) {
-    document.getElementById('psTotalMember').textContent = (BASE_MEMBER + realCount).toLocaleString('id-ID');
-    document.getElementById('psTotalStaker').textContent = (BASE_STAKER + realCount).toLocaleString('id-ID');
+    applyStats(BASE_MEMBER + realCount, BASE_STAKER + realCount);
   } else {
-    // Semua RPC gagal — baru di titik ini fallback dipakai
-    document.getElementById('psTotalMember').textContent = BASE_MEMBER.toString();
-    document.getElementById('psTotalStaker').textContent = BASE_STAKER.toString();
+    // Server VPS mati DAN semua RPC gagal. Kalau device ini belum pernah
+    // punya cache sama sekali (masih "—"), baru dipaksa tampil angka dasar
+    // — daripada macet kosong. Tidak disimpan ke cache.
+    const mEl = document.getElementById('psTotalMember');
+    if (mEl.textContent === '—') {
+      applyStats(BASE_MEMBER, BASE_STAKER, /*skipCache*/ true);
+    }
   }
 }
 
@@ -1547,7 +1603,7 @@ function goToEarn() {
 // checkFirebaseAuth dihapus — tidak dipakai lagi
 
 // Auto init jika wallet sudah connect
-window.addEventListener('load', () => {
+function initReferralPage() {
   const urlRef = new URLSearchParams(location.search).get('ref');
 
   // Jika ada ?ref di URL → simpan ke localStorage → redirect ke landing untuk daftar
@@ -1557,9 +1613,15 @@ window.addEventListener('load', () => {
     return;
   }
 
-  loadPlatformStats();
+  loadPlatformStats(); // refresh diam-diam di background, angka instan sudah tampil duluan
   if (window.ethereum && window.ethereum.selectedAddress) initWallet();
-});
+}
+// Mulai secepat DOM siap (tidak perlu nunggu semua gambar/aset selesai load)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initReferralPage);
+} else {
+  initReferralPage();
+}
 </script>
 <script>
 if("serviceWorker" in navigator){

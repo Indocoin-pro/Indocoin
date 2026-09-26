@@ -7,12 +7,78 @@
 //  Return: JSON dengan log stream, bot status, stats
 // ═══════════════════════════════════════════════════════════════
 
-const http = require('http');
-const fs   = require('fs');
+const http   = require('http');
+const fs     = require('fs');
+const path   = require('path');
 const { exec } = require('child_process');
+const { ethers } = require('ethers');
 
 const PORT = 3001;
 const BOTS = ['arbibot', 'venus', 'triangular', 'stablecoin', 'aave', 'v2v3'];
+
+// ═══════════════════════════════════════════════════════════════
+//  MEMBER STATS — numpang di service ini, tidak bikin server baru.
+//  Nge-poll totalMembers() dari chain tiap 3 menit di background,
+//  browser (referral.html) tinggal ambil angka jadi lewat
+//  GET /api/member-stats — jauh lebih cepat dari query on-chain
+//  langsung dari tiap HP pengunjung.
+// ═══════════════════════════════════════════════════════════════
+const MS_CACHE_FILE  = path.join(__dirname, 'member-stats-cache.json');
+const MS_REFRESH_MS  = 3 * 60 * 1000; // 3 menit — member baru boleh telat muncul, gapapa
+const MS_MASTER_CA   = "0xde257f4C4fe50A650E7D7771ebe43a842CBE35D9";
+const MS_BASE_MEMBER = 75;
+const MS_BASE_STAKER = 17;
+const MS_RPC_LIST = [
+  "https://bsc-dataseed1.binance.org/",
+  "https://bsc-dataseed2.binance.org/",
+  "https://bsc-dataseed3.binance.org/",
+  "https://bsc-dataseed4.binance.org/",
+  "https://rpc.ankr.com/bsc",
+  "https://bsc.publicnode.com",
+  "https://bsc-rpc.publicnode.com",
+  "https://binance.llamarpc.com"
+];
+const MS_ABI = [
+  {"inputs":[],"name":"totalMembers","outputs":[{"name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+
+function msLoadCache() {
+  try { return JSON.parse(fs.readFileSync(MS_CACHE_FILE, 'utf-8')); }
+  catch(e) { return { totalMembers: 0, member: MS_BASE_MEMBER, staker: MS_BASE_STAKER, updatedAt: null }; }
+}
+function msSaveCache() {
+  try { fs.writeFileSync(MS_CACHE_FILE, JSON.stringify(memberStatsCache)); } catch(e) {}
+}
+let memberStatsCache = msLoadCache();
+
+async function msRefresh() {
+  let realCount = null;
+  try {
+    const attempts = MS_RPC_LIST.map(rpc => (async () => {
+      const provider = new ethers.providers.JsonRpcProvider(rpc);
+      const c = new ethers.Contract(MS_MASTER_CA, MS_ABI, provider);
+      const members = await Promise.race([
+        c.totalMembers(),
+        new Promise((_, rej) => setTimeout(() => rej('timeout'), 5000))
+      ]);
+      return parseInt(members.toString());
+    })());
+    realCount = await Promise.any(attempts);
+  } catch(e) { realCount = null; }
+
+  if (realCount !== null) {
+    memberStatsCache = {
+      totalMembers: realCount,
+      member: MS_BASE_MEMBER + realCount,
+      staker: MS_BASE_STAKER + realCount,
+      updatedAt: new Date().toISOString()
+    };
+    msSaveCache();
+  }
+  // Kalau semua RPC gagal: cache lama tetap dipakai, tidak ditimpa.
+}
+setInterval(msRefresh, MS_REFRESH_MS);
+msRefresh();
 
 // Cache 2 detik biar tidak overload disk
 let cache = null;
@@ -155,6 +221,12 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   
+  // Route: /api/member-stats
+  if (req.method === 'GET' && req.url.startsWith('/api/member-stats')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(memberStatsCache));
+  }
+
   // Route: /api/bot-live-feed
   if (req.method === 'GET' && req.url.startsWith('/api/bot-live-feed')) {
     try {
