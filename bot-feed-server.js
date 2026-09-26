@@ -91,8 +91,8 @@ msRefresh();
 // ═══════════════════════════════════════════════════════════════
 const PC_CACHE_FILE = path.join(__dirname, 'program-cache.json');
 const PC_TTL_MS      = 30 * 60 * 1000; // cache 1 wallet dianggap "segar" 30 menit
-const PC_CONCURRENCY = 3;              // maks 3 wallet diproses bersamaan di server
-const PC_TICK_MS     = 1500;           // antar batch, biar RPC gak digebuk
+const PC_CONCURRENCY = 5;              // maks 5 wallet diproses bersamaan di server
+const PC_TICK_MS     = 1000;           // antar batch, biar RPC gak digebuk
 
 const PC_ABI_HELPERS = {
   GrowthLock: ["function getUserStakes(address user) view returns (tuple(uint8 optionId,uint256 amount,uint256 indcReward,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool principalPending)[])"],
@@ -172,29 +172,53 @@ function pcIsFresh(addr) {
   return entry && (Date.now() - new Date(entry.updatedAt).getTime() < PC_TTL_MS);
 }
 
-async function pcCheckOneAddress(addr) {
-  // Cari RPC yang hidup dulu (dicoba satu-satu, bukan diparalel — hemat kuota)
-  let provider = null;
+// RPC yang lagi dipakai di-cache biar gak nyari ulang tiap wallet — cuma
+// dicek ulang kalau ternyata sudah mati.
+let pcCachedProvider = null;
+let pcCachedProviderAt = 0;
+async function pcGetProvider() {
+  if (pcCachedProvider && (Date.now() - pcCachedProviderAt < 60000)) return pcCachedProvider;
   for (const rpc of MS_RPC_LIST) {
     try {
       const p = new ethers.providers.JsonRpcProvider(rpc);
       await Promise.race([p.getBlockNumber(), new Promise((_,rej)=>setTimeout(()=>rej('timeout'),4000))]);
-      provider = p; break;
+      pcCachedProvider = p;
+      pcCachedProviderAt = Date.now();
+      return p;
     } catch(e) { continue; }
   }
+  pcCachedProvider = null;
+  return null;
+}
+
+async function pcCheckOneAddress(addr) {
+  const provider = await pcGetProvider();
   if (!provider) return; // semua RPC gagal, coba lagi di tick berikutnya
 
-  const list = [];
-  for (const prog of PC_PROGRAMS) {
-    try {
+  // 11 kontrak dicek BARENGAN (paralel), bukan satu-satu berurutan.
+  // Sebelumnya sequential — itu yang bikin 1 wallet bisa makan puluhan detik.
+  // Server ini titik pusat (bukan 200 HP sekaligus kayak dulu di browser),
+  // jadi 11 request paralel per wallet aman buat RPC publik.
+  const results = await Promise.allSettled(
+    PC_PROGRAMS.map(async (prog) => {
       const c = new ethers.Contract(prog.ca, prog.abi, provider);
       const active = await Promise.race([
         prog.check(c, addr),
-        new Promise((_,rej)=>setTimeout(()=>rej('timeout'), 8000))
+        new Promise((_,rej)=>setTimeout(()=>rej('timeout'), 6000))
       ]);
-      if (active === true) list.push(prog.name);
-    } catch(e) { /* kontrak ini gagal dicek, lanjut ke kontrak lain */ }
+      return { name: prog.name, active };
+    })
+  );
+
+  const list = [];
+  let allFailed = true;
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      allFailed = false;
+      if (r.value.active === true) list.push(r.value.name);
+    }
   }
+  if (allFailed) pcCachedProvider = null; // provider kemungkinan mati, cari ulang di panggilan berikutnya
 
   programCache[addr] = { list, updatedAt: new Date().toISOString() };
 }
