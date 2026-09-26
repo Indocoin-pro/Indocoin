@@ -861,6 +861,7 @@ footer {
 }
 </style>
 <script src="wallet-bridge.js"></script>
+<script src="member-auth.js"></script>
 </head>
 <body>
 
@@ -930,17 +931,9 @@ footer {
     <p class="tagline">Bersama Membangun Masa Depan</p>
     <p class="sub">Indonesian Community Supporting Global Crypto</p>
 
-    <!-- AUTH BUTTONS -->
-    <div class="auth-box">
-      <button class="btn-primary" onclick="showSignUp()">📝 DAFTAR SEKARANG</button>
-      <button class="btn-secondary" onclick="handleMasukClick()">🔑 MASUK</button>
-
-      <div class="divider">atau</div>
-
-      <button class="btn-google" onclick="loginGoogle()">
-        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Sudah Daftar? Masuk dengan Google
-      </button>
+    <!-- AUTH BUTTONS — sekarang dinamis, isinya diatur renderAuthBox() -->
+    <div class="auth-box" id="authBox">
+      <button class="btn-primary" disabled>⏳ Memeriksa wallet...</button>
     </div>
 
     <!-- STATS -->
@@ -1111,6 +1104,7 @@ footer {
     <p class="modal-welcome">Bergabung dengan komunitas kami 🦅</p>
     <h3>DAFTAR</h3>
     <div class="modal-status" id="signUpStatus"></div>
+    <div style="color:#9a8c78;font-size:11px;margin:-8px 0 14px;">Wallet: <b id="signUpWalletShown" style="color:var(--gold)">—</b></div>
 
     <input type="text" id="signUpName" placeholder="Nama Lengkap">
 
@@ -1119,23 +1113,6 @@ footer {
         <canvas id="capCanvas" width="90" height="44" onclick="drawCaptcha()" style="cursor:pointer;display:block;" title="Klik untuk ganti kode"></canvas>
       </div>
       <input type="text" id="signUpCaptcha" placeholder="Ketik kode di kiri" maxlength="6" style="flex:1;height:48px;box-sizing:border-box;padding:13px 16px;">
-    </div>
-
-    <input type="email" id="signUpEmail" placeholder="Alamat Email" onblur="checkEmailDomain(this.value)">
-    <div id="emailDomainWarn" style="display:none;color:#dc2626;font-size:11px;margin-top:-8px;margin-bottom:8px;"></div>
-
-    <div class="pass-wrap">
-      <input type="password" id="signUpPass" placeholder="Password (min 8 karakter)" oninput="checkStrength(this.value)">
-      <span class="eye-btn" onclick="togglePass('signUpPass',this)">👁️</span>
-    </div>
-    <div class="strength-bar">
-      <div class="strength-fill" id="strengthFill"></div>
-    </div>
-    <div class="strength-label" id="strengthLabel"></div>
-
-    <div class="pass-wrap">
-      <input type="password" id="signUpPass2" placeholder="Ulangi Password">
-      <span class="eye-btn" onclick="togglePass('signUpPass2',this)">👁️</span>
     </div>
 
     <div class="ref-wrap">
@@ -1155,9 +1132,7 @@ footer {
       <span>Saya setuju dengan <a href="#" style="color:var(--gold)">Syarat & Ketentuan</a> INDOCOIN</span>
     </label>
 
-    <button class="btn-primary" onclick="doSignUp()" style="margin-top:14px">📝 DAFTAR SEKARANG</button>
-
-    <div class="modal-footer">Sudah punya akun? <a onclick="switchToSignIn()">Masuk di sini</a></div>
+    <button class="btn-primary" onclick="doRegisterWallet()" style="margin-top:14px">📝 DAFTAR SEKARANG</button>
   </div>
 </div>
 
@@ -1413,6 +1388,105 @@ window.checkEmailDomain = (email) => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+//  AUTH BOX BARU — berbasis wallet (member-auth.js), gak pakai
+//  email/password lagi. Konten tombol diatur di sini sesuai status:
+//  belum connect / udah connect tapi belum daftar / udah member /
+//  wallet diblokir.
+// ═══════════════════════════════════════════════════════════════
+window._pendingWallet = null; // wallet yang lagi diproses buat daftar
+
+async function renderAuthBox() {
+  const box = document.getElementById('authBox');
+  const addr = await IndocoinMemberAuth.getConnectedWallet(); // gak munculin prompt
+
+  if (!addr) {
+    box.innerHTML = `<button class="btn-primary" onclick="handleConnectClick()">🔗 CONNECT WALLET</button>`;
+    return;
+  }
+
+  const short = addr.slice(0,6) + '...' + addr.slice(-4);
+  const member = await IndocoinMemberAuth.getMember(addr);
+
+  if (!member) {
+    window._pendingWallet = addr;
+    box.innerHTML = `
+      <button class="btn-primary" onclick="showSignUp()">📝 DAFTAR SEKARANG</button>
+      <div style="color:#9a8c78;font-size:11px;margin-top:8px;">Wallet terhubung: ${short}</div>`;
+    return;
+  }
+
+  if (member.blocked === true) {
+    box.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:14px;border:1px solid rgba(220,38,38,0.4);border-radius:10px;">🔒 Wallet ${short} diblokir. Hubungi admin kalau ini keliru.</div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <button class="btn-primary" onclick="window.location.href='dashboard.html'">➡️ LANJUT KE DASHBOARD</button>
+    <div style="color:#9a8c78;font-size:11px;margin-top:8px;">Masuk sebagai ${short}</div>`;
+}
+
+window.handleConnectClick = async () => {
+  const box = document.getElementById('authBox');
+  box.innerHTML = `<button class="btn-primary" disabled>⏳ Menghubungkan...</button>`;
+  const addr = await IndocoinMemberAuth.connectWallet();
+  if (!addr) {
+    // Gagal/ditolak, ATAU window.ethereum gak ada (wallet-bridge.js yang
+    // nampilin modal deep-link kalau file itu dimuat di halaman ini)
+    await renderAuthBox();
+    return;
+  }
+  await renderAuthBox();
+};
+
+window.doRegisterWallet = async () => {
+  const wallet = window._pendingWallet;
+  const name = document.getElementById('signUpName').value.trim();
+  const ref  = document.getElementById('signUpRef').value.trim();
+  const tos  = document.getElementById('signUpTos').checked;
+  const st   = document.getElementById('signUpStatus');
+  const captchaInput = document.getElementById('signUpCaptcha').value.trim().toUpperCase();
+
+  document.getElementById('signUpWalletShown').textContent =
+    wallet ? (wallet.slice(0,6)+'...'+wallet.slice(-4)) : '—';
+
+  if (!wallet) {
+    st.textContent = 'Wallet belum terhubung, tutup form ini dan connect wallet dulu.';
+    st.className = 'modal-status error';
+    return;
+  }
+  if (!name) {
+    st.textContent = 'Nama wajib diisi!'; st.className = 'modal-status error'; return;
+  }
+  if (!ref) {
+    st.textContent = 'Kode referral wajib diisi! Pilih cari sendiri atau pakai referral platform.';
+    st.className = 'modal-status error'; return;
+  }
+  if (captchaInput !== window._captchaCode) {
+    st.textContent = 'Kode captcha salah, coba lagi!'; st.className = 'modal-status error'; drawCaptcha(); return;
+  }
+  if (!tos) {
+    st.textContent = 'Centang syarat & ketentuan dulu!'; st.className = 'modal-status error'; return;
+  }
+
+  st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+
+  const result = await IndocoinMemberAuth.registerMember(wallet, { name, referral: ref });
+  if (!result.ok) {
+    st.textContent = result.reason === 'already-registered'
+      ? 'Wallet ini sudah terdaftar.'
+      : 'Gagal mendaftar, coba lagi.';
+    st.className = 'modal-status error';
+    return;
+  }
+
+  st.textContent = '✅ Berhasil! Mengarahkan ke dashboard...';
+  st.className = 'modal-status';
+  setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+};
+
+window.addEventListener('load', renderAuthBox);
+
 window.doSignUp = async () => {
   const name  = document.getElementById('signUpName').value.trim();
   const email = document.getElementById('signUpEmail').value.trim();
@@ -1667,6 +1741,9 @@ function generateStars(){
 function showSignUp(){
   document.getElementById('signUpModal').classList.add('active');
   setTimeout(drawCaptcha, 50); // tunggu sebentar biar canvas sudah ke-render
+  const wEl = document.getElementById('signUpWalletShown');
+  if (wEl) wEl.textContent = window._pendingWallet
+    ? (window._pendingWallet.slice(0,6)+'...'+window._pendingWallet.slice(-4)) : '—';
   // Auto-populate kode referral dari localStorage
   const savedRef = localStorage.getItem('indocoin_ref') || '';
   const refInput = document.getElementById('signUpRef');
