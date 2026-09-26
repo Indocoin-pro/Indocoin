@@ -413,6 +413,7 @@ html, body {
   gap: 8px;
 }
 </style>
+<script src="member-auth.js"></script>
 </head>
 <body>
 
@@ -514,6 +515,7 @@ const db = getDatabase(app);
 let currentUser = null;
 let currentName = '';
 let isAdmin = false;
+const DEV_WALLET = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc'; // dev wallet — dipakai konsisten di seluruh app
 
 function esc(t) {
   return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -536,36 +538,40 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', _markCommunityRead);
 
-// ===== AUTH =====
-onAuthStateChanged(auth, user => {
-  if (user) {
-    currentUser = user;
-    currentName = user.displayName || user.email.split('@')[0];
-    const uname = (user.displayName||'').toLowerCase();
-    const uemail = (user.email||'').toLowerCase();
-    isAdmin = uname === 'indocoin' || uname === 'admin' ||
-              uemail.includes('indocoin') || uemail.includes('admin@');
+// ===== AUTH — sekarang berbasis wallet (member-auth.js), bukan Firebase
+// Auth lagi. `currentUser` dibikin jadi objek serupa (punya .uid, .displayName)
+// biar semua kode di bawah yang sudah pakai currentUser.uid gak perlu diubah
+// satu-satu — cuma .uid-nya sekarang wallet address, bukan Firebase UID.
+async function initMemberGate() {
+  const member = await IndocoinMemberAuth.requireMember();
 
-    document.getElementById('navUser').textContent = currentName + (isAdmin ? ' 👑' : '');
-    const mc = document.getElementById('mainContent');
-    mc.style.display = 'flex';
-    mc.style.flexDirection = 'column';
-    mc.style.overflow = 'hidden';
-    mc.style.flex = '1';
-    mc.style.minHeight = '0';
-    mc.style.height = '100%';
-    document.getElementById('notLoggedIn').style.display = 'none';
-
-    updateOnline();
-    startChat();
-  } else {
+  if (!member || member.blocked) {
     currentUser = null;
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'flex';
+    return;
   }
-});
 
-window.doSignOut = () => signOut(auth).then(() => window.location.href = 'landing.html');
+  currentUser = { uid: member.wallet, displayName: member.name || '', email: '' };
+  currentName = member.name || (member.wallet.slice(0,6) + '...' + member.wallet.slice(-4));
+  isAdmin = member.wallet === DEV_WALLET;
+
+  document.getElementById('navUser').textContent = currentName + (isAdmin ? ' 👑' : '');
+  const mc = document.getElementById('mainContent');
+  mc.style.display = 'flex';
+  mc.style.flexDirection = 'column';
+  mc.style.overflow = 'hidden';
+  mc.style.flex = '1';
+  mc.style.minHeight = '0';
+  mc.style.height = '100%';
+  document.getElementById('notLoggedIn').style.display = 'none';
+
+  updateOnline();
+  startChat();
+}
+window.addEventListener('load', initMemberGate);
+
+window.doSignOut = () => { window.location.href = 'landing.html'; };
 
 // ===== ONLINE =====
 function updateOnline() {

@@ -175,6 +175,7 @@ body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backgr
 .filter-tab.active{background:var(--green);color:#000;border-color:var(--green);}
 </style>
 <script src="wallet-bridge.js"></script>
+<script src="member-auth.js"></script>
 </head>
 <body>
 
@@ -466,13 +467,15 @@ async function refreshVault(){
 
 // ─── AUTO CONNECT ─────────────────────────────────────────────
 window.addEventListener('load',async()=>{
-  // Cek Firebase auth session
-  firebase.auth().onAuthStateChanged(async(user)=>{
-    if(!user){
-      showToast('⚠️ Login ke Indocoin dulu!');
-      setTimeout(()=>window.location.href='landing.html',2000);
-    }
-  });
+  // Gerbang member sekarang berbasis wallet (member-auth.js), bukan
+  // sesi Firebase lagi.
+  const member = await IndocoinMemberAuth.requireMember();
+  if(!member || member.blocked){
+    showToast('⚠️ Login ke Indocoin dulu!');
+    setTimeout(()=>window.location.href='landing.html',2000);
+    return;
+  }
+  window._memberName = member.name || '';
 
   if(window.ethereum){
     try{
@@ -726,12 +729,7 @@ async function createRoom(){
   btn.disabled=true;btn.textContent='MEMPROSES...';
 
   try{
-    // Pastikan Firebase auth
-    let user=firebase.auth().currentUser;
-    if(!user){
-      try{ const cred=await firebase.auth().signInAnonymously(); user=cred.user; }catch(e){}
-    }
-    const creatorName=user?.displayName||user?.email?.split('@')[0]||userAddr.slice(0,8);
+    const creatorName = window._memberName || userAddr.slice(0,8);
 
     // Konversi jumlah soal ke index (0=20soal, 1=50soal, 2=100soal)
     const qIdx = selectedQ===50?1:selectedQ===100?2:0;

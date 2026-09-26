@@ -871,6 +871,7 @@ body {
 .btn-gold:hover { box-shadow: 0 0 25px rgba(250,204,21,0.4); }
 </style>
 <script src="wallet-bridge.js"></script>
+<script src="member-auth.js"></script>
 </head>
 <body>
 
@@ -1598,47 +1599,49 @@ async function _updateCommunityUnreadBadge(uid) {
   }
 }
 
-onAuthStateChanged(auth, user => {
-  if(user){
-    // Verifikasi ke server: akun masih aktif atau sudah di-disable?
-    // Sesi lama di HP tidak otomatis berakhir saat akun di-disable,
-    // jadi harus dicek ulang setiap dashboard dibuka.
-    user.getIdToken(true).catch(() => {
-      signOut(auth).finally(() => {
-        alert('Akun ini telah dinonaktifkan. Sistem anti-fraud INDOCOIN menemukan indikasi aktivitas spam.\n\nAnda bisa melakukan banding jika merasa ini sebuah kesalahan. Kirim email ke indocoin.info@gmail.com');
-        window.location.href = 'landing.html';
-      });
-    });
+// ═══════════════════════════════════════════════════════════════
+//  GERBANG MEMBER — sekarang berbasis wallet (member-auth.js),
+//  bukan onAuthStateChanged Firebase lagi.
+// ═══════════════════════════════════════════════════════════════
+async function initMemberGate() {
+  const member = await IndocoinMemberAuth.requireMember();
 
-    document.getElementById('mainDashboard').style.display = 'block';
-    document.getElementById('notLoggedIn').style.display = 'none';
-
-    const name = user.displayName || user.email.split('@')[0];
-    document.getElementById('navUser').textContent = name;
-
-    _updateCommunityUnreadBadge(user.uid);
-
-    const hour = new Date().getHours();
-    const salam = hour < 12 ? 'Selamat Pagi' : hour < 15 ? 'Selamat Siang' : hour < 18 ? 'Selamat Sore' : 'Selamat Malam';
-    document.getElementById('greetUser').textContent = salam + ', ' + name + '! 👋';
-    document.getElementById('greetTime').textContent = new Date().toLocaleDateString('id-ID', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-
-    loadPresaleData();
-    setInterval(loadPresaleData, 15000); // Auto-refresh progress presale tiap 15 detik
-    loadListingProgress();
-    setInterval(loadListingProgress, 15000); // Auto-refresh progress listing tiap 15 detik
-    loadPaidAdsBanners(); // Load banner iklan
-
-  } else {
+  if (!member || member.blocked) {
     document.getElementById('mainDashboard').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'flex';
-    document.getElementById('navUser').textContent = 'Tamu';
+    document.getElementById('navUser').textContent = member && member.blocked ? 'Diblokir' : 'Tamu';
+    if (member && member.blocked) {
+      alert('Akun ini diblokir. Kalau merasa ini kesalahan, hubungi admin di indocoin.info@gmail.com');
+    }
     loadPaidAdsBanners(); // Tetap load banner meski belum login
+    return;
   }
-});
+
+  document.getElementById('mainDashboard').style.display = 'block';
+  document.getElementById('notLoggedIn').style.display = 'none';
+
+  const name = member.name || (member.wallet.slice(0,6) + '...' + member.wallet.slice(-4));
+  document.getElementById('navUser').textContent = name;
+
+  _updateCommunityUnreadBadge(member.wallet);
+
+  const hour = new Date().getHours();
+  const salam = hour < 12 ? 'Selamat Pagi' : hour < 15 ? 'Selamat Siang' : hour < 18 ? 'Selamat Sore' : 'Selamat Malam';
+  document.getElementById('greetUser').textContent = salam + ', ' + name + '! 👋';
+  document.getElementById('greetTime').textContent = new Date().toLocaleDateString('id-ID', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  loadPresaleData();
+  setInterval(loadPresaleData, 15000); // Auto-refresh progress presale tiap 15 detik
+  loadListingProgress();
+  setInterval(loadListingProgress, 15000); // Auto-refresh progress listing tiap 15 detik
+  loadPaidAdsBanners(); // Load banner iklan
+}
+window.addEventListener('load', initMemberGate);
 
 window.doSignOut = () => {
-    signOut(auth).then(() => window.location.href = 'landing.html');
+  // Gak ada "sign out" akun lagi — identitas = wallet yang connect.
+  // Disconnect dilakukan dari wallet app-nya sendiri (MetaMask/Trust/dll).
+  window.location.href = 'landing.html';
 };
 
 // ── PAID ADS BANNER LOADER ──

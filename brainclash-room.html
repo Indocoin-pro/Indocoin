@@ -151,6 +151,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .sudden-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:30px;}
 </style>
 <script src="wallet-bridge.js"></script>
+<script src="member-auth.js"></script>
 </head>
 <body>
 
@@ -388,18 +389,18 @@ window.addEventListener('load',async()=>{
       }
     }catch(e){}
   }
-  // Tunggu Firebase auth dulu
-  await new Promise(resolve=>{
-    const unsub=firebase.auth().onAuthStateChanged(user=>{
-      unsub();
-      resolve(user);
-    });
-  });
+  // Ambil nama member (biasanya sudah diisi brainclash.html lewat
+  // window._memberName; kalau halaman ini dibuka langsung, ambil sendiri).
+  if (!window._memberName && userAddr) {
+    try {
+      const member = await IndocoinMemberAuth.getMember(userAddr);
+      window._memberName = member ? (member.name || '') : '';
+    } catch(e) { window._memberName = ''; }
+  }
 
   // Join room di Firebase
   if(userAddr){
-    const user=auth.currentUser;
-    const name=user?.displayName||user?.email?.split('@')[0]||userAddr.slice(0,8);
+    const name = window._memberName || userAddr.slice(0,8);
     await db.ref(`brainclash/rooms/${roomId}/players/${userAddr}`).set({
       name,score:0,joined:Date.now(),disconnected:false
     });
