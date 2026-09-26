@@ -1355,22 +1355,29 @@ async function renderDownlineItems(container, addresses, lvl) {
 
   container.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat & mengurutkan...</div>';
 
-  // Ambil status SEMUA wallet dulu (bukan cuma yang keliatan) — biar tau mana
-  // yang udah ikut program dan mana yang belum, SEBELUM dirender.
+  // Ambil status SEMUA wallet dulu — sekalian ini bikin server mulai ngantre
+  // ngecek yang belum pernah dicek (lihat fetchProgramStatusMap).
   const statusMap = await fetchProgramStatusMap(addresses);
 
-  // "aktif" = beneran udah ikut minimal 1 program → ditampilkan satu-satu.
-  // "rest" = belum ikut program apapun (baik yang udah pasti kosong, ATAU
-  // yang belum sempat kecek server) → JANGAN ditampilkan satu-satu, cukup
-  // digabung jadi 1 angka "+N lainnya" di bawah.
-  const active = [], rest = [];
+  // State per-level, disimpan nempel di elemen container-nya sendiri, dipakai
+  // buat render ulang tiap kali ada hasil baru datang dari background poll.
+  const state = { active: [], inactive: [], pending: [], statusMap, expanded: false, restVisibleCount: 20 };
   for (const addr of addresses) {
     const entry = statusMap[addr.toLowerCase()];
-    if (entry && entry.list && entry.list.length > 0) active.push(addr);
-    else rest.push(addr);
+    if (entry && entry.list && entry.list.length > 0) state.active.push(addr);
+    else if (entry && entry.list) state.inactive.push(addr);
+    else state.pending.push(addr); // belum pernah dicek server
   }
+  container._dlState = state;
 
-  renderDownlineGroups(container, active, rest, statusMap);
+  renderDlState(container);
+
+  // PENTING: yang masih "pending" TERUS dicek di belakang layar walau bagian
+  // "lainnya"-nya belum diklik/dibuka. Begitu ketemu ada yang aktif, otomatis
+  // dipindah ke daftar atas — bukan nunggu user klik dulu baru dicek.
+  if (state.pending.length > 0) {
+    pollPendingBackground(container, state);
+  }
 }
 
 function dlRowHtml(addr, statusMap) {
@@ -1392,48 +1399,73 @@ function dlRowHtml(addr, statusMap) {
   </div>`;
 }
 
-// Tampilkan yang AKTIF satu-satu, lalu 1 baris ringkasan "+N lainnya (belum
-// ikut program)" di bawahnya — diklik baru nampilin daftar sisanya.
-function renderDownlineGroups(container, active, rest, statusMap) {
-  let html = active.map(a => dlRowHtml(a, statusMap)).join('');
+// Render ulang seluruh isi container dari state saat ini. Dipanggil pas
+// pertama kali render, pas user klik expand/lainnya, dan pas ada hasil baru
+// datang dari background poll (auto-refresh, tanpa aksi user).
+function renderDlState(container) {
+  const state = container._dlState;
+  if (!state) return;
 
-  if (rest.length > 0) {
-    html += `<div class="no-dl dl-more-rest" style="font-size:11px;cursor:pointer;text-decoration:underline">+${rest.length} lainnya (belum ikut program)</div>`;
-  } else if (active.length === 0) {
-    html = '<div class="no-dl">Belum ada downline yang ikut program</div>';
+  let html = state.active.map(a => dlRowHtml(a, state.statusMap)).join('');
+  const restCount = state.inactive.length + state.pending.length;
+
+  if (!state.expanded) {
+    if (restCount > 0) {
+      html += `<div class="no-dl dl-more-rest" style="font-size:11px;cursor:pointer;text-decoration:underline">+${restCount} lainnya (belum ikut program)</div>`;
+    } else if (state.active.length === 0) {
+      html = '<div class="no-dl">Belum ada downline yang ikut program</div>';
+    }
+  } else {
+    const restAll = [...state.inactive, ...state.pending];
+    const restVisible = restAll.slice(0, state.restVisibleCount);
+    html += restVisible.map(addr => dlRowHtml(addr, state.statusMap).replace('class="dl-item"', 'class="dl-item dl-rest-item"')).join('');
+    const remaining = restAll.length - restVisible.length;
+    if (remaining > 0) {
+      html += `<div class="no-dl dl-more-rest2" style="font-size:11px;cursor:pointer;text-decoration:underline">+${remaining} lainnya</div>`;
+    }
   }
+
   container.innerHTML = html;
 
   const moreEl = container.querySelector('.dl-more-rest');
   if (moreEl) {
-    moreEl.onclick = () => expandRestGroup(container, rest, statusMap, 20);
+    moreEl.onclick = () => { state.expanded = true; renderDlState(container); };
+  }
+  const moreEl2 = container.querySelector('.dl-more-rest2');
+  if (moreEl2) {
+    moreEl2.onclick = () => { state.restVisibleCount += 20; renderDlState(container); };
   }
 }
 
-// Diklik → buka daftar wallet yang belum ikut program, dicicil 20 per klik.
-function expandRestGroup(container, rest, statusMap, visibleCount) {
-  const oldMore = container.querySelector('.dl-more-rest');
-  if (oldMore) oldMore.remove();
-  container.querySelectorAll('.dl-rest-item').forEach(el => el.remove());
-  const oldMore2 = container.querySelector('.dl-more-rest2');
-  if (oldMore2) oldMore2.remove();
+// Terus cek ulang alamat yang masih "pending" (belum sempat dicek server),
+// tiap 3 detik, sampai semua kejawab atau 8x percobaan (~24 detik). Begitu
+// ada hasil, dipindah ke grup active/inactive lalu container di-render ulang
+// otomatis — jadi yang aktif langsung nongol ke atas walau bagian "lainnya"
+// belum pernah diklik sama sekali.
+async function pollPendingBackground(container, state, attempt) {
+  attempt = attempt || 1;
+  if (!state.pending || state.pending.length === 0) return;
 
-  const visible = rest.slice(0, visibleCount);
-  const restHtml = visible.map(addr => dlRowHtml(addr, statusMap).replace('class="dl-item"', 'class="dl-item dl-rest-item"')).join('');
-  container.insertAdjacentHTML('beforeend', restHtml);
-
-  const remaining = rest.length - visible.length;
-  if (remaining > 0) {
-    container.insertAdjacentHTML('beforeend', `<div class="no-dl dl-more-rest2" style="font-size:11px;cursor:pointer;text-decoration:underline">+${remaining} lainnya</div>`);
-    container.querySelector('.dl-more-rest2').onclick = () => expandRestGroup(container, rest, statusMap, visibleCount + 20);
+  const map = await fetchProgramStatusMap(state.pending);
+  let resolvedAny = false;
+  const stillPending = [];
+  for (const addr of state.pending) {
+    const entry = map[addr.toLowerCase()];
+    if (entry) {
+      state.statusMap[addr.toLowerCase()] = entry;
+      if (entry.list.length > 0) state.active.push(addr);
+      else state.inactive.push(addr);
+      resolvedAny = true;
+    } else {
+      stillPending.push(addr);
+    }
   }
+  state.pending = stillPending;
 
-  const pendingVisible = visible.filter(addr => {
-    const e = statusMap[addr.toLowerCase()];
-    return !(e && e.list);
-  });
-  if (pendingVisible.length > 0) {
-    pollPendingAddresses(container, pendingVisible, statusMap);
+  if (resolvedAny && container.isConnected) renderDlState(container);
+
+  if (stillPending.length > 0 && attempt < 8) {
+    setTimeout(() => pollPendingBackground(container, state, attempt + 1), 3000);
   }
 }
 
@@ -1467,43 +1499,6 @@ async function fetchProgramStatusMap(addresses) {
   }));
 
   return map;
-}
-
-async function pollPendingAddresses(container, pendingAddrs, statusMap, attempt) {
-  attempt = attempt || 1;
-  let data = null;
-  try {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 4000);
-    const url = PROGRAMS_API + '?addresses=' + pendingAddrs.map(a => a.toLowerCase()).join(',');
-    const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
-    clearTimeout(to);
-    if (res.ok) { const json = await res.json(); data = json.data; }
-  } catch(e) { /* server tidak bisa dihubungi */ }
-
-  if (!data) {
-    return loadProgramsDirectFromChain(container, pendingAddrs);
-  }
-
-  const stillPending = [];
-  for (const addr of pendingAddrs) {
-    const entry = data[addr.toLowerCase()];
-    if (entry) {
-      statusMap[addr.toLowerCase()] = entry;
-      const html = entry.list.length > 0
-        ? entry.list.map(p => `<span class="dl-prog">${p}</span>`).join('')
-        : '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
-      setProgHtml(container, addr, html);
-    } else {
-      stillPending.push(addr);
-    }
-  }
-
-  if (stillPending.length > 0 && attempt < 6) {
-    setTimeout(() => pollPendingAddresses(container, stillPending, statusMap, attempt + 1), 3000);
-  } else if (stillPending.length > 0) {
-    stillPending.forEach(addr => setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim)">⚠️ Belum selesai dicek, buka lagi nanti</span>'));
-  }
 }
 
 // Fallback lama: langsung ke blockchain dari HP kalau server VPS mati total.
