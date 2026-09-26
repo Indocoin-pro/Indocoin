@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDOCOIN — Hubungkan Wallet</title>
+<style>
+  :root{ --gold:#f5c842; --bg:#0d0b10; --card:#17141c; --border:#3a3a4a; --text:#e8ddc8; --dim:#9a8c78; --err:#dc2626; --ok:#22c55e; }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Rajdhani,sans-serif; display:flex; align-items:center; justify-content:center;
+    padding:24px 16px;
+  }
+  .card{
+    width:100%; max-width:400px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:28px 22px;
+  }
+  h1{font-size:18px; color:var(--gold); margin:0 0 6px;}
+  .sub{font-size:13px; color:var(--dim); line-height:1.5; margin-bottom:22px;}
+  input{
+    width:100%; padding:13px 14px; margin-bottom:12px; border-radius:10px;
+    border:1px solid var(--border); background:#12121f; color:var(--text); font-size:14px;
+  }
+  button{
+    width:100%; padding:13px; border-radius:10px; border:none; font-weight:700;
+    font-size:14px; cursor:pointer;
+  }
+  .btn-primary{background:var(--gold); color:#1a1a1a; margin-top:4px;}
+  .btn-primary:disabled{opacity:0.5;}
+  .status{font-size:12.5px; margin:10px 0; min-height:18px;}
+  .status.error{color:var(--err);}
+  .status.ok{color:var(--ok);}
+  .step{display:none;}
+  .step.active{display:block;}
+  .link{color:var(--gold); text-decoration:underline; cursor:pointer; font-size:12.5px;}
+  .footer-note{font-size:11px; color:var(--dim); margin-top:18px; line-height:1.5; text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>🔗 Hubungkan Wallet</h1>
+  <p class="sub">Khusus buat kamu yang dulu daftar INDOCOIN tapi belum pernah menghubungkan wallet. Masuk sekali pakai email & password lama, lalu hubungkan wallet — setelahnya kamu bisa masuk cukup dengan wallet, tanpa perlu email/password lagi.</p>
+
+  <!-- STEP 1: LOGIN LAMA -->
+  <div class="step active" id="step1">
+    <input type="email" id="oldEmail" placeholder="Email lama">
+    <input type="password" id="oldPass" placeholder="Password lama">
+    <div class="status" id="loginStatus"></div>
+    <button class="btn-primary" onclick="doLegacyLogin()">MASUK</button>
+    <div style="text-align:center;margin-top:14px;">
+      <span class="link" onclick="doForgotPassword()">Lupa password?</span>
+    </div>
+  </div>
+
+  <!-- STEP 2: CONNECT WALLET -->
+  <div class="step" id="step2">
+    <p style="font-size:13px;color:var(--text);margin-bottom:16px;">
+      Halo, <b id="welcomeName" style="color:var(--gold)"></b>! Sekarang hubungkan wallet kamu (BSC — MetaMask/Trust Wallet/TokenPocket).
+    </p>
+    <div class="status" id="connectStatus"></div>
+    <button class="btn-primary" onclick="doConnectAndBridge()">🔗 CONNECT WALLET</button>
+  </div>
+
+  <!-- STEP 3: SELESAI -->
+  <div class="step" id="step3">
+    <div class="status ok" style="font-size:14px;">✅ Berhasil! Wallet kamu udah terhubung. Mengarahkan ke dashboard...</div>
+  </div>
+
+  <div class="footer-note">Setelah langkah ini selesai, halaman ini gak perlu dipakai lagi — masuk berikutnya cukup connect wallet lewat halaman utama.</div>
+</div>
+
+<script src="member-auth.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
+  authDomain: "indocoin-network.firebaseapp.com",
+  projectId: "indocoin-network",
+  storageBucket: "indocoin-network.firebasestorage.app",
+  messagingSenderId: "742922450154",
+  appId: "1:742922450154:web:97e0847e85bfe3e9f9d393",
+  measurementId: "G-V8Q4YVJ3MF"
+};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let legacyUserData = null; // {name, referralCode} dari akun lama
+
+window.doLegacyLogin = async () => {
+  const email = document.getElementById('oldEmail').value.trim();
+  const pass  = document.getElementById('oldPass').value;
+  const st    = document.getElementById('loginStatus');
+  if (!email || !pass) { st.textContent = 'Isi email & password dulu.'; st.className = 'status error'; return; }
+
+  st.textContent = '⏳ Memeriksa...'; st.className = 'status';
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    if (!cred.user.emailVerified) {
+      st.textContent = 'Email belum diverifikasi. Cek inbox/spam email lama kamu dulu.';
+      st.className = 'status error';
+      return;
+    }
+    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+    const data = userDoc.exists() ? userDoc.data() : {};
+    legacyUserData = {
+      uid: cred.user.uid,
+      name: data.name || cred.user.displayName || '',
+      referral: data.referralCode || ''
+    };
+
+    document.getElementById('welcomeName').textContent = legacyUserData.name || email;
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step2').classList.add('active');
+  } catch (e) {
+    st.textContent = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'
+      ? 'Email atau password salah.'
+      : 'Gagal masuk: ' + e.message;
+    st.className = 'status error';
+  }
+};
+
+window.doForgotPassword = async () => {
+  const email = document.getElementById('oldEmail').value.trim();
+  const st = document.getElementById('loginStatus');
+  if (!email) { st.textContent = 'Isi email dulu, baru klik "Lupa password?"'; st.className = 'status error'; return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    st.textContent = '📧 Link reset password dikirim ke email kamu.';
+    st.className = 'status ok';
+  } catch (e) {
+    st.textContent = 'Gagal kirim reset: ' + e.message;
+    st.className = 'status error';
+  }
+};
+
+window.doConnectAndBridge = async () => {
+  const st = document.getElementById('connectStatus');
+  st.textContent = '⏳ Menghubungkan wallet...'; st.className = 'status';
+
+  const wallet = await IndocoinMemberAuth.connectWallet();
+  if (!wallet) {
+    st.textContent = 'Gagal connect wallet. Pastikan buka lewat app wallet (MetaMask/Trust/TokenPocket) atau install dulu.';
+    st.className = 'status error';
+    return;
+  }
+
+  // Kalau ternyata wallet ini udah kedaftar duluan (misal udah pernah
+  // dipakai daftar baru), langsung anggap selesai, gak perlu daftar ulang.
+  const existing = await IndocoinMemberAuth.getMember(wallet);
+  if (!existing) {
+    const result = await IndocoinMemberAuth.registerMember(wallet, {
+      name: legacyUserData ? legacyUserData.name : '',
+      referral: legacyUserData ? legacyUserData.referral : ''
+    });
+    if (!result.ok && result.reason !== 'already-registered') {
+      st.textContent = 'Gagal menyimpan data wallet, coba lagi.';
+      st.className = 'status error';
+      return;
+    }
+  }
+
+  // Catat juga wallet-nya balik ke data akun lama, biar konsisten
+  // (gak wajib buat sistem baru, tapi jaga-jaga masih ada yang baca data lama).
+  if (legacyUserData && legacyUserData.uid) {
+    try {
+      await setDoc(doc(db, 'users', legacyUserData.uid), { wallet }, { merge: true });
+      await setDoc(doc(db, 'wallets', wallet), { uid: legacyUserData.uid, createdAt: serverTimestamp() }, { merge: true });
+    } catch (e) { /* gagal gak masalah, gak menghalangi proses utama */ }
+  }
+
+  document.getElementById('step2').classList.remove('active');
+  document.getElementById('step3').classList.add('active');
+  setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);
+};
+</script>
+</body>
+</html>
