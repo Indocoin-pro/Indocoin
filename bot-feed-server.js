@@ -80,6 +80,142 @@ async function msRefresh() {
 setInterval(msRefresh, MS_REFRESH_MS);
 msRefresh();
 
+// ═══════════════════════════════════════════════════════════════
+//  PROGRAM CACHE — "program aktif" per wallet downline, pola sama
+//  kayak MEMBER STATS di atas. Sebelumnya browser tiap user yang
+//  nembak 10 kontrak x sampai 20 wallet sekaligus ke RPC publik →
+//  gampang timeout & kebaca salah jadi "tidak aktif". Sekarang
+//  server yang ngecek, pelan-pelan, dicicil, dicache per wallet —
+//  hasilnya numpuk & DIPAKAI BERSAMA semua pengunjung (bukan per
+//  device), jadi makin lama makin banyak yang instan.
+// ═══════════════════════════════════════════════════════════════
+const PC_CACHE_FILE = path.join(__dirname, 'program-cache.json');
+const PC_TTL_MS      = 30 * 60 * 1000; // cache 1 wallet dianggap "segar" 30 menit
+const PC_CONCURRENCY = 3;              // maks 3 wallet diproses bersamaan di server
+const PC_TICK_MS     = 1500;           // antar batch, biar RPC gak digebuk
+
+const PC_ABI_HELPERS = {
+  GrowthLock: ["function getUserStakes(address user) view returns (tuple(uint8 optionId,uint256 amount,uint256 indcReward,uint256 startTime,uint256 endTime,bool claimed,bool unstaked,bool principalPending)[])"],
+  DynamicLevel: ["function getUserStakes(address user) view returns (tuple(uint8 level,uint256 amount,uint256 indcReward,uint256 startTime,bool claimed,bool withdrawn,bool principalPending)[])"],
+  FlexiYield: ["function getStakeInfo(address user) view returns(uint256 amount,uint256 startTime,uint256 lastRewardTime,uint256 accruedIndc,uint8 category,uint256 holdRequired,bool active)"],
+  BoostLevel: ["function getStakeCount(address) view returns(uint256)"],
+  LockedDiamond: ["function getUserActiveTiers(address user) view returns(bool[4])"],
+  AutoCompound: ["function getTotalCompoundBalance(address user) view returns(uint256)"],
+  ReferralPower: ["function getUserInfo(address userAddr) view returns(bool registered,bool active,address referrer,uint256 principal,uint256 rewardClaimed,uint256 pendingReward,uint256 roiCapRemaining,bool roiCapReached)"],
+  GarudaForce: ["function getStakeInfo(address user) view returns(uint256 principal,uint256 startTime,uint256 lastClaimTime,uint256 pendingRewardIndc,uint8 currentTier,string tierLabel,uint256 downlineActive,bool active)"],
+  PointVault: ["function getUserStake(address user) view returns(uint256 indcStaked,uint256 usdValue,uint256 pointPerDayEst,uint256 pendingPointNow,bool active)"],
+  StakeWin: [
+    "function getStakePaketA(address user) view returns(uint256 amount,uint256 since,uint256 reward)",
+    "function getStakePaketB(address user) view returns(uint256 amount,uint256 since,uint256 pendingReward)"
+  ],
+  Welcome: [
+    "function getPositionCount(address user) view returns (uint256)",
+    "function getPosition(address user, uint256 idx) view returns (uint256 indcStaked, uint256 usdtEquivalent, uint256 startTime, uint256 lastCheckpoint, uint256 reward, bool active, bool checkpointPending, uint256 nextCheckpointTime)"
+  ]
+};
+
+// Sama persis dengan STAKING_CONTRACTS di referral.html — kalau nambah/ubah
+// program di sana, tolong sinkronkan juga di sini.
+const PC_PROGRAMS = [
+  { name: "Growth Lock", ca: "0xcb9261633af02bec4ceb13be970b0b4d2462c8d5", abi: PC_ABI_HELPERS.GrowthLock,
+    check: async (c, addr) => { const s = await c.getUserStakes(addr); return Array.isArray(s) && s.length > 0 && ethers.BigNumber.from(s[0].amount.toString()).gt(0); } },
+  { name: "Dynamic Level", ca: "0x51b94ab16165430972236ae62ce93ed4fd9f5ac7", abi: PC_ABI_HELPERS.DynamicLevel,
+    check: async (c, addr) => { const s = await c.getUserStakes(addr); return Array.isArray(s) && s.length > 0; } },
+  { name: "Flexi Yield", ca: "0xc31ddfd5e703f094ac8af66832a8c1ec3a209952", abi: PC_ABI_HELPERS.FlexiYield,
+    check: async (c, addr) => { const s = await c.getStakeInfo(addr); const a = s.active !== undefined ? s.active : s[6]; return a === true; } },
+  { name: "Boost Level", ca: "0x0c445da047b9f7702382e0cc7fecdf5f245305ad", abi: PC_ABI_HELPERS.BoostLevel,
+    check: async (c, addr) => { const n = await c.getStakeCount(addr); return ethers.BigNumber.from(n.toString()).gt(0); } },
+  { name: "Locked Diamond", ca: "0x858cece880f2ab7fdf8602148c61083c4a338373", abi: PC_ABI_HELPERS.LockedDiamond,
+    check: async (c, addr) => { const a = await c.getUserActiveTiers(addr); return a[0] || a[1] || a[2] || a[3]; } },
+  { name: "Auto Compound", ca: "0x99aAbacb9b57Df83d1539e250b799C6615207616", abi: PC_ABI_HELPERS.AutoCompound,
+    check: async (c, addr) => { const n = await c.getTotalCompoundBalance(addr); return ethers.BigNumber.from(n.toString()).gt(0); } },
+  { name: "Referral Power", ca: "0xF2FD48D3D5a84ab2b9d76ec2bDe34a5699aE3552", abi: PC_ABI_HELPERS.ReferralPower,
+    check: async (c, addr) => { const u = await c.getUserInfo(addr); const r = u.registered !== undefined ? u.registered : u[0]; const a = u.active !== undefined ? u.active : u[1]; return r === true && a === true; } },
+  { name: "Garuda Force", ca: "0xdfabc3159c8a195feced77069b8d4fb16deed667", abi: PC_ABI_HELPERS.GarudaForce,
+    check: async (c, addr) => { const m = await c.getStakeInfo(addr); const a = m.active !== undefined ? m.active : m[7]; return a === true; } },
+  { name: "Point Vault", ca: "0x293AcCBE4AB78Aedc898a36b75eE402Ee52e644c", abi: PC_ABI_HELPERS.PointVault,
+    check: async (c, addr) => { const s = await c.getUserStake(addr); const a = s.active !== undefined ? s.active : s[4]; return a === true; } },
+  { name: "STAKE WIN", ca: "0x2C00473e14865995f0AcC83dA407d819647Af819", abi: PC_ABI_HELPERS.StakeWin,
+    check: async (c, addr) => {
+      const [a, b] = await Promise.all([c.getStakePaketA(addr), c.getStakePaketB(addr)]);
+      const amtA = ethers.BigNumber.from((a.amount !== undefined ? a.amount : a[0]).toString());
+      const amtB = ethers.BigNumber.from((b.amount !== undefined ? b.amount : b[0]).toString());
+      return amtA.gt(0) || amtB.gt(0);
+    } },
+  { name: "Welcome", ca: "0xE96A96fbf0DbF778Ce142aEae47254E94c440903", abi: PC_ABI_HELPERS.Welcome,
+    check: async (c, addr) => {
+      const count = await c.getPositionCount(addr);
+      const n = parseInt(count.toString());
+      if (n === 0) return false;
+      for (let i = 0; i < n; i++) {
+        const pos = await c.getPosition(addr, i);
+        const a = pos.active !== undefined ? pos.active : pos[5];
+        if (a === true) return true;
+      }
+      return false;
+    } }
+];
+
+function pcLoadCache() {
+  try { return JSON.parse(fs.readFileSync(PC_CACHE_FILE, 'utf-8')); }
+  catch(e) { return {}; }
+}
+function pcSaveCache() {
+  try { fs.writeFileSync(PC_CACHE_FILE, JSON.stringify(programCache)); } catch(e) {}
+}
+let programCache = pcLoadCache(); // { [addr_lowercase]: { list: [...], updatedAt } }
+const pcQueue = new Set();         // alamat yang lagi antre diproses
+const pcInFlight = new Set();      // alamat yang lagi diproses saat ini
+
+function pcIsFresh(addr) {
+  const entry = programCache[addr];
+  return entry && (Date.now() - new Date(entry.updatedAt).getTime() < PC_TTL_MS);
+}
+
+async function pcCheckOneAddress(addr) {
+  // Cari RPC yang hidup dulu (dicoba satu-satu, bukan diparalel — hemat kuota)
+  let provider = null;
+  for (const rpc of MS_RPC_LIST) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(rpc);
+      await Promise.race([p.getBlockNumber(), new Promise((_,rej)=>setTimeout(()=>rej('timeout'),4000))]);
+      provider = p; break;
+    } catch(e) { continue; }
+  }
+  if (!provider) return; // semua RPC gagal, coba lagi di tick berikutnya
+
+  const list = [];
+  for (const prog of PC_PROGRAMS) {
+    try {
+      const c = new ethers.Contract(prog.ca, prog.abi, provider);
+      const active = await Promise.race([
+        prog.check(c, addr),
+        new Promise((_,rej)=>setTimeout(()=>rej('timeout'), 8000))
+      ]);
+      if (active === true) list.push(prog.name);
+    } catch(e) { /* kontrak ini gagal dicek, lanjut ke kontrak lain */ }
+  }
+
+  programCache[addr] = { list, updatedAt: new Date().toISOString() };
+}
+
+// Worker: proses antrean pelan-pelan, PC_CONCURRENCY alamat tiap PC_TICK_MS
+let pcSaveCounter = 0;
+setInterval(async () => {
+  if (pcQueue.size === 0) return;
+  const batch = [...pcQueue].filter(a => !pcInFlight.has(a)).slice(0, PC_CONCURRENCY);
+  if (batch.length === 0) return;
+
+  batch.forEach(a => { pcQueue.delete(a); pcInFlight.add(a); });
+  await Promise.all(batch.map(async (addr) => {
+    try { await pcCheckOneAddress(addr); } catch(e) {}
+    pcInFlight.delete(addr);
+  }));
+
+  pcSaveCounter++;
+  if (pcSaveCounter % 3 === 0) pcSaveCache(); // jangan nulis disk tiap tick, cukup tiap 3x
+}, PC_TICK_MS);
+
 // Cache 2 detik biar tidak overload disk
 let cache = null;
 let cacheTime = 0;
@@ -221,6 +357,28 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   
+  // Route: /api/member-programs?addresses=0xabc,0xdef,...
+  if (req.method === 'GET' && req.url.startsWith('/api/member-programs')) {
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      const raw = (u.searchParams.get('addresses') || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean).slice(0, 30);
+      const data = {};
+      for (const addr of raw) {
+        if (pcIsFresh(addr)) {
+          data[addr] = programCache[addr]; // sudah ada & masih segar → langsung kasih
+        } else {
+          data[addr] = null; // belum ada / kadaluarsa → antrekan, browser tampilkan "memuat"
+          pcQueue.add(addr);
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ data }));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'program-stats error', msg: e.message }));
+    }
+  }
+
   // Route: /api/member-stats
   if (req.method === 'GET' && req.url.startsWith('/api/member-stats')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });

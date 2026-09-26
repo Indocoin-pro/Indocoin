@@ -1094,6 +1094,7 @@ async function getActivePrograms(addr) {
   if (!readProvider) readProvider = new ethers.providers.JsonRpcProvider(RPC_LIST[0]);
 
   const activeList = [];
+  let failedCount = 0;
 
   // Query semua 10 contract secara paralel dengan timeout per contract
   const results = await Promise.allSettled(
@@ -1109,13 +1110,22 @@ async function getActivePrograms(addr) {
   );
 
   for (const r of results) {
-    if (r.status === 'fulfilled' && r.value.active === true) {
-      activeList.push(r.value.name);
+    if (r.status === 'fulfilled') {
+      if (r.value.active === true) activeList.push(r.value.name);
+    } else {
+      failedCount++; // RPC gagal/timeout untuk kontrak ini — BUKAN berarti "tidak aktif"
     }
   }
 
-  _programCache[key] = activeList;
-  return activeList;
+  const result = { list: activeList, failedCount, totalCount: STAKING_CONTRACTS.length };
+
+  // Cuma simpan ke cache kalau SEMUA kontrak berhasil dicek (hasil bisa dipercaya).
+  // Kalau ada yang gagal, jangan di-cache — biar kalau dibuka ulang, dicoba lagi
+  // (bukan nyangkut permanen di "belum ada program aktif" yang salah).
+  if (failedCount === 0) {
+    _programCache[key] = result;
+  }
+  return result;
 }
 
 const MASTER_ABI = [
@@ -1359,29 +1369,89 @@ async function renderDownlineItems(container, addresses, lvl) {
   }
   container.innerHTML = html;
 
-  // Query program tiap wallet secara paralel, update satu per satu
+  // Query program tiap wallet — SEKARANG lewat server (pola sama kayak total
+  // member): satu request batch ke bot-feed.indocoin.id, server yang udah
+  // cache/ngecek ke blockchain di belakang layar. Alamat yang udah pernah
+  // dicek (oleh siapapun) langsung muncul instan; yang belum pernah dicek
+  // akan diproses server lalu muncul begitu kita cek ulang beberapa detik.
   const batch = addresses.slice(0, 20);
-  await Promise.all(batch.map(async (addr) => {
-    let progHtml = '';
-    try {
-      const programs = await getActivePrograms(addr);
-      if (programs.length > 0) {
-        progHtml = programs.map(p =>
-          `<span class="dl-prog">${p}</span>`
-        ).join('');
-      } else {
-        progHtml = '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
-      }
-    } catch(e) {
-      progHtml = '<span class="dl-prog" style="color:var(--dim)">Gagal cek program</span>';
-    }
+  await loadProgramsForBatch(container, batch);
+}
 
-    // Update elemen spesifik tanpa re-render semua
-    const el = container.querySelector(`#dlitem-${addr.slice(2,10)}`);
-    if (el) {
-      el.querySelector('.dl-programs').innerHTML = progHtml;
+const PROGRAMS_API = 'https://bot-feed.indocoin.id/api/member-programs';
+
+function setProgHtml(container, addr, html) {
+  const el = container.querySelector(`#dlitem-${addr.slice(2,10)}`);
+  if (el) el.querySelector('.dl-programs').innerHTML = html;
+}
+
+async function loadProgramsForBatch(container, batch, attempt) {
+  attempt = attempt || 1;
+  let data = null;
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 4000);
+    const url = PROGRAMS_API + '?addresses=' + batch.map(a => a.toLowerCase()).join(',');
+    const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(to);
+    if (res.ok) {
+      const json = await res.json();
+      data = json.data;
     }
-  }));
+  } catch(e) { /* server tidak bisa dihubungi */ }
+
+  if (!data) {
+    // Server VPS tidak bisa dihubungi sama sekali → fallback cara lama
+    // (langsung ke blockchain dari HP, dicicil biar gak overload).
+    return loadProgramsDirectFromChain(container, batch);
+  }
+
+  const pending = [];
+  for (const addr of batch) {
+    const entry = data[addr.toLowerCase()];
+    if (entry) {
+      const html = entry.list.length > 0
+        ? entry.list.map(p => `<span class="dl-prog">${p}</span>`).join('')
+        : '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
+      setProgHtml(container, addr, html);
+    } else {
+      setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim);opacity:.6">⏳ Sedang diproses server...</span>');
+      pending.push(addr);
+    }
+  }
+
+  // Kalau masih ada yang belum kecek, server sudah antre di background —
+  // coba cek ulang sebentar lagi (maks 4x percobaan, ~20 detik).
+  if (pending.length > 0 && attempt < 4) {
+    setTimeout(() => loadProgramsForBatch(container, pending, attempt + 1), 5000);
+  } else if (pending.length > 0) {
+    pending.forEach(addr => setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim)">⚠️ Belum selesai dicek, buka lagi nanti</span>'));
+  }
+}
+
+// Fallback lama: langsung ke blockchain dari HP kalau server VPS mati total.
+async function loadProgramsDirectFromChain(container, batch) {
+  const CONCURRENCY = 4;
+  for (let i = 0; i < batch.length; i += CONCURRENCY) {
+    const chunk = batch.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map(async (addr) => {
+      let progHtml = '';
+      try {
+        const { list, failedCount } = await getActivePrograms(addr);
+        if (list.length > 0) {
+          progHtml = list.map(p => `<span class="dl-prog">${p}</span>`).join('');
+        } else if (failedCount > 0) {
+          progHtml = '<span class="dl-prog" style="color:var(--dim)">⚠️ Gagal cek, coba buka ulang</span>';
+        } else {
+          progHtml = '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
+        }
+      } catch(e) {
+        progHtml = '<span class="dl-prog" style="color:var(--dim)">Gagal cek program</span>';
+      }
+      setProgHtml(container, addr, progHtml);
+    }));
+  }
+}
 }
 
 function renderEmptyDownline() {
