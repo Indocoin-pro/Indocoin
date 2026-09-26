@@ -54,21 +54,48 @@
     return fields;
   }
 
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // Cache lokal per-wallet — biar kalau server/koneksi lagi kedip sesaat,
+  // halaman gak langsung nganggep "belum daftar" padahal cuma gagal cek.
+  function cacheKey(addr) { return 'indocoin_member_cache_' + addr; }
+  function readMemberCache(addr) {
+    try {
+      const raw = localStorage.getItem(cacheKey(addr));
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function writeMemberCache(addr, member) {
+    try { localStorage.setItem(cacheKey(addr), JSON.stringify(member)); } catch (e) {}
+  }
+
   /**
    * Ambil data member berdasarkan alamat wallet.
-   * Balikin null kalau belum terdaftar / gagal.
+   * Balikin null HANYA kalau server memang bilang "gak ada" (404 asli).
+   * Kalau gagal terkoneksi (bukan 404), dicoba ulang beberapa kali dulu;
+   * kalau tetap gagal, pakai cache terakhir yang tersimpan (kalau ada)
+   * daripada salah nganggep "belum terdaftar".
    */
   async function getMember(wallet) {
     if (!wallet) return null;
     const addr = wallet.toLowerCase();
-    try {
-      const res = await fetch(`${BASE}/members/${addr}?key=${API_KEY}`, { cache: 'no-store' });
-      if (res.status === 404) return null;
-      if (!res.ok) return null;
-      const doc = await res.json();
-      return fsFieldsToObj(doc.fields || {});
-    } catch (e) {
-      return null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(`${BASE}/members/${addr}?key=${API_KEY}`, { cache: 'no-store' });
+        if (res.status === 404) return null; // jawaban pasti: memang belum daftar
+        if (!res.ok) throw new Error('http ' + res.status);
+        const doc = await res.json();
+        const member = fsFieldsToObj(doc.fields || {});
+        writeMemberCache(addr, member); // sukses → simpan buat jaga-jaga nanti
+        return member;
+      } catch (e) {
+        if (attempt < 3) { await sleep(400 * attempt); continue; }
+        // Semua percobaan gagal (bukan 404, murni gagal konek) — pakai cache
+        // terakhir kalau ada, daripada nunjukin "belum login" yang salah.
+        const cached = readMemberCache(addr);
+        return cached; // null kalau memang belum pernah ke-cache sama sekali
+      }
     }
   }
 
@@ -99,6 +126,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (res.ok) writeMemberCache(addr, { wallet: addr, name: (data && data.name) || '', referral: (data && data.referral) || '', blocked: false });
       return { ok: res.ok };
     } catch (e) {
       return { ok: false, reason: 'network-error', error: e.message };
@@ -124,15 +152,24 @@
   /**
    * Cek wallet yang SUDAH connect sebelumnya (gak munculin prompt apapun).
    * Dipakai buat auto-detect pas halaman pertama dibuka.
+   * Dicoba beberapa kali dengan jeda kecil — di beberapa dApp browser,
+   * window.ethereum kadang baru "siap" sesaat SETELAH halaman selesai
+   * dimuat, jadi cek yang terlalu cepat bisa salah kesimpulan "gak ada wallet".
    */
   async function getConnectedWallet() {
-    if (typeof window.ethereum === 'undefined') return null;
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-      return accounts && accounts[0] ? accounts[0].toLowerCase() : null;
-    } catch (e) {
-      return null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts && accounts[0]) return accounts[0].toLowerCase();
+          return null; // window.ethereum ada, tapi memang belum ada akun ter-connect
+        } catch (e) {
+          return null;
+        }
+      }
+      if (attempt < 3) await sleep(300);
     }
+    return null; // window.ethereum tetap gak ada setelah ditunggu
   }
 
   /**
