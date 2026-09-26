@@ -1353,29 +1353,88 @@ async function renderDownlineItems(container, addresses, lvl) {
     return;
   }
 
-  // Tampilkan skeleton dulu sambil load
-  let html = addresses.slice(0, 20).map(addr => `
-    <div class="dl-item" id="dlitem-${addr.slice(2,10)}">
-      <div style="flex:1">
-        <div class="dl-addr">${addr.slice(0,10)}...${addr.slice(-6)}</div>
-        <div class="dl-programs" style="margin-top:4px">
-          <span class="dl-prog" style="color:var(--dim);opacity:.6">⏳ Memuat program...</span>
-        </div>
-      </div>
-    </div>`).join('');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat & mengurutkan...</div>';
 
-  if (addresses.length > 20) {
-    html += `<div class="no-dl" style="font-size:10px">+${addresses.length-20} lainnya</div>`;
+  // Ambil status SEMUA wallet dulu (bukan cuma yang keliatan) — biar tau mana
+  // yang udah ikut program dan mana yang belum, SEBELUM dirender.
+  const statusMap = await fetchProgramStatusMap(addresses);
+
+  // "aktif" = beneran udah ikut minimal 1 program → ditampilkan satu-satu.
+  // "rest" = belum ikut program apapun (baik yang udah pasti kosong, ATAU
+  // yang belum sempat kecek server) → JANGAN ditampilkan satu-satu, cukup
+  // digabung jadi 1 angka "+N lainnya" di bawah.
+  const active = [], rest = [];
+  for (const addr of addresses) {
+    const entry = statusMap[addr.toLowerCase()];
+    if (entry && entry.list && entry.list.length > 0) active.push(addr);
+    else rest.push(addr);
+  }
+
+  renderDownlineGroups(container, active, rest, statusMap);
+}
+
+function dlRowHtml(addr, statusMap) {
+  const entry = statusMap[addr.toLowerCase()];
+  let progHtml;
+  if (entry && entry.list && entry.list.length > 0) {
+    progHtml = entry.list.map(p => `<span class="dl-prog">${p}</span>`).join('');
+  } else if (entry && entry.list) {
+    progHtml = '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
+  } else {
+    progHtml = '<span class="dl-prog" style="color:var(--dim);opacity:.6">⏳ Sedang diproses server...</span>';
+  }
+  return `
+  <div class="dl-item" id="dlitem-${addr.slice(2,10)}">
+    <div style="flex:1">
+      <div class="dl-addr">${addr.slice(0,10)}...${addr.slice(-6)}</div>
+      <div class="dl-programs" style="margin-top:4px">${progHtml}</div>
+    </div>
+  </div>`;
+}
+
+// Tampilkan yang AKTIF satu-satu, lalu 1 baris ringkasan "+N lainnya (belum
+// ikut program)" di bawahnya — diklik baru nampilin daftar sisanya.
+function renderDownlineGroups(container, active, rest, statusMap) {
+  let html = active.map(a => dlRowHtml(a, statusMap)).join('');
+
+  if (rest.length > 0) {
+    html += `<div class="no-dl dl-more-rest" style="font-size:11px;cursor:pointer;text-decoration:underline">+${rest.length} lainnya (belum ikut program)</div>`;
+  } else if (active.length === 0) {
+    html = '<div class="no-dl">Belum ada downline yang ikut program</div>';
   }
   container.innerHTML = html;
 
-  // Query program tiap wallet — SEKARANG lewat server (pola sama kayak total
-  // member): satu request batch ke bot-feed.indocoin.id, server yang udah
-  // cache/ngecek ke blockchain di belakang layar. Alamat yang udah pernah
-  // dicek (oleh siapapun) langsung muncul instan; yang belum pernah dicek
-  // akan diproses server lalu muncul begitu kita cek ulang beberapa detik.
-  const batch = addresses.slice(0, 20);
-  await loadProgramsForBatch(container, batch);
+  const moreEl = container.querySelector('.dl-more-rest');
+  if (moreEl) {
+    moreEl.onclick = () => expandRestGroup(container, rest, statusMap, 20);
+  }
+}
+
+// Diklik → buka daftar wallet yang belum ikut program, dicicil 20 per klik.
+function expandRestGroup(container, rest, statusMap, visibleCount) {
+  const oldMore = container.querySelector('.dl-more-rest');
+  if (oldMore) oldMore.remove();
+  container.querySelectorAll('.dl-rest-item').forEach(el => el.remove());
+  const oldMore2 = container.querySelector('.dl-more-rest2');
+  if (oldMore2) oldMore2.remove();
+
+  const visible = rest.slice(0, visibleCount);
+  const restHtml = visible.map(addr => dlRowHtml(addr, statusMap).replace('class="dl-item"', 'class="dl-item dl-rest-item"')).join('');
+  container.insertAdjacentHTML('beforeend', restHtml);
+
+  const remaining = rest.length - visible.length;
+  if (remaining > 0) {
+    container.insertAdjacentHTML('beforeend', `<div class="no-dl dl-more-rest2" style="font-size:11px;cursor:pointer;text-decoration:underline">+${remaining} lainnya</div>`);
+    container.querySelector('.dl-more-rest2').onclick = () => expandRestGroup(container, rest, statusMap, visibleCount + 20);
+  }
+
+  const pendingVisible = visible.filter(addr => {
+    const e = statusMap[addr.toLowerCase()];
+    return !(e && e.list);
+  });
+  if (pendingVisible.length > 0) {
+    pollPendingAddresses(container, pendingVisible, statusMap);
+  }
 }
 
 const PROGRAMS_API = 'https://bot-feed.indocoin.id/api/member-programs';
@@ -1385,47 +1444,65 @@ function setProgHtml(container, addr, html) {
   if (el) el.querySelector('.dl-programs').innerHTML = html;
 }
 
-async function loadProgramsForBatch(container, batch, attempt) {
+// Ambil status utk BANYAK alamat sekaligus, dipecah per 30 (batas server),
+// dikirim paralel. Balikin map { addr_lowercase: {list,updatedAt} | undefined }
+async function fetchProgramStatusMap(addresses) {
+  const map = {};
+  const CHUNK = 30;
+  const chunks = [];
+  for (let i = 0; i < addresses.length; i += CHUNK) chunks.push(addresses.slice(i, i + CHUNK));
+
+  await Promise.all(chunks.map(async (chunk) => {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 4000);
+      const url = PROGRAMS_API + '?addresses=' + chunk.map(a => a.toLowerCase()).join(',');
+      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(to);
+      if (res.ok) {
+        const json = await res.json();
+        for (const k in json.data) { if (json.data[k]) map[k] = json.data[k]; }
+      }
+    } catch(e) { /* chunk ini gagal, alamatnya tetap dianggap "pending" */ }
+  }));
+
+  return map;
+}
+
+async function pollPendingAddresses(container, pendingAddrs, statusMap, attempt) {
   attempt = attempt || 1;
   let data = null;
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 4000);
-    const url = PROGRAMS_API + '?addresses=' + batch.map(a => a.toLowerCase()).join(',');
+    const url = PROGRAMS_API + '?addresses=' + pendingAddrs.map(a => a.toLowerCase()).join(',');
     const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
     clearTimeout(to);
-    if (res.ok) {
-      const json = await res.json();
-      data = json.data;
-    }
+    if (res.ok) { const json = await res.json(); data = json.data; }
   } catch(e) { /* server tidak bisa dihubungi */ }
 
   if (!data) {
-    // Server VPS tidak bisa dihubungi sama sekali → fallback cara lama
-    // (langsung ke blockchain dari HP, dicicil biar gak overload).
-    return loadProgramsDirectFromChain(container, batch);
+    return loadProgramsDirectFromChain(container, pendingAddrs);
   }
 
-  const pending = [];
-  for (const addr of batch) {
+  const stillPending = [];
+  for (const addr of pendingAddrs) {
     const entry = data[addr.toLowerCase()];
     if (entry) {
+      statusMap[addr.toLowerCase()] = entry;
       const html = entry.list.length > 0
         ? entry.list.map(p => `<span class="dl-prog">${p}</span>`).join('')
         : '<span class="dl-prog" style="color:var(--dim)">Belum ada program aktif</span>';
       setProgHtml(container, addr, html);
     } else {
-      setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim);opacity:.6">⏳ Sedang diproses server...</span>');
-      pending.push(addr);
+      stillPending.push(addr);
     }
   }
 
-  // Kalau masih ada yang belum kecek, server sudah antre di background —
-  // coba cek ulang sebentar lagi (poll tiap 3 detik, maks 6x ≈ 18 detik).
-  if (pending.length > 0 && attempt < 6) {
-    setTimeout(() => loadProgramsForBatch(container, pending, attempt + 1), 3000);
-  } else if (pending.length > 0) {
-    pending.forEach(addr => setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim)">⚠️ Belum selesai dicek, buka lagi nanti</span>'));
+  if (stillPending.length > 0 && attempt < 6) {
+    setTimeout(() => pollPendingAddresses(container, stillPending, statusMap, attempt + 1), 3000);
+  } else if (stillPending.length > 0) {
+    stillPending.forEach(addr => setProgHtml(container, addr, '<span class="dl-prog" style="color:var(--dim)">⚠️ Belum selesai dicek, buka lagi nanti</span>'));
   }
 }
 
