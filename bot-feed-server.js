@@ -218,7 +218,15 @@ async function pcCheckOneAddress(addr) {
       if (r.value.active === true) list.push(r.value.name);
     }
   }
-  if (allFailed) pcCachedProvider = null; // provider kemungkinan mati, cari ulang di panggilan berikutnya
+
+  if (allFailed) {
+    // RPC lagi bermasalah, SEMUA 11 kontrak gagal dicek — ini BUKAN berarti
+    // "tidak ikut program apapun". JANGAN timpa cache lama dengan hasil
+    // kosong yang salah; biarkan data lama (kalau ada) tetap dipakai, nanti
+    // dicoba lagi di tick berikutnya (masih di pcQueue lewat caller).
+    pcCachedProvider = null; // provider kemungkinan mati, cari ulang di panggilan berikutnya
+    return;
+  }
 
   programCache[addr] = { list, updatedAt: new Date().toISOString() };
 }
