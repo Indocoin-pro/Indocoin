@@ -90,7 +90,7 @@ msRefresh();
 //  device), jadi makin lama makin banyak yang instan.
 // ═══════════════════════════════════════════════════════════════
 const PC_CACHE_FILE = path.join(__dirname, 'program-cache.json');
-const PC_TTL_MS      = 30 * 60 * 1000; // cache 1 wallet dianggap "segar" 30 menit
+const PC_TTL_MS      = 60 * 60 * 1000; // dianggap "segar" 60 menit sebelum di-refresh diam-diam
 const PC_CONCURRENCY = 5;              // maks 5 wallet diproses bersamaan di server
 const PC_TICK_MS     = 1000;           // antar batch, biar RPC gak digebuk
 
@@ -388,10 +388,15 @@ const server = http.createServer(async (req, res) => {
       const raw = (u.searchParams.get('addresses') || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean).slice(0, 30);
       const data = {};
       for (const addr of raw) {
-        if (pcIsFresh(addr)) {
-          data[addr] = programCache[addr]; // sudah ada & masih segar → langsung kasih
+        if (programCache[addr]) {
+          // Sudah pernah kecek → SELALU kasih hasil ini duluan (walau udah
+          // lewat 30 menit / "basi"), jangan pernah dibuang jadi null.
+          // Kalau basi, diam-diam antrekan buat di-refresh di background —
+          // browser tetap dapat data terakhir yang valid, bukan "belum tau".
+          data[addr] = programCache[addr];
+          if (!pcIsFresh(addr)) pcQueue.add(addr);
         } else {
-          data[addr] = null; // belum ada / kadaluarsa → antrekan, browser tampilkan "memuat"
+          data[addr] = null; // beneran belum pernah dicek sama sekali
           pcQueue.add(addr);
         }
       }
