@@ -6,7 +6,10 @@ ROOT = "0xa16E9579E19eB19e6E24B211121BdCD7996809Cc"
 BASE = "https://bot-feed.indocoin.id"
 
 def fetch(url):
-    with urllib.request.urlopen(url, timeout=15) as r:
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
         return json.load(r)
 
 def check_programs(addrs):
