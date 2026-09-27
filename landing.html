@@ -1275,7 +1275,7 @@ function getEmailDomainErrorMsg() {
 }
 
 // Fingerprint perangkat: gabungan ciri khas browser di-hash SHA-256, dipakai buat batasi maks 10 akun per perangkat
-const MAX_ACCOUNTS_PER_DEVICE = 10;
+const MAX_ACCOUNTS_PER_DEVICE = 1; // mulai hari ini: 1 HP = 1 akun (gak retroaktif ke yang sudah daftar)
 // Captcha kode gambar (ganti nomor HP) — nutup celah bot spam sederhana
 window._captchaCode = '';
 // Referral default platform — dipakai kalau user gak punya referral sendiri
@@ -1485,6 +1485,7 @@ window.doRegisterWallet = async () => {
   const tos  = document.getElementById('signUpTos').checked;
   const st   = document.getElementById('signUpStatus');
   const captchaInput = document.getElementById('signUpCaptcha').value.trim().toUpperCase();
+  const DEV_WALLET = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc';
 
   document.getElementById('signUpWalletShown').textContent =
     wallet ? (wallet.slice(0,6)+'...'+wallet.slice(-4)) : '—';
@@ -1494,6 +1495,19 @@ window.doRegisterWallet = async () => {
     st.className = 'modal-status error';
     return;
   }
+
+  // Batas 1 HP = 1 akun — dikecualikan buat wallet dev (biar bisa bikin
+  // banyak akun buat ngimbangin market).
+  let deviceCheck = { allowed: true, fp: null };
+  if (wallet.toLowerCase() !== DEV_WALLET) {
+    deviceCheck = await isDeviceAllowedToRegister();
+    if (!deviceCheck.allowed) {
+      st.textContent = '⚠️ Perangkat ini sudah pernah dipakai untuk daftar. Mulai sekarang, 1 HP hanya diperbolehkan untuk 1 akun.';
+      st.className = 'modal-status error';
+      return;
+    }
+  }
+
   if (!name) {
     st.textContent = 'Nama wajib diisi!'; st.className = 'modal-status error'; return;
   }
@@ -1561,6 +1575,7 @@ window.doRegisterWallet = async () => {
 
   st.textContent = '✅ Berhasil! Mengarahkan ke dashboard...';
   st.className = 'modal-status';
+  if (deviceCheck.fp) await incrementDeviceFingerprint(deviceCheck.fp);
   setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
 };
 
