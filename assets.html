@@ -2797,7 +2797,7 @@ const REWARD_PROGRAMS = [
   // ══════════════════════════════════════════
 
   // VIP Dividend — claimVipDividend() di Welcome contract
-  { id:'vipdividend', name:'VIP Dividend',           unit:'USDT', status:'live', type:'pending',
+  { id:'vipdividend', name:'Downline Dividend',      unit:'USDT', status:'live', type:'pending',
     contract:'0xE96A96fbf0DbF778Ce142aEae47254E94c440903', fn:'vipDownlineVolume', fnType:'address', dec:18,
     claimFn:'claimVipDividend', customClaim: true },
 
@@ -2878,6 +2878,14 @@ const REWARD_ABI_EARNED = [
 const STAIRWAY_CLAIM_ABI = [
   'function getUnclaimedBonuses(address) view returns (uint8[], uint256[])',
   'function claimLevelBonus(uint8) external',
+];
+
+// ── ABI khusus VIP Dividend — buat hitung bagian proporsional, bukan volume mentah ──
+const VIP_DIVIDEND_ABI = [
+  'function vipClaimActive() view returns (bool)',
+  'function vipPoolSnapshot() view returns (uint256)',
+  'function totalVipVolume() view returns (uint256)',
+  'function vipDownlineVolume(address) view returns (uint256)',
 ];
 
 function toggleRewardList() {
@@ -2983,20 +2991,36 @@ async function loadAllRewards() {
       continue;
     }
     try {
-      const c   = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
       const dec = prog.dec || (prog.unit === 'USDT' ? 18 : 9);
       let amt   = 0;
 
-      if(prog.fnType === 'tuple') {
+      if(prog.id === 'vipdividend') {
+        // VIP Dividend: tampilkan bagian proporsional yang beneran bisa diklaim,
+        // bukan vipDownlineVolume mentah (itu cuma skor kontribusi, bukan nilai uang)
+        const vc = new ethers.Contract(prog.contract, VIP_DIVIDEND_ABI, provider);
+        const [active, snapshot, totalVolume, myVolume] = await Promise.all([
+          vc.vipClaimActive(),
+          vc.vipPoolSnapshot(),
+          vc.totalVipVolume(),
+          vc.vipDownlineVolume(userAddress)
+        ]);
+        if(active && totalVolume > 0n && myVolume > 0n) {
+          const share = (snapshot * myVolume) / totalVolume;
+          amt = parseFloat(ethers.formatUnits(share, dec));
+        }
+      } else if(prog.fnType === 'tuple') {
+        const c   = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
         const res = await c[prog.fn](userAddress);
         amt = parseFloat(ethers.formatUnits(res[prog.fnIdx], dec));
       } else if(prog.fnType === 'sumArr') {
+        const c   = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
         const res = await c[prog.fn](userAddress);
         const arr = res[prog.fnIdx];
         let total = BigInt(0);
         for(let i = 0; i < arr.length; i++) total = total + BigInt(arr[i]);
         amt = parseFloat(ethers.formatUnits(total, dec));
       } else {
+        const c   = new ethers.Contract(prog.contract, REWARD_ABI_PENDING, provider);
         const raw = await c[prog.fn](userAddress);
         amt = parseFloat(ethers.formatUnits(raw, dec));
       }
