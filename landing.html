@@ -1487,12 +1487,24 @@ async function renderAuthBox() {
 }
 
 window.handleConnectClick = async () => {
+  // Khusus di landing.html (halaman buat user BARU): kalau gak ada wallet
+  // provider di browser ini, langsung arahin ke TokenPocket — gak usah
+  // nanya pilihan dulu, biar simpel. Kalau appnya belum ke-install,
+  // otomatis dilempar ke halaman instal TokenPocket.
+  if (typeof window.ethereum === 'undefined') {
+    const url = encodeURIComponent(window.location.href);
+    const tpDeepLink = 'tpdapp://open?params={"url":"' + decodeURIComponent(url) + '","chain":"BSC"}';
+    window.location.href = tpDeepLink;
+    setTimeout(() => {
+      window.location.href = 'https://www.tokenpocket.pro/en/download/app';
+    }, 2000);
+    return;
+  }
+
   const box = document.getElementById('authBox');
   box.innerHTML = `<button class="btn-primary" disabled>⏳ Menghubungkan...</button>`;
   const addr = await IndocoinMemberAuth.connectWallet();
   if (!addr) {
-    // Gagal/ditolak, ATAU window.ethereum gak ada (wallet-bridge.js yang
-    // nampilin modal deep-link kalau file itu dimuat di halaman ini)
     await renderAuthBox();
     return;
   }
