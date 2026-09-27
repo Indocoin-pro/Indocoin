@@ -1413,14 +1413,34 @@ window._pendingWallet = null;
 window._pendingOnChainRegistered = false;
 window._pendingOnChainUpline = '';
 
+const GATE_RPC_LIST = [
+  'https://bsc-dataseed1.binance.org/',
+  'https://bsc-dataseed2.binance.org/',
+  'https://bsc-dataseed3.binance.org/',
+  'https://bsc-dataseed4.binance.org/',
+  'https://rpc.ankr.com/bsc',
+  'https://bsc.publicnode.com',
+  'https://bsc-rpc.publicnode.com',
+  'https://binance.llamarpc.com'
+];
+
 async function getOnChainInfo(addr) {
+  // Tembak semua RPC bareng-bareng, pakai yang paling cepat balas. Sebelumnya
+  // cuma 1 RPC tanpa cadangan — itu yang bikin sering muncul "gagal cek"
+  // padahal cuma RPC itu doang yang lagi lambat/sibuk.
   try {
-    const rp = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
-    const rc = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, rp);
-    const info = await rc.getUserInfo(addr);
-    return { registered: info[0], upline: info[1] };
+    const attempts = GATE_RPC_LIST.map(rpc => (async () => {
+      const rp = new ethers.providers.JsonRpcProvider(rpc);
+      const rc = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, rp);
+      const info = await Promise.race([
+        rc.getUserInfo(addr),
+        new Promise((_, rej) => setTimeout(() => rej('timeout'), 6000))
+      ]);
+      return { registered: info[0], upline: info[1] };
+    })());
+    return await Promise.any(attempts);
   } catch (e) {
-    return null; // gagal cek — biar ketahuan sebagai "belum pasti", bukan "belum daftar"
+    return null; // semua RPC gagal — biar ketahuan sebagai "belum pasti", bukan "belum daftar"
   }
 }
 
