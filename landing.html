@@ -1119,6 +1119,9 @@ footer {
       <input type="text" id="signUpRef" placeholder="Kode Referral (wajib)" onclick="handleRefClick()">
       <span class="ref-badge" id="refBadge">🎁 REF</span>
     </div>
+    <div id="refOnChainNote" style="display:none;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.3);border-radius:10px;padding:12px;margin-bottom:12px;color:#2dd4bf;font-size:12px;">
+      ✅ Wallet ini sudah terdaftar di blockchain sebelumnya — upline kamu sudah otomatis terpasang, gak perlu isi referral lagi.
+    </div>
     <div id="refPromptBox" style="display:none;background:#12121f;border:1px solid #3a3a4a;border-radius:10px;padding:12px;margin-top:-6px;margin-bottom:12px;">
       <div style="color:#e8ddc8;font-size:12px;margin-bottom:10px;">Kamu belum punya kode referral. Mau cari sendiri, atau pakai referral platform?</div>
       <div style="display:flex;gap:8px;">
@@ -1393,8 +1396,33 @@ window.checkEmailDomain = (email) => {
 //  email/password lagi. Konten tombol diatur di sini sesuai status:
 //  belum connect / udah connect tapi belum daftar / udah member /
 //  wallet diblokir.
+//
+//  PENTING: "daftar" di sini ADA 2 KEMUNGKINAN JALUR, tergantung
+//  apakah wallet-nya sudah terdaftar di SMART CONTRACT (bukan cuma
+//  di Firestore):
+//   - Kalau SUDAH terdaftar di contract (misal wallet lama yang
+//     upline-nya sudah ke-set dari dulu) → gak perlu transaksi lagi,
+//     cukup Nama, terus catat ke Firestore pakai upline yang sudah
+//     ada di contract.
+//   - Kalau BELUM terdaftar di contract → ini pendaftar baru
+//     beneran → WAJIB ada transaksi blockchain register(upline)
+//     (minta approve + gas di wallet) SEBELUM masuk dashboard. Ini
+//     yang nentuin bonus referral upline-nya, jadi gak boleh dilewat.
 // ═══════════════════════════════════════════════════════════════
-window._pendingWallet = null; // wallet yang lagi diproses buat daftar
+window._pendingWallet = null;
+window._pendingOnChainRegistered = false;
+window._pendingOnChainUpline = '';
+
+async function getOnChainInfo(addr) {
+  try {
+    const rp = new ethers.providers.JsonRpcProvider('https://bsc-dataseed1.binance.org/');
+    const rc = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, rp);
+    const info = await rc.getUserInfo(addr);
+    return { registered: info[0], upline: info[1] };
+  } catch (e) {
+    return null; // gagal cek — biar ketahuan sebagai "belum pasti", bukan "belum daftar"
+  }
+}
 
 async function renderAuthBox() {
   const box = document.getElementById('authBox');
@@ -1410,6 +1438,18 @@ async function renderAuthBox() {
 
   if (!member) {
     window._pendingWallet = addr;
+    box.innerHTML = `<button class="btn-primary" disabled>⏳ Memeriksa status blockchain...</button>`;
+
+    const onChain = await getOnChainInfo(addr);
+    if (onChain === null) {
+      box.innerHTML = `
+        <button class="btn-primary" onclick="renderAuthBox()">⚠️ Gagal cek blockchain, coba lagi</button>
+        <div style="color:#9a8c78;font-size:11px;margin-top:8px;">Wallet terhubung: ${short}</div>`;
+      return;
+    }
+    window._pendingOnChainRegistered = onChain.registered;
+    window._pendingOnChainUpline = onChain.upline || '';
+
     box.innerHTML = `
       <button class="btn-primary" onclick="showSignUp()">📝 DAFTAR SEKARANG</button>
       <div style="color:#9a8c78;font-size:11px;margin-top:8px;">Wallet terhubung: ${short}</div>`;
@@ -1442,7 +1482,6 @@ window.handleConnectClick = async () => {
 window.doRegisterWallet = async () => {
   const wallet = window._pendingWallet;
   const name = document.getElementById('signUpName').value.trim();
-  const ref  = document.getElementById('signUpRef').value.trim();
   const tos  = document.getElementById('signUpTos').checked;
   const st   = document.getElementById('signUpStatus');
   const captchaInput = document.getElementById('signUpCaptcha').value.trim().toUpperCase();
@@ -1458,10 +1497,6 @@ window.doRegisterWallet = async () => {
   if (!name) {
     st.textContent = 'Nama wajib diisi!'; st.className = 'modal-status error'; return;
   }
-  if (!ref) {
-    st.textContent = 'Kode referral wajib diisi! Pilih cari sendiri atau pakai referral platform.';
-    st.className = 'modal-status error'; return;
-  }
   if (captchaInput !== window._captchaCode) {
     st.textContent = 'Kode captcha salah, coba lagi!'; st.className = 'modal-status error'; drawCaptcha(); return;
   }
@@ -1469,13 +1504,57 @@ window.doRegisterWallet = async () => {
     st.textContent = 'Centang syarat & ketentuan dulu!'; st.className = 'modal-status error'; return;
   }
 
-  st.textContent = 'Mendaftar...'; st.className = 'modal-status';
+  let uplineForRecord = '';
 
-  const result = await IndocoinMemberAuth.registerMember(wallet, { name, referral: ref });
+  if (window._pendingOnChainRegistered) {
+    // Wallet ini sudah terdaftar di contract dari dulu — gak perlu transaksi
+    // lagi, tinggal catat upline yang sudah ada.
+    uplineForRecord = window._pendingOnChainUpline;
+  } else {
+    // Wallet BENAR-BENAR baru di contract — WAJIB transaksi register(upline)
+    // dulu, ini yang nentuin bonus referral upline-nya.
+    const ref = document.getElementById('signUpRef').value.trim();
+    if (!ref) {
+      st.textContent = 'Kode referral wajib diisi! Pilih cari sendiri atau pakai referral platform.';
+      st.className = 'modal-status error'; return;
+    }
+    if (!ethers.utils.isAddress(ref)) {
+      st.textContent = 'Kode referral harus berupa alamat wallet yang valid.';
+      st.className = 'modal-status error'; return;
+    }
+
+    if (!window.ethereum) {
+      st.textContent = 'Buka via DApps browser (TokenPocket/MetaMask/Trust Wallet).';
+      st.className = 'modal-status error'; return;
+    }
+
+    try {
+      st.textContent = '⏳ Menunggu konfirmasi transaksi di wallet...'; st.className = 'modal-status';
+      const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      const signer   = provider.getSigner();
+      const contract = new ethers.Contract(_GATE_MASTER_CA, _GATE_ABI, signer);
+
+      const tx = await contract.register(ref);
+      st.textContent = '⏳ Diproses di blockchain...'; st.className = 'modal-status';
+      await tx.wait();
+
+      uplineForRecord = ref;
+    } catch (e) {
+      st.textContent = (e.code === 4001 || e.code === 'ACTION_REJECTED')
+        ? '⚠️ Transaksi dibatalkan. Coba lagi kalau sudah siap.'
+        : '❌ Gagal daftar ke blockchain: ' + (e.reason || e.message || '').slice(0, 80);
+      st.className = 'modal-status error';
+      return;
+    }
+  }
+
+  st.textContent = 'Menyimpan data...'; st.className = 'modal-status';
+
+  const result = await IndocoinMemberAuth.registerMember(wallet, { name, referral: uplineForRecord });
   if (!result.ok) {
     st.textContent = result.reason === 'already-registered'
       ? 'Wallet ini sudah terdaftar.'
-      : 'Gagal mendaftar, coba lagi.';
+      : 'Gagal menyimpan data, coba lagi. (Transaksi blockchain kamu tetap sudah tercatat.)';
     st.className = 'modal-status error';
     return;
   }
@@ -1744,6 +1823,20 @@ function showSignUp(){
   const wEl = document.getElementById('signUpWalletShown');
   if (wEl) wEl.textContent = window._pendingWallet
     ? (window._pendingWallet.slice(0,6)+'...'+window._pendingWallet.slice(-4)) : '—';
+
+  // Kalau wallet ini SUDAH terdaftar di smart contract dari dulu, kolom
+  // referral gak perlu diisi lagi — upline-nya udah ke-set di blockchain.
+  const refWrap = document.querySelector('#signUpModal .ref-wrap');
+  const refNote = document.getElementById('refOnChainNote');
+  if (window._pendingOnChainRegistered) {
+    if (refWrap) refWrap.style.display = 'none';
+    document.getElementById('refPromptBox').style.display = 'none';
+    if (refNote) refNote.style.display = 'block';
+    return;
+  }
+  if (refWrap) refWrap.style.display = '';
+  if (refNote) refNote.style.display = 'none';
+
   // Auto-populate kode referral dari localStorage
   const savedRef = localStorage.getItem('indocoin_ref') || '';
   const refInput = document.getElementById('signUpRef');
