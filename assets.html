@@ -3058,7 +3058,22 @@ async function doRewardClaim(progId) {
   const prog = REWARD_PROGRAMS.find(p => p.id === progId);
   if(!prog || !userAddress || !provider) return;
 
+  const rowEl = document.getElementById('rrow-' + progId);
+  const showRowMsg = (text, color) => {
+    if(!rowEl) return;
+    let msgEl = document.getElementById('rmsg-' + progId);
+    if(!msgEl) {
+      msgEl = document.createElement('div');
+      msgEl.id = 'rmsg-' + progId;
+      msgEl.style.cssText = 'padding:8px 14px;font-size:9px;border-top:1px solid #1e1e1e;';
+      rowEl.insertAdjacentElement('afterend', msgEl);
+    }
+    msgEl.style.color = color;
+    msgEl.textContent = text;
+  };
+
   try {
+    showRowMsg('⏳ Menunggu konfirmasi di wallet...', '#f59e0b');
     const signer = await provider.getSigner();
 
     // ── Stairway: multi-level claim, loop per level ──
@@ -3067,13 +3082,15 @@ async function doRewardClaim(progId) {
       const res = await sc.getUnclaimedBonuses(userAddress);
       const levels = res[0];
       if(!levels || levels.length === 0) {
-        alert('Tidak ada bonus Stairway yang perlu diklaim.'); return;
+        showRowMsg('Tidak ada bonus Stairway yang perlu diklaim.', '#888');
+        return;
       }
       for(let i = 0; i < levels.length; i++) {
+        showRowMsg('⏳ Klaim level ' + (i+1) + '/' + levels.length + '...', '#f59e0b');
         const tx = await sc.claimLevelBonus(levels[i]);
         await tx.wait();
       }
-      alert('Semua level Stairway berhasil diklaim!');
+      showRowMsg('✅ Semua level Stairway berhasil diklaim!', '#22c55e');
       loadAllRewards();
       return;
     }
@@ -3093,16 +3110,18 @@ async function doRewardClaim(progId) {
       garudaforce:   'function claimRefBonus() external',
     };
     const abi = claimAbi[progId];
-    if(!abi) { alert('Fungsi claim belum tersedia untuk program ini.'); return; }
+    if(!abi) { showRowMsg('Fungsi claim belum tersedia untuk program ini.', '#ef4444'); return; }
 
     const c      = new ethers.Contract(prog.contract, [abi], signer);
     const fnName = abi.split('function ')[1].split('(')[0];
     const tx     = await c[fnName]();
+    showRowMsg('⏳ Transaksi terkirim, menunggu konfirmasi jaringan...', '#f59e0b');
     await tx.wait();
-    alert('Claim berhasil!');
+    showRowMsg('✅ Claim berhasil!', '#22c55e');
     loadAllRewards();
   } catch(e) {
-    alert('Gagal: ' + (e.reason || e.message || 'Error'));
+    const reason = e.reason || e.shortMessage || e.message || 'Error tidak diketahui';
+    showRowMsg('❌ Gagal: ' + reason, '#ef4444');
   }
 }
 // ══ END REWARD AGGREGATOR ══
