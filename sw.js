@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "160.0";
+const VERSION = "161.0";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -24,7 +24,6 @@ const CACHE_FILES = [
   "/analytics.html",
   "/agrikultur.html",
   "/assets.html",
-  "/arisan.html",
   "/arbibot.html",
   "/guild.html",
   "/guruku.html",
@@ -50,12 +49,8 @@ const CACHE_FILES = [
   "/sanjaya-history.html",
   "/leaderboard.html",
   "/landing.html",
-  "/kolaborasi.html",
-  "/kontribusi.html",
-  "/solidaritas.html",
   "/dokumen.html",
   "/panel-mitra",
-  "/prediksi.html",
   "/presale.html",
   "/profile.html",
   "/pvp-duel.html",
@@ -76,13 +71,11 @@ const CACHE_FILES = [
   "/delta-trade.html",
   "/stairway-to-heaven.html",
   "/league-trade.html",
-  "/signal-trade.html",
   "/time-vault-trade.html",
   "/undian.html",
   "/member-vip.html",
   "/member-sync.html",
   "/wallet.html",
-  "/tabungan.html",
   "/tournament.html",
   "/syaratdanketentuan.html",
   "/riwayat.html",

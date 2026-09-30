@@ -69,7 +69,6 @@ const FILE_MAP = {
   'phantom-box-trade':  { html:'phantom-box-trade.html',  pdf:'PhantomBoxTrade_Orange.pdf' },
   'shadow-copy-trade':  { html:'shadow-copy-trade.html',  pdf:'ShadowCopyTradeDokumen.pdf' },
   'stairway-to-heaven': { html:'stairway-to-heaven.html', pdf:'StairwayToHeavenDokumen.pdf' },
-  'signal-trade':       { html:'signal-trade.html',       pdf:null },
   'trade':              { html:'trade.html',              pdf:null },
   // ── Finance ──
   'presale':     { html:'presale.html',    pdf:'Presale_INDC_Phase1_Official.pdf' },
@@ -81,22 +80,15 @@ const FILE_MAP = {
   'wallet':      { html:'wallet.html',     pdf:null },
   'assets':      { html:'assets.html',     pdf:null },
   'member-vip':  { html:'member-vip.html', pdf:null },
-  'vip':         { html:'vip.html',        pdf:null },
-  'arisan':      { html:'arisan.html',     pdf:null },
-  'tabungan':    { html:'tabungan.html',   pdf:null },
   'paid-ads':    { html:'paid-ads.html',   pdf:null },
   // ── Game ──
   'brainclash':  { html:'brainclash.html', pdf:null },
   'sanjaya':     { html:'sanjaya.html',    pdf:null },
   'indowar':     { html:'indowar.html',    pdf:null },
-  'prediksi':    { html:'prediksi.html',   pdf:null },
   'tournament':  { html:'tournament.html', pdf:null },
   // ── Komunitas ──
   'community':   { html:'community.html',  pdf:null },
   'guild':       { html:'guild.html',      pdf:null },
-  'kolaborasi':  { html:'kolaborasi.html', pdf:null },
-  'kontribusi':  { html:'kontribusi.html', pdf:null },
-  'solidaritas': { html:'solidaritas.html',pdf:null },
   'leaderboard': { html:'leaderboard.html',pdf:null },
   // ── Info ──
   'dashboard':         { html:'dashboard.html',         pdf:null },
@@ -243,7 +235,6 @@ function findRelevantKeys(query) {
     'shadow copy':       'shadow-copy-trade',
     'shadow':            'shadow-copy-trade',
     'stairway':          'stairway-to-heaven',
-    'signal trade':      'signal-trade',
     // Finance
     'presale':           'presale',
     'airdrop':           'airdrop',
@@ -256,8 +247,6 @@ function findRelevantKeys(query) {
     'assets':            'assets',
     'member vip':        'member-vip',
     'vip':               'member-vip',
-    'arisan':            'arisan',
-    'tabungan':          'tabungan',
     'paid ads':          'paid-ads',
     'iklan':             'paid-ads',
     // Game
@@ -265,15 +254,11 @@ function findRelevantKeys(query) {
     'brain clash':       'brainclash',
     'sanjaya':           'sanjaya',
     'indowar':           'indowar',
-    'prediksi':          'prediksi',
     'tournament':        'tournament',
     // Komunitas
     'community':         'community',
     'komunitas':         'community',
     'guild':             'guild',
-    'kolaborasi':        'kolaborasi',
-    'kontribusi':        'kontribusi',
-    'solidaritas':       'solidaritas',
     'leaderboard':       'leaderboard',
     // Dokumen
     'whitepaper':        'whitepaper',

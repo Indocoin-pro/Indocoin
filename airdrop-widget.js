@@ -18,7 +18,7 @@
     'referralpowerstaking.html':11,'trade.html':12,'wave-trade.html':13,
     'delta-trade.html':14,'three-trade.html':15,'blitz-trade.html':16,
     'clash-trade.html':17,'cycle-trade.html':18,'phantom-box-trade.html':19,
-    'shadow-copy-trade.html':20,'signal-trade.html':21,'undian.html':22,
+    'shadow-copy-trade.html':20,'undian.html':22,
     'dokumen.html':23,'permainan.html':24,'brainclash.html':25,
     'sanjaya.html':26,'indowar.html':27,'stairway-to-heaven.html':28,
     'referral.html':29,'dashboard.html':30,'assets.html':31,
