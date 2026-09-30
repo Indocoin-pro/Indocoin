@@ -1343,10 +1343,10 @@ async function _updateCommunityUnreadBadge(uid) {
     let lastRead = readSnap.exists() ? readSnap.val() : null;
 
     if (lastRead === null) {
-      // Belum pernah tercatat — set baseline ke sekarang, jangan hitung histori lama
-      lastRead = Date.now();
+      // Belum pernah tercatat — set baseline ke 7 hari lalu biar pesan
+      // seminggu terakhir langsung ke-hitung sebagai unread (fix migrasi wallet login)
+      lastRead = Date.now() - (7 * 24 * 60 * 60 * 1000);
       await rtdbSet(rtdbRef(rtdb, 'community_reads/' + uid), lastRead);
-      return; // 0 unread untuk user baru
     }
 
     const q = rtdbQuery(rtdbRef(rtdb, 'community_chat'), orderByChild('ts'), startAt(lastRead + 1));
