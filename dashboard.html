@@ -1391,15 +1391,20 @@ async function initMemberGate() {
   const name = member.name || (member.wallet.slice(0,6) + '...' + member.wallet.slice(-4));
   document.getElementById('navUser').textContent = name;
 
-  // Pakai Firebase anonymous UID buat badge — biar nyambung ke community_reads
-  // yang butuh auth != null di Firebase Rules
+  // Pakai Firebase anonymous UID buat badge — ambil dari localStorage
+  // biar konsisten walau IndexedDB di-clear oleh browser dalam app wallet
   try {
-    let firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      const cred = await signInAnonymously(auth);
-      firebaseUser = cred.user;
+    let uid = localStorage.getItem('_ic_anon_uid');
+    if (!uid) {
+      let firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        const cred = await signInAnonymously(auth);
+        firebaseUser = cred.user;
+      }
+      uid = firebaseUser.uid;
+      localStorage.setItem('_ic_anon_uid', uid);
     }
-    _updateCommunityUnreadBadge(firebaseUser.uid);
+    _updateCommunityUnreadBadge(uid);
   } catch(e) {
     _updateCommunityUnreadBadge(member.wallet); // fallback
   }

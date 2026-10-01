@@ -553,18 +553,46 @@ async function initMemberGate() {
   }
 
   // Login anonim ke Firebase biar auth.uid tersedia — semua Firebase Rules
-  // yang butuh "auth != null" (community_chat, community_reads, online, dll)
-  // langsung jalan normal. UID anonim ini konsisten per browser/device.
+  // yang butuh "auth != null" langsung jalan normal.
+  // UID disimpan di localStorage biar konsisten walau IndexedDB di-clear
+  // oleh browser dalam app (TokenPocket, dll).
   let anonUid = member.wallet; // fallback ke wallet kalau anonymous gagal
   try {
     let firebaseUser = auth.currentUser;
     if (!firebaseUser) {
-      const cred = await signInAnonymously(auth);
-      firebaseUser = cred.user;
+      // Cek localStorage dulu sebelum buat UID baru
+      const savedUid = localStorage.getItem('_ic_anon_uid');
+      if (savedUid) {
+        // Paksa re-login dengan UID yang sama via signInAnonymously
+        // (Firebase akan restore sesi kalau token masih valid)
+        try {
+          const cred = await signInAnonymously(auth);
+          firebaseUser = cred.user;
+          // Kalau UID beda dari yang tersimpan, pakai yang tersimpan buat lookup
+          if (firebaseUser.uid !== savedUid) {
+            anonUid = savedUid; // pakai UID lama buat data continuity
+          } else {
+            anonUid = firebaseUser.uid;
+          }
+        } catch(e2) {
+          anonUid = savedUid; // fallback ke UID tersimpan
+        }
+      } else {
+        const cred = await signInAnonymously(auth);
+        firebaseUser = cred.user;
+        anonUid = firebaseUser.uid;
+        localStorage.setItem('_ic_anon_uid', anonUid);
+      }
+    } else {
+      anonUid = firebaseUser.uid;
+      if (!localStorage.getItem('_ic_anon_uid')) {
+        localStorage.setItem('_ic_anon_uid', anonUid);
+      }
     }
-    anonUid = firebaseUser.uid;
   } catch(e) {
-    console.warn('Anonymous auth gagal, fallback ke wallet:', e.message);
+    const savedUid = localStorage.getItem('_ic_anon_uid');
+    if (savedUid) anonUid = savedUid;
+    console.warn('Anonymous auth gagal:', e.message);
   }
 
   currentUser = { uid: anonUid, displayName: member.name || '', email: '', wallet: member.wallet };
