@@ -173,6 +173,51 @@
   }
 
   /**
+   * Login anonim ke Firebase Auth di balik layar — biar semua fitur yang
+   * butuh "auth != null" di Firebase Rules tetap jalan normal (community,
+   * badge, notifications, dll). User gak nyadar proses ini.
+   * UID anonim ini konsisten per browser/device selama data browser gak
+   * dihapus — jadi badge, pesan, dll tetap terhubung ke orang yang sama.
+   */
+  async function _ensureFirebaseAnonymousAuth() {
+    try {
+      const FIREBASE_API_KEY = "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw";
+      const ANON_UID_KEY = 'indocoin_anon_uid';
+      const ANON_TOKEN_KEY = 'indocoin_anon_token';
+
+      // Kalau sudah ada UID & token tersimpan, langsung pakai
+      const savedUid = localStorage.getItem(ANON_UID_KEY);
+      if (savedUid) return savedUid;
+
+      // Minta anonymous sign-in ke Firebase REST API
+      const res = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ returnSecureToken: true })
+        }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.localId) return null;
+
+      // Simpan UID biar konsisten tiap buka halaman
+      localStorage.setItem(ANON_UID_KEY, data.localId);
+      localStorage.setItem(ANON_TOKEN_KEY, data.idToken);
+
+      // Inject token ke Firebase SDK (kalau SDK sudah dimuat di halaman itu)
+      if (window.firebase && window.firebase.auth) {
+        try { await window.firebase.auth().signInWithCustomToken(data.idToken); } catch(e) {}
+      }
+
+      return data.localId;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * Fungsi utama buat halaman yang butuh "wajib member & gak diblokir".
    * - null            → belum connect wallet, ATAU wallet belum terdaftar
    * - {blocked:true}  → wallet terdaftar tapi diblokir admin
@@ -185,6 +230,11 @@
     const member = await getMember(addr);
     if (!member) return null;
     if (member.blocked === true) return { blocked: true, wallet: addr };
+
+    // Pastikan Firebase Auth aktif di background — biar community, badge,
+    // notifications, dll semua jalan normal (butuh auth != null di rules)
+    _ensureFirebaseAnonymousAuth();
+
     return Object.assign({ wallet: addr }, member);
   }
 
