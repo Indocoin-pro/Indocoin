@@ -1,20 +1,11 @@
 // Tambahkan wallet yang belum ada di collection 'members' Firestore
-// Bisa diupdate bertahap — tinggal tambah wallet baru di daftar WALLETS,
-// script otomatis skip yang sudah ada, hanya tambah yang belum.
-//
+// Pakai REST API langsung — tanpa perlu install firebase SDK
 // Jalanin: node add-missing-members.js
 
-const { initializeApp } = require('firebase/app');
-const { getFirestore, doc, getDoc, setDoc } = require('firebase/firestore');
+const https = require('https');
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw",
-  authDomain: "indocoin-network.firebaseapp.com",
-  projectId: "indocoin-network",
-  storageBucket: "indocoin-network.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "indocoin-network"
-};
+const PROJECT_ID = 'indocoin-network';
+const API_KEY    = 'AIzaSyBrhDJiIcEJsZ-fN0RIDlV0XaOA8ZPjJsw';
 
 // ═══════════════════════════════════════════════════════
 // TAMBAH WALLET BARU DI SINI — tinggal copy-paste ke bawah
@@ -29,45 +20,99 @@ const WALLETS = [
 ];
 // ═══════════════════════════════════════════════════════
 
+function httpsRequest(options, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function getAnonymousToken() {
+  const body = JSON.stringify({ returnSecureToken: true });
+  const res = await httpsRequest({
+    hostname: 'identitytoolkit.googleapis.com',
+    path: `/v1/accounts:signUp?key=${API_KEY}`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+  }, body);
+  const data = JSON.parse(res.body);
+  return data.idToken;
+}
+
+async function docExists(token, docId) {
+  const res = await httpsRequest({
+    hostname: 'firestore.googleapis.com',
+    path: `/v1/projects/${PROJECT_ID}/databases/(default)/documents/members/${docId}`,
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.status === 200;
+}
+
+async function createDoc(token, docId, wallet, name) {
+  const body = JSON.stringify({
+    fields: {
+      wallet:         { stringValue: wallet },
+      name:           { stringValue: name || '' },
+      createdAt:      { integerValue: Date.now() },
+      migratedManual: { booleanValue: true }
+    }
+  });
+  const res = await httpsRequest({
+    hostname: 'firestore.googleapis.com',
+    path: `/v1/projects/${PROJECT_ID}/databases/(default)/documents/members?documentId=${docId}`,
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body)
+    }
+  }, body);
+  return res.status === 200;
+}
+
 async function main() {
   if (WALLETS.length === 0) {
-    console.log('Daftar wallet kosong. Tambahkan wallet dulu di bagian WALLETS.');
+    console.log('Daftar wallet kosong.');
     return;
   }
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  console.log('Mendapatkan token Firebase...');
+  const token = await getAnonymousToken();
+  console.log('Token OK. Memproses', WALLETS.length, 'wallet...\n');
 
   let added = 0, skipped = 0, failed = 0;
 
   for (const { wallet, name } of WALLETS) {
-    const addr = wallet.toLowerCase().trim();
+    const docId = wallet.toLowerCase().trim();
     try {
-      const ref = doc(db, 'members', addr);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        console.log(`⏭️  Skip (sudah ada): ${addr}`);
+      const exists = await docExists(token, docId);
+      if (exists) {
+        console.log(`Skip (sudah ada): ${docId}`);
         skipped++;
         continue;
       }
-
-      await setDoc(ref, {
-        wallet: addr,
-        name: name || '',
-        createdAt: Date.now(),
-        migratedManual: true
-      });
-      console.log(`✅ Ditambahkan: ${addr} (${name || 'tanpa nama'})`);
-      added++;
-    } catch (e) {
-      console.error(`❌ Gagal: ${addr} —`, e.message);
+      const ok = await createDoc(token, docId, docId, name);
+      if (ok) {
+        console.log(`Ditambahkan: ${docId}`);
+        added++;
+      } else {
+        console.log(`Gagal tambah: ${docId}`);
+        failed++;
+      }
+    } catch(e) {
+      console.error(`Error: ${docId} —`, e.message);
       failed++;
     }
   }
 
-  console.log(`\n=== Selesai: ${added} ditambah, ${skipped} dilewati, ${failed} gagal ===`);
-  process.exit(0);
+  console.log(`\nSelesai: ${added} ditambah, ${skipped} dilewati, ${failed} gagal`);
 }
 
 main();
