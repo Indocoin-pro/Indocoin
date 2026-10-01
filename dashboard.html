@@ -1391,7 +1391,18 @@ async function initMemberGate() {
   const name = member.name || (member.wallet.slice(0,6) + '...' + member.wallet.slice(-4));
   document.getElementById('navUser').textContent = name;
 
-  _updateCommunityUnreadBadge(member.wallet);
+  // Pakai Firebase anonymous UID buat badge — biar nyambung ke community_reads
+  // yang butuh auth != null di Firebase Rules
+  try {
+    let firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      const cred = await signInAnonymously(auth);
+      firebaseUser = cred.user;
+    }
+    _updateCommunityUnreadBadge(firebaseUser.uid);
+  } catch(e) {
+    _updateCommunityUnreadBadge(member.wallet); // fallback
+  }
 
   const hour = new Date().getHours();
   const salam = hour < 12 ? 'Selamat Pagi' : hour < 15 ? 'Selamat Siang' : hour < 18 ? 'Selamat Sore' : 'Selamat Malam';
