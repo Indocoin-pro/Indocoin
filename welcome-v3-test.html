@@ -153,6 +153,9 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
 .stake-item.checkpoint{border-left-color:var(--red);background:rgba(201,64,64,0.02);}
 .si-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .si-name{font-family:'Manrope',sans-serif;font-size:11px;font-weight:800;color:#0f2942;letter-spacing:0;}
+.si-ver{font-family:'Manrope',sans-serif;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px;letter-spacing:0.3px;}
+.si-ver.v1{background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.25);}
+.si-ver.v2{background:rgba(34,197,94,0.1);color:#16a34a;border:1px solid rgba(34,197,94,0.25);}
 .si-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;}
 .si-badge.aktif{background:rgba(59,130,246,0.08);color:#3b82f6;border:1px solid rgba(59,130,246,0.25);}
 .si-badge.checkpoint{background:rgba(201,64,64,0.08);color:var(--red);border:1px solid rgba(201,64,64,0.25);}
@@ -877,7 +880,8 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
 <script>
 /* ══ CONFIG ══ */
 const SC = {
-  WELCOME:    '0x4C33E804C444031933d5BF8794dffBc15dBA286F', // WelcomeV3 (v2 — fix distribusi upline), HALAMAN TES, belum resmi
+  WELCOME:    '0x4C33E804C444031933d5BF8794dffBc15dBA286F', // label user: "V2" — tempat staking BARU
+  WELCOME_V1: '0xE96A96fbf0DbF778Ce142aEae47254E94c440903', // label user: "V1" — posisi lama, gak terima stake baru lagi
   INDC:       '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   USDT:       '0x55d398326f99059fF775485246999027B3197955',
   MARKET:     '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
@@ -965,12 +969,13 @@ async function recordDownstreamBonus(actor, usdtAmount, indicator, signerRef) {
 // ───────────────────────────────────────────────────────────────────────────
 
 const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-let _provider,_signer,_wallet,_welcome,_indc,_usdt,_market,_master;
+let _provider,_signer,_wallet,_welcome,_welcomeV1,_indc,_usdt,_market,_master;
 let _globalStopped = false;
 let _claimPosIdx = 0, _claimType = 0;
 let _indcPrice = 0.003; // fallback — cuma dipakai kalau _priceLoaded masih false
 let _priceLoaded = false; // true cuma kalau harga BENERAN sukses kebaca dari blockchain
 
+function cByVer(ver){ return ver==='v1' ? _welcomeV1 : _welcome; } // pilih instance kontrak sesuai asal posisi
 function fmtI(v){return parseFloat(v).toLocaleString('id-ID',{maximumFractionDigits:2});}
 function fromI(v,dec){return Number(BigInt(v.toString()))/Math.pow(10,dec);}
 function toI(v,dec){return ethers.utils.parseUnits(String(parseFloat(v)||0),dec);}
@@ -1059,7 +1064,8 @@ async function connectWallet(){
     }
     _provider = new ethers.providers.Web3Provider(window.ethereum);
     _signer   = _provider.getSigner();
-    _welcome  = new ethers.Contract(SC.WELCOME, WELCOME_ABI, _signer);
+    _welcome   = new ethers.Contract(SC.WELCOME,    WELCOME_ABI, _signer);
+    _welcomeV1 = new ethers.Contract(SC.WELCOME_V1, WELCOME_ABI, _signer);
     _indc     = new ethers.Contract(SC.INDC,    ERC20_ABI,   _signer);
     _usdt     = new ethers.Contract(SC.USDT,    ERC20_ABI,   _signer);
     _market   = new ethers.Contract(SC.MARKET,  MARKET_ABI,  _signer);
@@ -1165,32 +1171,48 @@ async function loadBalances(){
 }
 
 async function loadPositions(){
-  if(!_wallet||!_welcome)return;
+  if(!_wallet||!_welcome||!_welcomeV1)return;
   try{
-    const count = await _welcome.getPositionCount(_wallet);
-    const n = Number(count);
-    if(n === 0){document.getElementById('emptyPosisi').style.display='block';document.getElementById('posisiList').innerHTML='';return;}
+    // Ambil posisi dari KEDUA kontrak (V1 = lama, V2 = baru), gabung jadi satu daftar
+    const sources = [
+      {ver:'v1', label:'V1', c:_welcomeV1},
+      {ver:'v2', label:'V2', c:_welcome},
+    ];
+    let all = [];
+    for(const src of sources){
+      let n = 0;
+      try{ n = Number(await src.c.getPositionCount(_wallet)); }catch(e){ continue; }
+      for(let i=0;i<n;i++){
+        let pos;
+        try{ pos = await src.c.getPosition(_wallet, i); }catch(e){ continue; }
+        if(!pos.active) continue;
+        all.push({ver:src.ver, label:src.label, idx:i, pos});
+      }
+    }
+
+    if(all.length === 0){document.getElementById('emptyPosisi').style.display='block';document.getElementById('posisiList').innerHTML='';return;}
     document.getElementById('emptyPosisi').style.display='none';
+
+    // Terbaru di atas, campur V1 & V2 berdasar waktu mulai asli — bukan dikelompokkan
+    all.sort((a,b)=> Number(b.pos.startTime) - Number(a.pos.startTime));
+
     let html = '';
-    for(let i=0;i<n;i++){
-      const pos = await _welcome.getPosition(_wallet, i);
-      if(!pos.active)continue;
+    for(const item of all){
+      const {ver, label, idx, pos} = item;
+      const key = ver+'_'+idx; // id unik gabungan versi+index, biar v1 idx0 gak ketuker sama v2 idx0
       const staked  = fromI(pos.indcStaked, SC.INDC_DEC);
       const reward  = fromI(pos.reward,     SC.INDC_DEC);
-      const start   = new Date(Number(pos.startTime)*1000).toLocaleDateString('id-ID');
-      const nextCP  = new Date(Number(pos.nextCheckpointTime)*1000).toLocaleDateString('id-ID');
       const isCP    = pos.checkpointPending;
 
       const cpTimestamp = Number(pos.nextCheckpointTime);
       const nowSec = Math.floor(Date.now()/1000);
       const secLeft = cpTimestamp - nowSec;
-      // Gunakan checkpointPending dari contract sebagai sumber kebenaran
       const isReadyNow = pos.checkpointPending === true || secLeft <= 0;
 
       const cpReady = isCP || isReadyNow;
       html += `<div class="stake-item compact ${cpReady?'ready':''}">
         <div class="si-top">
-          <span class="si-name">POSISI #${i+1}</span>
+          <span class="si-name">POSISI #${idx+1}<span class="si-ver ${ver}">${label}</span></span>
           <span class="si-badge ${cpReady?'ready':'aktif'}">${cpReady?'⏰ SIAP LANJUT':'▶ AKTIF'}</span>
         </div>
         <div class="si-grid">
@@ -1198,11 +1220,11 @@ async function loadPositions(){
           <div style="text-align:right"><span class="si-lbl">REWARD PENDING</span><span class="si-val gold">${fmtI(reward)} INDC</span></div>
         </div>
         <div class="si-action-row">
-          <div class="si-countdown ${cpReady?'due':''}" data-cp-time="${cpTimestamp}" data-pos-idx="${i}">
+          <div class="si-countdown ${cpReady?'due':''}" data-cp-time="${cpTimestamp}" data-pos-idx="${key}">
             <span class="cd-prefix">${cpReady?'Status:':'Konfirmasi:'}</span> <span class="cd-val">${cpReady?'Waktunya konfirmasi':fmtCountdown(secLeft)}</span>
           </div>
-          <button class="chip chip-lanjut ${cpReady?'ready':''}" id="btnLanjut_${i}" onclick="doConfirmCheckpoint(${i})">${cpReady?'Konfirmasi Lanjut':'Lanjut'}</button>
-          <button class="chip chip-klaim ${reward<=0?'off':''}" onclick="handleClaimClick()">Klaim</button>
+          <button class="chip chip-lanjut ${cpReady?'ready':''}" id="btnLanjut_${key}" onclick="doConfirmCheckpoint('${ver}',${idx})">${cpReady?'Konfirmasi Lanjut':'Lanjut'}</button>
+          <button class="chip chip-klaim ${reward<=0?'off':''}" onclick="handleClaimClick('${ver}',${idx})">Klaim</button>
         </div>
       </div>`;
     }
@@ -1336,17 +1358,17 @@ async function doStakeWithUsdt(){
 }
 
 /* ── CHECKPOINT ── */
-function doConfirmCheckpoint(posIdx){
+function doConfirmCheckpoint(ver, posIdx){
   if(!_wallet) return;
   // Tampilkan popup pilihan reward dulu
-  showCheckpointPopup(posIdx);
+  showCheckpointPopup(ver, posIdx);
 }
 
-async function showCheckpointPopup(posIdx){
+async function showCheckpointPopup(ver, posIdx){
   // Ambil reward pending
   let rewardAmt = '...';
   try {
-    const pos = await _welcome.getPosition(_wallet, posIdx);
+    const pos = await cByVer(ver).getPosition(_wallet, posIdx);
     const reward = parseFloat(fromI(pos.reward.toString(), SC.INDC_DEC));
     rewardAmt = fmtI(reward) + ' INDC';
   } catch(e){}
@@ -1364,10 +1386,10 @@ async function showCheckpointPopup(posIdx){
       <div style="font-size:12px;color:#888;margin-bottom:6px;">Reward terkumpul:</div>
       <div style="font-size:18px;font-weight:700;color:#0f2942;margin-bottom:16px;">${rewardAmt}</div>
       <div style="font-size:12px;color:#555;margin-bottom:16px;">Pilih tujuan reward sebelum melanjutkan:</div>
-      <button onclick="processCheckpoint(${posIdx}, 0)" style="width:100%;background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
+      <button onclick="processCheckpoint('${ver}',${posIdx}, 0)" style="width:100%;background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">
         🔄 Compound ke Posisi
       </button>
-      <button onclick="processCheckpoint(${posIdx}, 1)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+      <button onclick="processCheckpoint('${ver}',${posIdx}, 1)" style="width:100%;background:#f5f5f5;color:#333;border:1px solid #e0e0e0;border-radius:10px;padding:14px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;">
         🏦 Withdraw Ke Platform Wallet
       </button>
       <button onclick="document.getElementById('cpPopup').remove()" style="width:100%;background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:8px;">✕ Batal</button>
@@ -1376,23 +1398,25 @@ async function showCheckpointPopup(posIdx){
   document.body.appendChild(modal);
 }
 
-async function processCheckpoint(posIdx, claimType){
+async function processCheckpoint(ver, posIdx, claimType){
   document.getElementById('cpPopup')?.remove();
   if(!_wallet) return;
+  const key = ver+'_'+posIdx;
+  const contract = cByVer(ver);
 
   // ── LAPIS 1: kunci tombol biar gak bisa diklik dobel selama proses ──
-  const btn = document.getElementById('btnLanjut_'+posIdx);
+  const btn = document.getElementById('btnLanjut_'+key);
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
 
   try{
     // Step 1: Cek apakah masih ada reward yang belum diklaim
-    const pos = await _welcome.getPosition(_wallet, posIdx);
+    const pos = await contract.getPosition(_wallet, posIdx);
     const hasReward = pos.reward && pos.reward.gt && pos.reward.gt(0);
 
     if(hasReward){
       // Masih ada reward — klaim dulu
       setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','#0f2942');
-      const tx1 = await _welcome.claimReward(posIdx, claimType);
+      const tx1 = await contract.claimReward(posIdx, claimType);
       await tx1.wait();
       setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','#0f2942');
     } else {
@@ -1401,12 +1425,12 @@ async function processCheckpoint(posIdx, claimType){
     }
 
     // Step 2: confirmCheckpoint
-    const tx2 = await _welcome.confirmCheckpoint(posIdx);
+    const tx2 = await contract.confirmCheckpoint(posIdx);
     await tx2.wait();
     setMsg('✓ Berhasil! Reward sudah diproses & 7 hari berikutnya aktif.','#3b82f6');
 
     // ── LAPIS 2: update tampilan LANGSUNG, gak nunggu baca ulang RPC ──
-    applyCheckpointOptimistic(posIdx);
+    applyCheckpointOptimistic(key);
 
     // ── LAPIS 3: sinkron data asli di belakang layar (gak nge-block tampilan) ──
     loadAll().catch(e=>console.warn('Sinkron ulang gagal (non-critical):', e));
@@ -1506,12 +1530,14 @@ async function confirmWithdraw(){
   if(_claimType===2){
     await doClaimReward(2);
   } else {
-    // Withdraw dari platform wallet
-    const bal = await _welcome.getPlatformBalance(_wallet);
+    // Withdraw dari platform wallet — saldo Platform Wallet dibagi bareng
+    // V1 & V2 (satu penyimpanan sama), tapi fungsi tarik-nya baru ada di V1,
+    // jadi selalu lewat V1 biar pasti jalan apapun asal reward-nya.
+    const bal = await _welcomeV1.getPlatformBalance(_wallet);
     if(Number(bal)<=0){setMsg('Saldo Platform Wallet kosong','var(--red)');return;}
     try{
       setMsg('Menarik INDC dari Platform Wallet...','#0f2942');
-      const tx = await _welcome.withdrawFromPlatform(bal);
+      const tx = await _welcomeV1.withdrawFromPlatform(bal);
       await tx.wait();
       setMsg('✓ INDC berhasil ditarik ke wallet.','#3b82f6');
       await loadAll();
