@@ -390,9 +390,12 @@ app.post('/api/pasca/inquiry', async (req, res) => {
       return res.status(422).json({ error: hasil.message || 'Gagal cek tagihan', rc: hasil.rc });
     }
 
-    const hargaAsli = hasil.price; // total dari Digiflazz (tagihan + admin asli mereka)
+    // Digiflazz kadang mengembalikan price=0 untuk beberapa produk pascabayar
+    // coba beberapa field fallback supaya hargaAsli tidak jadi 0
+    console.log('[DEBUG pasca/inquiry] raw hasil:', JSON.stringify(hasil));
+    const hargaAsli = Number(hasil.price) || Number(hasil.total) || Number(hasil.harga) || 0;
     const adminDigiflazz = hasil.admin || 0;
-    const komisiDigiflazz = product.komisi || 0; // margin kita, dari katalog (field "commission" Digiflazz)
+    const komisiDigiflazz = product.komisi || 0;
     const biayaAdminTambahan = product.biaya_admin_tambahan || 0;
     const totalBayar = hargaAsli + biayaAdminTambahan;
 
