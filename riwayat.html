@@ -64,12 +64,12 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
   letter-spacing:0.5px;cursor:pointer;}
 .btn-share:disabled{opacity:0.5;cursor:default;}
 
-.bukti-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;
+.bukti-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;
   align-items:center;justify-content:center;padding:20px;}
 .bukti-overlay.show{display:flex;}
-.bukti-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:16px;max-width:400px;width:100%;}
-.bukti-box img{width:100%;border-radius:8px;display:block;}
-.bukti-hint{text-align:center;font-size:11px;color:#9ca3af;margin-top:12px;line-height:1.5;}
+.bukti-box{background:#ffffff;border:0.5px solid #e5e7eb;border-radius:16px;overflow:hidden;max-width:300px;width:100%;}
+.bukti-box img{width:100%;display:block;border-radius:0;}
+.bukti-hint{text-align:center;font-size:10px;color:#9ca3af;margin:10px 16px 0;line-height:1.5;}
 .bukti-close{margin-top:14px;width:100%;background:#3b82f6;color:#080808;border:none;border-radius:8px;
   padding:11px;font-family:'Manrope',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
 
@@ -128,7 +128,7 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
     <img id="buktiImg" alt="Bukti transaksi">
     <div class="bukti-hint">Tekan lama gambar untuk simpan/kirim. Kalau tidak bisa, pakai tombol download di bawah.</div>
     <a class="bukti-close" id="buktiDownload" download="bukti-indocoin.png" style="display:block;text-decoration:none;text-align:center;margin-top:10px;">💾 DOWNLOAD GAMBAR</a>
-    <button class="bukti-close" style="background:transparent;border:1px solid #e5e7eb;color:#9ca3af;margin-top:8px;" onclick="document.getElementById('buktiOverlay').classList.remove('show')">TUTUP</button>
+    <button class="bukti-close" style="background:#ffffff;border:1.5px solid #e5e7eb;color:#64748b;margin-bottom:16px;" onclick="document.getElementById('buktiOverlay').classList.remove('show')">TUTUP</button>
   </div>
 </div>
 
@@ -392,14 +392,14 @@ async function bagikanBukti(orderId){
   const ctx = canvas.getContext('2d');
 
   // Ukur tinggi dulu berdasarkan konten (nama produk bisa panjang/wrap)
-  ctx.font = '600 26px Rajdhani, sans-serif';
+  ctx.font = 'bold 26px Manrope, sans-serif';
   const wrapProduk = wrapText(ctx, order.namaProduk, W - PAD*2);
   const tinggiProduk = wrapProduk.length * 32;
   const H = 560 + tinggiProduk;
   canvas.height = H;
 
   // Warna & font harus di-set ULANG setelah resize (canvas reset context)
-  const bg = '#0a0a0a', gold = '#0f2942', gold3 = '#3b82f6', text = '#f0ebe3', muted = '#7a6a58', green = '#2ea86a', border = 'rgba(15,41,66,0.08)';
+  const bg = '#ffffff', gold = '#0f2942', gold3 = '#3b82f6', text = '#0f2942', muted = '#64748b', green = '#16a34a', border = '#e5e7eb';
 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
@@ -413,54 +413,69 @@ async function bagikanBukti(orderId){
   ctx.textAlign = 'center';
 
   // Header brand
-  ctx.fillStyle = gold3;
-  ctx.font = '900 30px Orbitron, sans-serif';
+  // Header navy
+  ctx.fillStyle = '#0f2942';
+  ctx.fillRect(0, 0, W, y+20);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 28px Manrope, sans-serif';
   ctx.fillText('INDOCOIN', W/2, y);
   y += 26;
-  ctx.fillStyle = muted;
-  ctx.font = '400 14px "Share Tech Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '500 13px Manrope, sans-serif';
   ctx.fillText('TOP UP & TAGIHAN', W/2, y);
   y += 40;
 
   // Badge sukses
+  // Badge biru terang + teks hijau
+  ctx.fillStyle = 'rgba(59,130,246,0.08)';
+  ctx.fillRect(0, y-22, W, 36);
+  ctx.fillStyle = '#e5f0ff';
+  ctx.fillRect(0, y+14, W, 1);
   ctx.fillStyle = green;
-  ctx.font = '700 20px Orbitron, sans-serif';
+  ctx.font = 'bold 18px Manrope, sans-serif';
   ctx.fillText('✓ TRANSAKSI BERHASIL', W/2, y);
   y += 50;
 
   // Garis putus
-  drawDashedLine(ctx, PAD, y, W-PAD, y, border);
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+  ctx.setLineDash([]);
   y += 45;
 
   // Nama produk (bisa multi baris)
   ctx.fillStyle = text;
-  ctx.font = '600 26px Rajdhani, sans-serif';
+  ctx.font = 'bold 26px Manrope, sans-serif';
+  ctx.fillStyle = text;
   wrapProduk.forEach(line => { ctx.fillText(line, W/2, y); y += 32; });
   y += 10;
 
   // Nomor tujuan
   ctx.fillStyle = muted;
-  ctx.font = '400 16px "Share Tech Mono", monospace';
+  ctx.font = '500 15px Manrope, sans-serif';
   ctx.fillText(order.nomorTujuan, W/2, y);
   y += 45;
 
-  drawDashedLine(ctx, PAD, y, W-PAD, y, border);
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+  ctx.setLineDash([]);
   y += 40;
 
   // Detail rows kiri-kanan
   ctx.textAlign = 'left';
   const rows = [
     ['Tanggal', new Date(order.createdAt).toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })],
-    ['Total Bayar', order.harga != null ? 'Rp' + Number(order.harga).toLocaleString('id-ID') : '-'],
+    ['Total Bayar', order.harga != null ? 'Rp' + Number(order.harga).toLocaleString('id-ID') : '-', true],  // true = bold besar
   ];
   if(order.sn) rows.push(['SN', order.sn]);
 
   rows.forEach(([label, value]) => {
     ctx.fillStyle = muted;
-    ctx.font = '400 15px "Share Tech Mono", monospace';
+    ctx.font = '500 15px Manrope, sans-serif';
     ctx.fillText(label, PAD, y);
     ctx.fillStyle = text;
-    ctx.font = '700 15px "Share Tech Mono", monospace';
+    ctx.font = 'bold 15px Manrope, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(value, W-PAD, y);
     ctx.textAlign = 'left';
@@ -470,7 +485,7 @@ async function bagikanBukti(orderId){
   y += 20;
   ctx.textAlign = 'center';
   ctx.fillStyle = muted;
-  ctx.font = '400 12px "Share Tech Mono", monospace';
+  ctx.font = '500 12px Manrope, sans-serif';
   ctx.fillText('Diverifikasi via indocoin.id', W/2, H-30);
 
   // Render font custom butuh delay kecil biar kepakai sebelum toDataURL
