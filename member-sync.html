@@ -318,7 +318,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
-  const GATEWAY_ADDR = '0x26DeD23D64eAAD94CBfAE50E0a94bA927367C733';
+  const GATEWAY_ADDR = '0x45a403376Bb54eBb081829d009Cf476F5368c333';
   const CHAIN_ID_HEX = '0x38'; // BSC mainnet (56)
   const MAX_BATCH = 30;
 
@@ -327,7 +327,7 @@
     "function syncMyDownlines(address[] downlines) external"
   ];
 
-  let _provider, _signer, _wallet, _gateway, _gatewayRead, _readProvider;
+  let _provider, _signer, _wallet, _gateway;
   let _tree = [];       // hasil mentah dari contract
   let _filter = 'all';  // 'all' | 'pending'
 
@@ -380,9 +380,7 @@
 
       _provider = new ethers.providers.Web3Provider(window.ethereum);
       _signer   = _provider.getSigner();
-      _readProvider = new ethers.providers.JsonRpcProvider("https://bsc-mainnet.nodereal.io/v1/bd4b2496c62445c2ba00a207672952d8");
-      _gatewayRead  = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _readProvider);
-      _gateway      = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _signer);
+      _gateway = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _signer);
 
       document.getElementById('walletDot').classList.add('on');
       document.getElementById('walletLabel').textContent = shortAddr(_wallet);
@@ -403,7 +401,7 @@
     document.getElementById('btnSyncAll').textContent = '⏳ Memindai...';
 
     try {
-      const raw = await _gatewayRead.getMyDownlineTree(_wallet);
+      const raw = await _gateway.getMyDownlineTree(_wallet);
       _tree = raw.map(r => ({
         user: r.user,
         level: r.level,
