@@ -418,49 +418,15 @@
     document.getElementById('btnSyncAll').textContent = '⏳ Memindai...';
 
     try {
-      // 1. Baca pohon dari V1 gateway (ringan, terbukti jalan)
       const rawV1 = await _gatewayV1.getMyDownlineTree(_wallet);
-      logLine(`Ditemukan ${rawV1.length} downline dari V1...`);
-
-      // 2. Untuk setiap member, ambil V2 balance + reportedAmount V3 secara paralel
-      const users = rawV1.map(r => r.user);
-
-      const [v2Balances, reportedAmounts] = await Promise.all([
-        // V2 balance per user
-        Promise.all(users.map(async u => {
-          try {
-            const cnt = await _welcomeV2.getPositionCount(u);
-            let total = ethers.BigNumber.from(0);
-            for (let i = 0; i < cnt; i++) {
-              const pos = await _welcomeV2.getPosition(u, i);
-              total = total.add(pos[1]); // usdtEquivalent
-            }
-            return total;
-          } catch { return ethers.BigNumber.from(0); }
-        })),
-        // reportedAmount dari V3
-        Promise.all(users.map(async u => {
-          try { return await _gateway.reportedAmount(u); }
-          catch { return ethers.BigNumber.from(0); }
-        }))
-      ]);
-
-      // 3. Gabungkan V1 + V2, hitung pending
-      _tree = rawV1.map((r, i) => {
-        const stakedV1   = r.stakedUsdt;
-        const stakedV2   = v2Balances[i];
-        const staked     = ethers.BigNumber.from(stakedV1).add(stakedV2);
-        const reported   = ethers.BigNumber.from(reportedAmounts[i]);
-        const pending    = staked.gt(reported) ? staked.sub(reported) : ethers.BigNumber.from(0);
-        return {
-          user        : r.user,
-          level       : r.level,
-          stakedUsdt  : staked,
-          reportedUsdt: reported,
-          pendingUsdt : pending,
-          isSynced    : pending.eq(0)
-        };
-      });
+      _tree = rawV1.map(r => ({
+        user        : r.user,
+        level       : r.level,
+        stakedUsdt  : r.stakedUsdt,
+        reportedUsdt: ethers.BigNumber.from(0),
+        pendingUsdt : r.stakedUsdt,
+        isSynced    : r.isSynced
+      }));
 
       for (let lv = 1; lv <= 10; lv++) {
         const count = _tree.filter(x => x.level === lv).length;
