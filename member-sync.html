@@ -318,30 +318,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script>
-  // V1 — untuk baca pohon (ringan, sudah terbukti)
-  const GATEWAY_V1_ADDR = '0x67e727F1A045f09E4d003aA3079Ec580C950f5c3';
-  const GATEWAY_V1_ABI  = [
-    "function getMyDownlineTree(address root) view returns (tuple(address user, uint8 level, uint256 stakedUsdt, bool isSynced)[])"
-  ];
+  const GATEWAY_ADDR = '0x67e727F1A045f09E4d003aA3079Ec580C950f5c3';
+  const CHAIN_ID_HEX = '0x38'; // BSC mainnet (56)
+  const MAX_BATCH = 30;
 
-  // V3 — untuk sync (baca V1+V2, delta based)
-  const GATEWAY_ADDR = '0x45a403376Bb54eBb081829d009Cf476F5368c333';
-  const GATEWAY_ABI  = [
-    "function reportedAmount(address) view returns (uint256)",
+  const GATEWAY_ABI = [
+    "function getMyDownlineTree(address root) view returns (tuple(address user, uint8 level, uint256 stakedUsdt, uint256 reportedUsdt, uint256 pendingUsdt, bool isSynced)[])",
     "function syncMyDownlines(address[] downlines) external"
   ];
 
-  // Welcome V2 — untuk tambah balance V2
-  const WELCOME_V2_ADDR = '0x4C33E804C444031933d5BF8794dffBc15dBA286F';
-  const WELCOME_V2_ABI  = [
-    "function getPositionCount(address user) view returns (uint256)",
-    "function getPosition(address user, uint256 idx) view returns (uint256,uint256,uint256,uint256,uint256,bool,bool,uint256)"
-  ];
-
-  const CHAIN_ID_HEX = '0x38';
-  const MAX_BATCH = 30;
-
-  let _provider, _signer, _wallet, _gateway, _gatewayV1, _welcomeV2, _rp;
+  let _provider, _signer, _wallet, _gateway;
   let _tree = [];       // hasil mentah dari contract
   let _filter = 'all';  // 'all' | 'pending'
 
@@ -392,11 +378,9 @@
         }
       }
 
-      _provider   = new ethers.providers.Web3Provider(window.ethereum);
-      _signer     = _provider.getSigner();
-      _gateway    = new ethers.Contract(GATEWAY_ADDR,    GATEWAY_ABI,   _signer);
-      _gatewayV1  = new ethers.Contract(GATEWAY_V1_ADDR, GATEWAY_V1_ABI, _provider);
-      _welcomeV2  = new ethers.Contract(WELCOME_V2_ADDR, WELCOME_V2_ABI, _provider);
+      _provider = new ethers.providers.Web3Provider(window.ethereum);
+      _signer   = _provider.getSigner();
+      _gateway  = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _signer);
 
       document.getElementById('walletDot').classList.add('on');
       document.getElementById('walletLabel').textContent = shortAddr(_wallet);
@@ -417,16 +401,17 @@
     document.getElementById('btnSyncAll').textContent = '⏳ Memindai...';
 
     try {
-      const rawV1 = await _gatewayV1.getMyDownlineTree(_wallet);
-      _tree = rawV1.map(r => ({
-        user        : r.user,
-        level       : r.level,
-        stakedUsdt  : r.stakedUsdt,
-        reportedUsdt: ethers.BigNumber.from(0),
-        pendingUsdt : r.stakedUsdt,
-        isSynced    : r.isSynced
+      const raw = await _gateway.getMyDownlineTree(_wallet);
+      _tree = raw.map(r => ({
+        user: r.user,
+        level: r.level,
+        stakedUsdt: r.stakedUsdt,
+        reportedUsdt: r.reportedUsdt,
+        pendingUsdt: r.pendingUsdt,
+        isSynced: r.isSynced
       }));
 
+      // Log ringkasan per level (persis alur lama, tapi hasilnya sudah final sekaligus)
       for (let lv = 1; lv <= 10; lv++) {
         const count = _tree.filter(x => x.level === lv).length;
         if (count > 0) logLine(`Level ${lv}: ${count} downline ditemukan`);
