@@ -327,7 +327,7 @@
     "function syncMyDownlines(address[] downlines) external"
   ];
 
-  let _provider, _signer, _wallet, _gateway;
+  let _provider, _signer, _wallet, _gateway, _gatewayRead, _readProvider;
   let _tree = [];       // hasil mentah dari contract
   let _filter = 'all';  // 'all' | 'pending'
 
@@ -380,7 +380,9 @@
 
       _provider = new ethers.providers.Web3Provider(window.ethereum);
       _signer   = _provider.getSigner();
-      _gateway  = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _signer);
+      _readProvider = new ethers.providers.JsonRpcProvider("https://bsc-mainnet.nodereal.io/v1/bd4b2496c62445c2ba00a207672952d8");
+      _gatewayRead  = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _readProvider);
+      _gateway      = new ethers.Contract(GATEWAY_ADDR, GATEWAY_ABI, _signer);
 
       document.getElementById('walletDot').classList.add('on');
       document.getElementById('walletLabel').textContent = shortAddr(_wallet);
@@ -401,7 +403,7 @@
     document.getElementById('btnSyncAll').textContent = '⏳ Memindai...';
 
     try {
-      const raw = await _gateway.getMyDownlineTree(_wallet);
+      const raw = await _gatewayRead.getMyDownlineTree(_wallet);
       _tree = raw.map(r => ({
         user: r.user,
         level: r.level,
