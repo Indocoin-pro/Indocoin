@@ -814,7 +814,7 @@ let topupCountdownInterval = null;
 // nunggu QRIS jadi. Ganti ke true kapan aja begitu siap dibuka. Panel
 // admin (lihat antrian, atur fee, dll) TETAP bisa diakses walau ini
 // false — cuma pembuatan permintaan BARU yang dikunci.
-const TOPUP_FEATURE_ENABLED = false;
+const TOPUP_FEATURE_ENABLED = true;
 let bnbBalance = 0, indcBalance = 0, usdtBalance = 0;
 const targets = [];
 
@@ -3495,76 +3495,61 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 <!-- ══ MODAL TOP UP USDT (Rupiah/QRIS) ══ -->
 <div id="topupModal" onclick="if(event.target===this)document.getElementById('topupModal').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#0d0b10;border:0.5px solid #e5e7eb;border-radius:18px;padding:24px 20px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;">
+  <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:18px;padding:20px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;">
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:900;color:#0f2942;letter-spacing:2px;">💳 TOP UP USDT</div>
+      <div style="font-size:12px;font-weight:800;color:#0f2942;">Top Up USDT</div>
       <span onclick="topupCloseModal()" style="cursor:pointer;color:#64748b;font-size:18px;">✕</span>
     </div>
 
     <!-- STEP 1: form input nominal -->
     <div id="topupStepForm">
       <div style="background:#f8fafc;border:0.5px solid #e5e7eb;border-radius:12px;padding:16px 14px;margin-bottom:16px;text-align:center;">
-        <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:10px;">Top up cepat & aman. Transfer via QRIS, USDT langsung masuk ke wallet.</div>
-        <div style="font-size:8px;font-style:italic;color:#94a3b8;line-height:1.5;text-align:left;">
-          ⚠️ Transfer harus sesuai nominal secara persis, termasuk 3 digit kode unik.<br><br>
-          Kekurangan biaya administrasi akan dipotong otomatis dari USDT yang diterima, disertai denda sebesar 1x lipat biaya administrasi.<br><br>
-          Kode unik adalah identitas otomatis transaksi Anda dalam sistem kami. Ketidaksesuaian kode menyebabkan transaksi di luar jangkauan verifikasi otomatis, sehingga diproses melalui pencocokan manual oleh tim kami dan dapat memakan waktu lebih lama.
-        </div>
+        <div style="font-size:10px;color:#64748b;line-height:1.7;margin-bottom:8px;text-align:center;">Top up cepat & aman. Transfer via QRIS, USDT langsung masuk ke wallet.</div>
+        <div style="font-size:10px;color:#94a3b8;line-height:1.7;text-align:left;">⚠️ Transfer harus sesuai nominal secara persis, termasuk 3 digit kode unik.<br><br>Kekurangan biaya admin akan dipotong otomatis dari USDT yang diterima, disertai denda 1x lipat biaya admin.</div>
       </div>
-      <div style="font-size:10px;color:#94a3b8;line-height:1.5;margin-bottom:10px;">Masukkan nominal top up di bawah ini. Sistem akan otomatis membuatkan kode unik dan kode QRIS pembayaran khusus untuk Anda.</div>
-      <div style="font-size:8px;color:#64748b;letter-spacing:1px;margin-bottom:6px;">NOMINAL (RP)</div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.6;margin-bottom:10px;">Masukkan nominal top up. Sistem akan otomatis membuatkan kode unik dan QRIS khusus untuk kamu.</div>
+      <div style="font-size:8px;color:#64748b;letter-spacing:1px;margin-bottom:6px;font-weight:700;">NOMINAL (RP)</div>
       <input id="topupInputNominal" type="number" placeholder="Contoh: 100.000"
         style="width:100%;padding:12px 14px;background:#f8fafc;border:0.5px solid #f1f5f9;border-radius:10px;color:#0f2942;font-family:'Manrope',sans-serif;font-size:12px;margin-bottom:10px;">
       <div id="topupFormError" style="color:#ef4444;font-size:10px;margin-bottom:10px;display:none;"></div>
       <button id="topupBtnBuat" onclick="topupBuatPermintaan()"
-        style="width:100%;padding:13px;background:#0f2942;border:none;border-radius:10px;color:#000;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
-        BUAT PERMINTAAN
-      </button>
+        style="width:100%;padding:12px;background:#3b82f6;border:none;border-radius:10px;color:#fff;font-family:'Manrope',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Buat Permintaan</button>
     </div>
 
     <!-- STEP 2: QRIS + kode unik, menunggu konfirmasi -->
     <div id="topupStepQris" style="display:none;text-align:center;">
       <img src="https://indocoin.id/logos/qris.png" style="width:100%;border-radius:10px;margin:0 0 14px;display:block;background:#fff;padding:8px;box-sizing:border-box;" alt="QRIS INDOCOIN">
-      <div style="font-size:8px;color:#64748b;letter-spacing:1px;margin-bottom:4px;">TRANSFER TEPAT SEJUMLAH</div>
+      <div style="font-size:8px;color:#64748b;letter-spacing:1px;margin-bottom:4px;font-weight:700;">TRANSFER TEPAT SEJUMLAH</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px;">
         <div id="topupTotalBayar" style="font-family:'Manrope',sans-serif;font-size:20px;font-weight:900;color:#0f2942;"></div>
         <button onclick="topupSalinNominal()" id="topupBtnSalin" title="Salin nominal"
           style="background:#f8fafc;border:0.5px solid #f1f5f9;border-radius:6px;padding:5px 10px;color:#94a3b8;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:4px;">📋 <span id="topupBtnSalinLabel">Salin</span></button>
       </div>
-      <div style="font-size:8px;font-style:italic;color:#94a3b8;margin-bottom:16px;line-height:1.5;text-align:left;">
-        ⚠️ Transfer harus PERSIS termasuk kode unik — ketentuan lengkap sudah dijelaskan sebelumnya.
-      </div>
+      <div style="font-size:10px;color:#94a3b8;margin-bottom:12px;line-height:1.6;text-align:left;">⚠️ Transfer harus PERSIS termasuk kode unik.</div>
 
       <div style="background:#f8fafc;border:0.5px solid #f1f5f9;border-radius:10px;padding:12px;text-align:left;font-size:10px;color:#94a3b8;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Nominal top up</span><span id="topupRingkasNominal" style="color:#0f2942;"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Biaya admin</span><span id="topupRingkasFee" style="color:#0f2942;"></span></div>
-        <div style="display:flex;justify-content:space-between;"><span>USDT diterima</span><span id="topupRingkasUsdt" style="color:#16a34a;font-weight:700;"></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:6px;"><span>Nominal top up</span><span id="topupRingkasNominal" style="color:#0f2942;font-weight:700;"></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:6px;"><span>Biaya admin</span><span id="topupRingkasFee" style="color:#0f2942;font-weight:700;"></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;"><span>USDT diterima</span><span id="topupRingkasUsdt" style="color:#16a34a;font-weight:700;"></span></div>
       </div>
 
-      <div id="topupStatusMenunggu" style="font-size:10px;color:#64748b;margin-bottom:14px;">
+      <div id="topupStatusMenunggu" style="font-size:10px;color:#64748b;margin-bottom:12px;line-height:1.6;text-align:center;">
         ⏳ Segera transfer sebelum waktu habis — begitu pembayaran diterima, USDT otomatis masuk ke wallet.<br>
         (Waktu hitung mundur berjalan <span id="topupCountdown" style="color:#0f2942;font-weight:700;">00:30:00</span>)
       </div>
 
-      <button onclick="topupBatalkanPermintaan()" id="topupBtnBatal"
-        style="width:100%;padding:10px;background:transparent;border:0.5px solid #e5e7eb;color:#0f2942;border-radius:10px;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-bottom:8px;">
-        ❌ BATALKAN PERMINTAAN
-      </button>
+      <button onclick="topupBatalkanPermintaan()" id="topupBtnBatal" style="width:100%;padding:10px;background:#fff;border:0.5px solid #e5e7eb;color:#64748b;border-radius:10px;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;cursor:pointer;margin-bottom:6px;">Batalkan Permintaan</button>
 
-      <button onclick="topupCloseModal()" style="width:100%;padding:11px;background:transparent;border:0.5px solid #f1f5f9;border-radius:10px;color:#94a3b8;font-size:10px;font-weight:700;letter-spacing:0.5px;cursor:pointer;">
-        TUTUP (tetap diproses di belakang layar)
-      </button>
+      <button onclick="topupCloseModal()" style="width:100%;padding:10px;background:#fff;border:0.5px solid #f1f5f9;border-radius:10px;color:#94a3b8;font-size:10px;font-weight:700;cursor:pointer;">Tutup (tetap diproses)</button>
     </div>
 
     <!-- STEP 3: sukses -->
     <div id="topupStepSukses" style="display:none;text-align:center;">
       <div style="font-size:40px;margin-bottom:10px;">✅</div>
-      <div style="font-size:12px;font-weight:900;color:#16a34a;margin-bottom:10px;">USDT SUDAH MASUK!</div>
+      <div style="font-size:12px;font-weight:800;color:#16a34a;margin-bottom:8px;">USDT Sudah Masuk!</div>
       <div id="topupSuksesDetail" style="font-size:12px;color:#94a3b8;margin-bottom:18px;"></div>
-      <button onclick="topupCloseModal();location.reload();" style="width:100%;padding:12px;background:#0f2942;border:none;border-radius:10px;color:#000;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
-        OKE, LIHAT SALDO
-      </button>
+      <button onclick="topupCloseModal();location.reload();" style="width:100%;padding:12px;background:#3b82f6;border:none;border-radius:10px;color:#fff;font-family:'Manrope',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Oke, Lihat Saldo</button>
     </div>
 
   </div>
@@ -3573,8 +3558,8 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 <!-- NOTICE: KONFIRMASI BATALKAN PERMINTAAN (custom, ganti confirm() native) -->
 <div id="topupKonfirmBatalOverlay" onclick="if(event.target===this)document.getElementById('topupKonfirmBatalOverlay').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#0d0b10;border:1px solid var(--red);border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
-    <div style="font-size:12px;color:#0f2942;line-height:1.6;margin-bottom:20px;">Batalkan permintaan top up ini? Kamu bisa buat permintaan baru setelahnya.</div>
+  <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
+    <div style="font-size:10px;color:#64748b;line-height:1.6;margin-bottom:16px;">Batalkan permintaan top up ini? Kamu bisa buat permintaan baru setelahnya.</div>
     <div style="display:flex;gap:8px;">
       <button onclick="document.getElementById('topupKonfirmBatalOverlay').style.display='none'"
         style="flex:1;padding:11px;background:transparent;border:0.5px solid #f1f5f9;border-radius:10px;color:#94a3b8;font-size:10px;font-weight:700;cursor:pointer;">BATAL</button>
@@ -3587,7 +3572,7 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 <!-- NOTICE: KONFIRMASI HAPUS PERMANEN (admin, expired list) -->
 <div id="topupKonfirmHapusOverlay" onclick="if(event.target===this)document.getElementById('topupKonfirmHapusOverlay').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#0d0b10;border:1px solid var(--red);border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
+  <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
     <div style="font-size:12px;color:#0f2942;line-height:1.6;margin-bottom:8px;">Hapus permanen permintaan ini?</div>
     <div style="font-size:10px;color:#64748b;line-height:1.5;margin-bottom:20px;">Pastikan sudah dicek mutasi bank dan yakin user memang tidak pernah transfer. Tindakan ini tidak bisa dibatalkan.</div>
     <div style="display:flex;gap:8px;">
@@ -3602,21 +3587,18 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 <!-- NOTICE: FITUR TOP UP BELUM DIBUKA -->
 <div id="topupBelumBukaOverlay" onclick="if(event.target===this)document.getElementById('topupBelumBukaOverlay').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#0d0b10;border:0.5px solid #e5e7eb;border-radius:18px;padding:26px 20px;width:100%;max-width:300px;text-align:center;">
+  <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
     <div style="font-size:40px;margin-bottom:12px;">⏳</div>
     <div style="font-family:'Manrope',sans-serif;font-size:12px;font-weight:900;color:#0f2942;letter-spacing:1px;margin-bottom:10px;">TOP UP BELUM DIBUKA</div>
     <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:18px;">Fitur ini akan segera dibuka dalam beberapa jam ke depan. Pantau terus ya!</div>
-    <button onclick="document.getElementById('topupBelumBukaOverlay').style.display='none'"
-      style="width:100%;padding:11px;background:#0f2942;border:none;border-radius:10px;color:#000;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
-      MENGERTI
-    </button>
+    <button onclick="document.getElementById('topupBelumBukaOverlay').style.display='none'" style="width:100%;padding:11px;background:#3b82f6;border:none;border-radius:10px;color:#fff;font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;cursor:pointer;">Mengerti</button>
   </div>
 </div>
 
 <!-- NOTICE: TOP UP USDT DIKUNCI TOTAL (akses dari tombol BELI CRYPTO) -->
 <div id="topupLockedOverlay" onclick="if(event.target===this)document.getElementById('topupLockedOverlay').style.display='none'"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100000;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#0d0b10;border:0.5px solid #e5e7eb;border-radius:18px;padding:26px 20px;width:100%;max-width:300px;text-align:center;">
+  <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:18px;padding:24px 20px;width:100%;max-width:300px;text-align:center;">
     <div style="font-size:40px;margin-bottom:12px;">⚙️</div>
     <div style="font-family:'Manrope',sans-serif;font-size:12px;font-weight:900;color:#0f2942;letter-spacing:1px;margin-bottom:10px;">PENYESUAIAN SISTEM SEDANG BERLANGSUNG</div>
     <div style="font-size:12px;color:#94a3b8;line-height:1.6;margin-bottom:18px;">Fitur Top Up USDT untuk sementara tidak tersedia seiring proses penyempurnaan yang sedang kami lakukan di balik layar. Kami akan mengumumkan kembali begitu layanan ini siap digunakan. Terima kasih.</div>
