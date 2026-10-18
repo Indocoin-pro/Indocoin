@@ -2447,9 +2447,22 @@ async function swapLoadTokens() {
     const fromList=[], allList=[];
     const bnbRaw=await provider.getBalance(userAddress);
     const bnbBal=parseFloat(ethers.formatEther(bnbRaw)).toFixed(4);
-    const bnbTk={address:'BNB',symbol:'BNB',name:'BNB',decimals:18,balFmt:bnbBal};
+    const bnbTk={address:'BNB',symbol:'BNB',name:'BNB Smart Chain',decimals:18,balFmt:bnbBal};
     if(parseFloat(bnbBal)>0) fromList.push(bnbTk);
     allList.push(bnbTk);
+    // Token populer BSC (selalu muncul di bawah token member)
+    const popularTokens=[
+      {address:'0x55d398326f99059fF775485246999027B3197955',symbol:'USDT',name:'Tether USD (BSC)',decimals:18,balFmt:'0'},
+      {address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',symbol:'BUSD',name:'Binance USD',decimals:18,balFmt:'0'},
+      {address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',symbol:'USDC',name:'USD Coin',decimals:18,balFmt:'0'},
+      {address:'0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',symbol:'BTCB',name:'Bitcoin BEP-20',decimals:18,balFmt:'0'},
+      {address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8',symbol:'ETH',name:'Ethereum BEP-20',decimals:18,balFmt:'0'},
+    ];
+    // Tambah token populer yang belum ada di allList
+    for(const pt of popularTokens){
+      const exists=allList.some(t=>t.address.toLowerCase()===pt.address.toLowerCase());
+      if(!exists) allList.push(pt);
+    }
     const res=await fetch(`${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
       {headers:{'X-API-Key':MORALIS_KEY}});
     const data=await res.json();
@@ -3714,14 +3727,14 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
 </div>
 
 <!-- Token Picker Modal (dipindah ke luar card) -->
-<div id="swapPickerOverlay" onclick="if(event.target===this)swapClosePicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);">
+<div id="swapPickerOverlay" onclick="if(event.target===this)swapClosePicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center;">
   <div style="background:#ffffff;border:0.5px solid #e5e7eb;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:75vh;display:flex;flex-direction:column;animation:slideUp 0.25s ease;">
     <div style="padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid #f1f5f9;">
       <span style="font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;color:#0f2942;letter-spacing:2px;">PILIH TOKEN</span>
       <button onclick="swapClosePicker()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1;">×</button>
     </div>
     <div style="padding:10px 18px;border-bottom:0.5px solid #f1f5f9;">
-      <input id="swapPickerSearch" oninput="swapFilterTokens(this.value)" placeholder="Cari nama atau address token..." style="width:100%;background:rgba(255,255,255,0.05);border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-family:'Manrope',sans-serif;font-size:10px;color:#0f2942;outline:none;">
+      <input id="swapPickerSearch" oninput="swapFilterTokens(this.value)" placeholder="Cari nama atau address token..." style="width:100%;background:#f8fafc;border:0.5px solid #e5e7eb;border-radius:8px;padding:9px 12px;font-family:'Manrope',sans-serif;font-size:10px;color:#0f2942;outline:none;">
     </div>
     <div id="swapPickerList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
   </div>
