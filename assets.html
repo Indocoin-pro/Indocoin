@@ -3513,6 +3513,21 @@ setInterval(() => { if(userAddress) loadSniperVaultInfo(); }, 30000);
       <input id="topupInputNominal" type="number" placeholder="Contoh: 100.000"
         style="width:100%;padding:12px 14px;background:#f8fafc;border:0.5px solid #f1f5f9;border-radius:10px;color:#0f2942;font-family:'Manrope',sans-serif;font-size:12px;margin-bottom:10px;">
       <div id="topupFormError" style="color:#ef4444;font-size:10px;margin-bottom:10px;display:none;"></div>
+      <!-- Estimasi fee -->
+      <div id="topupFeeEstBox" style="display:none;background:#f8fafc;border:0.5px solid #f1f5f9;border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:6px;">
+          <span>Nominal</span><span id="topupEstNominal" style="color:#0f2942;font-weight:700;"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:6px;">
+          <span>Biaya admin (1%)</span><span id="topupEstFee" style="color:#0f2942;font-weight:700;"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-bottom:6px;">
+          <span>USDT diterima (est.)</span><span id="topupEstUsdt" style="color:#16a34a;font-weight:700;"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;border-top:0.5px solid #e5e7eb;padding-top:6px;">
+          <span style="color:#0f2942;font-weight:700;">Total transfer</span><span id="topupEstTotal" style="color:#3b82f6;font-weight:800;"></span>
+        </div>
+      </div>
       <button id="topupBtnBuat" onclick="topupBuatPermintaan()"
         style="width:100%;padding:12px;background:#3b82f6;border:none;border-radius:10px;color:#fff;font-family:'Manrope',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Buat Permintaan</button>
     </div>
@@ -3817,6 +3832,32 @@ async function topupCekRequestAktif(){
   }catch(err){
     console.warn('Gagal cek permintaan aktif:', err);
   }
+}
+
+function topupFormatInput(el) {
+  // Hapus semua non-digit
+  const raw = el.value.replace(/\D/g, '');
+  const num = parseInt(raw || '0', 10);
+  // Format dengan titik
+  el.value = raw ? num.toLocaleString('id-ID') : '';
+  // Update hidden input
+  document.getElementById('topupInputNominal').value = raw;
+  // Update estimasi fee
+  topupUpdateEstimasi(num);
+}
+
+function topupUpdateEstimasi(nominal) {
+  const box = document.getElementById('topupFeeEstBox');
+  if (!nominal || nominal < 50000) { box.style.display = 'none'; return; }
+  const fee = Math.round(nominal * 0.01);
+  // Estimasi kurs dari API (pakai 16350 sebagai default)
+  const kurs = window._topupKurs || 16350;
+  const usdt = ((nominal) / kurs).toFixed(2);
+  document.getElementById('topupEstNominal').textContent = topupFormatRupiah(nominal);
+  document.getElementById('topupEstFee').textContent = topupFormatRupiah(fee);
+  document.getElementById('topupEstUsdt').textContent = '≈ $' + usdt;
+  document.getElementById('topupEstTotal').textContent = topupFormatRupiah(nominal + fee) + ' + kode unik';
+  box.style.display = 'block';
 }
 
 function topupFormatRupiah(n){
