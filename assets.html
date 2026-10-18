@@ -2450,19 +2450,27 @@ async function swapLoadTokens() {
     const bnbTk={address:'BNB',symbol:'BNB',name:'BNB Smart Chain',decimals:18,balFmt:bnbBal};
     if(parseFloat(bnbBal)>0) fromList.push(bnbTk);
     allList.push(bnbTk);
-    // Token populer BSC (selalu muncul di bawah token member)
+    // Token populer BSC — fetch balance langsung dari contract
     const popularTokens=[
-      {address:'0x55d398326f99059fF775485246999027B3197955',symbol:'USDT',name:'Tether USD (BSC)',decimals:18,balFmt:'0'},
-      {address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',symbol:'BUSD',name:'Binance USD',decimals:18,balFmt:'0'},
-      {address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',symbol:'USDC',name:'USD Coin',decimals:18,balFmt:'0'},
-      {address:'0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',symbol:'BTCB',name:'Bitcoin BEP-20',decimals:18,balFmt:'0'},
-      {address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8',symbol:'ETH',name:'Ethereum BEP-20',decimals:18,balFmt:'0'},
+      {address:'0x55d398326f99059fF775485246999027B3197955',symbol:'USDT',name:'Tether USD',decimals:18},
+      {address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',symbol:'BUSD',name:'Binance USD',decimals:18},
+      {address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',symbol:'USDC',name:'USD Coin',decimals:18},
+      {address:'0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',symbol:'BTCB',name:'Bitcoin BEP-20',decimals:18},
+      {address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8',symbol:'ETH',name:'Ethereum BEP-20',decimals:18},
     ];
-    // Tambah token populer yang belum ada di allList
-    for(const pt of popularTokens){
+    const balABI=['function balanceOf(address) view returns (uint256)'];
+    await Promise.all(popularTokens.map(async pt=>{
       const exists=allList.some(t=>t.address.toLowerCase()===pt.address.toLowerCase());
-      if(!exists) allList.push(pt);
-    }
+      try{
+        const c=new ethers.Contract(pt.address,balABI,provider);
+        const raw=await c.balanceOf(userAddress);
+        const bal=parseFloat(ethers.formatUnits(raw,pt.decimals));
+        const item={...pt,balFmt:bal>0?bal.toFixed(4):'0'};
+        if(bal>0&&!exists) fromList.push(item);
+        if(!exists) allList.push(item);
+        else{const idx=allList.findIndex(t=>t.address.toLowerCase()===pt.address.toLowerCase());if(idx>-1)allList[idx].balFmt=bal>0?bal.toFixed(4):'0';}
+      }catch{if(!exists)allList.push({...pt,balFmt:'0'});}
+    }));
     const res=await fetch(`${MORALIS_API}/${userAddress}/erc20?chain=${CHAIN_ID}`,
       {headers:{'X-API-Key':MORALIS_KEY}});
     const data=await res.json();
@@ -2479,7 +2487,7 @@ async function swapLoadTokens() {
         if(!isSpamToken(item)) allList.push(item);
       }
     }
-    swapFromTokens=fromList; swapAllTokens=allList; swapTokens=fromList;
+    swapFromTokens=allList; swapAllTokens=allList; swapTokens=allList;
     if(!swapFromToken){swapFromToken=fromList.find(t=>t.symbol==='BNB')||fromList[0];swapSetTokenUI('from');}
     if(!swapToToken){swapToToken=fromList.find(t=>t.symbol==='USDT')||fromList[1];swapSetTokenUI('to');}
     swapUpdateBals();
