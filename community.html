@@ -413,6 +413,14 @@ html, body {
   gap: 8px;
 }
 #avatarInput{display:none;}
+#cropModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:space-between;padding:20px 16px;}
+#cropModal.show{display:flex;}
+#cropContainer{width:100%;max-width:360px;max-height:60vh;overflow:hidden;}
+#cropImg{max-width:100%;display:block;}
+#cropActions{display:flex;gap:12px;width:100%;max-width:360px;margin-top:16px;}
+#cropConfirm{flex:1;padding:12px;background:#3b82f6;border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+#cropCancel{flex:1;padding:12px;background:rgba(255,255,255,0.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+#cropTitle{color:#fff;font-size:10px;opacity:0.6;margin-bottom:8px;}
 #photoPopup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
 #photoPopup.show{display:flex;}
 #photoPopupImg{width:80vw;height:80vw;max-width:340px;max-height:340px;border-radius:50%;object-fit:cover;border:3px solid #fff;}
@@ -420,6 +428,8 @@ html, body {
 #photoPopupClose{color:rgba(255,255,255,0.5);font-size:10px;cursor:pointer;}
 </style>
 <script src="member-auth.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
 <body>
 
@@ -709,25 +719,94 @@ window._loadVisibleAvatars=async function(){
   });
 };
 
-window.addEventListener('load',()=>{
-  const inp=document.getElementById('avatarInput');
-  if(!inp) return;
-  inp.addEventListener('change',async(e)=>{
-    const file=e.target.files[0];
-    if(!file||!currentUser) return;
+let _cropper = null;
+
+window.closeCrop = function() {
+  if (_cropper) { _cropper.destroy(); _cropper = null; }
+  document.getElementById('cropModal').classList.remove('show');
+  document.getElementById('avatarInput').value = '';
+};
+
+window.confirmCrop = async function() {
+  if (!_cropper) return;
+  document.getElementById('cropConfirm').textContent = 'Mengupload...';
+  document.getElementById('cropConfirm').disabled = true;
+  
+  // Ambil canvas hasil crop
+  const canvas = _cropper.getCroppedCanvas({ width: 400, height: 400 });
+  
+  // Convert canvas ke blob
+  canvas.toBlob(async (blob) => {
+    window.closeCrop();
     showToast('Mengupload foto...');
-    const url=await uploadFotoProfil(file);
-    if(url){
-      await set(ref(db,'profiles/'+currentUser.uid+'/photoURL'),url);
-      window._photoCache[currentUser.uid]=url;
-      const img=document.getElementById('navAvatarImg');
-      img.src=url; img.style.display='block';
-      document.getElementById('navAvatarInit').style.display='none';
-      window._loadVisibleAvatars&&window._loadVisibleAvatars();
-      showToast('Foto profil berhasil diupdate!');
-    }else{
-      showToast('Upload gagal, coba lagi.');
+    
+    // Upload ke Cloudinary
+    const fd = new FormData();
+    fd.append('file', blob, 'profile.jpg');
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    fd.append('folder', 'indocoin_profiles');
+    
+    try {
+      const r = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', { method:'POST', body:fd });
+      const d = await r.json();
+      const url = d.secure_url || null;
+      
+      if (url && currentUser) {
+        await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
+        window._photoCache[currentUser.uid] = url;
+        
+        // Update nav avatar
+        const navImg = document.getElementById('navAvatarImg');
+        navImg.onload = () => { navImg.style.display = 'block'; document.getElementById('navAvatarInit').style.display = 'none'; };
+        navImg.src = url;
+        
+        window._loadVisibleAvatars && window._loadVisibleAvatars();
+        showToast('Foto profil berhasil diupdate!');
+      } else {
+        showToast('Upload gagal, coba lagi.');
+      }
+    } catch(e) {
+      showToast('Upload gagal: ' + e.message);
     }
+    
+    document.getElementById('cropConfirm').textContent = 'Simpan Foto';
+    document.getElementById('cropConfirm').disabled = false;
+  }, 'image/jpeg', 0.9);
+};
+
+window.addEventListener('load', () => {
+  const inp = document.getElementById('avatarInput');
+  if (!inp) return;
+  inp.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    
+    // Buka crop modal
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const cropImg = document.getElementById('cropImg');
+      cropImg.src = ev.target.result;
+      document.getElementById('cropModal').classList.add('show');
+      
+      // Init cropper setelah gambar load
+      cropImg.onload = () => {
+        if (_cropper) { _cropper.destroy(); _cropper = null; }
+        _cropper = new Cropper(cropImg, {
+          aspectRatio: 1,
+          viewMode: 1,
+          dragMode: 'move',
+          autoCropArea: 0.8,
+          restore: false,
+          guides: false,
+          center: true,
+          highlight: false,
+          cropBoxMovable: false,
+          cropBoxResizable: false,
+          toggleDragModeOnDblclick: false,
+        });
+      };
+    };
+    reader.readAsDataURL(file);
   });
 });
 
@@ -1358,6 +1437,14 @@ window.updateCharCount = function() {
   <script src="airdrop-widget.js"></script>
   <!-- ══════════════════════════════════ -->
 <input type="file" id="avatarInput" accept="image/*">
+<div id="cropModal">
+  <div id="cropTitle">Sesuaikan foto profil</div>
+  <div id="cropContainer"><img id="cropImg" src=""></div>
+  <div id="cropActions">
+    <button id="cropCancel" onclick="window.closeCrop()">Batal</button>
+    <button id="cropConfirm" onclick="window.confirmCrop()">Simpan Foto</button>
+  </div>
+</div>
 <div id="photoPopup" onclick="closePhotoPopup()">
   <img id="photoPopupImg" src="" alt="">
   <div id="photoPopupName"></div>
