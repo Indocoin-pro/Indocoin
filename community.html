@@ -432,9 +432,12 @@ html, body {
   <!-- TOP NAV -->
   <div class="topnav">
     <div class="logo">INDOCOIN</div>
-    <div class="nav-right">
+    <div class="nav-right" style="display:flex;align-items:center;gap:8px;">
+      <div id="navAvatar" onclick="bukaUploadFoto()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;">
+        <img id="navAvatarImg" src="" alt="" style="display:none;width:32px;height:32px;object-fit:cover;border-radius:50%;">
+        <span id="navAvatarInit"></span>
+      </div>
       <span id="navUser"></span>
-      <button class="btn-signout" onclick="doSignOut()">KELUAR</button>
     </div>
   </div>
 
@@ -613,6 +616,17 @@ async function initMemberGate() {
   isAdmin = member.wallet === DEV_WALLET;
 
   document.getElementById('navUser').textContent = currentName + (isAdmin ? ' 👑' : '');
+  // Set inisial avatar nav
+  const initials = currentName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('navAvatarInit').textContent = initials;
+  // Load foto kalau ada
+  getFotoUser(anonUid).then(url => {
+    if (url) {
+      document.getElementById('navAvatarImg').src = url;
+      document.getElementById('navAvatarImg').style.display = 'block';
+      document.getElementById('navAvatarInit').style.display = 'none';
+    }
+  });
   const mc = document.getElementById('mainContent');
   mc.style.display = 'flex';
   mc.style.flexDirection = 'column';
@@ -1299,8 +1313,18 @@ document.getElementById('avatarInput').addEventListener('change', async (e) => {
     await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
     window._myPhotoURL = url;
     window._photoCache[currentUser.uid] = url;
-    // Update semua avatar sendiri di halaman
-    document.querySelectorAll('[data-uid="' + currentUser.uid + '"] img.avatar-img').forEach(el => el.src = url);
+    // Update nav avatar
+    document.getElementById('navAvatarImg').src = url;
+    document.getElementById('navAvatarImg').style.display = 'block';
+    document.getElementById('navAvatarInit').style.display = 'none';
+    // Update semua avatar sendiri di chat
+    document.querySelectorAll('.avatar-img').forEach(el => {
+      if (el.id === 'av-' + currentUser.uid) {
+        el.src = url;
+        el.style.display = 'block';
+        if (el.nextSibling) el.nextSibling.style.display = 'none';
+      }
+    });
     showToast('Foto profil berhasil diupdate!');
   } else {
     showToast('Upload gagal, coba lagi.');
