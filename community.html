@@ -433,11 +433,11 @@ html, body {
   <div class="topnav">
     <div class="logo">INDOCOIN</div>
     <div class="nav-right" style="display:flex;align-items:center;gap:8px;">
+      <span id="navUser"></span>
       <div id="navAvatar" onclick="bukaUploadFoto()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;">
         <img id="navAvatarImg" src="" alt="" style="display:none;width:32px;height:32px;object-fit:cover;border-radius:50%;">
         <span id="navAvatarInit"></span>
       </div>
-      <span id="navUser"></span>
     </div>
   </div>
 
@@ -1304,31 +1304,33 @@ async function uploadFotoProfil(file) {
   } catch(e) { return null; }
 }
 
-document.getElementById('avatarInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  showToast('Mengupload foto...');
-  const url = await uploadFotoProfil(file);
-  if (url) {
-    await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
-    window._myPhotoURL = url;
-    window._photoCache[currentUser.uid] = url;
-    // Update nav avatar
-    document.getElementById('navAvatarImg').src = url;
-    document.getElementById('navAvatarImg').style.display = 'block';
-    document.getElementById('navAvatarInit').style.display = 'none';
-    // Update semua avatar sendiri di chat
-    document.querySelectorAll('.avatar-img').forEach(el => {
-      if (el.id === 'av-' + currentUser.uid) {
-        el.src = url;
-        el.style.display = 'block';
-        if (el.nextSibling) el.nextSibling.style.display = 'none';
-      }
-    });
-    showToast('Foto profil berhasil diupdate!');
-  } else {
-    showToast('Upload gagal, coba lagi.');
-  }
+window.addEventListener('load', () => {
+  const inp = document.getElementById('avatarInput');
+  if (!inp) return;
+  inp.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Mengupload foto...');
+    const url = await uploadFotoProfil(file);
+    if (url) {
+      await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
+      window._myPhotoURL = url;
+      window._photoCache[currentUser.uid] = url;
+      document.getElementById('navAvatarImg').src = url;
+      document.getElementById('navAvatarImg').style.display = 'block';
+      document.getElementById('navAvatarInit').style.display = 'none';
+      document.querySelectorAll('.avatar-img').forEach(el => {
+        if (el.id === 'av-' + currentUser.uid) {
+          el.src = url;
+          el.style.display = 'block';
+          if (el.nextSibling) el.nextSibling.style.display = 'none';
+        }
+      });
+      showToast('Foto profil berhasil diupdate!');
+    } else {
+      showToast('Upload gagal, coba lagi.');
+    }
+  });
 });
 
 async function getFotoUser(uid) {
