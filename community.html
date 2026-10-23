@@ -412,16 +412,12 @@ html, body {
   font-size: 14px;
   gap: 8px;
 }
-
-/* ===== FOTO PROFIL ===== */
-.avatar-img { width:38px; height:38px; border-radius:50%; object-fit:cover; border:2px solid var(--blue3); cursor:pointer; }
-.avatar-circle { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; cursor:pointer; }
-#avatarInput { display:none; }
-#photoPopup { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
-#photoPopup.show { display:flex; }
-#photoPopupImg { width:80vw; height:80vw; max-width:340px; max-height:340px; border-radius:50%; object-fit:cover; border:3px solid #fff; }
-#photoPopupName { color:#fff; font-size:12px; font-weight:700; }
-#photoPopupClose { color:rgba(255,255,255,0.5); font-size:10px; cursor:pointer; }
+#avatarInput{display:none;}
+#photoPopup{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#photoPopup.show{display:flex;}
+#photoPopupImg{width:80vw;height:80vw;max-width:340px;max-height:340px;border-radius:50%;object-fit:cover;border:3px solid #fff;}
+#photoPopupName{color:#fff;font-size:12px;font-weight:700;}
+#photoPopupClose{color:rgba(255,255,255,0.5);font-size:10px;cursor:pointer;}
 </style>
 <script src="member-auth.js"></script>
 </head>
@@ -432,10 +428,10 @@ html, body {
   <!-- TOP NAV -->
   <div class="topnav">
     <div class="logo">INDOCOIN</div>
-    <div class="nav-right" style="display:flex;align-items:center;gap:8px;">
+    <div class="nav-right">
       <span id="navUser"></span>
-      <div id="navAvatar" onclick="bukaUploadFoto()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;">
-        <img id="navAvatarImg" src="" alt="" style="display:none;width:32px;height:32px;object-fit:cover;border-radius:50%;">
+      <div id="navAvatar" onclick="bukaUploadFoto()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;">
+        <img id="navAvatarImg" src="" alt="" style="display:none;width:32px;height:32px;object-fit:cover;border-radius:50%;position:absolute;top:0;left:0;">
         <span id="navAvatarInit"></span>
       </div>
     </div>
@@ -616,17 +612,16 @@ async function initMemberGate() {
   isAdmin = member.wallet === DEV_WALLET;
 
   document.getElementById('navUser').textContent = currentName + (isAdmin ? ' 👑' : '');
-  // Set inisial avatar nav
-  const initials = currentName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('navAvatarInit').textContent = initials;
-  // Load foto kalau ada
-  getFotoUser(anonUid).then(url => {
-    if (url) {
-      document.getElementById('navAvatarImg').src = url;
-      document.getElementById('navAvatarImg').style.display = 'block';
+  try {
+    const init2 = currentName.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+    document.getElementById('navAvatarInit').textContent = init2;
+    getFotoUser(currentUser.uid).then(url => {
+      if(!url) return;
+      const img = document.getElementById('navAvatarImg');
+      img.src = url; img.style.display = 'block';
       document.getElementById('navAvatarInit').style.display = 'none';
-    }
-  });
+    });
+  } catch(e2) {}
   const mc = document.getElementById('mainContent');
   mc.style.display = 'flex';
   mc.style.flexDirection = 'column';
@@ -638,7 +633,6 @@ async function initMemberGate() {
 
   updateOnline();
   startChat();
-  loadMyPhoto();
 }
 window.addEventListener('load', initMemberGate);
 
@@ -890,10 +884,7 @@ function appendMsg(msg) {
     row.className = 'msg-row' + (isMe ? ' me' : '');
     row.id = 'msg-' + msg.id;
     row.innerHTML = `
-      <div class="msg-avatar" style="cursor:pointer;" onclick="window._handleAvatarClick('${msg.uid}','${esc(msg.name||'')}')">
-        <img class="avatar-img" id="av-${msg.uid}" src="" alt="${init}" style="display:none;" onerror="this.style.display='none';this.nextSibling.style.display='flex'">
-        <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--bg3);color:var(--text1);">${init}</div>
-      </div>
+      <div class="msg-avatar">${init}</div>
       <div class="msg-body">
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
         <div style="display:flex;align-items:flex-start;gap:3px;">
@@ -1267,135 +1258,103 @@ window.updateCharCount = function() {
 
   <!-- ═══ INDOCOIN AIRDROP WIDGET ═══ -->
   <script src="airdrop-questions.js"></script>
-  <script src="airdrop-widget.js">
-// ===== FOTO PROFIL CLOUDINARY =====
-const CLOUDINARY_CLOUD = 's96s508n';
-const CLOUDINARY_PRESET = 'indocoin_profile';
-window._myPhotoURL = null;
-window._photoCache = {};
-
-function kompresGambar(file, maxSize) {
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      let w = img.width, h = img.height;
-      if (w > h) { if (w > maxSize) { h = h * maxSize / w; w = maxSize; } }
-      else { if (h > maxSize) { w = w * maxSize / h; h = maxSize; } }
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      c.toBlob(blob => { URL.revokeObjectURL(url); resolve(blob); }, 'image/jpeg', 0.82);
-    };
-    img.src = url;
-  });
-}
-
-async function uploadFotoProfil(file) {
-  const compressed = await kompresGambar(file, 400);
-  const fd = new FormData();
-  fd.append('file', compressed);
-  fd.append('upload_preset', CLOUDINARY_PRESET);
-  fd.append('folder', 'indocoin_profiles');
-  try {
-    const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', { method:'POST', body:fd });
-    const d = await res.json();
-    return d.secure_url || null;
-  } catch(e) { return null; }
-}
-
-window.addEventListener('load', () => {
-  const inp = document.getElementById('avatarInput');
-  if (!inp) return;
-  inp.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    showToast('Mengupload foto...');
-    const url = await uploadFotoProfil(file);
-    if (url) {
-      await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
-      window._myPhotoURL = url;
-      window._photoCache[currentUser.uid] = url;
-      document.getElementById('navAvatarImg').src = url;
-      document.getElementById('navAvatarImg').style.display = 'block';
-      document.getElementById('navAvatarInit').style.display = 'none';
-      document.querySelectorAll('.avatar-img').forEach(el => {
-        if (el.id === 'av-' + currentUser.uid) {
-          el.src = url;
-          el.style.display = 'block';
-          if (el.nextSibling) el.nextSibling.style.display = 'none';
-        }
-      });
-      showToast('Foto profil berhasil diupdate!');
-    } else {
-      showToast('Upload gagal, coba lagi.');
-    }
-  });
-});
-
-async function getFotoUser(uid) {
-  if (window._photoCache[uid] !== undefined) return window._photoCache[uid];
-  try {
-    const snap = await get(ref(db, 'profiles/' + uid + '/photoURL'));
-    const url = snap.exists() ? snap.val() : null;
-    window._photoCache[uid] = url;
-    return url;
-  } catch { window._photoCache[uid] = null; return null; }
-}
-
-async function loadMyPhoto() {
-  if (!currentUser) return;
-  const url = await getFotoUser(currentUser.uid);
-  if (url) window._myPhotoURL = url;
-}
-
-function bukaUploadFoto() { document.getElementById('avatarInput').click(); }
-
-// Klik avatar - kalau milik sendiri → upload, kalau orang lain → lihat foto
-window._handleAvatarClick = async function(uid, nama) {
-  if (uid === currentUser?.uid) {
-    bukaUploadFoto();
-    return;
-  }
-  const url = await getFotoUser(uid);
-  if (url) lihatFotoProfil(url, nama);
-};
-
-// Load foto semua avatar yang tampil di layar
-window._loadVisibleAvatars = async function() {
-  const imgs = document.querySelectorAll('.avatar-img');
-  for (const img of imgs) {
-    const id = img.id.replace('av-', '');
-    if (!id) continue;
-    const url = await getFotoUser(id);
-    if (url) {
-      img.src = url;
-      img.style.display = 'block';
-      img.nextSibling && (img.nextSibling.style.display = 'none');
-    }
-  }
-};
-
-function lihatFotoProfil(url, nama) {
-  if (!url) return;
-  document.getElementById('photoPopupImg').src = url;
-  document.getElementById('photoPopupName').textContent = nama || '';
-  document.getElementById('photoPopup').classList.add('show');
-}
-
-function closePhotoPopup() { document.getElementById('photoPopup').classList.remove('show'); }
-
-</script>
+  <script src="airdrop-widget.js"></script>
   <!-- ══════════════════════════════════ -->
-<!-- Input file untuk upload foto -->
 <input type="file" id="avatarInput" accept="image/*">
-
-<!-- Popup foto profil -->
 <div id="photoPopup" onclick="closePhotoPopup()">
   <img id="photoPopupImg" src="" alt="">
   <div id="photoPopupName"></div>
   <div id="photoPopupClose">Ketuk untuk tutup</div>
 </div>
+<script>
+const CLOUDINARY_CLOUD='s96s508n',CLOUDINARY_PRESET='indocoin_profile';
+window._photoCache={};
 
+function kompresGambar(file,maxSize){
+  return new Promise(resolve=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      let w=img.width,h=img.height;
+      if(w>h){if(w>maxSize){h=h*maxSize/w;w=maxSize;}}
+      else{if(h>maxSize){w=w*maxSize/h;h=maxSize;}}
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(b=>{URL.revokeObjectURL(url);resolve(b);},'image/jpeg',0.82);
+    };
+    img.src=url;
+  });
+}
+
+async function uploadFotoProfil(file){
+  const blob=await kompresGambar(file,400);
+  const fd=new FormData();
+  fd.append('file',blob);
+  fd.append('upload_preset',CLOUDINARY_PRESET);
+  fd.append('folder','indocoin_profiles');
+  try{
+    const r=await fetch('https://api.cloudinary.com/v1_1/'+CLOUDINARY_CLOUD+'/image/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    return d.secure_url||null;
+  }catch{return null;}
+}
+
+async function getFotoUser(uid){
+  if(window._photoCache[uid]!==undefined)return window._photoCache[uid];
+  try{
+    const snap=await get(ref(db,'profiles/'+uid+'/photoURL'));
+    const url=snap.exists()?snap.val():null;
+    window._photoCache[uid]=url;
+    return url;
+  }catch{window._photoCache[uid]=null;return null;}
+}
+
+function bukaUploadFoto(){document.getElementById('avatarInput').click();}
+
+function lihatFotoProfil(url,nama){
+  if(!url)return;
+  document.getElementById('photoPopupImg').src=url;
+  document.getElementById('photoPopupName').textContent=nama||'';
+  document.getElementById('photoPopup').classList.add('show');
+}
+
+function closePhotoPopup(){document.getElementById('photoPopup').classList.remove('show');}
+
+window._handleAvatarClick=async function(uid,nama){
+  if(uid===currentUser?.uid){bukaUploadFoto();return;}
+  const url=await getFotoUser(uid);
+  if(url)lihatFotoProfil(url,nama);
+};
+
+window._loadVisibleAvatars=async function(){
+  document.querySelectorAll('[data-av-uid]').forEach(async el=>{
+    const uid=el.getAttribute('data-av-uid');
+    const url=await getFotoUser(uid);
+    if(!url)return;
+    const img=el.querySelector('img.av-photo');
+    const init=el.querySelector('.av-init');
+    if(img){img.src=url;img.style.display='block';}
+    if(init)init.style.display='none';
+  });
+};
+
+document.getElementById('avatarInput').addEventListener('change',async(e)=>{
+  const file=e.target.files[0];
+  if(!file||!currentUser)return;
+  showToast('Mengupload foto...');
+  const url=await uploadFotoProfil(file);
+  if(url){
+    await set(ref(db,'profiles/'+currentUser.uid+'/photoURL'),url);
+    window._photoCache[currentUser.uid]=url;
+    document.getElementById('navAvatarImg').src=url;
+    document.getElementById('navAvatarImg').style.display='block';
+    document.getElementById('navAvatarInit').style.display='none';
+    window._loadVisibleAvatars&&window._loadVisibleAvatars();
+    showToast('Foto profil berhasil diupdate!');
+  }else{
+    showToast('Upload gagal, coba lagi.');
+  }
+});
+</script>
 </body>
 </html>
