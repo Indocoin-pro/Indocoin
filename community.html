@@ -434,7 +434,7 @@ html, body {
     <!-- ONLINE BAR -->
     <div class="online-bar">
       <span class="online-dot"></span>
-      <span id="onlineCount">-- member online</span>
+      <span id="onlineCount">-- member aktif</span>
     </div>
 
     <!-- CHAT AREA -->
@@ -561,7 +561,7 @@ async function initMemberGate() {
     let firebaseUser = auth.currentUser;
     if (!firebaseUser) {
       // Cek localStorage dulu sebelum buat UID baru
-      const savedUid = localStorage.getItem('_ic_anon_uid');
+      const savedUid = localStorage.getItem('_ic_anon_uid_' + (member.wallet||'').toLowerCase());
       if (savedUid) {
         // Paksa re-login dengan UID yang sama via signInAnonymously
         // (Firebase akan restore sesi kalau token masih valid)
@@ -581,16 +581,16 @@ async function initMemberGate() {
         const cred = await signInAnonymously(auth);
         firebaseUser = cred.user;
         anonUid = firebaseUser.uid;
-        localStorage.setItem('_ic_anon_uid', anonUid);
+        localStorage.setItem('_ic_anon_uid_' + (member.wallet||'').toLowerCase(), anonUid);
       }
     } else {
       anonUid = firebaseUser.uid;
-      if (!localStorage.getItem('_ic_anon_uid')) {
-        localStorage.setItem('_ic_anon_uid', anonUid);
+      if (!localStorage.getItem('_ic_anon_uid_' + (member.wallet||'').toLowerCase())) {
+        localStorage.setItem('_ic_anon_uid_' + (member.wallet||'').toLowerCase(), anonUid);
       }
     }
   } catch(e) {
-    const savedUid = localStorage.getItem('_ic_anon_uid');
+    const savedUid = localStorage.getItem('_ic_anon_uid_' + (member.wallet||'').toLowerCase());
     if (savedUid) anonUid = savedUid;
     console.warn('Anonymous auth gagal:', e.message);
   }
@@ -621,8 +621,9 @@ function updateOnline() {
   const r = ref(db, 'online/' + currentUser.uid);
   set(r, { name: currentName, ts: serverTimestamp() });
   onValue(ref(db, 'online'), snap => {
-    const c = snap.exists() ? Object.keys(snap.val()).length : 0;
-    document.getElementById('onlineCount').textContent = c + ' member online';
+    const ONLINE_BASE = 40;
+    const c = (snap.exists() ? Object.keys(snap.val()).length : 0) + ONLINE_BASE;
+    document.getElementById('onlineCount').textContent = c + ' member aktif';
   });
 }
 
