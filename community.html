@@ -1104,8 +1104,7 @@ function appendMsg(msg) {
     row.id = 'msg-' + msg.id;
     row.innerHTML = `
       <div class="msg-avatar" data-av-uid="${msg.uid}" data-av-wallet="${msg.wallet||msg.uid}" onclick="window._handleAvatarClick('${msg.wallet||msg.uid}','${esc(msg.name||'')}')" style="cursor:pointer;position:relative;overflow:hidden;">
-        <img class="av-photo" src="" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:50%;" onerror="this.style.display='none'">
-        <span class="av-init">${init}</span>
+        ${msg.photoURL ? `<img class="av-photo" src="${msg.photoURL}" style="display:block;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:50%;" onerror="this.style.display='none'"><span class="av-init" style="display:none;">${init}</span>` : `<span class="av-init">${init}</span>`}
       </div>
       <div class="msg-body">
         ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
@@ -1223,8 +1222,7 @@ function renderChat(snap) {
     html_parts.push(`
       <div class="msg-row ${isMe?'me':''}" id="msg-${msg.id}">
         <div class="msg-avatar" data-av-uid="${msg.uid}" data-av-wallet="${msg.wallet||msg.uid}" onclick="window._handleAvatarClick('${msg.wallet||msg.uid}','${esc(msg.name||'')}')" style="cursor:pointer;position:relative;overflow:hidden;">
-          <img class="av-photo" src="" style="display:none;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:50%;" onerror="this.style.display='none'">
-          <span class="av-init">${init}</span>
+          ${msg.photoURL ? `<img class="av-photo" src="${msg.photoURL}" style="display:block;width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;border-radius:50%;" onerror="this.style.display='none'"><span class="av-init" style="display:none;">${init}</span>` : `<span class="av-init">${init}</span>`}
         </div>
         <div class="msg-body">
           ${!isMe ? `<div class="msg-name">${esc(msg.name||'User')} ${msg.isAdmin?'<span class="admin-badge">ADMIN</span>':''}</div>` : ''}
@@ -1303,7 +1301,8 @@ window.sendMsg = function() {
     name: currentName,
     text: text,
     ts: Date.now(),
-    isAdmin: isAdmin
+    isAdmin: isAdmin,
+    photoURL: window._myPhotoURL || null
   };
   if (_replyTo) {
     msgData.replyTo = { name: _replyTo.name, text: _replyTo.text };
