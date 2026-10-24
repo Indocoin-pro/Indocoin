@@ -620,6 +620,9 @@ async function initMemberGate() {
   // Pakai wallet address sebagai uid identitas — unik per akun, tidak shared
   const walletUid = member.wallet.toLowerCase();
   currentUser = { uid: walletUid, firebaseUid: anonUid, displayName: member.name || '', email: '', wallet: member.wallet };
+  // Simpan mapping wallet→firebaseUid supaya getFotoUser bisa baca foto
+  window._walletToFirebaseUid = window._walletToFirebaseUid || {};
+  window._walletToFirebaseUid[walletUid] = anonUid;
   currentName = member.name || (member.wallet.slice(0,6) + '...' + member.wallet.slice(-4));
   isAdmin = member.wallet === DEV_WALLET;
 
@@ -683,7 +686,9 @@ async function uploadFotoProfil(file){
 async function getFotoUser(uid){
   if(window._photoCache[uid]!==undefined) return window._photoCache[uid];
   try{
-    const snap=await get(ref(db,'profiles/'+uid+'/photoURL'));
+    // Coba pakai firebaseUid kalau ada mapping
+    const fbUid = (window._walletToFirebaseUid||{})[uid] || uid;
+    const snap=await get(ref(db,'profiles/'+fbUid+'/photoURL'));
     const url=snap.exists()?snap.val():null;
     window._photoCache[uid]=url;
     return url;
@@ -752,7 +757,7 @@ window.confirmCrop = async function() {
       const url = d.secure_url || null;
       
       if (url && currentUser) {
-        await set(ref(db, 'profiles/' + currentUser.uid + '/photoURL'), url);
+        await set(ref(db, 'profiles/' + (currentUser.firebaseUid || currentUser.uid) + '/photoURL'), url);
         window._photoCache[currentUser.uid] = url;
         
         // Update nav avatar
