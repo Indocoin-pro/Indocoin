@@ -413,6 +413,13 @@ html, body {
   gap: 8px;
 }
 #avatarInput{display:none;}
+#opsiProfilPopup{display:none;position:fixed;inset:0;z-index:9998;align-items:flex-start;justify-content:flex-end;padding:56px 12px 0;}
+#opsiProfilPopup.show{display:flex;}
+#opsiProfilBox{background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.18);overflow:hidden;min-width:160px;}
+.opsi-item{padding:14px 18px;font-size:12px;font-weight:600;color:#0f2942;cursor:pointer;border-bottom:0.5px solid #f1f5f9;display:flex;align-items:center;gap:10px;}
+.opsi-item:last-child{border-bottom:none;}
+.opsi-item:active{background:#f8fafc;}
+#opsiProfilOverlay{position:fixed;inset:0;z-index:9997;}
 #cropModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:10000;flex-direction:column;align-items:center;justify-content:space-between;padding:20px 16px;}
 #cropModal.show{display:flex;}
 #cropContainer{width:100%;max-width:360px;max-height:60vh;overflow:hidden;}
@@ -440,7 +447,7 @@ html, body {
     <div class="logo">INDOCOIN</div>
     <div class="nav-right">
       <span id="navUser"></span>
-      <div id="navAvatar" onclick="bukaUploadFoto()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;">
+      <div id="navAvatar" onclick="window.bukaOpsiProfil()" style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;">
         <img id="navAvatarImg" src="" alt="" style="display:none;width:32px;height:32px;object-fit:cover;border-radius:50%;position:absolute;top:0;left:0;">
         <span id="navAvatarInit"></span>
       </div>
@@ -694,6 +701,26 @@ async function getFotoUser(uid){
 }
 
 window.bukaUploadFoto = function(){ document.getElementById('avatarInput').click(); };
+
+window.bukaOpsiProfil = function() {
+  document.getElementById('opsiProfilPopup').classList.add('show');
+  document.getElementById('opsiProfilOverlay').style.display = 'block';
+};
+
+window.tutupOpsiProfil = function() {
+  document.getElementById('opsiProfilPopup').classList.remove('show');
+  document.getElementById('opsiProfilOverlay').style.display = 'none';
+};
+
+window.lihatFotoSendiri = function() {
+  const url = window._myPhotoURL;
+  const nama = currentUser?.displayName || '';
+  if (url) {
+    lihatFotoProfil(url, nama);
+  } else {
+    showToast('Belum ada foto profil');
+  }
+};
 
 function lihatFotoProfil(url,nama){
   if(!url) return;
@@ -1440,6 +1467,13 @@ window.updateCharCount = function() {
   <script src="airdrop-widget.js"></script>
   <!-- ══════════════════════════════════ -->
 <input type="file" id="avatarInput" accept="image/*">
+<div id="opsiProfilOverlay" onclick="window.tutupOpsiProfil()" style="display:none;"></div>
+<div id="opsiProfilPopup">
+  <div id="opsiProfilBox">
+    <div class="opsi-item" onclick="window.tutupOpsiProfil();window.lihatFotoSendiri()">👁 Lihat Foto</div>
+    <div class="opsi-item" onclick="window.tutupOpsiProfil();window.bukaUploadFoto()">📷 Ganti Foto</div>
+  </div>
+</div>
 <div id="cropModal">
   <div id="cropTitle">Sesuaikan foto profil</div>
   <div id="cropContainer"><img id="cropImg" src=""></div>
