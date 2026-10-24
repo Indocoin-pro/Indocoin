@@ -745,9 +745,26 @@ function lihatFotoProfil(url,nama){
 window.closePhotoPopup = function(){ document.getElementById('photoPopup').classList.remove('show'); };
 
 window._handleAvatarClick=async function(uid,nama){
-  if(uid===currentUser?.uid){ bukaUploadFoto(); return; }
-  const url=await getFotoUser(uid);
-  if(url) lihatFotoProfil(url,nama);
+  if(!currentUser) return;
+  const myUid = (currentUser.uid||'').toLowerCase();
+  const myWallet = (currentUser.wallet||'').toLowerCase();
+  const isMe = uid.toLowerCase()===myUid || uid.toLowerCase()===myWallet;
+
+  let url;
+  if(isMe){
+    url = window._myPhotoURL || await getFotoUser(myUid);
+    if(url) window._myPhotoURL = url;
+  } else {
+    url = await getFotoUser(uid.toLowerCase());
+    if(!url) url = await getFotoUser(uid);
+  }
+
+  const namaLabel = isMe ? (currentUser.displayName||'') : (nama||'');
+  if(url){
+    lihatFotoProfil(url, namaLabel);
+  } else {
+    showToast('Belum ada foto profil');
+  }
 };
 
 window._loadVisibleAvatars=async function(){
