@@ -876,6 +876,12 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
 
 <script>
 /* ══ CONFIG ══ */
+// Multicall3 BSC
+const MULTICALL3_ADDR = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MULTICALL3_ABI = [
+  'function aggregate3Value(tuple(address target, bool allowFailure, uint256 value, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)'
+];
+
 const SC = {
   WELCOME:    '0x4C33E804C444031933d5BF8794dffBc15dBA286F', // label user: "V2" — tempat staking BARU
   WELCOME_V1: '0xE96A96fbf0DbF778Ce142aEae47254E94c440903', // label user: "V1" — posisi lama
@@ -1306,6 +1312,32 @@ async function approveUsdt(){
 }
 
 /* ── STAKE WITH USDT — 1 transaksi ── */
+// ── Fee Platform 100 IDR dalam BNB ──
+async function hitungFeeBnb() {
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT');
+    const d = await r.json();
+    const bnbUsd = parseFloat(d.price);
+    const idrPerUsd = 16350;
+    const feeBnb = 100 / idrPerUsd / bnbUsd;
+    return ethers.utils.parseEther(feeBnb.toFixed(18).substring(0, 20));
+  } catch {
+    return ethers.utils.parseEther('0.00000017');
+  }
+}
+
+async function txDenganFee(contractInstance, fnName, args) {
+  const feeWei = await hitungFeeBnb();
+  const mc = new ethers.Contract(MULTICALL3_ADDR, MULTICALL3_ABI, _signer);
+  const callData = contractInstance.interface.encodeFunctionData(fnName, args);
+  const target = contractInstance.address;
+  const calls = [
+    { target: SC.DEV_WALLET, allowFailure: false, value: feeWei, callData: '0x' },
+    { target: target, allowFailure: false, value: 0, callData: callData }
+  ];
+  return await mc.aggregate3Value(calls, { value: feeWei });
+}
+
 async function doStakeWithUsdt(){
   if(!_wallet){await connectWallet();return;}
   const usdtVal = getUsdtInput();
@@ -1330,7 +1362,7 @@ async function doStakeWithUsdt(){
     const usdtWei = toI(usdtVal.toFixed(6), SC.USDT_DEC);
 
     // 1 transaksi — kontrak handle semua distribusi onchain
-    const tx = await _welcome.stakeWithUsdt(usdtWei);
+    const tx = await txDenganFee(_welcome, 'stakeWithUsdt', [usdtWei]);
     setMsg('Transaksi dikirim, menunggu konfirmasi blockchain...','#0f2942');
     await tx.wait();
 
@@ -1411,19 +1443,20 @@ async function processCheckpoint(ver, posIdx, claimType){
     const hasReward = pos.reward && pos.reward.gt && pos.reward.gt(0);
 
     if(hasReward){
-      // Masih ada reward — klaim dulu
+      // Masih ada reward — klaim dulu (dengan fee)
       setMsg('⏳ Langkah 1/2 — Memproses reward... (konfirmasi wallet)','#0f2942');
-      const tx1 = await contract.claimReward(posIdx, claimType);
+      const tx1 = await txDenganFee(contract, 'claimReward', [posIdx, claimType]);
       await tx1.wait();
       setMsg('⏳ Langkah 2/2 — Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','#0f2942');
+      // confirmCheckpoint tanpa fee tambahan (sudah bayar di step 1)
+      const tx2 = await contract.confirmCheckpoint(posIdx);
+      await tx2.wait();
     } else {
-      // Reward sudah 0 (sudah pernah diklaim) — langsung lanjut ke konfirmasi
+      // Tidak ada reward — fee di confirmCheckpoint
       setMsg('⏳ Mengaktifkan 7 hari berikutnya... (konfirmasi wallet)','#0f2942');
+      const tx2 = await txDenganFee(contract, 'confirmCheckpoint', [posIdx]);
+      await tx2.wait();
     }
-
-    // Step 2: confirmCheckpoint
-    const tx2 = await contract.confirmCheckpoint(posIdx);
-    await tx2.wait();
     setMsg('✓ Berhasil! Reward sudah diproses & 7 hari berikutnya aktif.','#3b82f6');
 
     // ── LAPIS 2: update tampilan LANGSUNG, gak nunggu baca ulang RPC ──
@@ -1504,7 +1537,7 @@ async function doClaimReward(type){
   if(!_wallet)return;
   try{
     setMsg('Mengklaim reward...','#0f2942');
-    const tx = await _welcome.claimReward(_claimPosIdx, type);
+    const tx = await txDenganFee(_welcome, 'claimReward', [_claimPosIdx, type]);
     await tx.wait();
     const labels=['di-compound','masuk Platform Wallet','di-withdraw ke wallet','ke program lain'];
     setMsg('✓ Reward berhasil '+labels[type]+'!','#3b82f6');
@@ -1534,7 +1567,7 @@ async function confirmWithdraw(){
     if(Number(bal)<=0){setMsg('Saldo Platform Wallet kosong','var(--red)');return;}
     try{
       setMsg('Menarik INDC dari Platform Wallet...','#0f2942');
-      const tx = await _welcomeV1.withdrawFromPlatform(bal);
+      const tx = await txDenganFee(_welcomeV1, 'withdrawFromPlatform', [bal]);
       await tx.wait();
       setMsg('✓ INDC berhasil ditarik ke wallet.','#3b82f6');
       await loadAll();
@@ -1586,7 +1619,7 @@ async function doReturnAllPositions(){
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
   if(m){ m.textContent = 'Menunggu konfirmasi wallet...'; m.style.color = '#0f2942'; }
   try{
-    const tx = await _welcome.returnAllPositions();
+    const tx = await txDenganFee(_welcome, 'returnAllPositions', []);
     if(m){ m.textContent = 'Transaksi dikirim, menunggu blockchain...'; }
     await tx.wait();
     if(m){ m.textContent = '✅ Berhasil! Semua modal & reward masuk Platform Wallet.'; m.style.color = '#3b82f6'; }
