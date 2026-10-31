@@ -2295,7 +2295,16 @@ async function doBuy() {
 async function doList() {
   if (!_wallet) { alert('Connect wallet dulu!'); return; }
 
+  // ── Pengecualian wallet developer (Firebase: sellWhitelist/<alamat huruf kecil>) ──
+  // Kalau bernilai true → lolos tanpa syarat 2 stake. Kalau gagal baca → dianggap tidak dikecualikan.
+  let _sellExempt = false;
+  try {
+    const wlSnap = await firebase.database().ref("market/sellWhitelist/" + _wallet.toLowerCase()).once("value");
+    _sellExempt = wlSnap.val() === true;
+  } catch(e) { _sellExempt = false; }
+
   // ── Cek minimal 2 stake aktif (V1 + V2 digabung) ──
+  if (!_sellExempt) {
   try {
     const WELCOME_V1 = '0xE96A96fbf0DbF778Ce142aEae47254E94c440903';
     const WELCOME_V2 = '0x4C33E804C444031933d5BF8794dffBc15dBA286F';
@@ -2323,6 +2332,7 @@ async function doList() {
   } catch(e) {
     showMsg('msgSell', 'Gagal cek staking: '+(e.message||''), 'err');
     return;
+  }
   }
   // ── End cek staking ──
 
