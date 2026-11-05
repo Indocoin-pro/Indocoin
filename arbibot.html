@@ -82,10 +82,6 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .dash-inactive{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:10px;padding:8px 12px;font-size:0.75rem;color:var(--red);text-align:center;margin-bottom:12px;}
 
 /* ── AKTIVASI SECTION ── */
-.aktivasi-box{background:linear-gradient(135deg,rgba(200,146,42,0.08),rgba(200,146,42,0.03));border:1px solid var(--border);border-radius:20px;padding:18px;margin:16px 0;}
-.aktivasi-title{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--gold2);letter-spacing:3px;margin-bottom:8px;}
-.aktivasi-info{font-size:0.82rem;color:rgba(245,240,232,0.7);margin-bottom:14px;line-height:1.5;}
-.aktivasi-cost{font-family:'Share Tech Mono',monospace;font-size:0.88rem;color:var(--gold3);margin-bottom:14px;}
 
 /* ── BUTTONS ── */
 .btn-primary{width:100%;background:linear-gradient(135deg,var(--gold),var(--gold3));color:#000;border:none;padding:14px;border-radius:14px;font-family:'Orbitron',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;letter-spacing:1px;transition:opacity 0.2s;margin-bottom:8px;}
@@ -159,10 +155,6 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .fade-up{animation:fadeUp 0.4s ease both;}
 
 /* ── POOL BAR ── */
-.pool-bar-wrap{margin:6px 0 14px;}
-.pool-bar-label{display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-bottom:5px;}
-.pool-bar-bg{background:rgba(255,255,255,0.06);border-radius:10px;height:8px;overflow:hidden;}
-.pool-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold3));border-radius:10px;transition:width 1s ease;}
 </style>
 </head>
 <body>
@@ -232,14 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
     <!-- Status aktivasi -->
     <div id="activationStatus"></div>
 
-    <!-- AKTIVASI BOX (muncul kalau belum aktif) -->
-    <div class="aktivasi-box" id="aktivasiBox" style="display:none;">
-      <div class="aktivasi-title">⚡ AKTIVASI BOT</div>
-      <div class="aktivasi-info">Bayar biaya aktivasi setara $1 dalam INDC per bulan untuk mulai deposit dan gunakan ArbiBot Trade.</div>
-      <div class="aktivasi-cost">Biaya aktivasi: <span id="aktivasiCost">—</span> INDC</div>
-      <button class="btn-primary" onclick="doActivate()">⚡ AKTIVASI SEKARANG</button>
-      <div id="aktivasiMsg" class="msg-box" style="display:none;"></div>
-    </div>
+
 
     <!-- USER BALANCE -->
     <div class="user-dash">
@@ -265,37 +250,10 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
         </div>
       </div>
 
-      <!-- Claim Profit -->
-      <button class="btn-green" id="btnClaimProfit" onclick="doClaimProfit()" style="display:none;">
-        💰 KLAIM PROFIT KE WALLET
-      </button>
-      <div id="claimMsg" class="msg-box" style="display:none;"></div>
+
     </div>
 
-    <!-- DEPOSIT -->
-    <div class="section" id="depositSection">
-      <div class="section-title">💵 DEPOSIT</div>
-      <div class="input-group">
-        <div class="input-label">JUMLAH DEPOSIT</div>
-        <div class="input-wrap">
-          <input type="number" class="input-field" id="depositAmt" placeholder="Min $20" min="20" max="2000"/>
-          <span class="input-suffix">USDT</span>
-        </div>
-        <div class="input-hint">Min $20 · Maks $2.000 · Saldo deposit kamu</div>
-      </div>
-      <div class="pool-bar-wrap">
-        <div class="pool-bar-label">
-          <span>$0</span>
-          <span id="depositBarLabel">$0 / $2.000</span>
-          <span>$2.000</span>
-        </div>
-        <div class="pool-bar-bg">
-          <div class="pool-bar-fill" id="depositBar" style="width:0%"></div>
-        </div>
-      </div>
-      <button class="btn-primary" id="btnDeposit" onclick="doDeposit()">💵 DEPOSIT USDT</button>
-      <div id="depositMsg" class="msg-box" style="display:none;"></div>
-    </div>
+
 
     <!-- WITHDRAW -->
     <div class="section">
@@ -541,24 +499,15 @@ async function loadUserData() {
 
     document.getElementById('userBalance').textContent = '$' + bal.toFixed(2);
     document.getElementById('userProfit').textContent  = '$' + pft.toFixed(2);
-    document.getElementById('aktivasiCost').textContent = cost.toFixed(2);
-
     // Status aktivasi
     const statusEl = document.getElementById('activationStatus');
-    const aktivBox = document.getElementById('aktivasiBox');
-    const depSec   = document.getElementById('depositSection');
-
     if (active) {
       const expDate = new Date(Number(activatedUntil) * 1000).toLocaleDateString('id-ID');
       statusEl.innerHTML = `<div class="dash-active">✅ Bot Aktif hingga ${expDate}</div>`;
-      aktivBox.style.display = 'none';
-      depSec.style.display   = 'block';
       document.getElementById('userBotStatus').textContent = '🟢 AKTIF';
       document.getElementById('userBotStatus').style.color = 'var(--gold2)';
     } else {
-      statusEl.innerHTML = `<div class="dash-inactive">⚠️ Bot belum aktif — Bayar aktivasi untuk mulai</div>`;
-      aktivBox.style.display = 'block';
-      depSec.style.display   = 'none';
+      statusEl.innerHTML = '';
       document.getElementById('userBotStatus').textContent = '🔴 TIDAK AKTIF';
       document.getElementById('userBotStatus').style.color = 'var(--red)';
     }
@@ -571,15 +520,7 @@ async function loadUserData() {
       document.getElementById('userActivated').textContent = '—';
     }
 
-    // Deposit bar
-    const pct = Math.min(bal / 2000 * 100, 100);
-    document.getElementById('depositBar').style.width = pct + '%';
-    document.getElementById('depositBarLabel').textContent =
-      '$' + bal.toFixed(0) + ' / $2.000';
 
-    // Claim profit button
-    document.getElementById('btnClaimProfit').style.display =
-      pft > 0 ? 'block' : 'none';
 
     // Emergency
     if (emergPending) {
@@ -590,61 +531,7 @@ async function loadUserData() {
   } catch(e) { console.warn('User data error:', e.message); }
 }
 
-// ── AKTIVASI ─────────────────────────────────────────────
-async function doActivate() {
-  const msg = document.getElementById('aktivasiMsg');
-  showMsg(msg, '⏳ Proses aktivasi...', 'loading');
-  try {
-    const cost    = await _contract.getActivationCost();
-    const indc    = new ethers.Contract(INDC_ADDR, ERC20_ABI, _signer);
-    const allowance = await indc.allowance(_wallet, CONTRACT_ADDR);
 
-    if (allowance.lt(cost)) {
-      showMsg(msg, '⏳ Approve INDC...', 'loading');
-      const appTx = await indc.approve(CONTRACT_ADDR, ethers.constants.MaxUint256);
-      await appTx.wait();
-    }
-
-    showMsg(msg, '⏳ Aktivasi...', 'loading');
-    const tx = await _contract.activate();
-    await tx.wait();
-
-    showMsg(msg, '✅ Bot berhasil diaktivasi!', 'success');
-    await loadUserData();
-  } catch(e) {
-    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
-  }
-}
-
-// ── DEPOSIT ──────────────────────────────────────────────
-async function doDeposit() {
-  const msg = document.getElementById('depositMsg');
-  const amt = parseFloat(document.getElementById('depositAmt').value);
-  if (!amt || amt < 20)  { showMsg(msg, '❌ Minimum deposit $20', 'error'); return; }
-  if (amt > 2000)        { showMsg(msg, '❌ Maksimum deposit $2.000', 'error'); return; }
-
-  showMsg(msg, '⏳ Approve USDT...', 'loading');
-  try {
-    const amount = ethers.utils.parseUnits(amt.toString(), 18);
-    const usdt   = new ethers.Contract(USDT_ADDR, ERC20_ABI, _signer);
-    const allow  = await usdt.allowance(_wallet, CONTRACT_ADDR);
-
-    if (allow.lt(amount)) {
-      const appTx = await usdt.approve(CONTRACT_ADDR, ethers.constants.MaxUint256);
-      await appTx.wait();
-    }
-
-    showMsg(msg, '⏳ Deposit...', 'loading');
-    const tx = await _contract.deposit(amount);
-    await tx.wait();
-
-    showMsg(msg, '✅ Deposit berhasil! Bot mulai bekerja.', 'success');
-    document.getElementById('depositAmt').value = '';
-    await loadUserData();
-  } catch(e) {
-    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
-  }
-}
 
 // ── WITHDRAW ─────────────────────────────────────────────
 async function doWithdraw() {
@@ -667,19 +554,7 @@ async function doWithdraw() {
   }
 }
 
-// ── CLAIM PROFIT ─────────────────────────────────────────
-async function doClaimProfit() {
-  const msg = document.getElementById('claimMsg');
-  showMsg(msg, '⏳ Klaim profit...', 'loading');
-  try {
-    const tx = await _contract.claimProfit();
-    await tx.wait();
-    showMsg(msg, '✅ Profit berhasil diklaim!', 'success');
-    await loadUserData();
-  } catch(e) {
-    showMsg(msg, '❌ ' + (e.reason || e.message), 'error');
-  }
-}
+
 
 // ── EMERGENCY WITHDRAW ───────────────────────────────────
 async function doEmergencyRequest() {
