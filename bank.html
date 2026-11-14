@@ -184,7 +184,7 @@ const BANK_ABI=[
 const VAULT_ABI=['function owner() view returns (address)','function rateBps() view returns (uint256)','function memberInfo(address) view returns (uint256 principal,uint256 withdrawnTotal,uint256 availableNow,uint256 remainingLocked,uint256 _rateBps)','function withdraw()','function setRate(uint256)'];
 const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)'];
 const ERC=['function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)','function approve(address,uint256) returns (bool)'];
-const RPCS=['https://bsc-dataseed1.binance.org/','https://bsc-dataseed2.binance.org/','https://rpc.ankr.com/bsc','https://1rpc.io/bnb'];
+const RPCS=['https://bsc-dataseed.binance.org/','https://bsc-dataseed1.binance.org/','https://bsc-dataseed2.binance.org/','https://bsc-dataseed3.binance.org/','https://bsc-dataseed4.binance.org/','https://rpc.ankr.com/bsc','https://bsc.publicnode.com','https://binance.llamarpc.com','https://1rpc.io/bnb'];
 
 let _wallet=null,_signer=null,_rp=null,_isDev=false,_sw=null,_par=null;
 const $=id=>document.getElementById(id);
@@ -203,10 +203,13 @@ function pop(o){
   $('ov').classList.add('show');
 }
 function closePop(){$('ov').classList.remove('show');}
-function rp(){ // read provider dengan fallback
-  if(_rp)return _rp;
-  _rp=new ethers.providers.FallbackProvider(RPCS.map((u,i)=>({provider:new ethers.providers.StaticJsonRpcProvider(u,{chainId:56,name:'bnb'}),priority:i+1,stallTimeout:1500})),1);
-  return _rp;
+function rp(){return _rp;}
+async function pickRpc(){ // sama seperti welcome.html: coba RPC satu per satu
+  if(_rp)return;
+  for(const u of RPCS){
+    try{const p=new ethers.providers.StaticJsonRpcProvider(u,{chainId:56,name:'bnb'});await p.getBlockNumber();_rp=p;return;}catch(e){}
+  }
+  throw new Error('Semua RPC BSC gagal dihubungi');
 }
 const rBank=()=>new ethers.Contract(SC.BANK,BANK_ABI,rp());
 const rVault=()=>new ethers.Contract(SC.VAULT,VAULT_ABI,rp());
@@ -233,14 +236,17 @@ async function connectWallet(){
 async function loadAll(){
   if(!_wallet)return;
   try{
+    await pickRpc();
     const b=rBank();
     [_sw,_par]=await Promise.all([b.switchesInfo(),b.paramsInfo()]);
     const own=await b.owner();_isDev=own.toLowerCase()===_wallet.toLowerCase();
     $('tabDev').classList.toggle('hide',!_isDev);
     $('sBonusPct').textContent=(Number(_par._bonusBps)/100)+'% / bulan';
     $('sClosed').classList.toggle('hide',_sw._depositsOpen);
-    await Promise.all([loadSimpan(),loadPinjam(),loadVault(),_isDev?loadDev():null]);
-  }catch(e){console.error(e);toast('Gagal memuat data. Coba lagi.');}
+    const parts=[['Simpan',loadSimpan],['Pinjam',loadPinjam],['Brankas',loadVault]];
+    if(_isDev)parts.push(['Dev',loadDev]);
+    for(const [n,fn] of parts){try{await fn();}catch(e){console.error(n,e);toast('Gagal memuat '+n+': '+((e.reason||e.message||String(e)).slice(0,120)),8000);}}
+  }catch(e){console.error(e);toast('Gagal memuat data: '+((e.reason||e.message||String(e)).slice(0,140)),8000);}
 }
 
 // ───── SIMPAN ─────
