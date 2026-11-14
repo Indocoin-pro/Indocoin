@@ -25,6 +25,7 @@ const CACHE_FILES = [
   "/agrikultur.html",
   "/assets.html",
   "/arbibot.html",
+  "/bank.html",
   "/guild.html",
   "/guruku.html",
   "/ai-center.html",
