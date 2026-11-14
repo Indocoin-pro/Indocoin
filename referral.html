@@ -1016,14 +1016,21 @@ const STAKING_CONTRACTS = [
       "function getPosition(address user, uint256 idx) view returns (uint256 indcStaked, uint256 usdtEquivalent, uint256 startTime, uint256 lastCheckpoint, uint256 reward, bool active, bool checkpointPending, uint256 nextCheckpointTime)"
     ],
     check: async (c, addr) => {
-      const count = await c.getPositionCount(addr);
-      const n = parseInt(count.toString());
-      if (n === 0) return false;
-      for (let i = 0; i < n; i++) {
-        const pos = await c.getPosition(addr, i);
-        const active = pos.active !== undefined ? pos.active : pos[5];
-        if (active === true) return true;
-      }
+      // V1 (kontrak ini) + V2 + V3: member dianggap aktif kalau punya posisi aktif di salah satunya
+      const WELCOME_EXTRA = ['0x4C33E804C444031933d5BF8794dffBc15dBA286F', '0x0f09978F908fe21De7e7bDA14CF4FF0D38e288F1'];
+      const all = [c].concat(WELCOME_EXTRA.map(a => new ethers.Contract(a, c.interface, c.provider)));
+      const res = await Promise.allSettled(all.map(async (w) => {
+        const count = await w.getPositionCount(addr);
+        const n = parseInt(count.toString());
+        for (let i = 0; i < n; i++) {
+          const pos = await w.getPosition(addr, i);
+          const act = pos.active !== undefined ? pos.active : pos[5];
+          if (act === true) return true;
+        }
+        return false;
+      }));
+      if (res.some(r => r.status === 'fulfilled' && r.value === true)) return true;
+      if (res.some(r => r.status === 'rejected')) throw new Error('welcome check gagal');
       return false;
     }
   }
