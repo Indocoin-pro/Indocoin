@@ -156,6 +156,7 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
 .si-ver{font-family:'Manrope',sans-serif;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px;letter-spacing:0.3px;}
 .si-ver.v1{background:rgba(100,116,139,0.1);color:#64748b;border:1px solid rgba(100,116,139,0.25);}
 .si-ver.v2{background:rgba(34,197,94,0.1);color:#16a34a;border:1px solid rgba(34,197,94,0.25);}
+.si-ver.v3{background:rgba(59,130,246,0.1);color:#2563eb;border:1px solid rgba(59,130,246,0.25);}
 .si-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;}
 .si-badge.aktif{background:rgba(59,130,246,0.08);color:#3b82f6;border:1px solid rgba(59,130,246,0.25);}
 .si-badge.checkpoint{background:rgba(201,64,64,0.08);color:var(--red);border:1px solid rgba(201,64,64,0.25);}
@@ -879,6 +880,7 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
 const SC = {
   WELCOME:    '0x4C33E804C444031933d5BF8794dffBc15dBA286F', // label user: "V2" — tempat staking BARU
   WELCOME_V1: '0xE96A96fbf0DbF778Ce142aEae47254E94c440903', // label user: "V1" — posisi lama
+  WELCOME_V3: '0x0f09978F908fe21De7e7bDA14CF4FF0D38e288F1', // label user: "V3" — tempat staking BARU
   INDC:       '0xD772c96e1beFd2ea9C9a83182c71f4d32f306571',
   USDT:       '0x55d398326f99059fF775485246999027B3197955',
   MARKET:     '0xAA488c83Dbf3bDd93543559150a0180AB56BB42E',
@@ -966,13 +968,13 @@ async function recordDownstreamBonus(actor, usdtAmount, indicator, signerRef) {
 // ───────────────────────────────────────────────────────────────────────────
 
 const MAX_UINT = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-let _provider,_signer,_wallet,_welcome,_welcomeV1,_indc,_usdt,_market,_master;
+let _provider,_signer,_wallet,_welcome,_welcomeV1,_welcomeV3,_indc,_usdt,_market,_master;
 let _globalStopped = false;
 let _claimPosIdx = 0, _claimType = 0;
 let _indcPrice = 0.003; // fallback — cuma dipakai kalau _priceLoaded masih false
 let _priceLoaded = false; // true cuma kalau harga BENERAN sukses kebaca dari blockchain
 
-function cByVer(ver){ return ver==='v1' ? _welcomeV1 : _welcome; } // pilih instance kontrak sesuai asal posisi
+function cByVer(ver){ return ver==='v1' ? _welcomeV1 : (ver==='v3' ? _welcomeV3 : _welcome); } // pilih instance kontrak sesuai asal posisi
 function fmtI(v){return parseFloat(v).toLocaleString('id-ID',{maximumFractionDigits:2});}
 function fromI(v,dec){return Number(BigInt(v.toString()))/Math.pow(10,dec);}
 function toI(v,dec){return ethers.utils.parseUnits(String(parseFloat(v)||0),dec);}
@@ -1063,6 +1065,7 @@ async function connectWallet(){
     _signer   = _provider.getSigner();
     _welcome   = new ethers.Contract(SC.WELCOME,    WELCOME_ABI, _signer);
     _welcomeV1 = new ethers.Contract(SC.WELCOME_V1, WELCOME_ABI, _signer);
+    _welcomeV3 = new ethers.Contract(SC.WELCOME_V3, WELCOME_ABI, _signer);
     _indc     = new ethers.Contract(SC.INDC,    ERC20_ABI,   _signer);
     _usdt     = new ethers.Contract(SC.USDT,    ERC20_ABI,   _signer);
     _market   = new ethers.Contract(SC.MARKET,  MARKET_ABI,  _signer);
@@ -1073,7 +1076,7 @@ async function connectWallet(){
 
     // ── Cek allowance USDT yang udah ada — skip tahap approve kalau udah pernah approve ──
     try{
-      const existingAllowance = await _usdt.allowance(_wallet, SC.WELCOME);
+      const existingAllowance = await _usdt.allowance(_wallet, SC.WELCOME_V3);
       if(existingAllowance && existingAllowance.gt(0)){
         _stakeStage = 'stake';
         if(actBtn) actBtn.textContent = 'STAKE SEKARANG';
@@ -1119,7 +1122,7 @@ async function loadContractInfo(){
         "function totalLockedIndc() view returns (uint256)",
         "function globalStopped() view returns (bool)",
       ];
-      const wRead = new ethers.Contract(SC.WELCOME, WELCOME_READ_ABI, p);
+      const wRead = new ethers.Contract(SC.WELCOME_V3, WELCOME_READ_ABI, p);
 
       const [pool, locked, price, stopped] = await Promise.all([
         wRead.rewardPool(),
@@ -1168,12 +1171,13 @@ async function loadBalances(){
 }
 
 async function loadPositions(){
-  if(!_wallet||!_welcome||!_welcomeV1)return;
+  if(!_wallet||!_welcome||!_welcomeV1||!_welcomeV3)return;
   try{
-    // Ambil posisi dari KEDUA kontrak (V1 = lama, V2 = baru), gabung jadi satu daftar
+    // Ambil posisi dari ketiga kontrak (V1 = lama, V2, V3 = baru), gabung jadi satu daftar
     const sources = [
       {ver:'v1', label:'V1', c:_welcomeV1},
       {ver:'v2', label:'V2', c:_welcome},
+      {ver:'v3', label:'V3', c:_welcomeV3},
     ];
     let all = [];
     for(const src of sources){
@@ -1190,7 +1194,7 @@ async function loadPositions(){
     if(all.length === 0){document.getElementById('emptyPosisi').style.display='block';document.getElementById('posisiList').innerHTML='';return;}
     document.getElementById('emptyPosisi').style.display='none';
 
-    // Terbaru di atas, campur V1 & V2 berdasar waktu mulai asli — bukan dikelompokkan
+    // Terbaru di atas, campur V1, V2 & V3 berdasar waktu mulai asli — bukan dikelompokkan
     all.sort((a,b)=> Number(b.pos.startTime) - Number(a.pos.startTime));
 
     let html = '';
@@ -1291,8 +1295,8 @@ async function approveUsdt(){
   btn.textContent='⏳ Approving USDT...';btn.disabled=true;
   setMsg('Menunggu konfirmasi approve USDT...','#0f2942');
   try{
-    // Approve USDT ke Welcome V2 saja — kontrak yang handle sisanya
-    const tx = await _usdt.approve(SC.WELCOME, MAX_UINT);
+    // Approve USDT ke Welcome V3 saja — kontrak yang handle sisanya
+    const tx = await _usdt.approve(SC.WELCOME_V3, MAX_UINT);
     await tx.wait();
     _stakeStage = 'stake';
     btn.textContent='STAKE SEKARANG';
@@ -1330,7 +1334,7 @@ async function doStakeWithUsdt(){
     const usdtWei = toI(usdtVal.toFixed(6), SC.USDT_DEC);
 
     // 1 transaksi — kontrak handle semua distribusi onchain
-    const tx = await _welcome.stakeWithUsdt(usdtWei);
+    const tx = await _welcomeV3.stakeWithUsdt(usdtWei);
     setMsg('Transaksi dikirim, menunggu konfirmasi blockchain...','#0f2942');
     await tx.wait();
 
@@ -1579,13 +1583,13 @@ window.showClaimStoppedPopup  = showClaimStoppedPopup;
 window.closeClaimStoppedPopup = closeClaimStoppedPopup;
 
 async function doReturnAllPositions(){
-  if(!_wallet || !_welcome){ await connectWallet(); return; }
+  if(!_wallet || !_welcomeV3){ await connectWallet(); return; }
   const btn = document.getElementById('btnClaimAllConfirm');
   const m   = document.getElementById('claimAllMsg');
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
   if(m){ m.textContent = 'Menunggu konfirmasi wallet...'; m.style.color = '#0f2942'; }
   try{
-    const tx = await _welcome.returnAllPositions();
+    const tx = await _welcomeV3.returnAllPositions();
     if(m){ m.textContent = 'Transaksi dikirim, menunggu blockchain...'; }
     await tx.wait();
     if(m){ m.textContent = '✅ Berhasil! Semua modal & reward masuk Platform Wallet.'; m.style.color = '#3b82f6'; }
