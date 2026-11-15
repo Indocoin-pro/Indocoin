@@ -182,7 +182,7 @@ const BANK_ABI=[
 'function paramsInfo() view returns (uint256 _bonusBps,uint256 _cutBps,uint256 _loanCapBps,uint256 _seizeBps,uint256 _minDeposit,uint256 _minLoan)',
 'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)'];
 const VAULT_ABI=['function owner() view returns (address)','function rateBps() view returns (uint256)','function memberInfo(address) view returns (uint256 principal,uint256 withdrawnTotal,uint256 availableNow,uint256 remainingLocked,uint256 _rateBps)','function withdraw()','function setRate(uint256)'];
-const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)'];
+const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)','function totalStakingIndc(address) view returns (uint256)'];
 const ERC=['function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)','function approve(address,uint256) returns (bool)'];
 const RPCS=['https://bsc-dataseed.binance.org/','https://bsc-dataseed1.binance.org/','https://bsc-dataseed2.binance.org/','https://bsc-dataseed3.binance.org/','https://bsc-dataseed4.binance.org/','https://rpc.ankr.com/bsc','https://bsc.publicnode.com','https://binance.llamarpc.com','https://1rpc.io/bnb'];
 
@@ -303,7 +303,7 @@ function act(fn,id){tx('Proses',()=>wBank()[fn](id));}
 async function loadPinjam(){
   const b=rBank();
   const wel=new ethers.Contract(SC.WELCOME,WEL_ABI,rp());
-  const [li,pr,mx,sv]=await Promise.all([b.loanInfo(_wallet),b.pendingRequestInfo(_wallet),b.maxLoanFor(_wallet),wel.totalStakingValueUsdt(_wallet).catch(()=>ethers.constants.Zero)]);
+  const [li,pr,mx,sv,si]=await Promise.all([b.loanInfo(_wallet),b.pendingRequestInfo(_wallet),b.maxLoanFor(_wallet),wel.totalStakingValueUsdt(_wallet).catch(()=>ethers.constants.Zero),wel.totalStakingIndc(_wallet).catch(()=>ethers.constants.Zero)]);
   const st=Number(li.status),now=Math.floor(Date.now()/1000);
   const S=f18(sv),cap=Number(_par._loanCapBps)/10000,cut=Number(_par._cutBps)/10000,sz=Number(_par._seizeBps)/10000;
   const P=f18(li.principal);const minL=f18(_par._minLoan);
@@ -323,11 +323,12 @@ async function loadPinjam(){
     if(st===3)h+='<div class="card red"><div class="h bad">Pinjaman sebelumnya gagal bayar</div><div class="note" style="margin-top:0">Sebagian jaminan disita. Sisa staking berjalan normal 1% per hari.</div></div>';
     const closed=_sw&&!_sw._loansOpen;
     if(closed)h+='<div class="card" style="border-color:#fdba74"><div class="h">Pinjaman sedang ditutup</div></div>';
-    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+usd(S)+'</b></div><div class="row"><span>Plafon ('+Math.round(cap*100)+'%)</span><b>'+usd(S*cap)+'</b></div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">Selama pinjaman berjalan, reward turun dari 1% menjadi ±0,33% per hari (±10% per bulan). Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" '+((closed||mx.isZero()||mx.lt(_par._minLoan))?'disabled':'')+' onclick="askLoan('+S*cap+','+S*cut+')">Ajukan pinjaman</button>'+(mx.lt(_par._minLoan)?'<div class="warn">Staking V3 kamu '+usd(S)+'. Belum cukup, butuh minimal '+usd(minL/cap)+' untuk pinjaman minimal '+usd(minL)+'.</div>':'')+'</div>';
+    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div class="row"><span>Plafon ('+Math.round(cap*100)+'%)</span><b>'+usd(S*cap)+'</b></div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">Selama pinjaman berjalan, reward turun dari 1% menjadi ±0,33% per hari (±10% per bulan). Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" '+(closed?'disabled':'')+' onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
   }
   $('lBody').innerHTML=h;
 }
-function askLoan(a,c){
+function askLoan(a,c,minL,S){
+  if(a<minL){const w=$('lWarn');w.textContent='Staking V3 kamu '+usd(S)+'. Minimal '+usd(minL/(Number(_par._loanCapBps)/10000))+' untuk bisa pinjam.';w.classList.remove('hide');return;}
   const sz=Math.round(Number(_par._seizeBps)/100);
   pop({title:'Ajukan pinjaman?',color:'#b45309',lines:['Kamu terima '+usd(a)+' USDT. Biaya admin '+usd(c)+' dipotong dari staking.','Selama pinjaman, reward turun dari 1% per hari menjadi ±0,33% per hari (±10% per bulan). Kembali normal 1% per hari setelah lunas.','Jatuh tempo 30 hari. Jika gagal bayar, '+sz+'% jaminan disita.'],ok:'Saya paham, ajukan',onOk:()=>tx('Ajukan',()=>wBank().requestLoan())});
 }
