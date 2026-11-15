@@ -258,16 +258,16 @@ async function loadSimpan(){
   _bal=f18(bal);_dep=f18(mine);$('sBal').textContent=usd(_bal);
   upDep();
   if(!ids.length){$('depList').innerHTML='<div class="note">Belum ada setoran.</div>';return;}
-  const rows=await Promise.all(ids.map(id=>b.deposits(id).then(d=>({id:Number(id),d}))));
+  const rows=await Promise.all(ids.map((id,i)=>b.deposits(id).then(d=>({id:Number(id),n:i+1,d}))));
   const now=Math.floor(Date.now()/1000);
-  $('depList').innerHTML=rows.reverse().map(({id,d})=>{
+  $('depList').innerHTML=rows.reverse().map(({id,n,d})=>{
     const amt=usd(f18(d.amount)),st=Number(d.status),un=Number(d.unlock);
     let body='';
     if(st===3)body='<div class="note ok">Sudah ditarik.</div>';
     else if(st===2)body='<div class="note" style="color:#b45309">Masuk antrean tarik. Dibayar saat kas cukup.</div><button class="btn" onclick="act(\'claimQueuedWithdraw\','+id+')">Cairkan</button>';
     else if(now<un){const pct=Math.min(100,Math.round((now-Number(d.start))/(un-Number(d.start))*100));body='<div class="bar"><i style="width:'+pct+'%"></i></div><div class="note">Terkunci sampai '+dt(un)+'.</div>';}
     else body='<div class="note ok">Kunci selesai. Pilih tindakan:</div><div class="btns"><button class="btn2" onclick="askWd('+id+','+f18(d.amount)+')">Tarik modal</button><button class="btn" onclick="askRenew('+id+','+f18(d.amount)+')">Tetap simpan</button></div>';
-    return '<div class="card"><div class="row"><span>Setoran #'+id+'</span><b>'+amt+'</b></div>'+body+'</div>';
+    return '<div class="card"><div class="row"><span>Setoran #'+n+'</span><b>'+amt+'</b></div>'+body+'</div>';
   }).join('');
 }
 function setAmt(v){$('dAmt').value=v;upDep();}
