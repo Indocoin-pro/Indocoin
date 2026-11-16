@@ -42,6 +42,12 @@ input.inp:focus{border-color:var(--blue);}
 .btn{width:100%;min-height:46px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;margin-top:8px;}
 .btn2{width:100%;min-height:46px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);color:var(--navy);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;margin-top:8px;}
 .btn:disabled,.btn2:disabled{opacity:.45;cursor:not-allowed;}
+.brw{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border);}
+.brw .a{font-size:10px;font-weight:700;color:var(--navy);word-break:break-all;line-height:1.4;}
+.brw .m{font-size:10px;color:#64748b;margin-top:2px;}
+.brw .s{font-size:10px;font-weight:600;margin-top:2px;}
+.sbtn{flex-shrink:0;min-height:34px;padding:0 14px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;}
+.sbtn:disabled{background:#f1f5f9;color:#94a3b8;cursor:not-allowed;}
 .btns{display:flex;gap:8px;}
 .bar{height:6px;background:var(--border);border-radius:4px;margin:8px 0;}
 .bar i{display:block;height:6px;background:var(--blue);border-radius:4px;}
@@ -143,10 +149,7 @@ input.inp:focus{border-color:var(--blue);}
       <input class="inp" id="devRateIn" type="number" inputmode="decimal" placeholder="Persen per hari, mis. 1" style="margin-top:8px">
       <button class="btn2" onclick="devSetRate()">Simpan vesting</button>
     </div>
-    <div class="card"><div class="h">Sita pinjaman</div>
-      <input class="inp" id="devSeizeAddr" placeholder="Alamat peminjam 0x…">
-      <button class="btn2" onclick="devSeize()">Sita (hari ke-4 setelah jatuh tempo)</button>
-    </div>
+    <div class="card"><div class="h">Daftar peminjam <span id="brwN" style="font-weight:500;color:#64748b"></span></div><div id="brwList"><div class="note">Memuat…</div></div></div>
   </div>
 </div>
 
@@ -166,7 +169,8 @@ const SC={CHAIN_ID:56,
  BANK:'0xD6e90421c741c2F41a2d072350a2b1161841760e',
  VAULT:'0x99966fD3ccCd6321501B4E6DD87d4E5D291e795d',
  WELCOME:'0x0f09978F908fe21De7e7bDA14CF4FF0D38e288F1',
- USDT:'0x55d398326f99059fF775485246999027B3197955'};
+ USDT:'0x55d398326f99059fF775485246999027B3197955',
+ BANK_BLOCK:0}; // isi nomor blok pembuatan kontrak Bank (BscScan) agar daftar peminjam cepat dimuat
 const MAXACC=5000;
 const BANK_ABI=[
 'function owner() view returns (address)',
@@ -180,7 +184,8 @@ const BANK_ABI=[
 'function pendingRequestInfo(address) view returns (bool pending,uint256 requestId,uint256 amount,uint256 expiresAt)',
 'function bankInfo() view returns (uint256 usdtBalance,uint256 _totalDeposited,uint256 _outstandingLoans,uint256 _queuedWithdrawTotal,int256 _equity,uint256 _lendable,uint256 _devWithdrawable)',
 'function paramsInfo() view returns (uint256 _bonusBps,uint256 _cutBps,uint256 _loanCapBps,uint256 _seizeBps,uint256 _minDeposit,uint256 _minLoan)',
-'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)'];
+'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)',
+'event LoanDisbursed(address indexed user,uint256 amount,uint256 cutUsdt,uint256 seizeBps,uint256 due)'];
 const VAULT_ABI=['function owner() view returns (address)','function rateBps() view returns (uint256)','function memberInfo(address) view returns (uint256 principal,uint256 withdrawnTotal,uint256 availableNow,uint256 remainingLocked,uint256 _rateBps)','function withdraw()','function setRate(uint256)'];
 const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)','function totalStakingIndc(address) view returns (uint256)'];
 const ERC=['function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)','function approve(address,uint256) returns (bool)'];
@@ -288,7 +293,7 @@ async function ensureUsdt(amount){
 }
 async function tx(label,fn){
   try{toast(label+'…',60000);const t=await fn();toast('Menunggu konfirmasi…',60000);await t.wait();toast('Berhasil');await loadAll();}
-  catch(e){const m=(e.error&&e.error.message)||e.reason||e.message||String(e);toast('Gagal: '+m.slice(0,140),6000);}
+  catch(e){const m=(e.error&&e.error.message)||e.reason||e.message||String(e);if(/Pinjaman ditutup/.test(m)){$('toast').style.display='none';noFund();return;}toast('Gagal: '+m.slice(0,140),6000);}
 }
 function doDeposit(){
   const a=parseFloat($('dAmt').value);const bp=Number(_par._bonusBps)/10000;
@@ -321,14 +326,15 @@ async function loadPinjam(){
     h='<div class="card"><div class="h">Pengajuan dalam antrean</div><div class="row"><span>Jumlah</span><b>'+usd(f18(pr.amount))+'</b></div><div class="row"><span>Sisa waktu</span><b>'+Math.floor(left/3600)+'j '+Math.floor(left%3600/60)+'m</b></div><div class="note">Cair otomatis saat kas bank cukup. Maksimal 12 jam.</div><button class="btn2" onclick="tx(\'Batalkan\',()=>wBank().cancelRequest())">Batalkan pengajuan</button></div>';
   }else{
     if(st===3)h+='<div class="card red"><div class="h bad">Pinjaman sebelumnya gagal bayar</div><div class="note" style="margin-top:0">Sebagian jaminan disita. Sisa staking berjalan normal 1% per hari.</div></div>';
-    const closed=_sw&&!_sw._loansOpen;
-    if(closed)h+='<div class="card" style="border-color:#fdba74"><div class="h">Pinjaman sedang ditutup</div></div>';
-    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div class="row"><span>Plafon ('+Math.round(cap*100)+'%)</span><b>'+usd(S*cap)+'</b></div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">Selama pinjaman berjalan, reward turun dari 1% menjadi ±0,33% per hari (±10% per bulan). Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" '+(closed?'disabled':'')+' onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
+    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div class="row"><span>Plafon ('+Math.round(cap*100)+'%)</span><b>'+usd(S*cap)+'</b></div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">Selama pinjaman berjalan, reward turun dari 1% menjadi ±0,33% per hari (±10% per bulan). Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
   }
   $('lBody').innerHTML=h;
 }
-function askLoan(a,c,minL,S){
+function noFund(){pop({title:'Dana pinjaman sedang tidak mencukupi',lines:['Silakan coba lagi nanti.'],cancel:false,ok:'Tutup'});}
+async function askLoan(a,c,minL,S){
   if(a<minL){const w=$('lWarn');w.textContent='Staking V3 kamu '+usd(S)+'. Minimal '+usd(minL/(Number(_par._loanCapBps)/10000))+' untuk bisa pinjam.';w.classList.remove('hide');return;}
+  try{const b=rBank();const [sw,bi]=await Promise.all([b.switchesInfo(),b.bankInfo()]);
+    if(!sw._loansOpen||bi._lendable.lt(ethers.utils.parseUnits(a.toFixed(6),18))){noFund();return;}}catch(e){}
   const sz=Math.round(Number(_par._seizeBps)/100);
   pop({title:'Ajukan pinjaman?',color:'#b45309',lines:['Kamu terima '+usd(a)+' USDT. Biaya admin '+usd(c)+' dipotong dari staking.','Selama pinjaman, reward turun dari 1% per hari menjadi ±0,33% per hari (±10% per bulan). Kembali normal 1% per hari setelah lunas.','Jatuh tempo 30 hari. Jika gagal bayar, '+sz+'% jaminan disita.'],ok:'Saya paham, ajukan',onOk:()=>tx('Ajukan',()=>wBank().requestLoan())});
 }
@@ -355,13 +361,41 @@ async function loadDev(){
   $('bEq').textContent=usd(f18(i._equity));$('bWd').textContent=usd(f18(i._devWithdrawable));
   $('swD').textContent=_sw._depositsOpen?'Dibuka':'Ditutup';$('swL').textContent=_sw._loansOpen?'Dibuka':'Ditutup';
   const r=await rVault().rateBps();$('devRate').textContent=(Number(r)/100)+'% per hari';
+  loadBorrowers();
+}
+let _bSet=new Set(),_bLast=0;
+async function scanBorrowers(){
+  const b=rBank(),f=b.filters.LoanDisbursed(),latest=await rp().getBlockNumber();
+  let s=_bLast?_bLast+1:(SC.BANK_BLOCK||Math.max(0,latest-3000000)),step=50000;
+  while(s<=latest){const e=Math.min(s+step-1,latest);
+    try{(await b.queryFilter(f,s,e)).forEach(x=>_bSet.add(x.args.user));s=e+1;}
+    catch(err){if(step<=1000)throw err;step=Math.floor(step/2);}}
+  _bLast=latest;
+}
+async function loadBorrowers(){
+  const box=$('brwList');
+  try{
+    await scanBorrowers();
+    const b=rBank(),now=Math.floor(Date.now()/1000),rows=[];
+    const arr=await Promise.all([..._bSet].map(async a=>({a,li:await b.loanInfo(a)})));
+    arr.filter(x=>Number(x.li.status)===1).sort((x,y)=>Number(x.li.due)-Number(y.li.due)).forEach(({a,li})=>{
+      const due=Number(li.due),late=now-due,ready=late>=4*86400;
+      let st,col;
+      if(late<0){st='Berjalan · '+Math.ceil(-late/86400)+' hari lagi';col='#16a34a';}
+      else if(!ready){st='Lewat '+Math.floor(late/86400)+' hari · sita mulai hari ke-4';col='#b45309';}
+      else{st='Lewat '+Math.floor(late/86400)+' hari · siap disita';col='#b91c1c';}
+      rows.push('<div class="brw"><div style="flex:1;min-width:0"><div class="a">'+a+'</div><div class="m">'+usd(f18(li.principal))+' · jatuh tempo '+dt(li.due)+'</div><div class="s" style="color:'+col+'">'+st+'</div></div><button class="sbtn" '+(ready?'':'disabled')+' onclick="devSeize(\''+a+'\')">Sita</button></div>');
+    });
+    $('brwN').textContent='· '+rows.length+' aktif';
+    box.innerHTML=rows.length?rows.join('')+'<div class="note">Tombol Sita aktif mulai hari ke-4 setelah jatuh tempo.</div>':'<div class="note">Belum ada pinjaman aktif.</div>';
+  }catch(e){box.innerHTML='<div class="note">Gagal memuat daftar peminjam. Coba muat ulang.</div>';}
 }
 function devAmt(){const a=parseFloat($('devAmt').value);if(!(a>0)){toast('Isi jumlah USDT');return null;}return ethers.utils.parseUnits(String(a),18);}
 function devFund(){const w=devAmt();if(!w)return;pop({title:'Top up kas bank',lines:['Masukkan '+usd(f18(w))+' ke kas bank.'],onOk:()=>tx('Top up',async()=>{await ensureUsdt(w);return wBank().fundBank(w);})});}
 function devWd(){const w=devAmt();if(!w)return;pop({title:'Tarik USDT (Dev)',lines:['Tarik '+usd(f18(w))+'. Maksimal sebatas ekuitas dan kas bebas.'],onOk:()=>tx('Tarik',()=>wBank().withdrawUsdt(w))});}
 function devToggle(k){const dep=k==='dep';const now=dep?_sw._depositsOpen:_sw._loansOpen;pop({title:(now?'Tutup ':'Buka ')+(dep?'setoran':'pinjaman'),lines:['Ubah saklar '+(dep?'setoran':'pinjaman')+' baru.'],onOk:()=>tx('Ubah',()=>dep?wBank().setDepositsOpen(!now):wBank().setLoansOpen(!now))});}
 function devSetRate(){const p=parseFloat($('devRateIn').value);if(!(p>=0&&p<=10)){toast('Isi 0 sampai 10 (% per hari)');return;}const bps=Math.round(p*100);pop({title:'Atur vesting',lines:['Vesting jadi '+p+'% per hari. Berlaku untuk waktu ke depan.'],onOk:()=>tx('Atur',()=>wVault().setRate(bps))});}
-function devSeize(){const a=$('devSeizeAddr').value.trim();if(!ethers.utils.isAddress(a)){toast('Alamat tidak valid');return;}pop({title:'Sita pinjaman',red:true,lines:[short(a)+' — jaminan disita ke wallet Dev. Pinjaman dianggap lunas.'],ok:'Sita',onOk:()=>tx('Sita',()=>wBank().seize(a))});}
+function devSeize(a){pop({title:'Sita pinjaman',red:true,lines:[a,'Jaminan disita ke wallet Dev. Pinjaman dianggap lunas.'],ok:'Sita',onOk:async()=>{await tx('Sita',()=>wBank().seize(a));}});}
 
 window.addEventListener('load',()=>{ if(window.ethereum){window.ethereum.request({method:'eth_accounts'}).then(a=>{if(a&&a.length)connectWallet();}).catch(()=>{});} });
 </script>
