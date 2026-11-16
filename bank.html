@@ -47,6 +47,11 @@ input.inp:focus{border-color:var(--blue);}
 .brw .m{font-size:10px;color:#64748b;margin-top:2px;}
 .brw .s{font-size:10px;font-weight:600;margin-top:2px;}
 .sbtn{flex-shrink:0;min-height:34px;padding:0 14px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;}
+.hchip{flex:1;text-align:center;padding:8px 0;border-radius:8px;background:var(--bg3);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:inherit;}
+.hchip.on{background:var(--navy);color:#fff;}
+.hbox{background:var(--bg2);border-radius:10px;padding:10px;}
+.hbox .l{font-size:10px;color:var(--muted);}.hbox .v{font-size:14px;font-weight:700;color:var(--navy);}
+.bdg{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;}
 .sbtn:disabled{background:#f1f5f9;color:#94a3b8;cursor:not-allowed;}
 .btns{display:flex;gap:8px;}
 .bar{height:6px;background:var(--border);border-radius:4px;margin:8px 0;}
@@ -150,6 +155,24 @@ input.inp:focus{border-color:var(--blue);}
       <button class="btn2" onclick="devSetRate()">Simpan vesting</button>
     </div>
     <div class="card"><div class="h">Daftar peminjam <span id="brwN" style="font-weight:500;color:#64748b"></span></div><div id="brwList"><div class="note">Memuat…</div></div></div>
+    <div class="card"><div class="h">Riwayat</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px">
+        <div class="hbox"><div class="l">Total setoran</div><div class="v" id="hSum1">—</div></div>
+        <div class="hbox"><div class="l">Pinjaman cair</div><div class="v" id="hSum2">—</div></div>
+        <div class="hbox"><div class="l">Sudah lunas</div><div class="v" id="hSum3" style="color:#16a34a">—</div></div>
+        <div class="hbox"><div class="l">Disita</div><div class="v" id="hSum4" style="color:#b91c1c">—</div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="hchip on" data-ht="loan" onclick="hTab('loan')">Pinjaman</button>
+        <button class="hchip" data-ht="dep" onclick="hTab('dep')">Setoran</button>
+        <button class="hchip" data-ht="cash" onclick="hTab('cash')">Kas</button>
+      </div>
+      <input class="inp" id="hQ" placeholder="Cari alamat 0x…" oninput="renderHist()">
+      <div style="display:flex;gap:6px;margin:8px 0 4px;align-items:center"><span style="font-size:10px;color:var(--muted)">Tampilkan</span>
+        <button class="hchip on" data-hn="10" onclick="hN(10)">10</button><button class="hchip" data-hn="50" onclick="hN(50)">50</button><button class="hchip" data-hn="100" onclick="hN(100)">100</button><button class="hchip" data-hn="0" onclick="hN(0)">Semua</button></div>
+      <div id="hList"><div class="note">Memuat…</div></div>
+      <button class="btn2" onclick="hCsv()">Unduh CSV</button>
+    </div>
   </div>
 </div>
 
@@ -170,7 +193,7 @@ const SC={CHAIN_ID:56,
  VAULT:'0x99966fD3ccCd6321501B4E6DD87d4E5D291e795d',
  WELCOME:'0x0f09978F908fe21De7e7bDA14CF4FF0D38e288F1',
  USDT:'0x55d398326f99059fF775485246999027B3197955',
- BANK_BLOCK:0}; // isi nomor blok pembuatan kontrak Bank (BscScan) agar daftar peminjam cepat dimuat
+ BANK_BLOCK:133630000}; // blok awal kontrak Bank (pemindaian daftar peminjam mulai dari sini)
 const MAXACC=5000;
 const BANK_ABI=[
 'function owner() view returns (address)',
@@ -185,7 +208,15 @@ const BANK_ABI=[
 'function bankInfo() view returns (uint256 usdtBalance,uint256 _totalDeposited,uint256 _outstandingLoans,uint256 _queuedWithdrawTotal,int256 _equity,uint256 _lendable,uint256 _devWithdrawable)',
 'function paramsInfo() view returns (uint256 _bonusBps,uint256 _cutBps,uint256 _loanCapBps,uint256 _seizeBps,uint256 _minDeposit,uint256 _minLoan)',
 'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)',
-'event LoanDisbursed(address indexed user,uint256 amount,uint256 cutUsdt,uint256 seizeBps,uint256 due)'];
+'event LoanDisbursed(address indexed user,uint256 amount,uint256 cutUsdt,uint256 seizeBps,uint256 due)',
+'event Deposited(address indexed depositor,uint256 indexed id,uint256 amount,uint256 bonus,uint256 unlock)',
+'event Renewed(address indexed depositor,uint256 indexed id,uint256 bonus,uint256 unlock)',
+'event WithdrawQueued(address indexed depositor,uint256 indexed id,uint256 amount)',
+'event Withdrawn(address indexed depositor,uint256 indexed id,uint256 amount)',
+'event LoanRepaid(address indexed user,uint256 amount)',
+'event LoanSeized(address indexed user,uint256 principal,uint256 indcOldRemoved,uint256 usdtValue)',
+'event BankFunded(address indexed from,uint256 amount)',
+'event UsdtWithdrawn(uint256 amount)'];
 const VAULT_ABI=['function owner() view returns (address)','function rateBps() view returns (uint256)','function memberInfo(address) view returns (uint256 principal,uint256 withdrawnTotal,uint256 availableNow,uint256 remainingLocked,uint256 _rateBps)','function withdraw()','function setRate(uint256)'];
 const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)','function totalStakingIndc(address) view returns (uint256)'];
 const ERC=['function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)','function approve(address,uint256) returns (bool)'];
@@ -363,12 +394,16 @@ async function loadDev(){
   const r=await rVault().rateBps();$('devRate').textContent=(Number(r)/100)+'% per hari';
   loadBorrowers();
 }
-let _bSet=new Set(),_bLast=0;
+let _bSet=new Set(),_bLast=0,_ev=[],_ts={},_iface=null;
 async function scanBorrowers(){
-  const b=rBank(),f=b.filters.LoanDisbursed(),latest=await rp().getBlockNumber();
+  if(!_iface)_iface=new ethers.utils.Interface(BANK_ABI);
+  const latest=await rp().getBlockNumber();
   let s=_bLast?_bLast+1:(SC.BANK_BLOCK||Math.max(0,latest-3000000)),step=50000;
   while(s<=latest){const e=Math.min(s+step-1,latest);
-    try{(await b.queryFilter(f,s,e)).forEach(x=>_bSet.add(x.args.user));s=e+1;}
+    try{
+      const logs=await rp().getLogs({address:SC.BANK,fromBlock:s,toBlock:e});
+      logs.forEach(l=>{try{const p=_iface.parseLog(l);_ev.push({n:p.name,a:p.args,b:l.blockNumber,i:l.logIndex});if(p.name==='LoanDisbursed')_bSet.add(p.args.user);}catch(x){}});
+      s=e+1;}
     catch(err){if(step<=1000)throw err;step=Math.floor(step/2);}}
   _bLast=latest;
 }
@@ -376,6 +411,7 @@ async function loadBorrowers(){
   const box=$('brwList');
   try{
     await scanBorrowers();
+    buildHist();
     const b=rBank(),now=Math.floor(Date.now()/1000),rows=[];
     const arr=await Promise.all([..._bSet].map(async a=>({a,li:await b.loanInfo(a)})));
     arr.filter(x=>Number(x.li.status)===1).sort((x,y)=>Number(x.li.due)-Number(y.li.due)).forEach(({a,li})=>{
@@ -395,6 +431,67 @@ function devFund(){const w=devAmt();if(!w)return;pop({title:'Top up kas bank',li
 function devWd(){const w=devAmt();if(!w)return;pop({title:'Tarik USDT (Dev)',lines:['Tarik '+usd(f18(w))+'. Maksimal sebatas ekuitas dan kas bebas.'],onOk:()=>tx('Tarik',()=>wBank().withdrawUsdt(w))});}
 function devToggle(k){const dep=k==='dep';const now=dep?_sw._depositsOpen:_sw._loansOpen;pop({title:(now?'Tutup ':'Buka ')+(dep?'setoran':'pinjaman'),lines:['Ubah saklar '+(dep?'setoran':'pinjaman')+' baru.'],onOk:()=>tx('Ubah',()=>dep?wBank().setDepositsOpen(!now):wBank().setLoansOpen(!now))});}
 function devSetRate(){const p=parseFloat($('devRateIn').value);if(!(p>=0&&p<=10)){toast('Isi 0 sampai 10 (% per hari)');return;}const bps=Math.round(p*100);pop({title:'Atur vesting',lines:['Vesting jadi '+p+'% per hari. Berlaku untuk waktu ke depan.'],onOk:()=>tx('Atur',()=>wVault().setRate(bps))});}
+
+// ───── RIWAYAT (Dev) ─────
+let _hT='loan',_hNn=10,_hRows={loan:[],dep:[],cash:[]};
+const fdt=t=>t?new Date(t*1000).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+async function blockTimes(){
+  const need=[...new Set(_ev.map(e=>e.b))].filter(x=>!(x in _ts));
+  for(let i=0;i<need.length;i+=8){
+    await Promise.all(need.slice(i,i+8).map(async n=>{try{_ts[n]=(await rp().getBlock(n)).timestamp;}catch(e){_ts[n]=0;}}));
+  }
+}
+async function buildHist(){
+  try{
+    await blockTimes();
+    const now=Math.floor(Date.now()/1000);
+    const ev=[..._ev].sort((x,y)=>x.b-y.b||x.i-y.i);
+    const loans=[],open={},deps={},cash=[];
+    let sDep=0,sLoan=0,sPaid=0,sSeized=0;
+    for(const e of ev){
+      const t=_ts[e.b]||0,A=e.a;
+      if(e.n==='LoanDisbursed'){const L={addr:A.user,amt:f18(A.amount),t,due:Number(A.due),st:'run'};loans.push(L);open[A.user]=L;sLoan+=L.amt;}
+      else if(e.n==='LoanRepaid'&&open[A.user]){open[A.user].st='paid';open[A.user].t2=t;sPaid+=open[A.user].amt;delete open[A.user];}
+      else if(e.n==='LoanSeized'&&open[A.user]){open[A.user].st='seized';open[A.user].t2=t;sSeized+=open[A.user].amt;delete open[A.user];}
+      else if(e.n==='Deposited'){const k=A.depositor+'_'+A.id;deps[k]={addr:A.depositor,id:Number(A.id)+1,amt:f18(A.amount),t,unlock:Number(A.unlock),st:'lock',renew:0};sDep+=f18(A.amount);}
+      else if(e.n==='Renewed'){const d=deps[A.depositor+'_'+A.id];if(d){d.renew++;d.unlock=Number(A.unlock);}}
+      else if(e.n==='WithdrawQueued'){const d=deps[A.depositor+'_'+A.id];if(d)d.q=true;}
+      else if(e.n==='Withdrawn'){const d=deps[A.depositor+'_'+A.id];if(d){d.st='out';d.t2=t;}}
+      else if(e.n==='BankFunded')cash.push({addr:A.from,amt:f18(A.amount),t,k:'Top up kas'});
+      else if(e.n==='UsdtWithdrawn')cash.push({addr:'',amt:f18(A.amount),t,k:'Tarik USDT Dev'});
+    }
+    const depList=Object.values(deps);
+    depList.forEach(d=>{if(d.st!=='out'){d.st=d.q?'queue':(d.unlock>now?'lock':'ready');}});
+    loans.forEach(l=>{if(l.st==='run'&&now>=l.due)l.st='late';});
+    _hRows={loan:loans.reverse(),dep:depList.reverse(),cash:cash.reverse()};
+    $('hSum1').textContent=usd(sDep);$('hSum2').textContent=usd(sLoan);$('hSum3').textContent=usd(sPaid);$('hSum4').textContent=usd(sSeized);
+    renderHist();
+  }catch(e){$('hList').innerHTML='<div class="note">Gagal memuat riwayat. Coba muat ulang.</div>';}
+}
+function hTab(t){_hT=t;document.querySelectorAll('[data-ht]').forEach(b=>b.classList.toggle('on',b.dataset.ht===t));renderHist();}
+function hN(n){_hNn=n;document.querySelectorAll('[data-hn]').forEach(b=>b.classList.toggle('on',Number(b.dataset.hn)===n));renderHist();}
+const BD={run:['#dbeafe','#1e40af','Berjalan'],late:['#fef3c7','#92400e','Jatuh tempo'],paid:['#dcfce7','#166534','Lunas'],seized:['#fee2e2','#991b1b','Disita'],
+  lock:['#dbeafe','#1e40af','Terkunci'],ready:['#fef3c7','#92400e','Siap ditarik'],queue:['#fef3c7','#92400e','Antre tarik'],out:['#f1f5f9','#475569','Ditarik']};
+function hFiltered(){const q=($('hQ').value||'').trim().toLowerCase();return _hRows[_hT].filter(r=>!q||(r.addr||'').toLowerCase().includes(q));}
+function hRow(r){
+  let meta='',amt=r.amt,bd='';
+  if(_hT==='loan'){meta='Cair '+fdt(r.t)+'<br>Jatuh tempo '+fdt(r.due)+(r.t2?'<br>'+(r.st==='seized'?'Disita ':'Lunas ')+fdt(r.t2):'');const c=BD[r.st];bd='<span class="bdg" style="background:'+c[0]+';color:'+c[1]+'">'+c[2]+'</span>';}
+  else if(_hT==='dep'){meta='Setoran #'+r.id+' · '+fdt(r.t)+'<br>Buka kunci '+fdt(r.unlock)+(r.renew?'<br>Diperpanjang '+r.renew+'×':'')+(r.t2?'<br>Ditarik '+fdt(r.t2):'');const c=BD[r.st];bd='<span class="bdg" style="background:'+c[0]+';color:'+c[1]+'">'+c[2]+'</span>';}
+  else{meta=fdt(r.t);bd='<span class="bdg" style="background:#f1f5f9;color:#475569">'+r.k+'</span>';}
+  return '<div class="brw" style="align-items:flex-start"><div style="flex:1;min-width:0">'+(r.addr?'<div class="a">'+r.addr+'</div>':'')+'<div class="m">'+meta+'</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:12px;font-weight:700;color:var(--navy)">'+usd(amt)+'</div>'+bd+'</div></div>';
+}
+function renderHist(){
+  const all=hFiltered(),rows=_hNn?all.slice(0,_hNn):all;
+  $('hList').innerHTML=rows.length?rows.map(hRow).join('')+'<div class="note">Menampilkan '+rows.length+' dari '+all.length+'.</div>':'<div class="note">Belum ada data.</div>';
+}
+function hCsv(){
+  const rows=hFiltered();
+  const head={loan:['Alamat','Jumlah','Cair','Jatuh tempo','Status','Selesai'],dep:['Alamat','Setoran','Jumlah','Tanggal','Buka kunci','Status','Ditarik'],cash:['Jenis','Alamat','Jumlah','Tanggal']}[_hT];
+  const iso=t=>t?new Date(t*1000).toISOString():'';
+  const lines=rows.map(r=>_hT==='loan'?[r.addr,r.amt,iso(r.t),iso(r.due),BD[r.st][2],iso(r.t2)]:_hT==='dep'?[r.addr,'#'+r.id,r.amt,iso(r.t),iso(r.unlock),BD[r.st][2],iso(r.t2)]:[r.k,r.addr,r.amt,iso(r.t)]);
+  const csv=[head,...lines].map(l=>l.join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='riwayat-bank-'+_hT+'.csv';a.click();
+}
 function devSeize(a){pop({title:'Sita pinjaman',red:true,lines:[a,'Jaminan disita ke wallet Dev. Pinjaman dianggap lunas.'],ok:'Sita',onOk:async()=>{await tx('Sita',()=>wBank().seize(a));}});}
 
 window.addEventListener('load',()=>{ if(window.ethereum){window.ethereum.request({method:'eth_accounts'}).then(a=>{if(a&&a.length)connectWallet();}).catch(()=>{});} });
