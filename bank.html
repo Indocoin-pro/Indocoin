@@ -210,6 +210,10 @@ const BANK_ABI=[
 'function paramsInfo() view returns (uint256 _bonusBps,uint256 _cutBps,uint256 _loanCapBps,uint256 _seizeBps,uint256 _minDeposit,uint256 _minLoan)',
 'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)',
 'event LoanDisbursed(address indexed user,uint256 amount,uint256 cutUsdt,uint256 seizeBps,uint256 due)',
+'function depositCount() view returns (uint256)','function requestCount() view returns (uint256)',
+
+'function requests(uint256) view returns (address user,uint256 amount,uint64 time,uint8 status)',
+'function loans(address) view returns (uint256 principal,uint64 start,uint64 due,uint8 status)',
 'event Deposited(address indexed depositor,uint256 indexed id,uint256 amount,uint256 bonus,uint256 unlock)',
 'event Renewed(address indexed depositor,uint256 indexed id,uint256 bonus,uint256 unlock)',
 'event WithdrawQueued(address indexed depositor,uint256 indexed id,uint256 amount)',
@@ -453,6 +457,7 @@ async function blockTimes(){
 }
 async function buildHist(){
   try{
+    if(!_ev.length){await buildFromState();return;}
     await blockTimes();
     const now=Math.floor(Date.now()/1000);
     const ev=[..._ev].sort((x,y)=>x.b-y.b||x.i-y.i);
@@ -477,6 +482,27 @@ async function buildHist(){
     $('hSum1').textContent=usd(sDep);$('hSum2').textContent=usd(sLoan);$('hSum3').textContent=usd(sPaid);$('hSum4').textContent=usd(sSeized);
     renderHist();$('hDbg').textContent=_dbg;
   }catch(e){$('hList').innerHTML='<div class="note">Gagal memuat riwayat. Coba muat ulang.</div>';}
+}
+async function buildFromState(){
+  const b=rBank(),now=Math.floor(Date.now()/1000);
+  const nD=Number(await b.depositCount()),nR=Number(await b.requestCount());
+  const dArr=[],rArr=[];
+  for(let i=0;i<nD;i+=20)dArr.push(...await Promise.all(Array.from({length:Math.min(20,nD-i)},(_,j)=>b.deposits(i+j))));
+  for(let i=0;i<nR;i+=20)rArr.push(...await Promise.all(Array.from({length:Math.min(20,nR-i)},(_,j)=>b.requests(i+j))));
+  const cnt={},dep=[];let sDep=0;
+  dArr.forEach(d=>{const k=d.depositor;cnt[k]=(cnt[k]||0)+1;const st=Number(d.status);
+    dep.push({addr:k,id:cnt[k],amt:f18(d.amount),t:Number(d.start),unlock:Number(d.unlock),renew:0,st:st===3?'out':st===2?'queue':(Number(d.unlock)>now?'lock':'ready')});sDep+=f18(d.amount);});
+  const users=[...new Set(rArr.filter(r=>Number(r.status)===2).map(r=>r.user))];
+  const ls=await Promise.all(users.map(async u=>({u,l:await b.loans(u)})));
+  const loans=[];let sLoan=0,sPaid=0,sSeized=0;
+  ls.filter(x=>Number(x.l.status)>0).forEach(({u,l})=>{const st=Number(l.status),amt=f18(l.principal),due=Number(l.due);
+    loans.push({addr:u,amt,t:Number(l.start),due,st:st===2?'paid':st===3?'seized':(now>=due?'late':'run')});
+    sLoan+=amt;if(st===2)sPaid+=amt;if(st===3)sSeized+=amt;});
+  loans.sort((x,y)=>y.t-x.t);dep.reverse();
+  _hRows={loan:loans,dep:dep,cash:[]};
+  $('hSum1').textContent=usd(sDep);$('hSum2').textContent=usd(sLoan);$('hSum3').textContent=usd(sPaid);$('hSum4').textContent=usd(sSeized);
+  renderHist();
+  $('hDbg').textContent='Mode cadangan (dibaca dari kontrak): pinjaman = yang terakhir per wallet, tanpa tanggal lunas; tab Kas tidak tersedia. Setoran '+dep.length+', peminjam '+loans.length+'.';
 }
 function hTab(t){_hT=t;document.querySelectorAll('[data-ht]').forEach(b=>b.classList.toggle('on',b.dataset.ht===t));renderHist();}
 function hN(n){_hNn=n;document.querySelectorAll('[data-hn]').forEach(b=>b.classList.toggle('on',Number(b.dataset.hn)===n));renderHist();}
