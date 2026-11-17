@@ -357,11 +357,33 @@ let _mult=3333;
 const pf=n=>String(n).replace('.',',');
 function rwdShort(m){return m===0?'berhenti selama pinjam':'±'+pf((m/10000).toFixed(2))+'% per hari';}
 function rwdFull(m){return m===0?'Berhenti selama pinjaman':'±'+pf((m/10000).toFixed(2))+'% / hari (±'+pf(Math.round(m*30/10000))+'% / bulan)';}
+let _lv=null,_selTier=null,_detOpen=false;
 function pickTier(cb){
-  const act=Number(_par._loanCapBps);
-  if(cb===act){const d=$('lDet');if(d)d.style.display=d.style.display==='none'?'block':'none';return;}
-  if(cb<act){pop({title:'Paket ini belum dibuka',lines:['Saat ini plafon '+(act/100)+'% yang tersedia. Silakan ajukan di paket tersebut.'],cancel:false,ok:'Tutup'});return;}
-  noFund();
+  if(cb===_selTier){_detOpen=!_detOpen;}else{_selTier=cb;_detOpen=true;}
+  drawLoanForm();
+}
+function askTierLoan(){
+  const act=Number(_par._loanCapBps),sel=_selTier||act;
+  if(sel===act){askLoan(_lv.S*act/10000,_lv.S*_lv.cut,_lv.minL,_lv.S);return;}
+  if(_sw&&!_sw._loansOpen){noFund();return;}
+  pop({title:'Paket ini belum dibuka',lines:['Saat ini plafon '+(act/100)+'% yang tersedia. Silakan ajukan di paket tersebut.'],cancel:false,ok:'Tutup'});
+}
+function drawLoanForm(){
+  const v=_lv,S=v.S,cut=v.cut,capB=Number(_par._loanCapBps);
+  const sel=_selTier||capB,isAct=sel===capB,T=TIERS[sel]||{seize:7500,mult:3333};
+  const m=isAct?_mult:T.mult,szP=isAct?Math.round(v.sz*100):T.seize/100,c=sel/10000;
+  const rw=(l,x)=>'<div class="row"><span>'+l+'</span><b>'+x+'</b></div>';
+  let tc='';
+  [2500,5000,7500].forEach(cb=>{const on=cb===sel;
+    tc+='<div onclick="pickTier('+cb+')" style="flex:1;min-width:0;text-align:center;border:'+(on?'1.5px solid var(--navy);background:var(--bg2)':'.5px solid var(--border);background:#fff')+';border-radius:12px;padding:10px 4px;cursor:pointer"><div style="font-size:16px;font-weight:700;color:var(--navy)">'+(cb/100)+'%</div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+usd(S*cb/10000)+'</div>'+(cb===capB?'<div style="font-size:10px;background:var(--navy);color:#fff;border-radius:6px;padding:2px 0;margin:6px 8px 0">Tersedia</div>':'<div style="height:22px"></div>')+'</div>';});
+  $('lBody').innerHTML=v.pre+'<div class="card"><div class="h">Pinjaman</div>'+
+    '<div style="background:var(--navy);border-radius:12px;padding:12px 14px;margin-bottom:12px;color:#fff"><div style="display:flex;gap:12px"><div style="flex:1;min-width:0"><div style="font-size:11px;opacity:.75">Staking V3 kamu</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+indc(v.si)+' INDC</div></div><div style="width:.5px;background:rgba(255,255,255,.3)"></div><div style="flex:1;min-width:0;text-align:right"><div style="font-size:11px;opacity:.75">Nilai saat ini</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+usd(S)+'</div></div></div><div style="font-size:11px;opacity:.75;margin-top:10px;border-top:.5px solid rgba(255,255,255,.25);padding-top:8px">Plafon pinjaman dihitung dari nilai staking ini.</div></div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pilih plafon pinjaman</div><div style="display:flex;gap:8px">'+tc+'</div>'+
+    '<div style="display:'+(_detOpen?'block':'none')+';border:.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">'+
+      rw('Kamu terima',usd(S*c)+' USDT')+rw('Biaya admin '+Math.round(cut*100)+'% (dari staking)','−'+usd(S*cut))+rw('Staking setelah potongan',usd(S*(1-cut)))+rw('Tenor','30 hari')+rw('Reward normal','1% / hari')+rw('Reward selama pinjam',rwdFull(m))+
+      '<div style="background:#fff7ed;border:.5px solid #fdba74;border-radius:10px;padding:10px 12px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#9a3412;margin-bottom:3px">Jika terlambat bayar</div><div style="font-size:11px;color:#9a3412;line-height:1.6">Setelah jatuh tempo, staking dibekukan dan reward berhenti. Kamu diingatkan di hari ke-0, ke-2, dan ke-4. Jika sampai hari ke-7 belum lunas, '+szP+'% INDC staking kamu dapat diambil untuk melunasi pinjaman.</div></div>'+
+      '<div class="note">Minimal pinjaman '+usd(v.minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(v.minL/c)+'. Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div>'+
+    '</div><button class="btn" style="margin-top:10px" onclick="askTierLoan()">Ajukan pinjaman '+(sel/100)+'%</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div></div>';
 }
 async function loadPinjam(){
   const b=rBank();
@@ -377,7 +399,7 @@ async function loadPinjam(){
     h='<div class="card"><div class="h">Pinjaman aktif</div><div class="row"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Jatuh tempo</span><b>'+days+' hari lagi ('+dt(li.due)+')</b></div><div class="row"><span>Reward berjalan</span><b>'+rwdFull(lm)+'</b></div><div class="note">Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askRepay('+P+')">Bayar pinjaman</button></div>';
   }else if(st===1){
     const w=Number(li.warning);
-    const t=['','Hari 0 — Jatuh tempo','Hari 2 — Segera bayar','Hari 4 — Sita bisa dilakukan'][w]||'Jatuh tempo';
+    const t=['','Hari 0 — Jatuh tempo','Hari 2 — Segera bayar','Hari 4 — Segera bayar, batas akhir'][w]||'Jatuh tempo';
     h='<div class="card red"><div class="h bad">'+t+'</div><div class="note" style="color:#0f2942;margin-top:0">Pinjaman jatuh tempo. Staking dibekukan dan reward berhenti sampai kamu bayar. Jika tidak dibayar, '+Math.round((lsz||sz)*100)+'% jaminan disita.</div><div class="row" style="margin-top:8px"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Sita otomatis mulai</span><b>'+dt(li.autoSeizeTime)+'</b></div><button class="btn" onclick="askRepay('+P+')">Bayar sekarang</button></div>';
     const k='warn'+w;if(w>0&&!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');pop({title:t,color:'#b91c1c',red:true,lines:['Pinjaman '+usd(P)+' belum dibayar. Staking dibekukan.','Risiko sita '+Math.round((lsz||sz)*100)+'% jaminan.'],ok:'Bayar sekarang',cancel:'Nanti',onOk:()=>askRepay(P)});}
   }else if(pr.pending){
@@ -385,21 +407,7 @@ async function loadPinjam(){
     h='<div class="card"><div class="h">Pengajuan dalam antrean</div><div class="row"><span>Jumlah</span><b>'+usd(f18(pr.amount))+'</b></div><div class="row"><span>Sisa waktu</span><b>'+Math.floor(left/3600)+'j '+Math.floor(left%3600/60)+'m</b></div><div class="note">Cair otomatis saat kas bank cukup. Maksimal 12 jam.</div><button class="btn2" onclick="tx(\'Batalkan\',()=>wBank().cancelRequest())">Batalkan pengajuan</button></div>';
   }else{
     if(st===3)h+='<div class="card red"><div class="h bad">Pinjaman sebelumnya gagal bayar</div><div class="note" style="margin-top:0">Sebagian jaminan disita. Sisa staking berjalan normal 1% per hari.</div></div>';
-    const capB=Number(_par._loanCapBps),szP=Math.round(sz*100);
-    const rw=(l,v)=>'<div class="row"><span>'+l+'</span><b>'+v+'</b></div>';
-    let tc='';
-    [2500,5000,7500].forEach(cb=>{const on=cb===capB;
-      tc+='<div onclick="pickTier('+cb+')" style="flex:1;min-width:0;text-align:center;border:'+(on?'1.5px solid var(--navy);background:var(--bg2)':'.5px solid var(--border);background:#fff')+';border-radius:12px;padding:10px 4px;cursor:pointer"><div style="font-size:16px;font-weight:700;color:var(--navy)">'+(cb/100)+'%</div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+usd(S*cb/10000)+'</div>'+(on?'<div style="font-size:10px;background:var(--navy);color:#fff;border-radius:6px;padding:2px 0;margin:6px 8px 0">Tersedia</div>':'<div style="height:22px"></div>')+'</div>';});
-    h+='<div class="card"><div class="h">Pinjaman</div>'+
-      '<div style="background:var(--navy);border-radius:12px;padding:12px 14px;margin-bottom:12px;color:#fff"><div style="display:flex;gap:12px"><div style="flex:1;min-width:0"><div style="font-size:11px;opacity:.75">Staking V3 kamu</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+indc(si)+' INDC</div></div><div style="width:.5px;background:rgba(255,255,255,.3)"></div><div style="flex:1;min-width:0;text-align:right"><div style="font-size:11px;opacity:.75">Nilai saat ini</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+usd(S)+'</div></div></div><div style="font-size:11px;opacity:.75;margin-top:10px;border-top:.5px solid rgba(255,255,255,.25);padding-top:8px">Plafon pinjaman dihitung dari nilai staking ini.</div></div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pilih plafon pinjaman</div>'+
-      '<div style="display:flex;gap:8px">'+tc+'</div>'+
-      '<div id="lDet" style="display:none;border:.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">'+
-        rw('Kamu terima',usd(S*cap)+' USDT')+rw('Biaya admin '+Math.round(cut*100)+'% (dari staking)','−'+usd(S*cut))+rw('Staking setelah potongan',usd(S*(1-cut)))+rw('Tenor','30 hari')+rw('Reward normal','1% / hari')+rw('Reward selama pinjam',rwdFull(_mult))+
-        '<div style="background:#fff7ed;border:.5px solid #fdba74;border-radius:10px;padding:10px 12px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#9a3412;margin-bottom:3px">Jika terlambat bayar</div><div style="font-size:11px;color:#9a3412;line-height:1.6">Setelah jatuh tempo, staking dibekukan dan reward berhenti. Kamu diingatkan di hari ke-0, ke-2, dan ke-4. Jika sampai hari ke-4 belum lunas, '+szP+'% INDC staking kamu dapat diambil untuk melunasi pinjaman.</div></div>'+
-        '<div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'. Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div>'+
-      '</div>'+
-      '<button class="btn" style="margin-top:10px" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman '+Math.round(cap*100)+'%</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div></div>';
+    _lv={S,si,cut,minL,sz,pre:h};drawLoanForm();return;
   }
   $('lBody').innerHTML=h;
 }
@@ -469,15 +477,15 @@ async function loadBorrowers(){
     const b=rBank(),now=Math.floor(Date.now()/1000),rows=[];
     const arr=await Promise.all([..._bSet].map(async a=>({a,li:await b.loanInfo(a)})));
     arr.filter(x=>Number(x.li.status)===1).sort((x,y)=>Number(x.li.due)-Number(y.li.due)).forEach(({a,li})=>{
-      const due=Number(li.due),late=now-due,ready=late>=4*86400;
+      const due=Number(li.due),late=now-due,ready=late>=7*86400;
       let st,col;
       if(late<0){st='Berjalan · '+Math.ceil(-late/86400)+' hari lagi';col='#16a34a';}
-      else if(!ready){st='Lewat '+Math.floor(late/86400)+' hari · sita mulai hari ke-4';col='#b45309';}
+      else if(!ready){st='Lewat '+Math.floor(late/86400)+' hari · sita mulai hari ke-7';col='#b45309';}
       else{st='Lewat '+Math.floor(late/86400)+' hari · siap disita';col='#b91c1c';}
       rows.push('<div class="brw"><div style="flex:1;min-width:0"><div class="a">'+a+'</div><div class="m">'+usd(f18(li.principal))+' · jatuh tempo '+dt(li.due)+'</div><div class="s" style="color:'+col+'">'+st+'</div></div><button class="sbtn" '+(ready?'':'disabled')+' onclick="devSeize(\''+a+'\')">Sita</button></div>');
     });
     $('brwN').textContent='· '+rows.length+' aktif';
-    box.innerHTML=rows.length?rows.join('')+'<div class="note">Tombol Sita aktif mulai hari ke-4 setelah jatuh tempo.</div>':'<div class="note">Belum ada pinjaman aktif.</div>';
+    box.innerHTML=rows.length?rows.join('')+'<div class="note">Tombol Sita aktif mulai hari ke-7 setelah jatuh tempo.</div>':'<div class="note">Belum ada pinjaman aktif.</div>';
   }catch(e){box.innerHTML='<div class="note">Gagal memuat daftar peminjam. Coba muat ulang.</div>';}
 }
 function devAmt(){const a=parseFloat($('devAmt').value);if(!(a>0)){toast('Isi jumlah USDT');return null;}return ethers.utils.parseUnits(String(a),18);}
