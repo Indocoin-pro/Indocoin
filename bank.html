@@ -359,7 +359,7 @@ function rwdShort(m){return m===0?'berhenti selama pinjam':'±'+pf((m/10000).toF
 function rwdFull(m){return m===0?'Berhenti selama pinjaman':'±'+pf((m/10000).toFixed(2))+'% / hari (±'+pf(Math.round(m*30/10000))+'% / bulan)';}
 function pickTier(cb){
   const act=Number(_par._loanCapBps);
-  if(cb===act)return;
+  if(cb===act){const d=$('lDet');if(d)d.style.display=d.style.display==='none'?'block':'none';return;}
   if(cb<act){pop({title:'Paket ini belum dibuka',lines:['Saat ini plafon '+(act/100)+'% yang tersedia. Silakan ajukan di paket tersebut.'],cancel:false,ok:'Tutup'});return;}
   noFund();
 }
@@ -385,11 +385,21 @@ async function loadPinjam(){
     h='<div class="card"><div class="h">Pengajuan dalam antrean</div><div class="row"><span>Jumlah</span><b>'+usd(f18(pr.amount))+'</b></div><div class="row"><span>Sisa waktu</span><b>'+Math.floor(left/3600)+'j '+Math.floor(left%3600/60)+'m</b></div><div class="note">Cair otomatis saat kas bank cukup. Maksimal 12 jam.</div><button class="btn2" onclick="tx(\'Batalkan\',()=>wBank().cancelRequest())">Batalkan pengajuan</button></div>';
   }else{
     if(st===3)h+='<div class="card red"><div class="h bad">Pinjaman sebelumnya gagal bayar</div><div class="note" style="margin-top:0">Sebagian jaminan disita. Sisa staking berjalan normal 1% per hari.</div></div>';
-    const capB=Number(_par._loanCapBps);
+    const capB=Number(_par._loanCapBps),szP=Math.round(sz*100);
+    const rw=(l,v)=>'<div class="row"><span>'+l+'</span><b>'+v+'</b></div>';
     let tc='';
-    [2500,5000,7500].forEach(cb=>{const T=TIERS[cb],on=cb===capB,m=on?_mult:T.mult,z=on?Math.round(sz*100):T.seize/100;
-      tc+='<div onclick="pickTier('+cb+')" style="border:'+(on?'1.5px solid var(--navy);background:var(--bg2)':'.5px solid var(--border)')+';border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--navy)"><span>Plafon '+(cb/100)+'%</span><span>'+usd(S*cb/10000)+'</span></div><div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">Reward selama pinjam '+(m===0?'berhenti':rwdShort(m))+' · jaminan disita '+z+'%</div></div>';});
-    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div style="margin-top:10px">'+tc+'</div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>'+rwdFull(_mult)+'</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">'+(_mult===0?'Selama pinjaman berjalan, reward berhenti.':'Selama pinjaman berjalan, reward turun dari 1% menjadi '+rwdShort(_mult)+'.')+' Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman '+Math.round(cap*100)+'%</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
+    [2500,5000,7500].forEach(cb=>{const on=cb===capB;
+      tc+='<div onclick="pickTier('+cb+')" style="flex:1;min-width:0;text-align:center;border:'+(on?'1.5px solid var(--navy);background:var(--bg2)':'.5px solid var(--border);background:#fff')+';border-radius:12px;padding:10px 4px;cursor:pointer"><div style="font-size:16px;font-weight:700;color:var(--navy)">'+(cb/100)+'%</div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+usd(S*cb/10000)+'</div>'+(on?'<div style="font-size:10px;background:var(--navy);color:#fff;border-radius:6px;padding:2px 0;margin:6px 8px 0">Tersedia</div>':'<div style="height:22px"></div>')+'</div>';});
+    h+='<div class="card"><div class="h">Pinjaman</div>'+
+      '<div style="background:var(--navy);border-radius:12px;padding:12px 14px;margin-bottom:12px;color:#fff"><div style="display:flex;gap:12px"><div style="flex:1;min-width:0"><div style="font-size:11px;opacity:.75">Staking V3 kamu</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+indc(si)+' INDC</div></div><div style="width:.5px;background:rgba(255,255,255,.3)"></div><div style="flex:1;min-width:0;text-align:right"><div style="font-size:11px;opacity:.75">Nilai saat ini</div><div style="font-size:16px;font-weight:700;margin-top:3px">'+usd(S)+'</div></div></div><div style="font-size:11px;opacity:.75;margin-top:10px;border-top:.5px solid rgba(255,255,255,.25);padding-top:8px">Plafon pinjaman dihitung dari nilai staking ini.</div></div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pilih plafon pinjaman</div>'+
+      '<div style="display:flex;gap:8px">'+tc+'</div>'+
+      '<div id="lDet" style="display:none;border:.5px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">'+
+        rw('Kamu terima',usd(S*cap)+' USDT')+rw('Biaya admin '+Math.round(cut*100)+'% (dari staking)','−'+usd(S*cut))+rw('Staking setelah potongan',usd(S*(1-cut)))+rw('Tenor','30 hari')+rw('Reward normal','1% / hari')+rw('Reward selama pinjam',rwdFull(_mult))+
+        '<div style="background:#fff7ed;border:.5px solid #fdba74;border-radius:10px;padding:10px 12px;margin-top:8px"><div style="font-size:11px;font-weight:700;color:#9a3412;margin-bottom:3px">Jika terlambat bayar</div><div style="font-size:11px;color:#9a3412;line-height:1.6">Setelah jatuh tempo, staking dibekukan dan reward berhenti. Kamu diingatkan di hari ke-0, ke-2, dan ke-4. Jika sampai hari ke-4 belum lunas, '+szP+'% INDC staking kamu dapat diambil untuk melunasi pinjaman.</div></div>'+
+        '<div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'. Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div>'+
+      '</div>'+
+      '<button class="btn" style="margin-top:10px" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman '+Math.round(cap*100)+'%</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div></div>';
   }
   $('lBody').innerHTML=h;
 }
