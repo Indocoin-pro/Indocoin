@@ -172,6 +172,7 @@ input.inp:focus{border-color:var(--blue);}
         <button class="hchip on" data-hn="10" onclick="hN(10)">10</button><button class="hchip" data-hn="50" onclick="hN(50)">50</button><button class="hchip" data-hn="100" onclick="hN(100)">100</button><button class="hchip" data-hn="0" onclick="hN(0)">Semua</button></div>
       <div id="hList"><div class="note">Memuat…</div></div>
       <button class="btn2" onclick="hCsv()">Unduh CSV</button>
+      <div id="hDbg" style="font-size:9px;color:#94a3b8;margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -395,17 +396,26 @@ async function loadDev(){
   loadBorrowers();
 }
 let _bSet=new Set(),_bLast=0,_ev=[],_ts={},_iface=null;
-async function scanBorrowers(){
-  if(!_iface)_iface=new ethers.utils.Interface(BANK_ABI);
-  const latest=await rp().getBlockNumber();
-  let s=_bLast?_bLast+1:(SC.BANK_BLOCK||Math.max(0,latest-3000000)),step=50000;
+let _dbg='';
+async function scanWith(prov){
+  const latest=await prov.getBlockNumber();
+  let s=_bLast?_bLast+1:(SC.BANK_BLOCK||Math.max(0,latest-3000000)),step=50000,n=0,bad=0;
   while(s<=latest){const e=Math.min(s+step-1,latest);
     try{
-      const logs=await rp().getLogs({address:SC.BANK,fromBlock:s,toBlock:e});
-      logs.forEach(l=>{try{const p=_iface.parseLog(l);_ev.push({n:p.name,a:p.args,b:l.blockNumber,i:l.logIndex});if(p.name==='LoanDisbursed')_bSet.add(p.args.user);}catch(x){}});
+      const logs=await prov.getLogs({address:SC.BANK,fromBlock:s,toBlock:e});
+      logs.forEach(l=>{n++;try{const p=_iface.parseLog(l);_ev.push({n:p.name,a:p.args,b:l.blockNumber,i:l.logIndex});if(p.name==='LoanDisbursed')_bSet.add(p.args.user);}catch(x){bad++;}});
       s=e+1;}
     catch(err){if(step<=1000)throw err;step=Math.floor(step/2);}}
-  _bLast=latest;
+  _bLast=latest;_dbg='Event terbaca: '+_ev.length+' (log '+n+', gagal baca '+bad+') · sampai blok '+latest;
+}
+async function scanBorrowers(){
+  if(!_iface)_iface=new ethers.utils.Interface(BANK_ABI);
+  await scanWith(rp());
+  if(_ev.length===0){
+    for(const u of RPCS){
+      try{const p=new ethers.providers.StaticJsonRpcProvider(u,{chainId:56,name:'bnb'});_bLast=0;_ev=[];_bSet=new Set();await scanWith(p);if(_ev.length){_rp=p;break;}}catch(e){}
+    }
+  }
 }
 async function loadBorrowers(){
   const box=$('brwList');
@@ -465,7 +475,7 @@ async function buildHist(){
     loans.forEach(l=>{if(l.st==='run'&&now>=l.due)l.st='late';});
     _hRows={loan:loans.reverse(),dep:depList.reverse(),cash:cash.reverse()};
     $('hSum1').textContent=usd(sDep);$('hSum2').textContent=usd(sLoan);$('hSum3').textContent=usd(sPaid);$('hSum4').textContent=usd(sSeized);
-    renderHist();
+    renderHist();$('hDbg').textContent=_dbg;
   }catch(e){$('hList').innerHTML='<div class="note">Gagal memuat riwayat. Coba muat ulang.</div>';}
 }
 function hTab(t){_hT=t;document.querySelectorAll('[data-ht]').forEach(b=>b.classList.toggle('on',b.dataset.ht===t));renderHist();}
