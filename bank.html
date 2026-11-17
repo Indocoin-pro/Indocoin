@@ -149,6 +149,15 @@ input.inp:focus{border-color:var(--blue);}
       <div class="row" style="margin-top:8px"><span>Pinjaman baru</span><b id="swL">—</b></div>
       <button class="btn2" onclick="devToggle('loan')">Buka / tutup pinjaman</button>
     </div>
+    <div class="card"><div class="h">Paket pinjaman aktif</div>
+      <div class="note" id="pkgNow" style="margin-top:0">Memuat…</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="hchip" data-pk="2500" onclick="devPackage(2500)">25%</button>
+        <button class="hchip" data-pk="5000" onclick="devPackage(5000)">50%</button>
+        <button class="hchip" data-pk="7500" onclick="devPackage(7500)">75%</button>
+      </div>
+      <div class="note">Satu klik menjalankan 3 transaksi berurutan (sita, reward, plafon). Berlaku untuk pinjaman baru.</div>
+    </div>
     <div class="card"><div class="h">Brankas VIP — vesting harian</div>
       <div class="row"><span>Saat ini</span><b id="devRate">—</b></div>
       <input class="inp" id="devRateIn" type="number" inputmode="decimal" placeholder="Persen per hari, mis. 1" style="margin-top:8px">
@@ -210,6 +219,7 @@ const BANK_ABI=[
 'function paramsInfo() view returns (uint256 _bonusBps,uint256 _cutBps,uint256 _loanCapBps,uint256 _seizeBps,uint256 _minDeposit,uint256 _minLoan)',
 'function switchesInfo() view returns (bool _depositsOpen,bool _loansOpen,uint256 _maxTotalDeposits,uint256 _maxPerAccount)',
 'event LoanDisbursed(address indexed user,uint256 amount,uint256 cutUsdt,uint256 seizeBps,uint256 due)',
+'function setSeizeBps(uint256)','function setLoanCapBps(uint256)',
 'function depositCount() view returns (uint256)','function requestCount() view returns (uint256)',
 
 'function requests(uint256) view returns (address user,uint256 amount,uint64 time,uint8 status)',
@@ -223,7 +233,7 @@ const BANK_ABI=[
 'event BankFunded(address indexed from,uint256 amount)',
 'event UsdtWithdrawn(uint256 amount)'];
 const VAULT_ABI=['function owner() view returns (address)','function rateBps() view returns (uint256)','function memberInfo(address) view returns (uint256 principal,uint256 withdrawnTotal,uint256 availableNow,uint256 remainingLocked,uint256 _rateBps)','function withdraw()','function setRate(uint256)'];
-const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)','function totalStakingIndc(address) view returns (uint256)'];
+const WEL_ABI=['function totalStakingValueUsdt(address) view returns (uint256)','function totalStakingIndc(address) view returns (uint256)','function loanRewardMultiplierBps() view returns (uint256)','function setLoanRewardMultiplier(uint256)','function loanStateOf(address) view returns (bool active,bool frozen,uint256 dueTime,uint256 collateralBps,uint256 multBps)'];
 const ERC=['function balanceOf(address) view returns (uint256)','function allowance(address,address) view returns (uint256)','function approve(address,uint256) returns (bool)'];
 const RPCS=['https://bsc-dataseed.binance.org/','https://bsc-dataseed1.binance.org/','https://bsc-dataseed2.binance.org/','https://bsc-dataseed3.binance.org/','https://bsc-dataseed4.binance.org/','https://rpc.ankr.com/bsc','https://bsc.publicnode.com','https://binance.llamarpc.com','https://1rpc.io/bnb'];
 
@@ -255,6 +265,7 @@ async function pickRpc(){ // sama seperti welcome.html: coba RPC satu per satu
 const rBank=()=>new ethers.Contract(SC.BANK,BANK_ABI,rp());
 const rVault=()=>new ethers.Contract(SC.VAULT,VAULT_ABI,rp());
 const wBank=()=>new ethers.Contract(SC.BANK,BANK_ABI,_signer);
+const wWel=()=>new ethers.Contract(SC.WELCOME,WEL_ABI,_signer);
 const wVault=()=>new ethers.Contract(SC.VAULT,VAULT_ABI,_signer);
 
 async function connectWallet(){
@@ -341,28 +352,44 @@ function askRenew(id,a){const bp=Number(_par._bonusBps)/10000;pop({title:'Tetap 
 function act(fn,id){tx('Proses',()=>wBank()[fn](id));}
 
 // ───── PINJAM ─────
+const TIERS={2500:{seize:5000,mult:6667},5000:{seize:7500,mult:3333},7500:{seize:10000,mult:0}};
+let _mult=3333;
+const pf=n=>String(n).replace('.',',');
+function rwdShort(m){return m===0?'berhenti selama pinjam':'±'+pf((m/10000).toFixed(2))+'% per hari';}
+function rwdFull(m){return m===0?'Berhenti selama pinjaman':'±'+pf((m/10000).toFixed(2))+'% / hari (±'+pf(Math.round(m*30/10000))+'% / bulan)';}
+function pickTier(cb){
+  const act=Number(_par._loanCapBps);
+  if(cb===act)return;
+  if(cb<act){pop({title:'Paket ini belum dibuka',lines:['Saat ini plafon '+(act/100)+'% yang tersedia. Silakan ajukan di paket tersebut.'],cancel:false,ok:'Tutup'});return;}
+  noFund();
+}
 async function loadPinjam(){
   const b=rBank();
   const wel=new ethers.Contract(SC.WELCOME,WEL_ABI,rp());
-  const [li,pr,mx,sv,si]=await Promise.all([b.loanInfo(_wallet),b.pendingRequestInfo(_wallet),b.maxLoanFor(_wallet),wel.totalStakingValueUsdt(_wallet).catch(()=>ethers.constants.Zero),wel.totalStakingIndc(_wallet).catch(()=>ethers.constants.Zero)]);
+  const [li,pr,mx,sv,si,mu,ls]=await Promise.all([b.loanInfo(_wallet),b.pendingRequestInfo(_wallet),b.maxLoanFor(_wallet),wel.totalStakingValueUsdt(_wallet).catch(()=>ethers.constants.Zero),wel.totalStakingIndc(_wallet).catch(()=>ethers.constants.Zero),wel.loanRewardMultiplierBps().catch(()=>ethers.BigNumber.from(3333)),wel.loanStateOf(_wallet).catch(()=>null)]);
+  _mult=Number(mu);const lm=ls?Number(ls.multBps):_mult,lsz=ls&&Number(ls.collateralBps)>0?Number(ls.collateralBps)/10000:null;
   const st=Number(li.status),now=Math.floor(Date.now()/1000);
   const S=f18(sv),cap=Number(_par._loanCapBps)/10000,cut=Number(_par._cutBps)/10000,sz=Number(_par._seizeBps)/10000;
   const P=f18(li.principal);const minL=f18(_par._minLoan);
   let h='';
   if(st===1&&now<Number(li.due)){
     const days=Math.ceil((Number(li.due)-now)/86400);
-    h='<div class="card"><div class="h">Pinjaman aktif</div><div class="row"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Jatuh tempo</span><b>'+days+' hari lagi ('+dt(li.due)+')</b></div><div class="row"><span>Reward berjalan</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="note">Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askRepay('+P+')">Bayar pinjaman</button></div>';
+    h='<div class="card"><div class="h">Pinjaman aktif</div><div class="row"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Jatuh tempo</span><b>'+days+' hari lagi ('+dt(li.due)+')</b></div><div class="row"><span>Reward berjalan</span><b>'+rwdFull(lm)+'</b></div><div class="note">Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askRepay('+P+')">Bayar pinjaman</button></div>';
   }else if(st===1){
     const w=Number(li.warning);
     const t=['','Hari 0 — Jatuh tempo','Hari 2 — Segera bayar','Hari 4 — Sita bisa dilakukan'][w]||'Jatuh tempo';
-    h='<div class="card red"><div class="h bad">'+t+'</div><div class="note" style="color:#0f2942;margin-top:0">Pinjaman jatuh tempo. Staking dibekukan dan reward berhenti sampai kamu bayar. Jika tidak dibayar, '+Math.round(sz*100)+'% jaminan disita.</div><div class="row" style="margin-top:8px"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Sita otomatis mulai</span><b>'+dt(li.autoSeizeTime)+'</b></div><button class="btn" onclick="askRepay('+P+')">Bayar sekarang</button></div>';
-    const k='warn'+w;if(w>0&&!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');pop({title:t,color:'#b91c1c',red:true,lines:['Pinjaman '+usd(P)+' belum dibayar. Staking dibekukan.','Risiko sita '+Math.round(sz*100)+'% jaminan.'],ok:'Bayar sekarang',cancel:'Nanti',onOk:()=>askRepay(P)});}
+    h='<div class="card red"><div class="h bad">'+t+'</div><div class="note" style="color:#0f2942;margin-top:0">Pinjaman jatuh tempo. Staking dibekukan dan reward berhenti sampai kamu bayar. Jika tidak dibayar, '+Math.round((lsz||sz)*100)+'% jaminan disita.</div><div class="row" style="margin-top:8px"><span>Pinjaman</span><b>'+usd(P)+'</b></div><div class="row"><span>Sita otomatis mulai</span><b>'+dt(li.autoSeizeTime)+'</b></div><button class="btn" onclick="askRepay('+P+')">Bayar sekarang</button></div>';
+    const k='warn'+w;if(w>0&&!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');pop({title:t,color:'#b91c1c',red:true,lines:['Pinjaman '+usd(P)+' belum dibayar. Staking dibekukan.','Risiko sita '+Math.round((lsz||sz)*100)+'% jaminan.'],ok:'Bayar sekarang',cancel:'Nanti',onOk:()=>askRepay(P)});}
   }else if(pr.pending){
     const left=Math.max(0,Number(pr.expiresAt)-now);
     h='<div class="card"><div class="h">Pengajuan dalam antrean</div><div class="row"><span>Jumlah</span><b>'+usd(f18(pr.amount))+'</b></div><div class="row"><span>Sisa waktu</span><b>'+Math.floor(left/3600)+'j '+Math.floor(left%3600/60)+'m</b></div><div class="note">Cair otomatis saat kas bank cukup. Maksimal 12 jam.</div><button class="btn2" onclick="tx(\'Batalkan\',()=>wBank().cancelRequest())">Batalkan pengajuan</button></div>';
   }else{
     if(st===3)h+='<div class="card red"><div class="h bad">Pinjaman sebelumnya gagal bayar</div><div class="note" style="margin-top:0">Sebagian jaminan disita. Sisa staking berjalan normal 1% per hari.</div></div>';
-    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div class="row"><span>Plafon ('+Math.round(cap*100)+'%)</span><b>'+usd(S*cap)+'</b></div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>±0,33% / hari (±10% / bulan)</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">Selama pinjaman berjalan, reward turun dari 1% menjadi ±0,33% per hari (±10% per bulan). Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
+    const capB=Number(_par._loanCapBps);
+    let tc='';
+    [2500,5000,7500].forEach(cb=>{const T=TIERS[cb],on=cb===capB,m=on?_mult:T.mult,z=on?Math.round(sz*100):T.seize/100;
+      tc+='<div onclick="pickTier('+cb+')" style="border:'+(on?'1.5px solid var(--navy);background:var(--bg2)':'.5px solid var(--border)')+';border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--navy)"><span>Plafon '+(cb/100)+'%</span><span>'+usd(S*cb/10000)+'</span></div><div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">Reward selama pinjam '+(m===0?'berhenti':rwdShort(m))+' · jaminan disita '+z+'%</div></div>';});
+    h+='<div class="card"><div class="h">Pinjaman</div><div class="row"><span>Staking aktif</span><b>'+indc(si)+' INDC ≈ '+usd(S)+'</b></div><div style="margin-top:10px">'+tc+'</div><div class="row"><span>Kamu terima</span><b>'+usd(S*cap)+' USDT</b></div><div class="row"><span>Biaya admin '+Math.round(cut*100)+'% (dari staking)</span><b>−'+usd(S*cut)+'</b></div><div class="row"><span>Staking setelah potongan</span><b>'+usd(S*(1-cut))+'</b></div><div class="row"><span>Reward normal</span><b>1% / hari (30% / bulan)</b></div><div class="row"><span>Reward selama pinjam</span><b>'+rwdFull(_mult)+'</b></div><div class="row"><span>Tenor</span><b>30 hari</b></div><div class="row"><span>Minimal pinjaman</span><b>'+usd(minL)+'</b></div><div class="note">Minimal pinjaman '+usd(minL)+', artinya total staking V3 kamu (semua posisi digabung) minimal '+usd(minL/cap)+'.</div><div class="note">'+(_mult===0?'Selama pinjaman berjalan, reward berhenti.':'Selama pinjaman berjalan, reward turun dari 1% menjadi '+rwdShort(_mult)+'.')+' Bayar kapan saja. Reward kembali normal 1% per hari setelah lunas.</div><button class="btn" onclick="askLoan('+S*cap+','+S*cut+','+minL+','+S+')">Ajukan pinjaman '+Math.round(cap*100)+'%</button><div class="warn hide" id="lWarn" style="font-size:10px;font-weight:600"></div>'+'</div>';
   }
   $('lBody').innerHTML=h;
 }
@@ -372,7 +399,7 @@ async function askLoan(a,c,minL,S){
   try{const b=rBank();const [sw,bi]=await Promise.all([b.switchesInfo(),b.bankInfo()]);
     if(!sw._loansOpen||bi._lendable.lt(ethers.utils.parseUnits(a.toFixed(6),18))){noFund();return;}}catch(e){}
   const sz=Math.round(Number(_par._seizeBps)/100);
-  pop({title:'Ajukan pinjaman?',color:'#b45309',lines:['Kamu terima '+usd(a)+' USDT. Biaya admin '+usd(c)+' dipotong dari staking.','Selama pinjaman, reward turun dari 1% per hari menjadi ±0,33% per hari (±10% per bulan). Kembali normal 1% per hari setelah lunas.','Jatuh tempo 30 hari. Jika gagal bayar, '+sz+'% jaminan disita.'],ok:'Saya paham, ajukan',onOk:()=>tx('Ajukan',()=>wBank().requestLoan())});
+  pop({title:'Ajukan pinjaman?',color:'#b45309',lines:['Kamu terima '+usd(a)+' USDT. Biaya admin '+usd(c)+' dipotong dari staking.',(_mult===0?'Selama pinjaman, reward berhenti. Kembali normal 1% per hari setelah lunas.':'Selama pinjaman, reward turun dari 1% per hari menjadi '+rwdShort(_mult)+' (±'+pf(Math.round(_mult*30/10000))+'% per bulan). Kembali normal 1% per hari setelah lunas.'),'Jatuh tempo 30 hari. Jika gagal bayar, '+sz+'% jaminan disita.'],ok:'Saya paham, ajukan',onOk:()=>tx('Ajukan',()=>wBank().requestLoan())});
 }
 function askRepay(p){pop({title:'Bayar pinjaman',lines:['Bayar '+usd(p)+' USDT.','Jaminan dilepas dan reward normal 1% per hari berjalan lagi.'],ok:'Bayar '+usd(p),onOk:()=>tx('Bayar',async()=>{const w=ethers.utils.parseUnits(String(p),18);await ensureUsdt(w);return wBank().repay();})});}
 
@@ -397,6 +424,9 @@ async function loadDev(){
   $('bEq').textContent=usd(f18(i._equity));$('bWd').textContent=usd(f18(i._devWithdrawable));
   $('swD').textContent=_sw._depositsOpen?'Dibuka':'Ditutup';$('swL').textContent=_sw._loansOpen?'Dibuka':'Ditutup';
   const r=await rVault().rateBps();$('devRate').textContent=(Number(r)/100)+'% per hari';
+  try{const m=Number(await new ethers.Contract(SC.WELCOME,WEL_ABI,rp()).loanRewardMultiplierBps());_mult=m;const cb=Number(_par._loanCapBps);
+    $('pkgNow').textContent='Saat ini: plafon '+(cb/100)+'% · admin '+(Number(_par._cutBps)/100)+'% · sita '+(Number(_par._seizeBps)/100)+'% · reward '+rwdShort(m);
+    document.querySelectorAll('[data-pk]').forEach(x=>x.classList.toggle('on',Number(x.dataset.pk)===cb));}catch(e){$('pkgNow').textContent='Gagal membaca paket.';}
   loadBorrowers();
 }
 let _bSet=new Set(),_bLast=0,_ev=[],_ts={},_iface=null;
@@ -527,6 +557,19 @@ function hCsv(){
   const lines=rows.map(r=>_hT==='loan'?[r.addr,r.amt,iso(r.t),iso(r.due),BD[r.st][2],iso(r.t2)]:_hT==='dep'?[r.addr,'#'+r.id,r.amt,iso(r.t),iso(r.unlock),BD[r.st][2],iso(r.t2)]:[r.k,r.addr,r.amt,iso(r.t)]);
   const csv=[head,...lines].map(l=>l.join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='riwayat-bank-'+_hT+'.csv';a.click();
+}
+async function txq(label,fn){
+  try{toast(label+'…',60000);const t=await fn();toast('Menunggu konfirmasi…',60000);await t.wait();return true;}
+  catch(e){const m=(e.error&&e.error.message)||e.reason||e.message||String(e);toast('Gagal ('+label+'): '+m.slice(0,120),7000);return false;}
+}
+function devPackage(cb){
+  const T=TIERS[cb];
+  pop({title:'Aktifkan plafon '+(cb/100)+'%',lines:['Sita jaminan '+(T.seize/100)+'%. Reward selama pinjam '+(T.mult===0?'berhenti':rwdShort(T.mult))+'.','Berlaku untuk pinjaman baru. Ada 3 transaksi berurutan, setujui semuanya di wallet.'],ok:'Aktifkan',
+    onOk:async()=>{
+      const steps=[['Atur sita',()=>wBank().setSeizeBps(T.seize)],['Atur reward',()=>wWel().setLoanRewardMultiplier(T.mult)],['Atur plafon',()=>wBank().setLoanCapBps(cb)]];
+      for(let i=0;i<steps.length;i++){if(!await txq((i+1)+'/3 '+steps[i][0],steps[i][1])){toast('Berhenti di langkah '+(i+1)+'. Klik paket lagi untuk mengulang.',7000);await loadAll();return;}}
+      toast('Paket '+(cb/100)+'% aktif');await loadAll();
+    }});
 }
 function devSeize(a){pop({title:'Sita pinjaman',red:true,lines:[a,'Jaminan disita ke wallet Dev. Pinjaman dianggap lunas.'],ok:'Sita',onOk:async()=>{await tx('Sita',()=>wBank().seize(a));}});}
 
