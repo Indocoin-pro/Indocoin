@@ -242,32 +242,49 @@ async function retryPendingOrders() {
   }
 }
 
+let catchUpDone = false;   // true setelah scan riwayat sukses sampai blok terbaru
+let catchUpRunning = false;
+
+const CATCHUP_CHUNK = 1000;        // blok per permintaan (RPC publik batasi getLogs)
+const CATCHUP_MAX_LOOKBACK = 200000; // ~1 hari; order lebih tua sudah auto-refund 24 jam
+
 async function catchUpMissedOrders() {
-  const lastBlock = getLastProcessedBlock();
-  const currentBlock = await blockchain.provider.getBlockNumber();
-
-  // Mulai dari 200 blok terakhir saja (~10 menit di BSC) kalau belum
-  // pernah jalan sebelumnya — RPC publik gratis punya rate limit ketat
-  // untuk eth_getLogs pada rentang blok besar.
-  const fromBlock = lastBlock ? lastBlock + 1 : currentBlock - 200;
-
-  if (fromBlock > currentBlock) return;
-
-  console.log(`[ppob-listener] Memeriksa order yang terlewat dari blok ${fromBlock} sampai ${currentBlock}...`);
-
+  if (catchUpRunning) return;
+  catchUpRunning = true;
   try {
-    const missedOrders = await blockchain.getPastOrders(fromBlock);
-    for (const order of missedOrders) {
-      await handleOrder(order);
+    const lastBlock = getLastProcessedBlock();
+    const currentBlock = await blockchain.provider.getBlockNumber();
+
+    // Mulai dari blok terakhir yang BERHASIL diproses, tapi tidak lebih tua dari
+    // ~1 hari. Kalau belum pernah jalan: 200 blok terakhir saja.
+    let fromBlock = lastBlock ? lastBlock + 1 : currentBlock - 200;
+    fromBlock = Math.max(fromBlock, currentBlock - CATCHUP_MAX_LOOKBACK);
+
+    if (fromBlock > currentBlock) { catchUpDone = true; return; }
+
+    console.log(`[ppob-listener] Memeriksa order yang terlewat dari blok ${fromBlock} sampai ${currentBlock} (per ${CATCHUP_CHUNK} blok)...`);
+
+    // Scan per potongan kecil. Progres disimpan SETIAP potongan sukses,
+    // jadi kalau gagal di tengah, restart berikutnya lanjut dari situ
+    // (handleOrder aman dipanggil ulang: order yang sudah diproses dilewati).
+    for (let start = fromBlock; start <= currentBlock; start += CATCHUP_CHUNK) {
+      const end = Math.min(start + CATCHUP_CHUNK - 1, currentBlock);
+      const missedOrders = await blockchain.getPastOrders(start, end);
+      for (const order of missedOrders) {
+        await handleOrder(order);
+      }
+      saveLastProcessedBlock(end);
     }
-    saveLastProcessedBlock(currentBlock);
+    catchUpDone = true;
+    console.log('[ppob-listener] Pemeriksaan order terlewat selesai.');
   } catch (err) {
-    // Gagal cek riwayat (misal RPC rate limit) TIDAK BOLEH menghentikan
-    // listener sepenuhnya — bagian paling penting (dengarkan order BARU
-    // secara real-time) harus tetap jalan. Order lama yang mungkin
-    // terlewat tetap aman karena auto-refund timeout 24 jam jadi jaring
-    // pengaman terakhir.
-    console.warn(`[ppob-listener] Gagal memeriksa order lama (${err.code || err.message}). Melanjutkan ke mode dengar real-time...`);
+    // Gagal cek riwayat TIDAK BOLEH menghentikan listener (dengar order BARU
+    // real-time harus tetap jalan). Progres terakhir sudah tersimpan; coba
+    // lagi otomatis 60 detik lagi.
+    console.warn(`[ppob-listener] Gagal memeriksa order lama (${err.code || err.message}). Lanjut mode real-time, coba lagi 60 detik.`);
+    setTimeout(catchUpMissedOrders, 60000);
+  } finally {
+    catchUpRunning = false;
   }
 }
 
@@ -288,8 +305,12 @@ async function main() {
   // 2. Dengarkan event baru secara real-time
   blockchain.listenForOrders(async (order) => {
     await handleOrder(order);
-    const currentBlock = await blockchain.provider.getBlockNumber();
-    saveLastProcessedBlock(currentBlock);
+    // Simpan penanda blok hanya kalau scan riwayat sudah beres — kalau belum,
+    // menyimpan blok terbaru akan melompati blok yang belum sempat dipindai.
+    if (catchUpDone) {
+      const currentBlock = await blockchain.provider.getBlockNumber();
+      saveLastProcessedBlock(currentBlock);
+    }
   });
 
   // 2b. Dengarkan event BuybackExecuted — catat ke "Dana Buyback — Sudah

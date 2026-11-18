@@ -80,9 +80,10 @@ function listenForOrders(onOrderCreated) {
  * offline tetap tertangkap (bukan cuma event yang terjadi setelah listen
  * dimulai).
  */
-async function getPastOrders(fromBlock) {
-  const currentBlock = await provider.getBlockNumber();
-  const events = await contract.queryFilter('OrderCreated', fromBlock, currentBlock);
+async function getPastOrders(fromBlock, toBlock) {
+  // toBlock opsional (agar bisa scan per potongan kecil); default = blok terbaru
+  const endBlock = toBlock !== undefined ? toBlock : await provider.getBlockNumber();
+  const events = await contract.queryFilter('OrderCreated', fromBlock, endBlock);
 
   return events.map((event) => ({
     orderId: event.args.orderId,
