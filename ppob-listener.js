@@ -157,6 +157,14 @@ async function retryPendingOrders() {
           console.log(`[ppob-listener] Retry BERHASIL lapor GAGAL on-chain untuk order ${meta.order_id}. Tx: ${txHash}`);
         }
       } catch (err) {
+        // Order tidak ada di kontrak gateway yang sekarang (misal sisa uji
+        // coba gateway lama) — tidak akan pernah berhasil dilapor. Tandai
+        // ditinggalkan supaya berhenti dicoba. Data TIDAK dihapus.
+        if (String(err.message).includes('Order tidak ditemukan')) {
+          db.updateOnchainStatus(meta.order_id, 'ABANDONED');
+          console.warn(`[ppob-listener] Order ${meta.order_id} tidak ada di kontrak gateway ini — ditandai ABANDONED, tidak dicoba lagi.`);
+          continue;
+        }
         console.error(`[ppob-listener] Retry lapor on-chain GAGAL LAGI untuk order ${meta.order_id} (percobaan ke-${meta.retry_count + 1}): ${err.message}`);
         // Peringatan makin mencolok tiap 10x gagal berturut-turut — biar
         // kelihatan jelas di log kalau ini bukan sekadar hiccup sesaat,
@@ -176,16 +184,54 @@ async function retryPendingOrders() {
     // untuk kasus PENDING, karena kalau memang tidak pernah selesai
     // di sisi Digiflazz, refund adalah hasil yang tepat).
     // ═══════════════════════════════════════════════════════════════
-    if (meta.retry_count >= 5) {
-      console.warn(`[ppob-listener] Order ${meta.order_id} sudah dicoba ${meta.retry_count}x, menyerahkan ke auto-refund timeout.`);
+    // ── Order Pending: JANGAN ditinggal. Aturan aman:
+    //   • 5 cek pertama: cepat (tiap siklus, jeda min 2 menit)
+    //   • setelahnya: cek tiap 10 menit, sampai 23 jam (setelah itu
+    //     auto-refund timeout 24 jam kontrak yang mengambil alih)
+    //   • Refund HANYA terjadi kalau Digiflazz menjawab Gagal (lihat
+    //     settle.js). Status Pending TIDAK PERNAH memicu refund.
+    const umurMenit = (Date.now() - meta.created_at) / 60000;
+    if (meta.retry_count >= 5 && secondsSinceUpdate < 600) continue;
+    if (umurMenit > 23 * 60) continue;
+
+    // Pastikan order MASIH ada & MASIH CREATED di kontrak gateway ini.
+    // Mencegah memanggil Digiflazz untuk order lama/hantu (ref_id tak
+    // dikenal bisa dianggap transaksi BARU oleh Digiflazz).
+    try {
+      const onchain = await blockchain.getOnchainOrder(meta.order_id);
+      if (!onchain || !onchain.user || /^0x0+$/.test(onchain.user)) {
+        db.updateOnchainStatus(meta.order_id, 'ABANDONED');
+        console.warn(`[ppob-listener] Order ${meta.order_id} tidak ada di kontrak ini — ditandai ABANDONED.`);
+        continue;
+      }
+      if (onchain.status !== 'CREATED') {
+        db.updateOnchainStatus(meta.order_id, onchain.status);
+        console.log(`[ppob-listener] Order ${meta.order_id} sudah ${onchain.status} di kontrak — disinkronkan, tidak dicek lagi.`);
+        continue;
+      }
+    } catch (err) {
+      if (String(err.message).includes('Order tidak ditemukan')) {
+        db.updateOnchainStatus(meta.order_id, 'ABANDONED');
+        console.warn(`[ppob-listener] Order ${meta.order_id} tidak ditemukan di kontrak ini — ditandai ABANDONED.`);
+      } else {
+        console.error(`[ppob-listener] Gagal cek status on-chain order ${meta.order_id}: ${err.message}`);
+      }
       continue;
     }
 
     try {
       db.incrementRetry(meta.order_id);
       const isPascabayar = !!db.getInquiry(meta.order_id);
-      const result = await digiflazz.checkStatus(meta.product_code, meta.customer_no, meta.order_id, isPascabayar);
+      // Pascabayar WAJIB pakai ref_id pendek yang SAMA dengan saat cek
+      // tagihan & bayar (handleOrder). Prabayar tetap pakai orderId penuh.
+      const refId = isPascabayar
+        ? digiflazz.toDigiflazzRefId(meta.order_id)
+        : meta.order_id;
+      const result = await digiflazz.checkStatus(meta.product_code, meta.customer_no, refId, isPascabayar);
       await settle.processDigiflazzResult(meta.order_id, result);
+      if (result.status === 'Pending' && umurMenit >= 30) {
+        console.warn(`[ppob-listener] ⚠️ PERLU CEK MANUAL: order ${meta.order_id} (${meta.product_code}, ${meta.customer_no}) masih PENDING ${Math.round(umurMenit)} menit di Digiflazz. Cek dashboard Digiflazz sebelum refund manual.`);
+      }
     } catch (err) {
       const detailAsli = err.response?.data
         ? JSON.stringify(err.response.data)
