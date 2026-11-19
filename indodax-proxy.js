@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-//  INDOCOIN — Indodax Public Proxy (service mandiri, port 3010)
+//  INDOCOIN — Trading Public Proxy (service mandiri, port 3010)
+//  Indodax + Luno + Tokocrypto. Nama file/PM2 tetap indodax-proxy.
 //  Tidak menyentuh server.js (Elara) maupun service lain.
 //  Hanya meneruskan 4 endpoint data PUBLIK Indodax + cache singkat.
 //  Tidak ada API key, tidak ada dana yang lewat.
@@ -9,17 +10,19 @@
 //    GET /indodax/api/summaries
 //    GET /indodax/api/depth/{pairId}
 //    GET /indodax/tradingview/history_v2?symbol&tf&from&to
+//    GET /luno/markets | /luno/tickers | /luno/orderbook?pair=
+//    GET /tokocrypto/symbols | /tokocrypto/depth?symbol&limit | /tokocrypto/klines?symbol&interval&limit
 //    GET /health
 // ═══════════════════════════════════════════════════════════════
 const http  = require('http');
 const https = require('https');
 
 const PORT = parseInt(process.env.INDODAX_PROXY_PORT || '3010', 10);
-const UPSTREAM = 'indodax.com';
+const H_INDODAX = 'indodax.com', H_LUNO = 'api.luno.com', H_TOKO = 'www.tokocrypto.com', H_TOKO_MKT = 'www.tokocrypto.site';
 const ALLOW_ORIGINS = ['https://indocoin.id', 'https://www.indocoin.id'];
 
 // TTL cache (ms) per jenis endpoint
-const TTL = { pairs: 300000, summaries: 5000, depth: 3000, history: 30000 };
+const TTL = { pairs: 300000, summaries: 5000, depth: 3000, history: 30000, markets: 300000, tickers: 5000, klines: 20000 };
 const MAX_STALE = 10 * 60 * 1000;   // data lama masih boleh dipakai saat Indodax error
 const MAX_CACHE = 600;              // batas jumlah entri cache
 
@@ -27,10 +30,10 @@ const cache = new Map();            // key -> { body, ts }
 const inflight = new Map();         // key -> Promise (gabungkan permintaan sama)
 
 function route(pathname, search) {
-  if (pathname === '/indodax/api/pairs')     return { kind: 'pairs',     up: '/api/pairs' };
-  if (pathname === '/indodax/api/summaries') return { kind: 'summaries', up: '/api/summaries' };
+  if (pathname === '/indodax/api/pairs')     return { kind: 'pairs',     host: H_INDODAX, up: '/api/pairs' };
+  if (pathname === '/indodax/api/summaries') return { kind: 'summaries', host: H_INDODAX, up: '/api/summaries' };
   let m = /^\/indodax\/api\/depth\/([a-z0-9_]{2,30})$/.exec(pathname);
-  if (m) return { kind: 'depth', up: '/api/depth/' + m[1] };
+  if (m) return { kind: 'depth', host: H_INDODAX, up: '/api/depth/' + m[1] };
   if (pathname === '/indodax/tradingview/history_v2') {
     const q = new URLSearchParams(search);
     const symbol = q.get('symbol') || '', tf = q.get('tf') || '';
@@ -41,15 +44,37 @@ function route(pathname, search) {
     // bulatkan waktu supaya permintaan mirip bisa berbagi cache
     const step = 30;
     const f = Math.floor(+from / step) * step, t = Math.floor(+to / step) * step;
-    return { kind: 'history', up: `/tradingview/history_v2?from=${f}&to=${t}&tf=${tf}&symbol=${symbol}` };
+    return { kind: 'history', host: H_INDODAX, up: `/tradingview/history_v2?from=${f}&to=${t}&tf=${tf}&symbol=${symbol}` };
+  }
+  // ---- Luno (API publik; candles butuh login, jadi tidak diteruskan) ----
+  if (pathname === '/luno/markets') return { kind: 'markets', host: H_LUNO, up: '/api/exchange/1/markets' };
+  if (pathname === '/luno/tickers') return { kind: 'tickers', host: H_LUNO, up: '/api/1/tickers' };
+  if (pathname === '/luno/orderbook') {
+    const pair = new URLSearchParams(search).get('pair') || '';
+    if (!/^[A-Z0-9]{5,12}$/.test(pair)) return null;
+    return { kind: 'depth', host: H_LUNO, up: '/api/1/orderbook_top?pair=' + pair };
+  }
+  // ---- Tokocrypto (API publik gaya Binance) ----
+  if (pathname === '/tokocrypto/symbols') return { kind: 'markets', host: H_TOKO, up: '/open/v1/common/symbols' };
+  if (pathname === '/tokocrypto/depth') {
+    const q = new URLSearchParams(search), symbol = q.get('symbol') || '', limit = q.get('limit') || '10';
+    if (!/^[A-Z0-9]{4,20}$/.test(symbol) || !/^(5|10|20)$/.test(limit)) return null;
+    return { kind: 'depth', host: H_TOKO_MKT, up: `/api/v3/depth?symbol=${symbol}&limit=${limit}` };
+  }
+  if (pathname === '/tokocrypto/klines') {
+    const q = new URLSearchParams(search), symbol = q.get('symbol') || '', iv = q.get('interval') || '', limit = q.get('limit') || '60';
+    if (!/^[A-Z0-9]{4,20}$/.test(symbol)) return null;
+    if (!/^(15m|1h|4h|1d)$/.test(iv)) return null;
+    if (!/^\d{1,3}$/.test(limit) || +limit < 1 || +limit > 200) return null;
+    return { kind: 'klines', host: H_TOKO_MKT, up: `/api/v3/klines?symbol=${symbol}&interval=${iv}&limit=${limit}` };
   }
   return null;
 }
 
-function fetchUpstream(upPath) {
+function fetchUpstream(host, upPath) {
   return new Promise((resolve, reject) => {
     const req = https.request({
-      host: UPSTREAM, path: upPath, method: 'GET', timeout: 8000,
+      host: host, path: upPath, method: 'GET', timeout: 8000,
       headers: { 'User-Agent': 'IndocoinProxy/1.0', 'Accept': 'application/json' }
     }, r => {
       let buf = [];
@@ -69,12 +94,12 @@ function fetchUpstream(upPath) {
 }
 
 async function getData(rt) {
-  const key = rt.up;
+  const key = rt.host + rt.up;
   const hit = cache.get(key);
   const now = Date.now();
   if (hit && now - hit.ts < TTL[rt.kind]) return { body: hit.body, stale: false };
   if (!inflight.has(key)) {
-    const p = fetchUpstream(rt.up).then(body => {
+    const p = fetchUpstream(rt.host, rt.up).then(body => {
       if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value);
       cache.set(key, { body, ts: Date.now() });
       return body;
@@ -104,7 +129,7 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ status: 'ok', service: 'indodax-proxy', port: PORT, cache: cache.size }));
+    return res.end(JSON.stringify({ status: 'ok', service: 'indodax-proxy', upstreams: ['indodax','luno','tokocrypto'], port: PORT, cache: cache.size }));
   }
   if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
   const rt = route(u.pathname, u.search);

@@ -9,13 +9,13 @@
  */
 window.INDC_PLATFORMS = [
   { id: 'indodax',     name: 'Indodax',         site: 'https://indodax.com',            level: 'harga'  },
-  { id: 'tokocrypto',  name: 'Tokocrypto',      site: 'https://www.tokocrypto.com',     level: 'tautan' },
+  { id: 'tokocrypto',  name: 'Tokocrypto',      site: 'https://www.tokocrypto.com',     level: 'harga'  },
   { id: 'pintu',       name: 'Pintu',           site: 'https://pintu.co.id',            level: 'tautan' },
   { id: 'triv',        name: 'Triv',            site: 'https://triv.co.id',             level: 'tautan' },
   { id: 'pluang',      name: 'Pluang',          site: 'https://pluang.com',             level: 'tautan' },
   { id: 'bittime',     name: 'Bittime',         site: 'https://bittime.com',            level: 'tautan' },
   { id: 'stockbit',    name: 'Stockbit Crypto', site: 'https://stockbit.com',           level: 'tautan' },
-  { id: 'luno',        name: 'Luno',            site: 'https://www.luno.com',           level: 'tautan' },
+  { id: 'luno',        name: 'Luno',            site: 'https://www.luno.com',           level: 'harga'  },
   { id: 'ajaib',       name: 'Ajaib Kripto',    site: 'https://kripto.ajaib.co.id',     level: 'tautan' },
   { id: 'astal',       name: 'Astal',           site: '', level: 'segera' },
   { id: 'bitwewe',     name: 'Bitwewe',         site: '', level: 'segera' },
