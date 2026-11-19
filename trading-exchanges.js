@@ -14,7 +14,7 @@
   var num = function (x) { var n = Number(x); return isFinite(n) ? n : 0; };
 
   /* ---------------- INDODAX (API publik resmi) ---------------- */
-  var INDODAX_BASE = 'https://indodax.com';
+  var INDODAX_BASE = (typeof window !== 'undefined' && window.INDC_INDODAX_BASE) || 'https://trading-api.indocoin.id/indodax';
   var INDODAX_TF = { '15M': { tf: '15', sec: 900 }, '1J': { tf: '60', sec: 3600 }, '4J': { tf: '240', sec: 14400 }, '1H': { tf: '1D', sec: 86400 } };
 
   function getJSON(path) {
