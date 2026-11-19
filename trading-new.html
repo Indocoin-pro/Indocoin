@@ -73,7 +73,9 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 .plat .n{font-size:var(--f-mid);font-weight:800}
 .plat .s{font-size:var(--f-micro);color:var(--navy2);font-weight:600;margin-top:2px}
 .tag{border-radius:99px;padding:4px 10px;font-size:var(--f-small);font-weight:800;white-space:nowrap}
-.tag.live{background:var(--bluebg);border:1px solid var(--blueline);color:var(--blue)}
+.tag.live{background:#dcfce7;border:1px solid #bbf7d0;color:#15803d}
+.plat .lf{display:flex;align-items:center;gap:12px;min-width:0}
+.av{width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:var(--navy);font-size:var(--f-small);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
 .tag.link{background:var(--soft2);color:var(--navy);border:1px solid var(--line)}
 .tag.soon{background:var(--goldbg);border:1px solid var(--goldline);color:var(--gold)}
 .procard{background:var(--goldbg);border:1px solid var(--goldline);border-radius:20px;padding:16px;margin-bottom:12px}
@@ -85,7 +87,8 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 .wrap{position:relative;z-index:1}
 .hero{text-align:center;padding:12px 0 16px}
 .hero .tg{font-size:var(--f-micro);font-weight:600;color:var(--navy2);letter-spacing:1px;margin-bottom:8px}
-.hero .ht{font-size:var(--f-hero);font-weight:800;color:var(--navy);margin-bottom:6px}
+.hero .ht{font-size:var(--f-hero);font-weight:800;color:var(--navy);margin-bottom:6px;line-height:1.1}
+.hero .ht::after{content:'';display:block;width:40px;height:3px;border-radius:2px;background:var(--blue);margin:8px auto 4px}
 .hero .hs{font-size:var(--f-small);color:var(--navy2);line-height:1.8}
 #lockScreen{position:fixed;inset:0;z-index:9999;background:#fff;display:flex;align-items:center;justify-content:center;padding:16px}
 #lockScreen.hidden{display:none}
@@ -228,8 +231,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 
   /* =============== LAYAR DEPAN =============== */
   function sortedPlatforms(){
-    var rank={harga:0,tautan:1,segera:2};
-    return PL.slice().sort(function(a,b){ return rank[a.level]-rank[b.level] || a.name.localeCompare(b.name,'id'); });
+    return PL.slice().sort(function(a,b){ return a.name.localeCompare(b.name,'id'); });
   }
   function renderFilter(){
     var el=$('homeFilter'); el.innerHTML='';
@@ -242,15 +244,17 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     var el=$('homeList'); el.innerHTML='';
     var q=H.q.trim().toLowerCase(), list=sortedPlatforms().filter(function(p){ return (H.f==='all'||p.level===H.f) && (!q||p.name.toLowerCase().indexOf(q)>-1); });
     if(!list.length){ var e=document.createElement('div'); e.className='sm mut'; e.textContent='Platform tidak ditemukan.'; el.appendChild(e); return; }
-    var lastLevel=null;
     list.forEach(function(p){
-      if(p.level!==lastLevel){ lastLevel=p.level; var s=document.createElement('div'); s.className='sec'; s.textContent={harga:'TERSEDIA DI INDOCOIN',tautan:'BUKA DI SITUS RESMI',segera:'SEGERA'}[p.level]; el.appendChild(s); }
       var node, tagCls, tagTxt, sub;
-      if(p.level==='harga'){ node=document.createElement('button'); node.onclick=function(){ location.hash='#'+p.id; }; tagCls='live'; tagTxt='Buka'; sub='Harga, chart, dan order book'; }
-      else if(p.level==='tautan' && p.site){ node=document.createElement('a'); node.href=p.site; node.target='_blank'; node.rel='noopener'; tagCls='link'; tagTxt='Buka situs'; sub='Dibuka di situs resmi'; }
-      else { node=document.createElement('div'); node.className='dis'; tagCls='soon'; tagTxt='Segera'; sub='Belum tersedia'; }
+      if(p.level==='harga'){ node=document.createElement('button'); node.onclick=function(){ location.hash='#'+p.id; }; tagCls='live'; tagTxt='● LIVE'; sub='Harga, grafik, dan order book'; }
+      else if(p.level==='tautan' && p.site){ node=document.createElement('a'); node.href=p.site; node.target='_blank'; node.rel='noopener'; tagCls='link'; tagTxt='Situs resmi'; sub='Dibuka di situs resmi'; }
+      else { node=document.createElement('div'); tagCls='soon'; tagTxt='Segera'; sub='Belum tersedia'; }
       node.className='plat'+(p.level==='segera'?' dis':'');
-      var left=document.createElement('div'); var n=document.createElement('div'); n.className='n'; n.textContent=p.name; var s2=document.createElement('div'); s2.className='s'; s2.textContent='Pedagang aset kripto berizin OJK · '+sub; left.appendChild(n); left.appendChild(s2);
+      var w=p.name.split(' '), ini=(w.length>1? w[0].charAt(0)+w[1].charAt(0) : p.name.slice(0,2)).toUpperCase();
+      var left=document.createElement('div'); left.className='lf';
+      var av=document.createElement('div'); av.className='av'; av.textContent=ini;
+      var tx=document.createElement('div'); var n=document.createElement('div'); n.className='n'; n.textContent=p.name; var s2=document.createElement('div'); s2.className='s'; s2.textContent=sub; tx.appendChild(n); tx.appendChild(s2);
+      left.appendChild(av); left.appendChild(tx);
       var tag=document.createElement('span'); tag.className='tag '+tagCls; tag.textContent=tagTxt;
       node.appendChild(left); node.appendChild(tag); el.appendChild(node);
     });
