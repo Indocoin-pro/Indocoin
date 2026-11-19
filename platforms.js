@@ -13,7 +13,7 @@ window.INDC_PLATFORMS = [
   { id: 'pintu',       name: 'Pintu',           site: 'https://pintu.co.id',            level: 'tautan' },
   { id: 'triv',        name: 'Triv',            site: 'https://triv.co.id',             level: 'tautan' },
   { id: 'pluang',      name: 'Pluang',          site: 'https://pluang.com',             level: 'tautan' },
-  { id: 'bittime',     name: 'Bittime',         site: 'https://bittime.com',            level: 'tautan' },
+  { id: 'bittime',     name: 'Bittime',         site: 'https://bittime.com',            level: 'harga'  },
   { id: 'stockbit',    name: 'Stockbit Crypto', site: 'https://stockbit.com',           level: 'tautan' },
   { id: 'luno',        name: 'Luno',            site: 'https://www.luno.com',           level: 'harga'  },
   { id: 'ajaib',       name: 'Ajaib Kripto',    site: 'https://kripto.ajaib.co.id',     level: 'tautan' },

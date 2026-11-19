@@ -16,7 +16,7 @@
   /* ---------------- INDODAX (API publik resmi) ---------------- */
   var ROOT = (typeof window !== 'undefined' && window.INDC_PROXY_ROOT) || 'https://trading-api.indocoin.id';
   var INDODAX_BASE = (typeof window !== 'undefined' && window.INDC_INDODAX_BASE) || (ROOT + '/indodax');
-  var LUNO_BASE = ROOT + '/luno', TOKO_BASE = ROOT + '/tokocrypto';
+  var LUNO_BASE = ROOT + '/luno', TOKO_BASE = ROOT + '/tokocrypto', BITTIME_BASE = ROOT + '/bittime';
   function getFrom(base, path) {
     return fetch(base + path, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -162,6 +162,41 @@
     }
   };
 
+  /* ---------------- BITTIME (API publik gaya Binance; klines tidak didokumentasikan -> tanpa grafik) ---------------- */
+  var BT_QUOTES = ['IDR', 'USDT'];
+  var BT_POPULAR = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'TRX', 'USDT'];
+  var btOk = function (st) { return st === undefined || st === null || /^(TRADING|ENABLED|ONLINE|1|true)$/i.test(String(st)); };
+  var bittime = {
+    meta: { id: 'bittime', name: 'Bittime', site: 'https://bittime.com', license: 'Pedagang aset kripto berizin OJK', status: 'live', chart: false },
+    pairs: function () {
+      return getFrom(BITTIME_BASE, '/exchangeinfo').then(function (j) {
+        return ((j && j.symbols) || []).filter(function (s) {
+          var q = String(s.quoteAsset).toUpperCase(), b = String(s.baseAsset).toUpperCase();
+          return btOk(s.status) && BT_QUOTES.indexOf(q) > -1 && BT_POPULAR.indexOf(b) > -1 && b !== q;
+        }).map(function (s) {
+          var b = String(s.baseAsset).toUpperCase(), q = String(s.quoteAsset).toUpperCase();
+          return { id: String(s.symbol).toLowerCase(), base: b, quote: q, name: b, pricePrecision: 0 };
+        });
+      });
+    },
+    tickers: function () {
+      return getFrom(BITTIME_BASE, '/tickers').then(function (arr) {
+        var out = {};
+        (Array.isArray(arr) ? arr : []).forEach(function (t) {
+          out[String(t.symbol).toLowerCase()] = { last: num(t.lastPrice), high: num(t.highPrice), low: num(t.lowPrice), vol: num(t.quoteVolume), changePct: num(t.priceChangePercent) };
+        });
+        return out;
+      });
+    },
+    depth: function (id) {
+      return getFrom(BITTIME_BASE, '/depth?symbol=' + id.toUpperCase() + '&limit=10').then(function (d) {
+        var map = function (a) { return (a || []).slice(0, 8).map(function (r) { return [num(r[0]), num(r[1])]; }); };
+        return { bids: map(d.bids), asks: map(d.asks) };
+      });
+    },
+    candles: function () { return Promise.resolve([]); }
+  };
+
   /* ---------------- DEMO (hanya untuk preview; aktif lewat #demo) ---------------- */
   function seeded(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
   var DEMO_PAIRS = [['btc', 'Bitcoin', 1380000000], ['eth', 'Ethereum', 52000000], ['usdt', 'Tether', 16250], ['bnb', 'BNB', 14500000], ['sol', 'Solana', 2900000], ['doge', 'Dogecoin', 3600], ['xrp', 'XRP', 38000], ['ada', 'Cardano', 9800]];
@@ -185,7 +220,7 @@
   };
 
   /* Hanya platform dengan level 'harga' di platforms.js yang perlu adapter di sini. */
-  var EXCHANGES = { indodax: indodax, luno: luno, tokocrypto: toko };
+  var EXCHANGES = { indodax: indodax, luno: luno, tokocrypto: toko, bittime: bittime };
 
   var api = { EXCHANGES: EXCHANGES, DEMO: demo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

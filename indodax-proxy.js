@@ -11,6 +11,7 @@
 //    GET /indodax/api/depth/{pairId}
 //    GET /indodax/tradingview/history_v2?symbol&tf&from&to
 //    GET /luno/markets | /luno/tickers | /luno/orderbook?pair=
+//    GET /bittime/exchangeinfo | /bittime/tickers | /bittime/depth?symbol&limit
 //    GET /tokocrypto/symbols | /tokocrypto/depth?symbol&limit | /tokocrypto/klines?symbol&interval&limit
 //    GET /health
 // ═══════════════════════════════════════════════════════════════
@@ -18,11 +19,11 @@ const http  = require('http');
 const https = require('https');
 
 const PORT = parseInt(process.env.INDODAX_PROXY_PORT || '3010', 10);
-const H_INDODAX = 'indodax.com', H_LUNO = 'api.luno.com', H_TOKO = 'www.tokocrypto.com', H_TOKO_MKT = 'www.tokocrypto.site';
+const H_INDODAX = 'indodax.com', H_LUNO = 'api.luno.com', H_TOKO = 'www.tokocrypto.com', H_TOKO_MKT = 'www.tokocrypto.site', H_BITTIME = 'openapi.bittime.com';
 const ALLOW_ORIGINS = ['https://indocoin.id', 'https://www.indocoin.id'];
 
 // TTL cache (ms) per jenis endpoint
-const TTL = { pairs: 300000, summaries: 5000, depth: 3000, history: 30000, markets: 300000, tickers: 5000, klines: 20000 };
+const TTL = { pairs: 300000, summaries: 5000, depth: 3000, history: 30000, markets: 300000, tickers: 5000, klines: 20000, tickers15: 15000 };
 const MAX_STALE = 10 * 60 * 1000;   // data lama masih boleh dipakai saat Indodax error
 const MAX_CACHE = 600;              // batas jumlah entri cache
 
@@ -53,6 +54,14 @@ function route(pathname, search) {
     const pair = new URLSearchParams(search).get('pair') || '';
     if (!/^[A-Z0-9]{5,12}$/.test(pair)) return null;
     return { kind: 'depth', host: H_LUNO, up: '/api/1/orderbook_top?pair=' + pair };
+  }
+  // ---- Bittime (API publik gaya Binance; ticker semua pasangan berbobot 40, jadi cache 15 dtk) ----
+  if (pathname === '/bittime/exchangeinfo') return { kind: 'markets', host: H_BITTIME, up: '/api/v1/exchangeInfo' };
+  if (pathname === '/bittime/tickers') return { kind: 'tickers15', host: H_BITTIME, up: '/api/v1/ticker/24hr' };
+  if (pathname === '/bittime/depth') {
+    const q = new URLSearchParams(search), symbol = q.get('symbol') || '', limit = q.get('limit') || '10';
+    if (!/^[A-Z0-9]{4,20}$/.test(symbol) || !/^(5|10|20)$/.test(limit)) return null;
+    return { kind: 'depth', host: H_BITTIME, up: `/api/v1/depth?symbol=${symbol}&limit=${limit}` };
   }
   // ---- Tokocrypto (API publik gaya Binance) ----
   if (pathname === '/tokocrypto/symbols') return { kind: 'markets', host: H_TOKO, up: '/open/v1/common/symbols' };
