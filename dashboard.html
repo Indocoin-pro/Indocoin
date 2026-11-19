@@ -2124,9 +2124,15 @@ function showComingSoonPopup(nama, pesan, ikon){
   document.body.appendChild(el);
 }
 
-function showDevOnlyMenu(nama, url, pesan, ikon){
+async function showDevOnlyMenu(nama, url, pesan, ikon){
   const DEV = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc';
-  const addr = (localStorage.getItem('indocoin_wallet') || localStorage.getItem('connectedWallet') || '').toLowerCase();
+  let addr = (localStorage.getItem('indocoin_wallet') || localStorage.getItem('connectedWallet') || '').toLowerCase();
+  if(addr !== DEV && window.ethereum){
+    try{
+      const acc = await window.ethereum.request({ method: 'eth_accounts' });
+      if(acc && acc[0]) addr = acc[0].toLowerCase();
+    }catch(e){}
+  }
   if(addr === DEV){
     window.location.href = url;
   } else {
