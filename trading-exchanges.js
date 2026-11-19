@@ -125,7 +125,7 @@
         var list = (unwrap(j) || {}).list || [];
         var out = list.filter(function (s) {
           var q = String(s.quoteAsset).toUpperCase();
-          return s.type === 1 && s.spotTradingEnable !== 0 && TOKO_QUOTES.indexOf(q) > -1 && (q === 'IDR' || TOKO_POPULAR.indexOf(String(s.baseAsset).toUpperCase()) > -1);
+          return s.type === 1 && s.spotTradingEnable !== 0 && TOKO_QUOTES.indexOf(q) > -1 && TOKO_POPULAR.indexOf(String(s.baseAsset).toUpperCase()) > -1;
         }).map(function (s) {
           var b = String(s.baseAsset).toUpperCase(), q = String(s.quoteAsset).toUpperCase();
           return { id: (b + q).toLowerCase(), base: b, quote: q, name: b, pricePrecision: 0 };

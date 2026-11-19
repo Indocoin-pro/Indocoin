@@ -228,16 +228,23 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   function fmtBig(n,q){ if(n==null) return '–'; q=q||curQ();
     if(q==='IDR'){ if(n>=1e12) return 'Rp'+(n/1e12).toFixed(2).replace('.',',')+' T'; if(n>=1e9) return 'Rp'+(n/1e9).toFixed(1).replace('.',',')+' M'; return 'Rp'+(n/1e6).toFixed(1).replace('.',',')+' Jt'; }
     if(n>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' M '+q; if(n>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' Jt '+q; if(n>=1e3) return (n/1e3).toFixed(1).replace('.',',')+' Rb '+q; return Number(n).toFixed(0)+' '+q; }
+  function pickDefault(){
+    var L=S.pairs; if(!L.length) return '';
+    var btc=L.filter(function(p){return p.base==='BTC'}); 
+    if(btc.length){ var idr=btc.filter(function(p){return p.quote==='IDR'})[0]; return (idr||btc[0]).id; }
+    return L.slice().sort(function(a,b){return volOf(S.ticks[b.id])-volOf(S.ticks[a.id])})[0].id;
+  }
   function volOf(t){ return t? (t.vol!=null? t.vol : (t.volIdr||0)) : 0; }
   function axisLbl(v){ if(v>=1e9) return (v/1e9).toFixed(3).replace('.',',')+' M'; if(v>=1e6) return (v/1e6).toFixed(2).replace('.',',')+' Jt'; return Number(v).toLocaleString('id-ID',{maximumFractionDigits:v<100?2:0}); }
   function fmtQty(n){ return n>=100? n.toFixed(2): n.toFixed(4); }
   function setStatus(t,off){ var s=$('status'); s.textContent=t; s.className='pill'+(off?' off':''); }
   function hideErr(){ $('errBox').classList.add('hidden'); }
-  function showErr(msg){ var b=$('errBox'); b.innerHTML=''; var t=document.createElement('div'); t.textContent=msg; b.appendChild(t); var r=document.createElement('button'); r.className='btn'; r.textContent='Coba lagi'; r.onclick=function(){ hideErr(); bootDetail(); }; b.appendChild(r); b.classList.remove('hidden'); setStatus('Gagal',true); }
+  function showErr(msg,detail){ var b=$('errBox'); b.innerHTML=''; var t=document.createElement('div'); t.textContent=msg; if(detail){ var d=document.createElement('div'); d.className='mic mut'; d.style.marginTop='4px'; d.textContent='Detail: '+detail; t.appendChild(d); } b.appendChild(t); var r=document.createElement('button'); r.className='btn'; r.textContent='Coba lagi'; r.onclick=function(){ hideErr(); bootDetail(); }; b.appendChild(r); b.classList.remove('hidden'); setStatus('Gagal',true); }
 
   /* =============== LAYAR DEPAN =============== */
   function sortedPlatforms(){
-    return PL.slice().sort(function(a,b){ return a.name.localeCompare(b.name,'id'); });
+    var rk={harga:0,tautan:1,segera:2};
+    return PL.slice().sort(function(a,b){ return (rk[a.level]-rk[b.level]) || a.name.localeCompare(b.name,'id'); });
   }
   function renderFilter(){
     var el=$('homeFilter'); el.innerHTML='';
@@ -328,7 +335,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     renderTicker();
     return Promise.all([loadCandles(),loadDepth()]).then(function(){ hideErr(); setStatus(DEMO?'Demo':'Live',false); $('srcNote').textContent=DEMO?'Data contoh (mode demo)':'Sumber: API publik '+ex.meta.name+' · diperbarui otomatis'+(hasChart()?'':' · grafik belum tersedia untuk platform ini'); }).catch(fail);
   }
-  function fail(e){ console.warn(e); showErr('Tidak bisa memuat data '+(ex?ex.meta.name:'platform')+'. Periksa koneksi Anda lalu coba lagi.'); }
+  function fail(e){ console.warn(e); showErr('Tidak bisa memuat data '+(ex?ex.meta.name:'platform')+'. Periksa koneksi Anda lalu coba lagi.', e&&e.message); }
 
   function bootDetail(){
     setStatus('Memuat…',true);
@@ -336,7 +343,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     Promise.all([ex.pairs(),ex.tickers()]).then(function(r){
       if(my!==exId) return;
       S.pairs=r[0]; S.ticks=r[1];
-      if(!S.pairs.some(function(p){return p.id===S.cur})&&S.pairs.length){ S.cur=S.pairs.slice().sort(function(a,b){return volOf(S.ticks[b.id])-volOf(S.ticks[a.id])})[0].id; }
+      if(!S.pairs.some(function(p){return p.id===S.cur})&&S.pairs.length){ S.cur=pickDefault(); }
       var ch=hasChart(); $('tf').style.display=ch?'':'none'; $('chart').style.display=ch?'':'none'; $('ohlc').style.display=ch?'':'none';
       renderPairs(); renderTf(); return loadPair();
     }).catch(fail);
@@ -360,7 +367,9 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     }
     $('home').classList.add('hidden'); $('detail').classList.remove('hidden'); $('topRow').classList.remove('hidden'); $('back').classList.remove('hidden'); $('status').classList.remove('hidden'); $('title').textContent=p.name;
     if(exId!==p.id){
-      ex=adapter; exId=p.id; S.pairs=[]; S.ticks={}; S.candles=[]; S.cur=''; S.q='';
+      ex=adapter; exId=p.id; S.pairs=[]; S.ticks={}; S.candles=[]; S.cur=''; S.q=''; geo=null;
+      hideErr(); $('search').value=''; $('pairs').innerHTML=''; $('pairName').textContent='–'; $('price').textContent='–'; $('chg').textContent='–'; $('chg').className='md b'; $('hi').textContent='–'; $('lo').textContent='–'; $('vol').textContent='–'; $('bids').innerHTML=''; $('asks').innerHTML=''; $('ohlc').textContent=''; $('srcNote').textContent='';
+      var cv0=$('chart'); cv0.getContext('2d').clearRect(0,0,cv0.width,cv0.height);
       $('licenseNote').textContent = p.name+' — '+ex.meta.license;
       $('obSrc').textContent = p.name; $('goEx').querySelector('.b1').textContent='Trading di '+p.name; $('goEx').href=p.site;
       var ga=$('goApp'); if(IS_ANDROID && APP_PLAY[p.id]){ ga.style.display='flex'; ga.querySelector('.b1').textContent='Trading di '+p.name; ga.href=appLink(p); } else { ga.style.display='none'; }
