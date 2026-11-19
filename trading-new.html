@@ -201,6 +201,15 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   var DEMO = !!window.INDC_DEMO || /[?&]demo(=|&|$)/.test(location.search);
   var $ = function(id){return document.getElementById(id)};
   /* KUNCI SEMENTARA: hanya wallet Dev. Saat siap rilis, ubah DEV_ONLY menjadi false. */
+  var APP_PKG = { indodax: 'id.co.bitcoin' };
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  function appLink(p){
+    var pkg = APP_PKG[p.id];
+    if(isAndroid && pkg){
+      return 'intent://#Intent;package='+pkg+';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url='+encodeURIComponent(p.site)+';end';
+    }
+    return p.site;
+  }
   var DEV_ONLY = true, DEV_WALLET = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc';
   if(DEV_ONLY){
     var w=''; try{ w=(localStorage.getItem('indocoin_wallet')||localStorage.getItem('connectedWallet')||'').toLowerCase(); }catch(e){}
@@ -342,7 +351,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     if(exId!==p.id){
       ex=adapter; exId=p.id; S.pairs=[]; S.ticks={}; S.candles=[];
       $('licenseNote').textContent = p.name+' — '+ex.meta.license;
-      $('obSrc').textContent = p.name; $('goEx').textContent='Trading di '+p.name; $('goEx').href=p.site;
+      $('obSrc').textContent = p.name; $('goEx').textContent='Trading di '+p.name; $('goEx').href=appLink(p); $('goEx').target = isAndroid && APP_PKG[p.id] ? '_self' : '_blank';
       bootDetail(); startTimers();
     } else { drawChart(); }
     window.scrollTo(0,0);
