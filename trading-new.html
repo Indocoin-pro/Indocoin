@@ -55,6 +55,11 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 .btn{display:block;width:100%;text-align:center;text-decoration:none;border:0;border-radius:10px;padding:14px;font-weight:800;font-size:var(--f-mid);cursor:pointer;background:var(--blue);color:#fff;font-family:inherit}
 .err{background:var(--redbg);border:1px solid #fca5a5;color:var(--red);border-radius:14px;padding:12px;margin-bottom:10px;font-weight:800;font-size:var(--f-small)}
 .err .btn{margin-top:8px;background:var(--red)}
+.btn2{display:flex;flex-direction:column;gap:2px;align-items:center}
+.btn2 .b1{font-size:var(--f-mid);font-weight:800}
+.btn2 .b2{font-size:var(--f-small);font-weight:600;opacity:.85}
+.btn2.alt{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+
 .feat{list-style:none;margin-top:8px}
 .feat li{display:flex;gap:8px;padding:4px 0;font-size:var(--f-small);font-weight:600;color:var(--navy2)}
 .feat li::before{content:"•";color:var(--gold);font-weight:800}
@@ -77,12 +82,10 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 .pf li::before{content:"★";position:absolute;left:0;top:6px;color:var(--gold);font-size:var(--f-small)}
 .pf b{font-size:var(--f-small);font-weight:800;color:var(--navy)}
 .pf span{font-size:var(--f-micro);font-weight:600;color:var(--navy2)}
-#bgLogo{position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
-#bgLogo img{width:min(85vw,85vh);opacity:.03;filter:blur(2px)}
 .wrap{position:relative;z-index:1}
 .hero{text-align:center;padding:12px 0 16px}
 .hero .tg{font-size:var(--f-micro);font-weight:600;color:var(--navy2);letter-spacing:1px;margin-bottom:8px}
-.hero .ht{font-size:var(--f-big);font-weight:800;color:var(--navy);margin-bottom:6px}
+.hero .ht{font-size:var(--f-hero);font-weight:800;color:var(--navy);margin-bottom:6px}
 .hero .hs{font-size:var(--f-small);color:var(--navy2);line-height:1.8}
 #lockScreen{position:fixed;inset:0;z-index:9999;background:#fff;display:flex;align-items:center;justify-content:center;padding:16px}
 #lockScreen.hidden{display:none}
@@ -102,7 +105,6 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     <a class="btn" href="dashboard.html">Kembali ke Dashboard</a>
   </div>
 </div>
-<div id="bgLogo"><img src="1772782967104.png" alt=""></div>
 <nav class="topnav">
   <div class="nav-left">
     <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN" onerror="this.style.display='none'">
@@ -123,7 +125,6 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   <!-- ===== LAYAR DEPAN: DAFTAR PLATFORM ===== -->
   <div id="home">
     <div class="hero">
-      <div class="tg">▸ PLATFORM BERIZIN OJK</div>
       <div class="ht">Trading</div>
       <div class="hs">Pilih platform trading berizin OJK.<br>Transaksi dilakukan langsung di akun Anda sendiri.</div>
     </div>
@@ -183,7 +184,8 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     <div class="card">
       <div class="md b" style="margin-bottom:4px">Mau trading sekarang?</div>
       <div class="sm mut" style="margin-bottom:10px">Daftar, verifikasi, isi saldo, dan trading langsung di akun Anda sendiri. Dana Anda tidak melewati Indocoin.</div>
-      <a class="btn" id="goEx" href="#" target="_blank" rel="noopener">Trading</a>
+      <a class="btn btn2" id="goEx" href="#" target="_blank" rel="noopener"><span class="b1">Trading</span><span class="b2">via Browser</span></a>
+      <a class="btn btn2 alt" id="goApp" href="#" style="display:none;margin-top:8px"><span class="b1">Trading</span><span class="b2">via Aplikasi (jika terpasang)</span></a>
     </div>
 
     <div class="foot">
@@ -201,16 +203,10 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   var DEMO = !!window.INDC_DEMO || /[?&]demo(=|&|$)/.test(location.search);
   var $ = function(id){return document.getElementById(id)};
   /* KUNCI SEMENTARA: hanya wallet Dev. Saat siap rilis, ubah DEV_ONLY menjadi false. */
-  var APP_PKG = {}; // buka-aplikasi langsung dimatikan: tidak andal di semua HP/browser
-  var UA = navigator.userAgent;
-  // hanya Chrome Android asli yang aman dipakai untuk buka aplikasi; webview/in-app browser pakai tautan biasa
-  var isAndroid = /Android/i.test(UA) && /Chrome\//.test(UA) && !/; wv\)|FBAN|FBAV|FB_IAB|Instagram|Line\/|MiuiBrowser|SamsungBrowser|OPR\/|EdgA/i.test(UA);
+  var IS_ANDROID = /Android/i.test(navigator.userAgent);
+  var APP_VIA_CHROME = { indodax: true }; // platform yang tautannya bisa dibuka aplikasinya lewat Chrome (App Links)
   function appLink(p){
-    var pkg = APP_PKG[p.id];
-    if(isAndroid && pkg){
-      return 'intent://#Intent;package='+pkg+';action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;S.browser_fallback_url='+encodeURIComponent(p.site)+';end';
-    }
-    return p.site;
+    return 'intent://' + p.site.replace(/^https?:\/\//,'') + '/#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(p.site) + ';end';
   }
   var DEV_ONLY = true, DEV_WALLET = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc';
   if(DEV_ONLY){
@@ -353,7 +349,8 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     if(exId!==p.id){
       ex=adapter; exId=p.id; S.pairs=[]; S.ticks={}; S.candles=[];
       $('licenseNote').textContent = p.name+' — '+ex.meta.license;
-      $('obSrc').textContent = p.name; $('goEx').textContent='Trading di '+p.name; $('goEx').href=appLink(p); $('goEx').target = isAndroid && APP_PKG[p.id] ? '_self' : '_blank';
+      $('obSrc').textContent = p.name; $('goEx').querySelector('.b1').textContent='Trading di '+p.name; $('goEx').href=p.site;
+      var ga=$('goApp'); if(IS_ANDROID && APP_VIA_CHROME[p.id]){ ga.style.display='flex'; ga.querySelector('.b1').textContent='Trading di '+p.name; ga.href=appLink(p); } else { ga.style.display='none'; }
       bootDetail(); startTimers();
     } else { drawChart(); }
     window.scrollTo(0,0);
