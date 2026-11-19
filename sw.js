@@ -87,6 +87,7 @@ const CACHE_FILES = [
   "/sanjaya-ui.js",
   "/sanjaya-notif.js",
   "/sanjaya-notif-inject.js",
+  "/trading-new.html",
   "/brainclash.html",
   "/brainclash-room.html",
   "/brainclash-history.html",
