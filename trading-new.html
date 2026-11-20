@@ -297,10 +297,13 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     usenobi: 'https://play.google.com/store/apps/details?id=com.usenobi',
     koinsayang: 'https://play.google.com/store/apps/details?id=com.koinsayang.mobile'
   }; // halaman Play Store aplikasi resmi
+  /* Chrome/browser biasa: buka aplikasi langsung (fallback Play Store).
+     Browser dalam aplikasi (WebView, mis. TokenPocket): pakai cara lama ke Play Store, karena browser ini tidak mengenali intent langsung. */
+  var IS_WEBVIEW = /; wv\)/i.test(navigator.userAgent) || !!(window.ethereum && (window.ethereum.isTokenPocket || window.ethereum.isTrust || window.ethereum.isMetaMask && !/Chrome\//.test(navigator.userAgent))) || !/Chrome\//.test(navigator.userAgent) || /TokenPocket|Trust|SafePal|Binance|Bitget|OKX/i.test(navigator.userAgent);
   function appLink(p){
     var u = APP_PLAY[p.id];
+    if(IS_WEBVIEW) return 'intent://' + u.replace(/^https?:\/\//,'') + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u) + ';end';
     var m=u.match(/[?&]id=([^&]+)/); var pkg=m?m[1]:'';
-    /* Aplikasi terpasang -> langsung dibuka. Belum terpasang -> fallback ke halaman Play Store. */
     return 'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=' + pkg + ';S.browser_fallback_url=' + encodeURIComponent(u) + ';end';
   }
   var DEV_ONLY = true, DEV_WALLET = '0xa16e9579e19eb19e6e24b211121bdcd7996809cc';
