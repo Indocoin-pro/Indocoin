@@ -77,6 +77,13 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
 .plat .lf{display:flex;align-items:center;gap:12px;min-width:0}
 .av{width:36px;height:36px;border-radius:50%;background:#f1f5f9;color:var(--navy);font-size:var(--f-small);font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
 .tag.link{background:var(--soft2);color:var(--navy);border:1px solid var(--line)}
+.sec{font-size:var(--f-small);font-weight:800;color:var(--navy);margin:14px 2px 8px;display:flex;align-items:center;gap:6px}
+.sec .ct{font-weight:700;color:var(--navy2)}
+.plat.lk{flex-wrap:wrap;cursor:default}
+.plat .acts{display:flex;gap:8px;width:100%}
+.plat .mb{flex:1;text-align:center;text-decoration:none;border:1px solid var(--line);background:var(--soft2);color:var(--navy);border-radius:12px;padding:9px 8px;font-size:var(--f-small);font-weight:800}
+.plat .mb.app{background:var(--navy);color:#fff;border-color:var(--navy)}
+.plat .nt{width:100%;font-size:var(--f-micro);color:var(--navy2);font-weight:600}
 .tag.soon{background:var(--goldbg);border:1px solid var(--goldline);color:var(--gold)}
 .procard{background:var(--goldbg);border:1px solid var(--goldline);border-radius:20px;padding:16px;margin-bottom:12px}
 .pf{list-style:none}
@@ -215,7 +222,22 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     upbit: 'https://play.google.com/store/apps/details?id=com.dunamu.exchange.global',
     pintu: 'https://play.google.com/store/apps/details?id=com.valar.pintu',
     reku: 'https://play.google.com/store/apps/details?id=com.rekeningku',
-    btse: 'https://play.google.com/store/apps/details?id=com.btse.finance'
+    btse: 'https://play.google.com/store/apps/details?id=com.btse.finance',
+    triv: 'https://play.google.com/store/apps/details?id=id.co.triv',
+    pluang: 'https://play.google.com/store/apps/details?id=com.EmasDigi',
+    stockbit: 'https://play.google.com/store/apps/details?id=com.stockbit.crypto',
+    samuel: 'https://play.google.com/store/apps/details?id=id.vonix.android',
+    ajaib: 'https://play.google.com/store/apps/details?id=coin.ajaib.co.id',
+    nanovest: 'https://play.google.com/store/apps/details?id=com.nanovest.prod',
+    mobee: 'https://play.google.com/store/apps/details?id=com.mobee.io',
+    floq: 'https://play.google.com/store/apps/details?id=id.kriptomaksima.app',
+    cyra: 'https://play.google.com/store/apps/details?id=exchange.cyra',
+    naga: 'https://play.google.com/store/apps/details?id=co.id.nagaexchange.app',
+    astal: 'https://play.google.com/store/apps/details?id=com.astal.app',
+    bitwewe: 'https://play.google.com/store/apps/details?id=com.bitwewereactnative',
+    coinx: 'https://play.google.com/store/apps/details?id=com.kriptoinovasi.exchange',
+    usenobi: 'https://play.google.com/store/apps/details?id=com.usenobi',
+    koinsayang: 'https://play.google.com/store/apps/details?id=com.koinsayang.mobile'
   }; // halaman Play Store aplikasi resmi
   function appLink(p){
     var u = APP_PLAY[p.id];
@@ -257,7 +279,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   }
   function renderFilter(){
     var el=$('homeFilter'); el.innerHTML='';
-    [['all','Semua ('+PL.length+')'],['harga','Tersedia di Indocoin']].forEach(function(f){
+    [['all','Semua ('+PL.length+')'],['harga','Harga langsung ('+PL.filter(function(x){return x.level==='harga'}).length+')']].forEach(function(f){
       var b=document.createElement('button'); b.className='chip'+(H.f===f[0]?' act':''); b.textContent=f[1];
       b.onclick=function(){ H.f=f[0]; renderFilter(); renderHome(); }; el.appendChild(b);
     });
@@ -266,19 +288,35 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     var el=$('homeList'); el.innerHTML='';
     var q=H.q.trim().toLowerCase(), list=sortedPlatforms().filter(function(p){ return (H.f==='all'||p.level===H.f) && (!q||p.name.toLowerCase().indexOf(q)>-1); });
     if(!list.length){ var e=document.createElement('div'); e.className='sm mut'; e.textContent='Platform tidak ditemukan.'; el.appendChild(e); return; }
+    var lastLv='';
     list.forEach(function(p){
+      if(p.level!==lastLv){
+        lastLv=p.level;
+        var cnt=list.filter(function(x){return x.level===p.level}).length;
+        var h=document.createElement('div'); h.className='sec';
+        h.appendChild(document.createTextNode(p.level==='harga'?'Harga langsung':'Buka di situs resmi'));
+        var c=document.createElement('span'); c.className='ct'; c.textContent='('+cnt+')'; h.appendChild(c); el.appendChild(h);
+      }
       var node, tagCls, tagTxt, sub;
       if(p.level==='harga'){ node=document.createElement('button'); node.onclick=function(){ location.hash='#'+p.id; }; tagCls='live'; tagTxt='● LIVE'; sub=(p.id==='reku'?'Harga dan grafik':p.id==='pintu'?'Harga 24 jam':(p.id==='luno'||p.id==='bittime'?'Harga dan order book':'Harga, grafik, dan order book')); }
-      else if(p.level==='tautan' && p.site){ node=document.createElement('a'); node.href=p.site; node.target='_blank'; node.rel='noopener'; tagCls='link'; tagTxt='Situs resmi'; sub='Dibuka di situs resmi'; }
+      else if(p.level==='tautan' && p.site){ node=document.createElement('div'); tagCls='link'; tagTxt='Situs resmi'; sub='Berizin OJK'; }
       else { node=document.createElement('div'); tagCls='soon'; tagTxt='Segera'; sub='Belum tersedia'; }
-      node.className='plat'+(p.level==='segera'?' dis':'');
+      node.className='plat'+(p.level==='segera'?' dis':'')+(p.level==='tautan'?' lk':'');
       var w=p.name.split(' '), ini=(w.length>1? w[0].charAt(0)+w[1].charAt(0) : p.name.slice(0,2)).toUpperCase();
       var left=document.createElement('div'); left.className='lf';
       var av=document.createElement('div'); av.className='av'; av.textContent=ini;
       var tx=document.createElement('div'); var n=document.createElement('div'); n.className='n'; n.textContent=p.name; var s2=document.createElement('div'); s2.className='s'; s2.textContent=sub; tx.appendChild(n); tx.appendChild(s2);
       left.appendChild(av); left.appendChild(tx);
       var tag=document.createElement('span'); tag.className='tag '+tagCls; tag.textContent=tagTxt;
-      node.appendChild(left); node.appendChild(tag); el.appendChild(node);
+      node.appendChild(left); node.appendChild(tag);
+      if(p.level==='tautan' && p.site){
+        var acts=document.createElement('div'); acts.className='acts';
+        var bw=document.createElement('a'); bw.className='mb'; bw.href=p.site; bw.target='_blank'; bw.rel='noopener'; bw.textContent='via Browser'; acts.appendChild(bw);
+        if(IS_ANDROID && APP_PLAY[p.id]){ var ba=document.createElement('a'); ba.className='mb app'; ba.href=appLink(p); ba.textContent='via Aplikasi'; acts.appendChild(ba); }
+        node.appendChild(acts);
+        var nt=document.createElement('div'); nt.className='nt'; nt.textContent='Harga langsung belum tersedia untuk platform ini.'; node.appendChild(nt);
+      }
+      el.appendChild(node);
     });
   }
 

@@ -27,7 +27,7 @@ window.INDC_PLATFORMS = [
   { id: 'coinx',       name: 'CoinX',           site: 'https://www.coinx.co.id', level: 'tautan' },
   { id: 'cyra',        name: 'Cyra',            site: 'https://www.cyra.exchange', level: 'tautan' },
   { id: 'floq',        name: 'Floq',            site: 'https://floq.co.id', level: 'tautan' },
-  { id: 'koinsayang',  name: 'Koin Sayang',     site: 'https://www.koinsayang.com', level: 'tautan' },
+  { id: 'koinsayang',  name: 'OSL Indonesia',   site: 'https://www.osl.com/id-id',  level: 'tautan' },
   { id: 'kriptosukses',name: 'Kripto Sukses',   site: 'https://kriptosukses.com', level: 'tautan' },
   { id: 'mobee',       name: 'Mobee',           site: 'https://mobee.com', level: 'tautan' },
   { id: 'naga',        name: 'Naga Exchange',   site: 'https://nagaexchange.co.id', level: 'tautan' },
