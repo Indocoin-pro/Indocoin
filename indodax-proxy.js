@@ -71,17 +71,17 @@ function route(pathname, search) {
   if (pathname === '/upbit/markets') return { kind: 'markets', host: H_UPBIT, up: '/v1/market/all' };
   if (pathname === '/upbit/tickers') {
     const mk = new URLSearchParams(search).get('markets') || '';
-    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}(,[A-Z0-9]{2,10}-[A-Z0-9]{2,10}){0,99}$/.test(mk)) return null;
+    if (!/^[A-Z0-9]{1,10}-[A-Z0-9]{1,10}(,[A-Z0-9]{1,10}-[A-Z0-9]{1,10}){0,99}$/.test(mk)) return null;
     return { kind: 'tickers', host: H_UPBIT, up: '/v1/ticker?markets=' + mk };
   }
   if (pathname === '/upbit/orderbook') {
     const mk = new URLSearchParams(search).get('market') || '';
-    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}$/.test(mk)) return null;
+    if (!/^[A-Z0-9]{1,10}-[A-Z0-9]{1,10}$/.test(mk)) return null;
     return { kind: 'depth', host: H_UPBIT, up: '/v1/orderbook?markets=' + mk };
   }
   if (pathname === '/upbit/candles') {
     const q = new URLSearchParams(search), mk = q.get('market') || '', unit = q.get('unit') || '', count = q.get('count') || '60';
-    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}$/.test(mk) || !/^(15|60|240|day)$/.test(unit)) return null;
+    if (!/^[A-Z0-9]{1,10}-[A-Z0-9]{1,10}$/.test(mk) || !/^(15|60|240|day)$/.test(unit)) return null;
     if (!/^\d{1,3}$/.test(count) || +count < 1 || +count > 200) return null;
     return { kind: 'klines', host: H_UPBIT, up: (unit === 'day' ? '/v1/candles/days' : '/v1/candles/minutes/' + unit) + '?market=' + mk + '&count=' + count };
   }

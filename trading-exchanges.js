@@ -276,6 +276,7 @@
   /* ---------------- REKU (API publik: harga semua koin + grafik; order book belum diverifikasi -> disembunyikan) ---------------- */
   var REKU_TF = { '15M': { f: '15', g: 1 }, '1J': { f: '60', g: 1 }, '4J': { f: '60', g: 4 }, '1H': { f: '1440', g: 1 } };
   var rekuIds = {};
+  var REKU_STATS = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'TRX'];
   function rekuList() {
     return getFrom(REKU_BASE, '/price').then(function (arr) {
       var out = [];
@@ -300,9 +301,22 @@
     },
     tickers: function () {
       return rekuList().then(function (list) {
-        var out = {};
-        list.forEach(function (t) { out[(String(t.cd) + 'idr').toLowerCase()] = { last: num(t.c), high: null, low: null, vol: null, changePct: null }; });
-        return out;
+        var out = {}, pops = [];
+        list.forEach(function (t) {
+          var id = (String(t.cd) + 'idr').toLowerCase();
+          out[id] = { last: num(t.c), high: null, low: null, vol: null, changePct: null };
+          if (REKU_STATS.indexOf(String(t.cd).toUpperCase()) > -1) pops.push({ id: id, rid: num(t.id) });
+        });
+        // 24 jam dihitung dari candle per jam (API harga Reku tidak memberi data 24 jam)
+        return Promise.all(pops.map(function (p) {
+          return getFrom(REKU_BASE, '/chart?id=' + p.rid + '&f=60').then(function (arr) {
+            var r = (Array.isArray(arr) ? arr : []).slice(-24); if (r.length < 2) return;
+            var o = num(r[0][1]), last = num(r[r.length - 1][2]), hi = -Infinity, lo = Infinity, vol = 0;
+            r.forEach(function (c) { hi = Math.max(hi, num(c[4]), num(c[1]), num(c[2])); lo = Math.min(lo, num(c[3]), num(c[1]), num(c[2])); vol += num(c[6]); });
+            out[p.id].high = hi; out[p.id].low = lo; out[p.id].vol = vol;
+            out[p.id].changePct = o > 0 ? (last - o) / o * 100 : null;
+          }).catch(function () {});
+        })).then(function () { return out; });
       });
     },
     depth: function () { return Promise.resolve({ bids: [], asks: [] }); },
