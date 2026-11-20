@@ -246,7 +246,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
       <div class="md b" style="margin-bottom:4px">Mau beli atau jual sekarang?</div>
       <div class="sm mut" style="margin-bottom:10px">Daftar, verifikasi, isi saldo, dan trading langsung di akun Anda sendiri. Dana Anda tidak melewati Indocoin.</div>
       <a class="btn btn2" id="goEx" href="#" target="_blank" rel="noopener"><span class="b1">Buka exchange</span><span class="b2">via Browser</span></a>
-      <a class="btn btn2 alt" id="goApp" href="#" style="display:none;margin-top:8px"><span class="b1">Buka exchange</span><span class="b2">via Aplikasi (lewat Play Store, ketuk Buka)</span></a>
+      <a class="btn btn2 alt" id="goApp" href="#" style="display:none;margin-top:8px"><span class="b1">Buka exchange</span><span class="b2">via Aplikasi</span></a>
     </div>
 
     <div class="foot">
@@ -272,6 +272,13 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   var $ = function(id){return document.getElementById(id)};
   /* KUNCI SEMENTARA: hanya wallet Dev. Saat siap rilis, ubah DEV_ONLY menjadi false. */
   var IS_ANDROID = /Android/i.test(navigator.userAgent);
+  var IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  var APP_APPLE = {
+    indodax:'1349104693', luno:'927362479', tokocrypto:'1538556690', bittime:'1641059360', upbit:'1439527412', pintu:'1494119678', reku:'1458706382',
+    triv:'1470919460', pluang:'1341588054', stockbit:'1184800207', samuel:'6449965111', ajaib:'1634168301', nanovest:'1580892310', mobee:'1643474845',
+    floq:'6740000653', cyra:'6447169223', naga:'1672737018', astal:'6504608656', bitwewe:'6470039139', coinx:'6636470169', usenobi:'1510269362', koinsayang:'6748126401'
+  };
+  function hasApp(id){ return IS_ANDROID ? !!APP_PLAY[id] : (IS_IOS ? !!APP_APPLE[id] : false); }
   var APP_PLAY = {
     indodax: 'https://play.google.com/store/apps/details?id=id.co.bitcoin',
     luno: 'https://play.google.com/store/apps/details?id=co.bitx.android.wallet',
@@ -301,6 +308,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
      Browser dalam aplikasi (WebView, mis. TokenPocket): pakai cara lama ke Play Store, karena browser ini tidak mengenali intent langsung. */
   var IS_WEBVIEW = /; wv\)/i.test(navigator.userAgent) || !!(window.ethereum && (window.ethereum.isTokenPocket || window.ethereum.isTrust || window.ethereum.isMetaMask && !/Chrome\//.test(navigator.userAgent))) || !/Chrome\//.test(navigator.userAgent) || /TokenPocket|Trust|SafePal|Binance|Bitget|OKX/i.test(navigator.userAgent);
   function appLink(p){
+    if(IS_IOS) return 'https://apps.apple.com/id/app/id'+APP_APPLE[p.id];
     var u = APP_PLAY[p.id];
     if(IS_WEBVIEW) return 'intent://' + u.replace(/^https?:\/\//,'') + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u) + ';end';
     var m=u.match(/[?&]id=([^&]+)/); var pkg=m?m[1]:'';
@@ -340,7 +348,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   /* =============== LAYAR DEPAN =============== */
   function sortedPlatforms(){
     var rk={harga:0,tautan:1,segera:2};
-    return PL.slice().sort(function(a,b){ function ha(x){return x.level==='tautan'&&!(IS_ANDROID&&APP_PLAY[x.id])?1:0}
+    return PL.slice().sort(function(a,b){ function ha(x){return x.level==='tautan'&&!hasApp(x.id)?1:0}
     return (rk[a.level]-rk[b.level]) || (ha(a)-ha(b)) || a.name.localeCompare(b.name,'id'); });
   }
   function renderFilter(){
@@ -438,7 +446,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     left.appendChild(av); left.appendChild(tx); node.appendChild(left);
     var acts=document.createElement('div'); acts.className='acts';
     var bw=document.createElement('a'); bw.className='mb'; bw.href=p.site; bw.target='_blank'; bw.rel='noopener'; bw.textContent='via Browser'; acts.appendChild(bw);
-    if(IS_ANDROID && APP_PLAY[p.id]){ var ba=document.createElement('a'); ba.className='mb app'; ba.href=appLink(p); ba.textContent='via Aplikasi'; acts.appendChild(ba); }
+    if(hasApp(p.id)){ var ba=document.createElement('a'); ba.className='mb app'; ba.href=appLink(p); ba.textContent='via Aplikasi'; acts.appendChild(ba); }
     node.appendChild(acts); return node;
   }
 
@@ -542,7 +550,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
       var cv0=$('chart'); cv0.getContext('2d').clearRect(0,0,cv0.width,cv0.height);
       $('licenseNote').textContent = p.name+' — '+ex.meta.license;
       $('obSrc').textContent = p.name; $('goEx').querySelector('.b1').textContent='Buka '+p.name; $('goEx').href=p.site;
-      var ga=$('goApp'); if(IS_ANDROID && APP_PLAY[p.id]){ ga.style.display='flex'; ga.querySelector('.b1').textContent='Buka '+p.name; ga.href=appLink(p); } else { ga.style.display='none'; }
+      var ga=$('goApp'); if(hasApp(p.id)){ ga.style.display='flex'; ga.querySelector('.b1').textContent='Buka '+p.name; ga.href=appLink(p); } else { ga.style.display='none'; }
       bootDetail(); startTimers();
     } else { drawChart(); }
     window.scrollTo(0,0);
