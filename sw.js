@@ -5,7 +5,7 @@
  * Semua user akan otomatis dapat versi terbaru!
  */
 
-const VERSION = "181.4";
+const VERSION = "181.5";
 const CACHE_NAME = "indocoin-v" + VERSION;
 
 const CACHE_FILES = [
@@ -87,7 +87,7 @@ const CACHE_FILES = [
   "/sanjaya-ui.js",
   "/sanjaya-notif.js",
   "/sanjaya-notif-inject.js",
-  "/trading-new.html",
+  "/exchange.html",
   "/brainclash.html",
   "/brainclash-room.html",
   "/brainclash-history.html",
