@@ -16,7 +16,7 @@
   /* ---------------- INDODAX (API publik resmi) ---------------- */
   var ROOT = (typeof window !== 'undefined' && window.INDC_PROXY_ROOT) || 'https://trading-api.indocoin.id';
   var INDODAX_BASE = (typeof window !== 'undefined' && window.INDC_INDODAX_BASE) || (ROOT + '/indodax');
-  var LUNO_BASE = ROOT + '/luno', TOKO_BASE = ROOT + '/tokocrypto', BITTIME_BASE = ROOT + '/bittime';
+  var LUNO_BASE = ROOT + '/luno', TOKO_BASE = ROOT + '/tokocrypto', BITTIME_BASE = ROOT + '/bittime', UPBIT_BASE = ROOT + '/upbit', PINTU_BASE = ROOT + '/pintu', REKU_BASE = ROOT + '/reku', BTSE_BASE = ROOT + '/btse';
   function getFrom(base, path) {
     return fetch(base + path, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -197,6 +197,191 @@
     candles: function () { return Promise.resolve([]); }
   };
 
+  /* ---------------- UPBIT INDONESIA (API kuotasi publik; pasangan IDR) ---------------- */
+  var UPBIT_TF = { '15M': '15', '1J': '60', '4J': '240', '1H': 'day' };
+  var upbitIds = [];
+  var upbit = {
+    meta: { id: 'upbit', name: 'Upbit Indonesia', site: 'https://id.upbit.com', license: 'Pedagang aset kripto berizin OJK', status: 'live', chart: true },
+    pairs: function () {
+      return getFrom(UPBIT_BASE, '/markets').then(function (arr) {
+        var out = (Array.isArray(arr) ? arr : []).filter(function (m) { return /^IDR-/.test(m.market); }).map(function (m) {
+          var b = m.market.split('-')[1];
+          return { id: m.market.toLowerCase(), base: b, quote: 'IDR', name: m.english_name || b, pricePrecision: 0 };
+        });
+        upbitIds = out.map(function (p) { return p.id.toUpperCase(); }); return out;
+      });
+    },
+    tickers: function () {
+      var run = upbitIds.length ? Promise.resolve() : upbit.pairs();
+      return run.then(function () {
+        return getFrom(UPBIT_BASE, '/tickers?markets=' + upbitIds.slice(0, 100).join(','));
+      }).then(function (arr) {
+        var out = {};
+        (Array.isArray(arr) ? arr : []).forEach(function (t) {
+          out[String(t.market).toLowerCase()] = { last: num(t.trade_price), high: num(t.high_price), low: num(t.low_price), vol: num(t.acc_trade_price_24h), changePct: num(t.signed_change_rate) * 100 };
+        });
+        return out;
+      });
+    },
+    depth: function (id) {
+      return getFrom(UPBIT_BASE, '/orderbook?market=' + id.toUpperCase()).then(function (j) {
+        var u = ((j && j[0]) || {}).orderbook_units || [];
+        return {
+          bids: u.slice(0, 8).map(function (r) { return [num(r.bid_price), num(r.bid_size)]; }),
+          asks: u.slice(0, 8).map(function (r) { return [num(r.ask_price), num(r.ask_size)]; })
+        };
+      });
+    },
+    candles: function (id, tf) {
+      return getFrom(UPBIT_BASE, '/candles?market=' + id.toUpperCase() + '&unit=' + (UPBIT_TF[tf] || '60') + '&count=60').then(function (arr) {
+        return (Array.isArray(arr) ? arr : []).map(function (c) {
+          return { t: Math.floor(Date.parse(c.candle_date_time_utc + 'Z') / 1000), o: num(c.opening_price), h: num(c.high_price), l: num(c.low_price), c: num(c.trade_price), v: num(c.candle_acc_trade_volume) };
+        }).reverse();
+      });
+    }
+  };
+
+  /* ---------------- PINTU (API publik hanya harga + perubahan 24 jam; tanpa order book & grafik) ---------------- */
+  var PINTU_POPULAR = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'TRX', 'USDT', 'LTC', 'DOT', 'AVAX', 'LINK', 'SHIB'];
+  function pintuList() {
+    return getFrom(PINTU_BASE, '/prices').then(function (j) { return (j && j.payload) || []; });
+  }
+  var pintu = {
+    meta: { id: 'pintu', name: 'Pintu', site: 'https://pintu.co.id', license: 'Pedagang aset kripto berizin OJK', status: 'live', chart: false, book: false },
+    pairs: function () {
+      return pintuList().then(function (arr) {
+        var out = [];
+        arr.forEach(function (t) {
+          var s = String(t.pair || '').split('/'), b = (s[0] || '').toUpperCase(), q = (s[1] || '').toUpperCase();
+          if (q === 'IDR' && PINTU_POPULAR.indexOf(b) > -1) out.push({ id: (b + q).toLowerCase(), base: b, quote: 'IDR', name: b, pricePrecision: 0 });
+        });
+        return out;
+      });
+    },
+    tickers: function () {
+      return pintuList().then(function (arr) {
+        var out = {};
+        arr.forEach(function (t) {
+          var s = String(t.pair || '').split('/');
+          if (String(s[1]).toUpperCase() !== 'IDR') return;
+          out[(s[0] + 'idr').toLowerCase()] = { last: num(t.latestPrice), high: null, low: null, vol: null, changePct: t.day == null ? null : num(t.day) };
+        });
+        return out;
+      });
+    },
+    depth: function () { return Promise.resolve({ bids: [], asks: [] }); },
+    candles: function () { return Promise.resolve([]); }
+  };
+
+  /* ---------------- REKU (API publik: harga semua koin + grafik; order book belum diverifikasi -> disembunyikan) ---------------- */
+  var REKU_TF = { '15M': { f: '15', g: 1 }, '1J': { f: '60', g: 1 }, '4J': { f: '60', g: 4 }, '1H': { f: '1440', g: 1 } };
+  var rekuIds = {};
+  function rekuList() {
+    return getFrom(REKU_BASE, '/price').then(function (arr) {
+      var out = [];
+      (Array.isArray(arr) ? arr : []).forEach(function (t) {
+        var code = String(t.cd || '').toUpperCase();
+        if (!code || !(num(t.c) > 0)) return;
+        rekuIds[(code + 'idr').toLowerCase()] = num(t.id);
+        out.push(t);
+      });
+      return out;
+    });
+  }
+  var reku = {
+    meta: { id: 'reku', name: 'Reku', site: 'https://www.reku.id', license: 'Pedagang aset kripto berizin OJK', status: 'live', chart: true, book: false },
+    pairs: function () {
+      return rekuList().then(function (list) {
+        return list.map(function (t) {
+          var code = String(t.cd).toUpperCase();
+          return { id: (code + 'idr').toLowerCase(), base: code, quote: 'IDR', name: t.n || code, pricePrecision: 0 };
+        });
+      });
+    },
+    tickers: function () {
+      return rekuList().then(function (list) {
+        var out = {};
+        list.forEach(function (t) { out[(String(t.cd) + 'idr').toLowerCase()] = { last: num(t.c), high: null, low: null, vol: null, changePct: null }; });
+        return out;
+      });
+    },
+    depth: function () { return Promise.resolve({ bids: [], asks: [] }); },
+    candles: function (id, tf) {
+      var cfg = REKU_TF[tf] || REKU_TF['1J'];
+      var run = rekuIds[id] ? Promise.resolve() : rekuList();
+      return run.then(function () {
+        return getFrom(REKU_BASE, '/chart?id=' + rekuIds[id] + '&f=' + cfg.f);
+      }).then(function (arr) {
+        var rows = (Array.isArray(arr) ? arr : []).map(function (c) {
+          var o = num(c[1]), cl = num(c[2]), l = num(c[3]), h = num(c[4]);
+          return { t: num(c[0]), o: o, h: Math.max(o, cl, l, h), l: Math.min(o, cl, l, h), c: cl, v: num(c[5]) };
+        });
+        if (cfg.g > 1) {
+          var step = 3600 * cfg.g, map = {}, order = [];
+          rows.forEach(function (r) {
+            var k = r.t - (r.t % step), b = map[k];
+            if (!b) { map[k] = { t: k, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v }; order.push(k); }
+            else { b.h = Math.max(b.h, r.h); b.l = Math.min(b.l, r.l); b.c = r.c; b.v += r.v; }
+          });
+          rows = order.map(function (k) { return map[k]; });
+        }
+        return rows.slice(-60);
+      });
+    }
+  };
+
+  /* ---------------- BTSE INDONESIA (API publik btse.id; pasangan IDR & USDT) ---------------- */
+  var BTSE_QUOTES = ['IDR', 'USDT'];
+  var BTSE_POPULAR = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'TRX', 'LTC', 'DOT', 'AVAX', 'LINK', 'USDT'];
+  var BTSE_TF = { '15M': '15', '1J': '60', '4J': '240', '1H': '1440' };
+  var btseSym = {};
+  function btseList() {
+    return getFrom(BTSE_BASE, '/summary').then(function (arr) {
+      var out = [];
+      (Array.isArray(arr) ? arr : []).forEach(function (m) {
+        var b = String(m.base || '').toUpperCase(), q = String(m.quote || '').toUpperCase();
+        if (m.futures || m.active === false || m.isMarketOpenToSpot === false) return;
+        if (BTSE_QUOTES.indexOf(q) < 0 || BTSE_POPULAR.indexOf(b) < 0 || b === q) return;
+        btseSym[(b + q).toLowerCase()] = m.symbol;
+        out.push(m);
+      });
+      return out;
+    });
+  }
+  var btse = {
+    meta: { id: 'btse', name: 'BTSE Indonesia', site: 'https://www.btse.id', license: 'Pedagang aset kripto berizin OJK', status: 'live', chart: true },
+    pairs: function () {
+      return btseList().then(function (list) {
+        return list.map(function (m) {
+          var b = String(m.base).toUpperCase(), q = String(m.quote).toUpperCase();
+          return { id: (b + q).toLowerCase(), base: b, quote: q, name: b, pricePrecision: 0 };
+        });
+      });
+    },
+    tickers: function () {
+      return btseList().then(function (list) {
+        var out = {};
+        list.forEach(function (m) {
+          out[(String(m.base) + String(m.quote)).toLowerCase()] = { last: num(m.last), high: num(m.high24Hr), low: num(m.low24Hr), vol: num(m.volume), changePct: m.percentageChange == null ? null : num(m.percentageChange) };
+        });
+        return out;
+      });
+    },
+    depth: function (id) {
+      return getFrom(BTSE_BASE, '/orderbook?symbol=' + (btseSym[id] || id.toUpperCase()) + '&depth=10').then(function (j) {
+        var map = function (a) { return (a || []).slice(0, 8).map(function (r) { return [num(r.price), num(r.size)]; }); };
+        return { bids: map(j.buyQuote), asks: map(j.sellQuote) };
+      });
+    },
+    candles: function (id, tf) {
+      return getFrom(BTSE_BASE, '/ohlcv?symbol=' + (btseSym[id] || id.toUpperCase()) + '&resolution=' + (BTSE_TF[tf] || '60')).then(function (arr) {
+        return (Array.isArray(arr) ? arr : []).map(function (c) {
+          return { t: num(c[0]), o: num(c[1]), h: num(c[2]), l: num(c[3]), c: num(c[4]), v: num(c[5]) };
+        }).sort(function (a, b) { return a.t - b.t; }).slice(-60);
+      });
+    }
+  };
+
   /* ---------------- DEMO (hanya untuk preview; aktif lewat #demo) ---------------- */
   function seeded(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
   var DEMO_PAIRS = [['btc', 'Bitcoin', 1380000000], ['eth', 'Ethereum', 52000000], ['usdt', 'Tether', 16250], ['bnb', 'BNB', 14500000], ['sol', 'Solana', 2900000], ['doge', 'Dogecoin', 3600], ['xrp', 'XRP', 38000], ['ada', 'Cardano', 9800]];
@@ -220,7 +405,7 @@
   };
 
   /* Hanya platform dengan level 'harga' di platforms.js yang perlu adapter di sini. */
-  var EXCHANGES = { indodax: indodax, luno: luno, tokocrypto: toko, bittime: bittime };
+  var EXCHANGES = { indodax: indodax, luno: luno, tokocrypto: toko, bittime: bittime, upbit: upbit, pintu: pintu, reku: reku, btse: btse };
 
   var api = { EXCHANGES: EXCHANGES, DEMO: demo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

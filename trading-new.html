@@ -179,7 +179,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
       <div class="mic mut" id="srcNote" style="margin-top:4px"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="obCard">
       <div class="row" style="margin-bottom:8px"><div class="md b">Order Book</div><div class="mic mut" id="obSrc"></div></div>
       <div class="ob"><div class="buy" id="bids"></div><div class="sell" id="asks"></div></div>
     </div>
@@ -211,7 +211,9 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     indodax: 'https://play.google.com/store/apps/details?id=id.co.bitcoin',
     luno: 'https://play.google.com/store/apps/details?id=co.bitx.android.wallet',
     tokocrypto: 'https://play.google.com/store/apps/details?id=com.binance.cloud.tokocrypto',
-    bittime: 'https://play.google.com/store/apps/details?id=com.bittime.currency.exchange'
+    bittime: 'https://play.google.com/store/apps/details?id=com.bittime.currency.exchange',
+    upbit: 'https://play.google.com/store/apps/details?id=com.dunamu.exchange.global',
+    pintu: 'https://play.google.com/store/apps/details?id=com.valar.pintu'
   }; // halaman Play Store aplikasi resmi
   function appLink(p){
     var u = APP_PLAY[p.id];
@@ -264,7 +266,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     if(!list.length){ var e=document.createElement('div'); e.className='sm mut'; e.textContent='Platform tidak ditemukan.'; el.appendChild(e); return; }
     list.forEach(function(p){
       var node, tagCls, tagTxt, sub;
-      if(p.level==='harga'){ node=document.createElement('button'); node.onclick=function(){ location.hash='#'+p.id; }; tagCls='live'; tagTxt='● LIVE'; sub=(p.id==='luno'||p.id==='bittime'?'Harga dan order book':'Harga, grafik, dan order book'); }
+      if(p.level==='harga'){ node=document.createElement('button'); node.onclick=function(){ location.hash='#'+p.id; }; tagCls='live'; tagTxt='● LIVE'; sub=(p.id==='reku'?'Harga dan grafik':p.id==='pintu'?'Harga 24 jam':(p.id==='luno'||p.id==='bittime'?'Harga dan order book':'Harga, grafik, dan order book')); }
       else if(p.level==='tautan' && p.site){ node=document.createElement('a'); node.href=p.site; node.target='_blank'; node.rel='noopener'; tagCls='link'; tagTxt='Situs resmi'; sub='Dibuka di situs resmi'; }
       else { node=document.createElement('div'); tagCls='soon'; tagTxt='Segera'; sub='Belum tersedia'; }
       node.className='plat'+(p.level==='segera'?' dis':'');
@@ -298,7 +300,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
     if(!t) return;
     $('price').textContent=fmt(t.last);
     var c=$('chg'); if(t.changePct==null){ c.textContent='–'; c.className='md b'; } else { c.textContent=(t.changePct>=0?'+':'')+t.changePct.toFixed(2).replace('.',',')+'%'; c.className='md b '+(t.changePct>=0?'up':'dn'); }
-    $('hi').textContent=fmt(t.high); $('lo').textContent=fmt(t.low); $('vol').textContent=fmtBig(volOf(t));
+    $('hi').textContent=fmt(t.high); $('lo').textContent=fmt(t.low); $('vol').textContent=(t.vol==null&&t.volIdr==null)?'–':fmtBig(volOf(t));
   }
   var geo=null;
   function drawChart(){
@@ -333,12 +335,13 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
   }
   function hasChart(){ return !ex || ex.meta.chart!==false; }
   function loadCandles(){ if(!hasChart()) return Promise.resolve(); return ex.candles(S.cur,S.tf).then(function(c){ S.candles=c; drawChart(); }); }
-  function loadDepth(){ return ex.depth(S.cur).then(renderBook); }
+  function hasBook(){ return !ex || ex.meta.book!==false; }
+  function loadDepth(){ if(!hasBook()) return Promise.resolve(); return ex.depth(S.cur).then(renderBook); }
   function loadTickers(){ return ex.tickers().then(function(t){ S.ticks=t; renderTicker(); }); }
   function loadPair(){
     $('ohlc').textContent=hasChart()?'Sentuh chart untuk melihat harga per candle.':'';
     renderTicker();
-    return Promise.all([loadCandles(),loadDepth()]).then(function(){ hideErr(); setStatus(DEMO?'Demo':'Live',false); $('srcNote').textContent=DEMO?'Data contoh (mode demo)':'Sumber: API publik '+ex.meta.name+' · diperbarui otomatis'+(hasChart()?'':' · grafik belum tersedia untuk platform ini'); }).catch(fail);
+    return Promise.all([loadCandles(),loadDepth()]).then(function(){ hideErr(); setStatus(DEMO?'Demo':'Live',false); $('srcNote').textContent=DEMO?'Data contoh (mode demo)':'Sumber: API publik '+ex.meta.name+' · diperbarui otomatis'+(hasChart()?'':' · grafik belum tersedia untuk platform ini')+(hasBook()?'':' · order book belum tersedia'); }).catch(fail);
   }
   function fail(e){ console.warn(e); showErr('Tidak bisa memuat data '+(ex?ex.meta.name:'platform')+'. Periksa koneksi Anda lalu coba lagi.', e&&e.message); }
 
@@ -349,7 +352,7 @@ canvas{width:100%;height:200px;display:block;touch-action:pan-y}
       if(my!==exId) return;
       S.pairs=r[0]; S.ticks=r[1];
       if(!S.pairs.some(function(p){return p.id===S.cur})&&S.pairs.length){ S.cur=pickDefault(); }
-      var ch=hasChart(); $('tf').style.display=ch?'':'none'; $('chart').style.display=ch?'':'none'; $('ohlc').style.display=ch?'':'none';
+      $('obCard').style.display=hasBook()?'':'none'; var ch=hasChart(); $('tf').style.display=ch?'':'none'; $('chart').style.display=ch?'':'none'; $('ohlc').style.display=ch?'':'none';
       renderPairs(); renderTf(); return loadPair();
     }).catch(fail);
   }

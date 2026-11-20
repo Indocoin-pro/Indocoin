@@ -13,13 +13,17 @@
 //    GET /luno/markets | /luno/tickers | /luno/orderbook?pair=
 //    GET /bittime/exchangeinfo | /bittime/tickers | /bittime/depth?symbol&limit
 //    GET /tokocrypto/symbols | /tokocrypto/depth?symbol&limit | /tokocrypto/klines?symbol&interval&limit
+//    GET /upbit/markets | /upbit/tickers?markets=IDR-BTC,.. | /upbit/orderbook?market= | /upbit/candles?market&unit&count
+//    GET /pintu/prices
+//    GET /reku/price | /reku/chart?id&f
+//    GET /btse/summary | /btse/orderbook?symbol&depth | /btse/ohlcv?symbol&resolution
 //    GET /health
 // ═══════════════════════════════════════════════════════════════
 const http  = require('http');
 const https = require('https');
 
 const PORT = parseInt(process.env.INDODAX_PROXY_PORT || '3010', 10);
-const H_INDODAX = 'indodax.com', H_LUNO = 'api.luno.com', H_TOKO = 'www.tokocrypto.com', H_TOKO_MKT = 'www.tokocrypto.site', H_BITTIME = 'openapi.bittime.com';
+const H_INDODAX = 'indodax.com', H_LUNO = 'api.luno.com', H_TOKO = 'www.tokocrypto.com', H_TOKO_MKT = 'www.tokocrypto.site', H_BITTIME = 'openapi.bittime.com', H_UPBIT = 'id-api.upbit.com', H_PINTU = 'api.pintu.co.id', H_REKU = 'api.reku.id', H_BTSE = 'api.btse.id';
 const ALLOW_ORIGINS = ['https://indocoin.id', 'https://www.indocoin.id'];
 
 // TTL cache (ms) per jenis endpoint
@@ -62,6 +66,45 @@ function route(pathname, search) {
     const q = new URLSearchParams(search), symbol = q.get('symbol') || '', limit = q.get('limit') || '10';
     if (!/^[A-Z0-9]{4,20}$/.test(symbol) || !/^(5|10|20)$/.test(limit)) return null;
     return { kind: 'depth', host: H_BITTIME, up: `/api/v1/depth?symbol=${symbol}&limit=${limit}` };
+  }
+  // ---- Upbit Indonesia (API kuotasi publik, host regional Indonesia) ----
+  if (pathname === '/upbit/markets') return { kind: 'markets', host: H_UPBIT, up: '/v1/market/all' };
+  if (pathname === '/upbit/tickers') {
+    const mk = new URLSearchParams(search).get('markets') || '';
+    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}(,[A-Z0-9]{2,10}-[A-Z0-9]{2,10}){0,99}$/.test(mk)) return null;
+    return { kind: 'tickers', host: H_UPBIT, up: '/v1/ticker?markets=' + mk };
+  }
+  if (pathname === '/upbit/orderbook') {
+    const mk = new URLSearchParams(search).get('market') || '';
+    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}$/.test(mk)) return null;
+    return { kind: 'depth', host: H_UPBIT, up: '/v1/orderbook?markets=' + mk };
+  }
+  if (pathname === '/upbit/candles') {
+    const q = new URLSearchParams(search), mk = q.get('market') || '', unit = q.get('unit') || '', count = q.get('count') || '60';
+    if (!/^[A-Z0-9]{2,10}-[A-Z0-9]{2,10}$/.test(mk) || !/^(15|60|240|day)$/.test(unit)) return null;
+    if (!/^\d{1,3}$/.test(count) || +count < 1 || +count > 200) return null;
+    return { kind: 'klines', host: H_UPBIT, up: (unit === 'day' ? '/v1/candles/days' : '/v1/candles/minutes/' + unit) + '?market=' + mk + '&count=' + count };
+  }
+  // ---- Pintu (hanya harga terakhir + persen 24 jam; tanpa order book/grafik) ----
+  if (pathname === '/pintu/prices') return { kind: 'tickers15', host: H_PINTU, up: '/v2/trade/price-changes' };
+  // ---- Reku (harga semua koin + grafik; order book belum diverifikasi) ----
+  if (pathname === '/reku/price') return { kind: 'tickers15', host: H_REKU, up: '/v2/price' };
+  if (pathname === '/reku/chart') {
+    const q = new URLSearchParams(search), id = q.get('id') || '', f = q.get('f') || '';
+    if (!/^\d{1,4}$/.test(id) || !/^(15|60|1440)$/.test(f)) return null;
+    return { kind: 'klines', host: H_REKU, up: `/v2/chart?t=2&f=${f}&id=${id}` };
+  }
+  // ---- BTSE Indonesia (API publik btse.id: ringkasan pasar, order book L2, OHLCV) ----
+  if (pathname === '/btse/summary') return { kind: 'tickers15', host: H_BTSE, up: '/spot/api/v3.2/market_summary' };
+  if (pathname === '/btse/orderbook') {
+    const q = new URLSearchParams(search), sym = q.get('symbol') || '', depth = q.get('depth') || '10';
+    if (!/^[A-Z0-9]{2,12}-(IDR|USDT)$/.test(sym) || !/^(5|10|20)$/.test(depth)) return null;
+    return { kind: 'depth', host: H_BTSE, up: `/spot/api/v3.2/orderbook/L2?symbol=${sym}&depth=${depth}` };
+  }
+  if (pathname === '/btse/ohlcv') {
+    const q = new URLSearchParams(search), sym = q.get('symbol') || '', res = q.get('resolution') || '';
+    if (!/^[A-Z0-9]{2,12}-(IDR|USDT)$/.test(sym) || !/^(15|60|240|1440)$/.test(res)) return null;
+    return { kind: 'klines', host: H_BTSE, up: `/spot/api/v3.2/ohlcv?symbol=${sym}&resolution=${res}` };
   }
   // ---- Tokocrypto (API publik gaya Binance) ----
   if (pathname === '/tokocrypto/symbols') return { kind: 'markets', host: H_TOKO, up: '/open/v1/common/symbols' };
@@ -138,7 +181,7 @@ const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ status: 'ok', service: 'indodax-proxy', upstreams: ['indodax','luno','tokocrypto'], port: PORT, cache: cache.size }));
+    return res.end(JSON.stringify({ status: 'ok', service: 'indodax-proxy', upstreams: ['indodax','luno','tokocrypto','bittime','upbit','pintu','reku','btse'], port: PORT, cache: cache.size }));
   }
   if (req.method !== 'GET') { res.writeHead(405); return res.end(); }
   const rt = route(u.pathname, u.search);
