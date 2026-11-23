@@ -210,7 +210,7 @@ const ERRS = { NotOwner: 'Hanya wallet Dev yang boleh', BadStatus: 'Status penju
 /* ============ STATE & UTIL ============ */
 let _wallet = null, _signer = null, _rp = null, _isDev = false, _me = null, _tok = null;
 let _cats = [], _prods = [], _filter = 0, _seen = {};
-let _spec = {}, _prof = {}, _foto = [], _fotoToko = null;
+let _spec = {}, _prof = {}, _foto = [], _fotoToko = null, _edit = 0;
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
@@ -552,7 +552,7 @@ function formBank() {
 }
 function ubahProduk(id) {
   const p = _prods.find(x => x.id === id);
-  pop({ title: 'Ubah produk #' + id, html: '<label class="l" for="uHarga">Harga (Rp)</label><input class="inp" id="uHarga" inputmode="numeric" value="' + p.price + '"><label class="l" for="uStok">Stok</label><input class="inp" id="uStok" inputmode="numeric" value="' + p.stock + '"><label class="l" for="uAktif">Tampil di katalog</label><select class="inp" id="uAktif"><option value="1"' + (p.active ? ' selected' : '') + '>Aktif</option><option value="0"' + (p.active ? '' : ' selected') + '>Nonaktif</option></select><div class="note">Mengubah nama, foto, atau spesifikasi belum tersedia di tahap ini.</div>', ok: 'Simpan', onOk: async () => {
+  pop({ title: 'Ubah produk #' + id, html: '<label class="l" for="uHarga">Harga (Rp)</label><input class="inp" id="uHarga" inputmode="numeric" value="' + p.price + '"><label class="l" for="uStok">Stok</label><input class="inp" id="uStok" inputmode="numeric" value="' + p.stock + '"><label class="l" for="uAktif">Tampil di katalog</label><select class="inp" id="uAktif"><option value="1"' + (p.active ? ' selected' : '') + '>Aktif</option><option value="0"' + (p.active ? '' : ' selected') + '>Nonaktif</option></select><button class="btn2" type="button" onclick="closePop();formProduk(' + id + ')">Ubah nama, foto, atau spesifikasi</button>', ok: 'Simpan', onOk: async () => {
     const harga = parseInt($('uHarga').value, 10), stok = parseInt($('uStok').value, 10);
     if (!(harga > 0) || !(stok >= 0)) { toast('Harga dan stok tidak valid'); return false; }
     closePop(); const ok = await tx('Ubah produk', () => wreg().updateProduct(id, p.metaHash, harga, stok, $('uAktif').value === '1'));
@@ -561,9 +561,16 @@ function ubahProduk(id) {
 }
 
 /* ----- Form produk ----- */
-function formProduk() {
-  _foto = [];
-  $('v-sell').innerHTML = '<button class="back" onclick="renderSell()">← Kembali</button><div class="title">Tambah produk</div><div class="sub">Semua kolom wajib diisi kecuali yang tertulis opsional.</div>' +
+async function formProduk(editId) {
+  _foto = []; _edit = editId || 0;
+  let ep = null, es = null;
+  if (_edit) {
+    ep = _prods.find(x => x.id === _edit); toast('Memuat data produk…');
+    es = await ambilTerverifikasi('spek', ep.metaHash, _spec);
+    if (!es) return toast('Spesifikasi lama tidak bisa dimuat, perubahan dibatalkan', 6000);
+    _foto = (es.fotos || []).map(h => ({ hash: h, url: fotoUrl(h) }));
+  }
+  $('v-sell').innerHTML = '<button class="back" onclick="renderSell()">← Kembali</button><div class="title">' + (_edit ? 'Ubah produk #' + _edit : 'Tambah produk') + '</div><div class="sub">Semua kolom wajib diisi kecuali yang tertulis opsional.</div>' +
     '<div class="card"><label class="l" for="pKat">Kategori (tidak bisa kamu ubah setelahnya)</label><select class="inp" id="pKat" onchange="infoFee()">' + KATS.map((k, i) => i && _cats[i] && _cats[i].active ? '<option value="' + i + '">' + i + '. ' + esc(k) + '</option>' : '').join('') + '</select><div class="note" id="pFee"></div>' +
     '<label class="l" for="pNama">Nama produk</label><input class="inp" id="pNama" maxlength="80">' +
     '<label class="l" for="pKond">Kondisi</label><select class="inp" id="pKond"><option value="baru">Baru</option><option value="bekas">Bekas</option></select>' +
@@ -577,8 +584,14 @@ function formProduk() {
     '<div class="card"><div class="h">Foto produk (persegi 1:1, minimal 3, maksimal 8)</div><div class="slots" id="pSlots"></div><input type="file" id="pFotoIn" accept="image/*" multiple class="hide" onchange="tambahFoto(this)">' +
     '<div class="note">Foto dipotong persegi otomatis dari tengah. Gunakan foto asli, bukan foto stok internet. Jangan memotret data pribadi (KTP, alamat, nomor HP).</div></div>' +
     '<div class="card"><label class="l" for="pHarga">Harga (Rp)</label><input class="inp" id="pHarga" inputmode="numeric" placeholder="Minimal Rp 100.000"><label class="l" for="pStok">Stok</label><input class="inp" id="pStok" inputmode="numeric" value="1"><div class="note">Rupiah dibayar pembeli langsung ke rekeningmu. Indocoin tidak memegang rupiah.</div></div>' +
-    '<button class="btn" id="pKirim" onclick="kirimProduk()">Pajang produk</button><div class="steps note" id="pLog"></div>';
+    '<button class="btn" id="pKirim" onclick="kirimProduk()">' + (_edit ? 'Simpan perubahan' : 'Pajang produk') + '</button><div class="steps note" id="pLog"></div>';
   infoFee(); renderSlots();
+  if (_edit) {
+    const set = (id, v) => { $(id).value = v == null ? '' : v; };
+    $('pKat').innerHTML = '<option value="' + ep.category + '">' + ep.category + '. ' + esc(KATS[ep.category] || '') + '</option>'; $('pKat').disabled = true; infoFee();
+    set('pNama', es.nama); set('pKond', es.kondisi); set('pBahan', es.bahan); set('pUkuran', es.ukuran); set('pWarna', es.warna); set('pIsi', es.isiPaket);
+    set('pBerat', es.beratGram); set('pGaransi', es.garansi); set('pDesk', es.deskripsi); set('pHarga', ep.price); set('pStok', ep.stock);
+  }
 }
 async function infoFee() {
   try { const c = Number($('pKat').value); const f = await reg().feeForCategory(c); $('pFee').textContent = 'Fee kategori ini: penjual ' + pct(f.sellerBps) + ', pembeli ' + pct(f.buyerBps) + '. Jaminanmu per pesanan = 100% harga + ' + pct(f.sellerBps) + '.'; } catch (e) {}
@@ -593,7 +606,7 @@ async function tambahFoto(inp) {
   }
   inp.value = ''; renderSlots();
 }
-function hapusFoto(i) { URL.revokeObjectURL(_foto[i].url); _foto.splice(i, 1); renderSlots(); }
+function hapusFoto(i) { if (_foto[i].blob) URL.revokeObjectURL(_foto[i].url); _foto.splice(i, 1); renderSlots(); }
 async function kirimProduk() {
   const v = id => $(id).value.trim();
   for (const [id, n] of [['pNama', 'Nama produk'], ['pBahan', 'Bahan'], ['pUkuran', 'Ukuran'], ['pWarna', 'Warna'], ['pIsi', 'Isi paket'], ['pBerat', 'Berat'], ['pHarga', 'Harga'], ['pStok', 'Stok']]) if (!v(id)) return toast(n + ' wajib diisi');
@@ -604,10 +617,12 @@ async function kirimProduk() {
   const btn = $('pKirim'); btn.disabled = true; $('pLog').innerHTML = '';
   try {
     const hashes = [];
-    for (let i = 0; i < _foto.length; i++) { logStep('pLog', 'Mengunggah foto ' + (i + 1) + ' dari ' + _foto.length); hashes.push((await apiFoto('produk', _foto[i].blob)).hash); }
-    const s = await apiJson('/bazaar/spek', { kategoriId: Number(v('pKat')), nama: v('pNama'), kondisi: v('pKond'), deskripsi: v('pDesk'), bahan: v('pBahan'), ukuran: v('pUkuran'), warna: v('pWarna'), isiPaket: v('pIsi'), beratGram: berat, garansi: v('pGaransi'), fotos: hashes });
+    for (let i = 0; i < _foto.length; i++) { logStep('pLog', 'Mengunggah foto ' + (i + 1) + ' dari ' + _foto.length); hashes.push(_foto[i].hash || (await apiFoto('produk', _foto[i].blob)).hash); }
+    const s = await apiJson('/bazaar/spek', { kategoriId: _edit ? _prods.find(x => x.id === _edit).category : Number(v('pKat')), nama: v('pNama'), kondisi: v('pKond'), deskripsi: v('pDesk'), bahan: v('pBahan'), ukuran: v('pUkuran'), warna: v('pWarna'), isiPaket: v('pIsi'), beratGram: berat, garansi: v('pGaransi'), fotos: hashes });
     logStep('pLog', 'Spesifikasi tersimpan', true);
-    const ok = await tx('Pajang produk', () => wreg().addProduct(Number(v('pKat')), s.hash, harga, stok));
+    let ok;
+    if (_edit) { const ep = _prods.find(x => x.id === _edit); ok = await tx('Simpan perubahan produk', () => wreg().updateProduct(_edit, s.hash, harga, stok, ep.active)); }
+    else ok = await tx('Pajang produk', () => wreg().addProduct(Number(v('pKat')), s.hash, harga, stok));
     if (ok) { await loadCatalog(); renderSell(); }
   } catch (e) { toast('Gagal: ' + errText(e), 8000); $('pLog').innerHTML += '<div style="color:var(--red)">Gagal: ' + esc(errText(e)) + '</div>'; }
   btn.disabled = false;
