@@ -63,7 +63,7 @@ const LIMIT = {
 };
 
 // Batas penulisan per wallet per 24 jam, dan per IP per jam.
-const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10 };
+const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100 };
 const RATE_IP_HOUR = 200;
 
 const BENTUK_USAHA = [
@@ -94,6 +94,14 @@ function bersih(v, min, max, nama, opsional) {
   if (t.length < min && !(opsional && t.length === 0)) throw new HttpError(400, `${nama} minimal ${min} karakter`);
   if (t.length > max) throw new HttpError(400, `${nama} maksimal ${max} karakter`);
   return t;
+}
+
+/** Tanya jawab publik tidak boleh jadi jalan pintas transaksi di luar escrow. */
+function tolakKontak(teks) {
+  if (/(?:\d[\s.\-]*){9,}/.test(teks) || /https?:|www\.|wa\.me|t\.me|@|\.(com|id|net|co|me|link)\b|whats\s?app|telegram|\bwa\b|\bline\b|\bdm\b|\brekening\b|transfer langsung/i.test(teks)) {
+    throw new HttpError(400, 'Jangan cantumkan nomor, tautan, atau ajakan transaksi di luar Bazaar. Kontak penjual terbuka setelah pesanan dibayar ke escrow.');
+  }
+  return teks;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -204,7 +212,7 @@ function dekripsi(amplop) {
 // ─────────────────────────────────────────────────────────────────
 
 function siapkanFolder() {
-  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening']) {
+  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya']) {
     fs.mkdirSync(path.join(CFG.dataDir, d), { recursive: true });
   }
 }
@@ -273,12 +281,14 @@ function ambilDepsBawaan() {
   const provider = E.JsonRpcProvider
     ? new E.JsonRpcProvider(CFG.rpc, 56)
     : new E.providers.JsonRpcProvider(CFG.rpc, 56);
-  const abi = ['function owner() view returns (address)', 'function isSellerActive(address) view returns (bool)'];
+  const abi = ['function owner() view returns (address)', 'function isSellerActive(address) view returns (bool)',
+    'function getProduct(uint256) view returns (tuple(address seller,uint64 createdAt,uint64 updatedAt,uint16 category,bool active,bool takenDown,uint128 priceIDR,uint128 stock,uint32 reports,bytes32 metaHash))'];
   const kontrak = new E.Contract(CFG.registry, abi, provider);
   let owner = { alamat: '', exp: 0 };
   return {
     verifyMessage,
     isSellerActive: (w) => kontrak.isSellerActive(w),
+    getProductSeller: async (id) => String((await kontrak.getProduct(id)).seller).toLowerCase(),
     getOwner: async () => {
       if (Date.now() > owner.exp) owner = { alamat: String(await kontrak.owner()).toLowerCase(), exp: Date.now() + 5 * 60 * 1000 };
       return owner.alamat;
@@ -508,6 +518,83 @@ function createApp(deps) {
     return dekripsi(JSON.parse(fs.readFileSync(pathBerkas(jenis, `${hash}.json`), 'utf8')));
   }
 
+  // ── Tanya jawab publik ─────────────────────────────────────────
+
+  const fileTanya = (id) => pathBerkas('tanya', `${id}.json`);
+  function bacaTanya(id) {
+    try { return JSON.parse(fs.readFileSync(fileTanya(id), 'utf8')); } catch { return []; }
+  }
+  function idProduk(v) {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 1000000) throw new HttpError(400, 'Nomor produk tidak valid');
+    return n;
+  }
+  async function penjualProduk(id) {
+    let w;
+    try { w = await deps.getProductSeller(id); }
+    catch { throw new HttpError(404, 'Produk tidak ditemukan'); }
+    if (!isAddr(w) || /^0x0{40}$/.test(w)) throw new HttpError(404, 'Produk tidak ditemukan');
+    return w;
+  }
+  const maskWallet = (w) => w.slice(0, 6) + '…' + w.slice(-4);
+
+  function tanyaDaftar(id) {
+    const daftar = bacaTanya(idProduk(id)).filter((x) => !x.h).map((x) => ({
+      n: x.n, w: maskWallet(x.w), t: x.t, ts: x.ts, j: x.j ? { t: x.j.t, ts: x.j.ts } : null,
+    }));
+    return { daftar };
+  }
+
+  async function tanyaKirim(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'tanya', body);
+    const j = bacaJson(body);
+    const id = idProduk(j.produk);
+    const teks = tolakKontak(bersih(j.teks, 5, 300, 'Pertanyaan'));
+    const penjual = await penjualProduk(id);
+    if (wallet === penjual) throw new HttpError(403, 'Penjual tidak bisa bertanya di produknya sendiri');
+    batasi(req, 'tanya', wallet);
+    const data = bacaTanya(id);
+    if (data.length >= 200) throw new HttpError(429, 'Kolom tanya jawab produk ini sudah penuh');
+    if (data.filter((x) => x.w === wallet && !x.j && !x.h).length >= 3) throw new HttpError(429, 'Tunggu penjual menjawab pertanyaanmu sebelumnya');
+    const n = data.length ? data[data.length - 1].n + 1 : 1;
+    data.push({ n, w: wallet, t: teks, ts: Date.now(), j: null, h: false });
+    tulisAtomik(fileTanya(id), JSON.stringify(data));
+    return { ok: true, n };
+  }
+
+  async function tanyaJawab(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'jawab', body);
+    const j = bacaJson(body);
+    const id = idProduk(j.produk);
+    const penjual = await penjualProduk(id);
+    if (wallet !== penjual) throw new HttpError(403, 'Hanya penjual produk ini yang boleh menjawab');
+    const teks = tolakKontak(bersih(j.teks, 2, 400, 'Jawaban'));
+    batasi(req, 'jawab', wallet);
+    const data = bacaTanya(id);
+    const item = data.find((x) => x.n === Number(j.n) && !x.h);
+    if (!item) throw new HttpError(404, 'Pertanyaan tidak ditemukan');
+    if (item.j) throw new HttpError(409, 'Pertanyaan ini sudah dijawab');
+    item.j = { t: teks, ts: Date.now() };
+    tulisAtomik(fileTanya(id), JSON.stringify(data));
+    return { ok: true };
+  }
+
+  async function tanyaHapus(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'admin-tanya', body);
+    await wajibOwner(wallet);
+    const j = bacaJson(body);
+    const id = idProduk(j.produk);
+    const data = bacaTanya(id);
+    const item = data.find((x) => x.n === Number(j.n));
+    if (!item) throw new HttpError(404, 'Pertanyaan tidak ditemukan');
+    item.h = true;
+    tulisAtomik(fileTanya(id), JSON.stringify(data));
+    return { ok: true };
+  }
+
   // ── Router ─────────────────────────────────────────────────────
 
   function kirimJson(res, status, obj, extra) {
@@ -550,8 +637,13 @@ function createApp(deps) {
       return res.end(fs.readFileSync(pathBerkas(a, `${b}.json`)));
     }
 
+    if (req.method === 'GET' && a === 'tanya' && b && !c) return kirimJson(res, 200, tanyaDaftar(b));
+
     // Tulis
     if (req.method === 'POST') {
+      if (a === 'tanya' && !b) return kirimJson(res, 200, await tanyaKirim(req));
+      if (a === 'tanya' && b === 'jawab') return kirimJson(res, 200, await tanyaJawab(req));
+      if (a === 'tanya' && b === 'hapus') return kirimJson(res, 200, await tanyaHapus(req));
       if (a === 'foto' && b) return kirimJson(res, 200, await fotoUnggah(req, b));
       if (a === 'sesi' && !b) return kirimJson(res, 200, await sesiBuat(req));
       if (a === 'profil' && !b) return kirimJson(res, 200, await profilSimpan(req));
@@ -599,6 +691,6 @@ function start() {
   return server;
 }
 
-module.exports = { sesiAktif, createApp, CFG, LIMIT, buatPesan, periksaFoto, siapkanFolder, muatIndeks, dekripsi };
+module.exports = { sesiAktif, createApp, CFG, LIMIT, buatPesan, periksaFoto, tolakKontak, siapkanFolder, muatIndeks, dekripsi };
 
 if (require.main === module) start();
