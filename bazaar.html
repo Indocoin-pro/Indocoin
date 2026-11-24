@@ -119,6 +119,21 @@ textarea.inp{min-height:80px;resize:vertical;}
 #toast{position:fixed;left:16px;right:16px;bottom:76px;z-index:1000;background:var(--navy);color:#fff;border-radius:12px;padding:12px;font-size:12px;font-weight:600;display:none;text-align:center;}
 .steps{font-size:12px;line-height:1.7;}
 .steps .ok{color:var(--green);font-weight:700;}
+
+.qbtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--navy);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;}
+.nav-r{display:flex;align-items:center;gap:8px;}
+#paham{position:fixed;inset:0;background:#fff;z-index:1100;display:none;flex-direction:column;}
+#paham.show{display:flex;}
+.ph-head{padding:16px 16px 10px;border-bottom:1px solid var(--border);max-width:480px;width:100%;margin:0 auto;}
+.ph-body{flex:1;overflow-y:auto;padding:14px 16px 24px;max-width:480px;width:100%;margin:0 auto;-webkit-overflow-scrolling:touch;}
+.ph-foot{border-top:1px solid var(--border);padding:10px 16px 14px;background:#fff;}
+.ph-foot>div{max-width:480px;margin:0 auto;}
+.ph-hint{font-size:10px;color:var(--muted);text-align:center;margin-bottom:8px;}
+.ph-btn{width:100%;min-height:48px;border-radius:12px;border:0;background:var(--navy);color:#fff;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;}
+.ph-btn:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed;}
+.stp{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #EEF2F7;}
+.stp:last-child{border-bottom:0;}
+.stp i{font-style:normal;width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <script src="wallet-bridge.js"></script>
@@ -129,7 +144,7 @@ textarea.inp{min-height:80px;resize:vertical;}
     <img src="1772782967104.png" class="nav-logo" alt="INDOCOIN" onerror="this.style.display='none'">
     <div class="nav-brand"><span class="nav-brand-main">INDOCOIN</span><span class="nav-brand-sub">▸ BAZAAR</span></div>
   </div>
-  <div class="pool-badge" id="walletBtn" onclick="connectWallet()"><span class="pool-dot"></span>CONNECT</div>
+  <div class="nav-r"><button class="qbtn" type="button" onclick="bukaPaham(true)" aria-label="Cara kerja Bazaar">?</button><div class="pool-badge" id="walletBtn" onclick="connectWallet()"><span class="pool-dot"></span>CONNECT</div></div>
 </nav>
 
 <div class="main">
@@ -206,6 +221,87 @@ textarea.inp{min-height:80px;resize:vertical;}
   <a href="community.html" class="bn-item"><span class="bn-icon">💬</span><span class="bn-label">COMMUNITY</span></a>
 </nav>
 
+<div id="paham" role="dialog" aria-modal="true" aria-label="Cara kerja Bazaar">
+  <div class="ph-head" style="text-align:center"><div class="title" style="text-align:center;font-size:17px">Cara kerja Bazaar</div><div class="sub" style="margin-bottom:0;text-align:center">Baca sampai bawah sebelum mulai. Ini melindungi kamu, baik sebagai pembeli maupun penjual.</div></div>
+  <div class="ph-body" id="pahamBody" onscroll="cekPaham()">
+
+    <div class="card soft"><div class="h">Intinya</div><div class="t">Rupiah dibayar pembeli <b>langsung ke rekening penjual</b>. Indocoin tidak memegang rupiah. Yang dikunci hanya <b>jaminan dalam USDT</b>, dari pembeli dan dari penjual, dan jaminan itu <b>dititipkan di smart contract</b> pada blockchain BNB Smart Chain.</div></div>
+
+    <div class="card"><div class="h">Siapa yang memegang jaminanmu?</div><div class="t">
+      <div style="margin-bottom:6px">Bukan developer, dan bukan dompet pribadi siapa pun. Jaminan USDT dikunci di <b>alamat smart contract</b> BazaarEscrow. Itu program di blockchain yang aturannya tertulis dan terbuka.</div>
+      <div style="margin-bottom:6px">Saat pesanan selesai, <b>kontrak sendiri</b> yang mengembalikan jaminan ke pemiliknya, sesuai aturan yang sama untuk semua pesanan.</div>
+      <div>Kontrak tidak punya fungsi "tarik dana" bebas. Dana hanya bergerak lewat alur pesanan: selesai, batal, atau putusan sengketa.</div></div></div>
+
+    <div class="card"><div class="h">Apa itu jaminan?</div><div class="t">Jaminan bukan pembayaran dan bukan biaya. Ini titipan yang <b>kembali penuh</b> saat pesanan selesai, dikurangi fee layanan. Kalau salah satu pihak curang atau lalai, jaminan pihak itu dipakai untuk mengganti kerugian pihak lain. Karena kedua pihak sama-sama mempertaruhkan jaminan, keduanya punya alasan kuat untuk jujur.</div></div>
+
+    <div class="card"><div class="h">Kenapa memakai smart contract?</div><div class="t">
+      <div style="margin-bottom:6px">• <b>Aturan sama untuk semua.</b> Tidak ada perlakuan khusus untuk siapa pun.</div>
+      <div style="margin-bottom:6px">• <b>Bisa diperiksa.</b> Alamat kontrak dan seluruh riwayat transaksinya tercatat publik di BscScan, jadi siapa saja bisa memverifikasi.</div>
+      <div style="margin-bottom:6px">• <b>Jaminan terpisah dari pengelola.</b> Dana tidak bercampur dengan dompet operasional Indocoin.</div>
+      <div>• <b>Pengembalian otomatis.</b> Bila batas waktu lewat, kontrak menjalankan aturannya sendiri tanpa menunggu siapa pun.</div></div></div>
+
+    <div class="card"><div class="h">Apa yang bisa dan tidak bisa dilakukan admin</div><div class="t">
+      <div style="margin-bottom:6px"><b>Tidak bisa:</b> mengambil jaminan sesuka hati, atau memindahkan dana ke dompetnya sendiri di luar alur pesanan.</div>
+      <div style="margin-bottom:6px"><b>Bisa:</b> memutuskan sengketa (siapa yang menang), menghentikan sementara pesanan baru bila ada masalah, dan mengatur parameter seperti kurs jaminan dan batas waktu.</div>
+      <div>Kami menyampaikan ini apa adanya: sengketa tetap diputuskan manusia, bukan program. Karena itu bukti yang kamu simpan sangat penting.</div></div></div>
+
+    <div class="card"><div class="h">Alur satu pesanan</div>
+      <div class="stp"><i>1</i><div class="t"><b>Pembeli memesan.</b> Stok produk langsung dicadangkan.</div></div>
+      <div class="stp"><i>2</i><div class="t"><b>Penjual mengunci jaminan.</b> Setelah itu rekening penjual terbuka untuk pembeli.</div></div>
+      <div class="stp"><i>3</i><div class="t"><b>Pembeli mengunci jaminan,</b> lalu mentransfer rupiah ke rekening penjual.</div></div>
+      <div class="stp"><i>4</i><div class="t"><b>Penjual mengirim barang</b> lewat kurir dan mengisi nomor resi.</div></div>
+      <div class="stp"><i>5</i><div class="t"><b>Barang sampai.</b> Status kurir dipantau lewat Biteship, lalu pembeli memeriksa barangnya.</div></div>
+      <div class="stp"><i>6</i><div class="t"><b>Selesai.</b> Pembeli menekan "Barang diterima", atau selesai sendiri bila tidak ada komplain. Jaminan kembali ke masing-masing.</div></div>
+    </div>
+
+    <div class="card"><div class="h">Pelacakan kurir</div><div class="t">Nomor resi dipantau lewat Biteship. Saat paket tercatat sampai, sistem melaporkannya ke kontrak dan jendela komplain pembeli mulai berjalan. Pelaporan ini dilakukan oleh satu dompet pelapor khusus yang hanya bisa menandai paket sampai, tidak bisa memindahkan dana.</div></div>
+
+    <div class="card warn"><div class="h">Batas waktu</div>
+      <div class="row"><span>Penjual mengunci jaminan</span><b>2 hari</b></div>
+      <div class="row"><span>Pembeli membayar</span><b>2 hari</b></div>
+      <div class="row"><span>Penjual mengirim dan isi resi</span><b>2 hari</b></div>
+      <div class="row"><span>Komplain setelah barang sampai</span><b>2 hari</b></div>
+      <div class="row"><span>Perjalanan paket paling lama</span><b>14 hari</b></div>
+      <div class="note" style="color:#78350F">Kalau batas waktu lewat, pesanan bisa dibatalkan atau hak komplain hilang. Pantau pesananmu.</div></div>
+
+    <div class="card"><div class="h">Kalau ada masalah</div><div class="t">Bicarakan dulu dengan lawan transaksimu lewat WhatsApp. Kalau tidak sepakat, ajukan sengketa dan <b>admin yang memutuskan</b>. Rekam video saat membuka paket sebagai bukti, dan serahkan ke admin bila diminta. Jaminan pihak yang kalah dipakai untuk mengganti kerugian pihak yang menang.</div></div>
+
+    <div class="card"><div class="h">Yang perlu disiapkan</div><div class="t">
+      <div style="margin-bottom:6px">• Dompet yang terhubung di jaringan <b>BNB Smart Chain</b>.</div>
+      <div style="margin-bottom:6px">• <b>USDT</b> secukupnya untuk jaminan. Besarnya tampil jelas sebelum kamu mengunci.</div>
+      <div>• Sedikit <b>BNB</b> untuk biaya gas jaringan.</div></div></div>
+
+    <div class="card"><div class="h">Biaya</div><div class="t">Fee layanan 3% sampai 10% per pihak, tergantung kategori produk, diambil dari jaminan USDT. Gas jaringan ditanggung masing-masing.</div></div>
+
+    <div class="card"><div class="h">Yang tidak dilakukan Indocoin</div><div class="t">
+      <div style="margin-bottom:6px">• Tidak menerima atau menahan uang rupiah kamu.</div>
+      <div style="margin-bottom:6px">• Tidak meminta kunci privat atau frasa pemulihan dompet. <b>Jangan pernah</b> memberikannya kepada siapa pun.</div>
+      <div>• Tidak menjamin kualitas barang. Yang dijamin adalah mekanisme aman: jaminan terkunci, aturan jelas, dan jalur sengketa.</div></div></div>
+
+    <div class="card bad"><div class="h">Yang perlu kamu waspadai</div><div class="t">
+      <div style="margin-bottom:6px">• Transfer rupiah <b>hanya ke rekening yang tampil di halaman pesanan</b>, setelah jaminan penjual terkunci.</div>
+      <div style="margin-bottom:6px">• Jangan sepakat pindah transaksi ke luar Bazaar. Jaminan hanya melindungi pesanan di sini.</div>
+      <div style="margin-bottom:6px">• Periksa nama toko, foto, dan ulasan sebelum memesan.</div>
+      <div>• Simpan bukti chat, foto, dan video selama pesanan berjalan.</div></div></div>
+
+    <div class="card ok"><div class="h">Semua penjual diverifikasi</div><div class="t">
+      <div style="margin-bottom:6px">• Penjual wajib punya <b>NIB (OSS)</b> atau legalitas usaha lain. Berkasnya diunggah dan diperiksa admin sebelum toko boleh berjualan.</div>
+      <div style="margin-bottom:6px">• Berkas disimpan terenkripsi dan tidak ditampilkan ke publik.</div>
+      <div style="margin-bottom:6px">• Rekening penjual terkunci pada pesanan. Mengganti rekening butuh <b>masa tunggu</b>, jadi rekening tidak bisa dibelokkan mendadak.</div>
+      <div style="margin-bottom:6px">• Rekam jejak penjual (pesanan selesai dan sengketa) tercatat di blockchain dan tidak bisa dihapus.</div>
+      <div>• Produk bermasalah bisa dilaporkan, dan admin bisa menurunkannya.</div></div></div>
+
+    <div class="card soft"><div class="h">Belum punya NIB?</div><div class="t">Urus sendiri gratis di oss.go.id. Kalau butuh bantuan, Indocoin menyediakan jasa profesional pengurusan izin usaha lewat fitur <b>Skill Hub</b> (segera hadir), supaya usaha kecil pun bisa berjualan secara legal dan tepercaya.</div></div>
+
+    <div class="card soft" style="text-align:center"><div class="h">Marketplace yang dibangun di atas kepercayaan</div><div class="t">Bazaar menggabungkan tiga hal yang jarang ada dalam satu tempat: <b>pembayaran rupiah langsung</b> tanpa perantara yang menahan uangmu, <b>jaminan USDT yang dijaga smart contract</b> sehingga kedua pihak sama-sama terlindungi, dan <b>penjual berizin usaha</b> yang diverifikasi satu per satu. Hasilnya jual beli antar warga yang transparan, adil, dan bisa diperiksa siapa saja. Selamat bergabung di Bazaar.</div></div>
+
+    <div class="note" style="text-align:center;margin-top:0">Kamu sudah sampai di bawah.</div>
+  </div>
+  <div class="ph-foot"><div>
+    <div class="ph-hint" id="pahamHint">Gulir sampai bawah untuk melanjutkan</div>
+    <button class="ph-btn" id="pahamBtn" type="button" disabled onclick="tutupPaham()">Mengerti dan lanjut</button>
+  </div></div>
+</div>
 <div id="ov"><div class="pop" id="pop"></div></div>
 <div id="toast"></div>
 
@@ -1365,8 +1461,28 @@ async function admTrack(id) {
 function admPutus(id, pembeli) { pop({ title: pembeli ? 'Pembeli menang?' : 'Penjual menang?', lines: [pembeli ? 'Pembeli diganti dari jaminan penjual senilai barang + ongkir (+ denda bila diatur). Penjual dicatat kalah sengketa.' : 'Jaminan dilepas ke kedua pihak, fee dipotong (+ denda dari pembeli bila diatur).', 'Keputusan tercatat di blockchain dan tidak bisa dibatalkan.'], ok: 'Putuskan', red: true, onOk: async () => { closePop(); if (await tx('Putuskan sengketa', () => wesc().resolveDispute(id, pembeli))) admPesanan(); } }); }
 
 
+
+/* ============ CARA KERJA (tampil sekali, bisa dibuka lagi lewat tombol ?) ============ */
+const PAHAM_KEY = 'bz_paham_v2';
+function sudahPaham() { try { return localStorage.getItem(PAHAM_KEY) === '1'; } catch (e) { return false; } }
+function bukaPaham(ulang) {
+  const b = $('pahamBtn');
+  b.dataset.ulang = ulang ? '1' : '';
+  b.textContent = ulang ? 'Tutup' : 'Mengerti dan lanjut';
+  $('paham').classList.add('show'); document.body.style.overflow = 'hidden';
+  $('pahamBody').scrollTop = 0; cekPaham();
+}
+function cekPaham() {
+  const s = $('pahamBody'), b = $('pahamBtn');
+  const ujung = s.scrollTop + s.clientHeight >= s.scrollHeight - 8;
+  const ok = ujung || b.dataset.ulang === '1';
+  b.disabled = !ok; $('pahamHint').style.visibility = ok ? 'hidden' : 'visible';
+}
+function tutupPaham() { try { localStorage.setItem(PAHAM_KEY, '1'); } catch (e) {} $('paham').classList.remove('show'); document.body.style.overflow = ''; }
+
 /* ============ MULAI ============ */
 window.addEventListener('load', async () => {
+  if (!sudahPaham()) bukaPaham(false);
   renderChips();
   loadCatalog().then(bukaTautan);
   if (window.ethereum) { try { const a = await window.ethereum.request({ method: 'eth_accounts' }); if (a && a.length) connectWallet(); } catch (e) {} }
