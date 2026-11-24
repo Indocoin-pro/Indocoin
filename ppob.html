@@ -1209,6 +1209,18 @@ function pilihMetodeBayar(m){
   document.getElementById('methodIndc').classList.toggle('active', m==='indc');
 }
 
+function diagErr(err){
+  // Ringkas alasan error biar kelihatan di layar (bukan cuma "gagal").
+  if(err && (err.code === 'ACTION_REJECTED' || err.code === 4001)) return 'Dibatalkan di wallet.';
+  const bagian = [];
+  if(err && err.reason) bagian.push(err.reason);
+  if(err && err.revert && err.revert.name) bagian.push(err.revert.name);
+  if(err && err.shortMessage) bagian.push(err.shortMessage);
+  if(err && err.info && err.info.error && err.info.error.message) bagian.push(err.info.error.message);
+  if(!bagian.length && err && err.message) bagian.push(err.message);
+  return (bagian.join(' | ') || 'Transaksi gagal, coba lagi.').slice(0, 160);
+}
+
 function setBuyStatus(text, kind){
   const el = document.getElementById('buyStatus');
   el.textContent = text;
@@ -1401,6 +1413,18 @@ async function mulaiProsesBeli(){
         return;
       }
 
+      // Uji coba dulu tanpa kirim transaksi — kalau kontrak menolak,
+      // alasannya langsung tampil di layar.
+      try{
+        await gateway.payWithPlatformINDC.staticCall(
+          quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature
+        );
+      }catch(e){
+        console.error('Cek awal INDC ditolak kontrak:', e);
+        setBuyStatus('Ditolak kontrak: ' + diagErr(e), 'err');
+        return;
+      }
+
       setBuyStatus('Konfirmasi pembelian di wallet...', '');
       const txBeli = await gateway.payWithPlatformINDC(
         quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature
@@ -1422,8 +1446,7 @@ async function mulaiProsesBeli(){
 
   }catch(err){
     console.error('Gagal proses beli:', err);
-    const pesan = err.reason || err.message || 'Transaksi gagal, coba lagi.';
-    setBuyStatus(pesan.length > 80 ? 'Transaksi gagal atau dibatalkan.' : pesan, 'err');
+    setBuyStatus(diagErr(err), 'err');
   }finally{
     btn.disabled = false;
   }
@@ -1729,6 +1752,14 @@ async function bayarSekarangPasca(){
         return;
       }
 
+      try{
+        await gateway.payWithPlatformINDC.staticCall(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature);
+      }catch(e){
+        console.error('Cek awal INDC ditolak kontrak:', e);
+        setPascaStatus2('Ditolak kontrak: ' + diagErr(e), 'err');
+        return;
+      }
+
       setPascaStatus2('Konfirmasi pembayaran di wallet...', '');
       const tx = await gateway.payWithPlatformINDC(quote.orderId, quote.productCode, indcAmount, quote.modalUsdt, quote.profitUsdt, quote.indcPriceUsdt, quote.expiry, quote.signature);
       setPascaStatus2('Menunggu konfirmasi blockchain...', '');
@@ -1741,8 +1772,7 @@ async function bayarSekarangPasca(){
     fetchPoolStats();
   }catch(err){
     console.error('Gagal bayar tagihan:', err);
-    const pesan = err.reason || err.message || 'Transaksi gagal, coba lagi.';
-    setPascaStatus2(pesan.length > 80 ? 'Transaksi gagal atau dibatalkan.' : pesan, 'err');
+    setPascaStatus2(diagErr(err), 'err');
   }finally{
     btn.disabled = false;
   }
