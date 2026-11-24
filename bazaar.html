@@ -68,6 +68,7 @@ body{background:#fff;color:var(--ink);font-family:'Manrope',sans-serif;min-heigh
 .bdg{display:inline-block;font-size:10px;font-weight:700;color:var(--green);background:#ECFDF3;border-radius:6px;padding:2px 7px;}
 .bdg.g{color:var(--muted);background:var(--bg3);}
 .bdg.r{color:var(--red);background:#FEF2F2;}
+.bdg.y{color:#92400E;background:#FEF3C7;}
 label.l{display:block;font-size:12px;font-weight:600;margin:10px 0 6px;}
 input.inp,select.inp,textarea.inp{width:100%;min-height:44px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;font-family:inherit;font-size:12px;color:var(--ink);background:#fff;outline:none;}
 textarea.inp{min-height:80px;resize:vertical;}
@@ -157,7 +158,7 @@ textarea.inp{min-height:80px;resize:vertical;}
       </div>
     </div>
     <div class="cnt" id="cnt"></div>
-    <div class="card ok"><div class="t"><b>Semua penjual terverifikasi.</b> Wajib punya NIB (OSS) atau legalitas usaha lain. Tahap ini baru katalog; pemesanan dengan jaminan USDT menyusul.</div></div>
+    <div class="card ok"><div class="t"><b>Semua penjual terverifikasi.</b> Wajib punya NIB (OSS) atau legalitas usaha lain.</div></div>
     <div class="grid" id="grid"><div class="note">Memuat produk…</div></div>
     <div id="more"></div>
   </section>
@@ -189,6 +190,7 @@ textarea.inp{min-height:80px;resize:vertical;}
     <div class="sub-tabs" id="admTabs">
       <button data-a="penjual" class="on" onclick="admTab('penjual')">Penjual</button>
       <button data-a="kategori" onclick="admTab('kategori')">Kategori</button>
+      <button data-a="pesanan" onclick="admTab('pesanan')">Pesanan</button>
       <button data-a="laporan" onclick="admTab('laporan')">Laporan</button>
       <button data-a="atur" onclick="admTab('atur')">Atur</button>
     </div>
@@ -243,7 +245,7 @@ const ABI = [
  'event ProductUpdated(uint256 indexed id, bytes32 oldMetaHash, bytes32 newMetaHash, uint256 priceIDR, uint256 stock, bool active)',
  'error NotOwner()', 'error BadStatus()', 'error NotSeller()', 'error NoProduct()', 'error NotProductOwner()', 'error ProductIsTakenDown()', 'error PriceTooLow()', 'error OutOfRange()', 'error AlreadyReported()', 'error ActiveOrdersExist()', 'error NothingPending()', 'error TooEarly()', 'error BadCategory()', 'error FeeOutOfRange()', 'error ZeroValue()'
 ];
-const ERRS = { NotOwner: 'Hanya wallet Dev yang boleh', BadStatus: 'Status penjual tidak sesuai untuk aksi ini', NotSeller: 'Kamu belum menjadi penjual yang disetujui', NoProduct: 'Produk tidak ditemukan', NotProductOwner: 'Ini bukan produkmu', ProductIsTakenDown: 'Produk sudah diturunkan admin', PriceTooLow: 'Harga di bawah minimum', OutOfRange: 'Nilai di luar batas yang diizinkan', AlreadyReported: 'Kamu sudah pernah melaporkan produk ini', ActiveOrdersExist: 'Masih ada pesanan berjalan', NothingPending: 'Tidak ada perubahan yang menunggu', TooEarly: 'Belum lewat jeda waktu', BadCategory: 'Kategori tidak aktif atau tidak ada', FeeOutOfRange: 'Fee harus 3% sampai 10%', ZeroValue: 'Ada isian yang kosong' };
+const ERRS = { NotOwner: 'Hanya wallet Dev yang boleh', BadStatus: 'Status penjual tidak sesuai untuk aksi ini', NotSeller: 'Kamu belum menjadi penjual yang disetujui', NoProduct: 'Produk tidak ditemukan', NotProductOwner: 'Ini bukan produkmu', ProductIsTakenDown: 'Produk sudah diturunkan admin', PriceTooLow: 'Harga di bawah minimum', OutOfRange: 'Nilai di luar batas yang diizinkan', AlreadyReported: 'Kamu sudah pernah melaporkan produk ini', ActiveOrdersExist: 'Masih ada pesanan berjalan', NothingPending: 'Tidak ada perubahan yang menunggu', TooEarly: 'Belum lewat jeda waktu', BadCategory: 'Kategori tidak aktif atau tidak ada', FeeOutOfRange: 'Fee harus 3% sampai 10%', ZeroValue: 'Ada isian yang kosong', 'bad state': 'Status pesanan sudah berubah, muat ulang halaman', expired: 'Batas waktu sudah lewat', 'not buyable': 'Produk tidak tersedia, stok habis, atau ini produkmu sendiri', paused: 'Pesanan baru sedang dihentikan sementara', 'not yet': 'Belum waktunya', 'not allowed': 'Belum boleh membatalkan', 'not buyer': 'Hanya pembeli pesanan ini', 'pull failed': 'Saldo atau izin USDT tidak cukup', 'exceeds balance': 'Saldo USDT tidak cukup', 'insufficient allowance': 'Izin USDT belum cukup' };
 
 /* ============ STATE & UTIL ============ */
 let _wallet = null, _signer = null, _rp = null, _isDev = false, _me = null, _tok = null;
@@ -309,6 +311,7 @@ function go(v) {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'detail' || v === 'toko' ? 'home' : v)));
   window.scrollTo(0, 0);
   if (v === 'sell') renderSell();
+  if (v === 'orders') renderOrders();
   if (v === 'me') renderMe();
   if (v === 'admin') admTab(window._admT || 'penjual');
 }
@@ -332,7 +335,7 @@ async function connectWallet() {
     $('tabAdmin').classList.toggle('hide', !_isDev);
     await loadMe();
     renderGrid();
-    const cur = ['sell', 'me', 'admin'].find(x => !$('v-' + x).classList.contains('hide'));
+    const cur = ['orders', 'sell', 'me', 'admin'].find(x => !$('v-' + x).classList.contains('hide'));
     if (cur) go(cur);
   } catch (e) { toast('Gagal connect: ' + errText(e), 6000); }
 }
@@ -528,12 +531,15 @@ async function openDetail(id) {
     (sp ? '<div class="card"><div class="h">Spesifikasi (diisi penjual)</div>' + row('Kondisi', sp.kondisi === 'baru' ? 'Baru' : 'Bekas') + row('Bahan', sp.bahan) + row('Ukuran', sp.ukuran) + row('Warna', sp.warna) + row('Isi paket', sp.isiPaket) + row('Berat kirim', sp.beratGram + ' gram') + row('Garansi / catatan', sp.garansi) + (sp.deskripsi ? '<div class="note">' + esc(sp.deskripsi) + '</div>' : '') + '<div class="note">Barang yang sesuai spesifikasi ini tidak bisa diretur. Spesifikasi jadi acuan admin bila ada komplain.</div></div>'
       : '<div class="card warn"><div class="t">Spesifikasi belum bisa dimuat atau tidak cocok dengan hash di blockchain.</div></div>') +
     (fee ? '<div class="card soft"><div class="h">Fee platform kategori ini</div><div class="row"><span>Pembeli</span><b>' + pct(fee.buyerBps) + '</b></div><div class="row"><span>Penjual</span><b>' + pct(fee.sellerBps) + '</b></div><div class="note">Jaminan USDT masing-masing pihak = 100% harga + fee ini. Dibaca langsung dari kontrak.</div></div>' : '') +
+    '<div class="card"><div class="h">Ulasan pembeli</div><div id="ulsBox"><div class="note">Memuat…</div></div></div>' +
     '<div class="card"><div class="h">Tanya jawab</div><div id="tnyBox"><div class="note">Memuat…</div></div></div>' +
-    '<button class="btn navy" disabled>Pesan dan kunci jaminan — segera hadir</button>' +
+    (!escAktif() ? '<button class="btn navy" disabled>Pesan dan kunci jaminan — segera hadir</button>'
+      : _wallet && p.seller.toLowerCase() === _wallet.toLowerCase() ? '<div class="note">Ini produkmu sendiri.</div>'
+      : '<button class="btn navy" ' + (p.stock > 0 ? '' : 'disabled ') + 'onclick="pesanForm(' + id + ')">Pesan dan kunci jaminan</button>') +
     '<button class="btn2" onclick="bagikan(tautanProduk(' + id + '), \'Produk di Bazaar INDOCOIN\')">Bagikan produk</button>' +
     '<button class="btn2" onclick="laporProduk(' + id + ')">Laporkan produk ini</button>' +
     '<div class="note mono">Produk #' + id + ' · penjual ' + esc(p.seller) + '</div>';
-  muatTanya(id);
+  muatTanya(id); muatUlasan(id);
 }
 function pilihFoto(img, url) {
   document.querySelectorAll('.gal img').forEach(i => i.classList.remove('on')); img.classList.add('on');
@@ -550,8 +556,10 @@ async function renderSell() {
   if (!_wallet) { el.innerHTML = '<div class="title">Jual di Bazaar</div><div class="card"><div class="t">Hubungkan wallet untuk mendaftar atau mengelola tokomu.</div><button class="btn navy" onclick="connectWallet()">Hubungkan wallet</button></div>'; return; }
   await loadMe();
   const st = _me.status;
+  _waAda = null;
   if (st === 0 || st === 3) return renderDaftar(st === 3);
-  if (st === 1) { el.innerHTML = '<div class="title">Jual di Bazaar</div><div class="card warn"><div class="h">Menunggu verifikasi admin</div><div class="t">Pendaftaran dikirim ' + tgl(_me.registeredAt) + '. Admin memeriksa dokumen usahamu. Setelah disetujui, form produk terbuka di halaman ini.</div></div>'; return; }
+  await cekWa();
+  if (st === 1) { el.innerHTML = '<div class="title">Jual di Bazaar</div><div class="card warn"><div class="h">Menunggu verifikasi admin</div><div class="t">Pendaftaran dikirim ' + tgl(_me.registeredAt) + '. Admin memeriksa dokumen usahamu. Setelah disetujui, form produk terbuka di halaman ini.</div></div>' + kartuKirim(); return; }
   if (st === 4) { el.innerHTML = '<div class="title">Jual di Bazaar</div><div class="card bad"><div class="h">Tokomu ditangguhkan</div><div class="t">Produkmu tidak tampil di katalog. Hubungi admin untuk penjelasan.</div></div>'; return; }
   renderToko();
 }
@@ -574,6 +582,10 @@ function renderDaftar(ditolak) {
     '<label class="l" for="rNoMerek">Nomor pendaftaran merek DJKI (jika ada)</label><input class="inp" id="rNoMerek" maxlength="80">' +
     '<label class="l" for="rDok">Berkas NIB / legalitas (PDF, JPG, PNG, maks 8 MB)</label><input class="inp" id="rDok" type="file" accept="application/pdf,image/jpeg,image/png">' +
     '<div class="note">Dokumen disimpan terenkripsi dan hanya bisa dibuka admin. Yang tercatat di blockchain hanya kode hash.</div></div>' +
+    '<div class="card"><div class="h">Kontak dan asal kirim</div>' +
+    '<label class="l" for="rWa">Nomor WhatsApp (wajib)</label><input class="inp" id="rWa" inputmode="tel" maxlength="20" placeholder="081234567890">' +
+    '<label class="l" for="rPos">Kode pos asal kirim</label><input class="inp" id="rPos" inputmode="numeric" maxlength="5">' +
+    '<div class="note">WhatsApp tersimpan terenkripsi dan tidak tampil publik. Dibuka untuk pembeli hanya saat pesanan aktif, dan untuk admin bila ada sengketa. Kode pos dipakai menghitung ongkir.</div></div>' +
     '<div class="card"><div class="h">Rekening untuk menerima rupiah</div>' +
     '<label class="l" for="rBank">Nama bank</label><input class="inp" id="rBank" maxlength="40">' +
     '<label class="l" for="rNoRek">Nomor rekening</label><input class="inp" id="rNoRek" inputmode="numeric" maxlength="30">' +
@@ -596,7 +608,7 @@ async function kirimDaftar() {
   const v = id => $(id).value.trim();
   if (!$('rSetuju').checked) return toast('Centang persetujuan dulu');
   if (!_fotoToko) return toast('Foto toko belum dipilih');
-  const wajib = [['rNama', 'Nama toko'], ['rKota', 'Kota'], ['rNib', 'Nomor NIB'], ['rBank', 'Nama bank'], ['rNoRek', 'Nomor rekening'], ['rAtas', 'Nama pemilik rekening']];
+  const wajib = [['rNama', 'Nama toko'], ['rKota', 'Kota'], ['rNib', 'Nomor NIB'], ['rWa', 'Nomor WhatsApp'], ['rPos', 'Kode pos asal kirim'], ['rBank', 'Nama bank'], ['rNoRek', 'Nomor rekening'], ['rAtas', 'Nama pemilik rekening']];
   for (const [id, n] of wajib) if (!v(id)) return toast(n + ' wajib diisi');
   const file = $('rDok').files[0];
   if (!file) return toast('Berkas NIB belum dipilih');
@@ -612,7 +624,14 @@ async function kirimDaftar() {
     const rk = await apiJson('/bazaar/rekening', { bank: v('rBank'), noRek: v('rNoRek'), atasNama: v('rAtas') });
     logStep('rLog', 'Rekening tersimpan terenkripsi', true);
     const ok = await tx('Pendaftaran', () => wreg().registerSeller(p.hash, d.hash, rk.hash));
-    if (ok) { logStep('rLog', 'Pendaftaran tercatat di blockchain', true); setTimeout(renderSell, 1200); }
+    if (ok) {
+      logStep('rLog', 'Pendaftaran tercatat di blockchain', true);
+      for (let i = 0; i < 3 && !_waAda; i++) {
+        try { await apiJson('/bazaar/wa', { wa: v('rWa'), kodePosAsal: v('rPos') }); _waAda = true; logStep('rLog', 'WhatsApp dan kode pos tersimpan terenkripsi', true); }
+        catch (e) { if (i === 2) toast('WhatsApp belum tersimpan, lengkapi di halaman Jual setelah ini', 7000); else await new Promise(r => setTimeout(r, 2500)); }
+      }
+      setTimeout(renderSell, 1200);
+    }
   } catch (e) { toast('Gagal: ' + errText(e), 8000); $('rLog').innerHTML += '<div class="bad" style="color:var(--red)">Gagal: ' + esc(errText(e)) + '</div>'; }
   btn.disabled = false;
 }
@@ -622,12 +641,12 @@ function renderToko() {
   const mine = _prods.filter(p => p.seller.toLowerCase() === _wallet.toLowerCase());
   const pend = _me.pendingBankHash !== ZERO32;
   const siap = pend && num(_me.bankChangeAt) * 1000 <= Date.now();
-  $('v-sell').innerHTML = '<div class="title">Tokoku</div><div class="sub"><span class="bdg">Terverifikasi</span> · Pesanan berjalan: ' + _me.activeOrders + '</div>' +
+  $('v-sell').innerHTML = '<div class="title">Tokoku</div><div class="sub"><span class="bdg">Terverifikasi</span> · Pesanan berjalan: ' + _me.activeOrders + (escAktif() ? ' · <button class="lnk" onclick="_oTab=\'jual\';go(\'orders\')">Lihat pesanan</button>' : '') + '</div>' + kartuKirim() +
     '<div class="card"><div class="h">Produkku (' + mine.length + ')</div>' + (mine.length ? mine.map(p => {
       const sp = _spec[p.metaHash.toLowerCase()];
       return '<div class="row"><span style="flex:1">' + esc(sp ? sp.nama : 'Produk #' + p.id) + '<br><span style="font-size:10px">' + rp(p.price) + ' · stok ' + p.stock + ' · ' + (p.takenDown ? 'diturunkan admin' : p.active ? 'aktif' : 'nonaktif') + '</span></span><button class="mini" onclick="ubahProduk(' + p.id + ')">Ubah</button></div>';
     }).join('') : '<div class="note">Belum ada produk.</div>') + '</div>' +
-    '<button class="btn" onclick="formProduk()">+ Tambah produk</button>' +
+    '<button class="btn" onclick="tambahProduk()">+ Tambah produk</button>' +
     '<div class="card" style="margin-top:12px"><div class="h">Rekening</div>' +
     (pend ? '<div class="t">Perubahan rekening menunggu. Bisa diterapkan mulai <b>' + tgl(_me.bankChangeAt) + '</b>.</div><div class="two"><button class="btn" ' + (siap ? '' : 'disabled') + ' onclick="aksiBank(\'apply\')">Terapkan</button><button class="btn2" style="margin-top:12px" onclick="aksiBank(\'cancel\')">Batalkan</button></div>'
       : '<div class="t">Rekening aktif tersimpan terenkripsi.</div><button class="btn2" onclick="formBank()">Ganti rekening</button><div class="note">Butuh jeda 24 jam dan tidak boleh ada pesanan berjalan.</div>') + '</div>';
@@ -734,7 +753,7 @@ function admTab(t) {
   window._admT = t;
   document.querySelectorAll('#admTabs button').forEach(b => b.classList.toggle('on', b.dataset.a === t));
   if (!_isDev) { $('adm').innerHTML = '<div class="card bad"><div class="t">Hanya wallet Dev.</div></div>'; return; }
-  ({ penjual: admPenjual, kategori: admKategori, laporan: admLaporan, atur: admAtur })[t]();
+  ({ penjual: admPenjual, kategori: admKategori, pesanan: admPesanan, laporan: admLaporan, atur: admAtur })[t]();
 }
 async function scanLogs(filter) {
   const R = reg(), latest = await _rp.getBlockNumber();
@@ -888,9 +907,11 @@ async function openToko(addr) {
     '<div style="min-width:0"><div class="h" style="margin:0">' + esc(pr ? pr.namaToko : short(addr)) + '</div>' +
     '<div class="t" style="color:var(--muted);margin-top:4px">' + esc(pr ? pr.kota + ' · ' + pr.bentukUsaha : '') + (pr && pr.merek ? ' · Merek: ' + esc(pr.merek) : '') + '</div></div></div>' +
     (pr && pr.deskripsi ? '<div class="note">' + esc(pr.deskripsi) + '</div>' : '') + '</div>' +
+    '<div class="card"><div class="h">Ulasan pembeli</div><div id="ulsToko"><div class="note" style="margin-top:0">Memuat…</div></div></div>' +
     '<div class="cnt">' + list.length + ' produk tersedia</div>' +
     (list.length ? '<div class="grid' + (_view === 3 ? ' c3' : '') + '">' + list.map(cardHtml).join('') + '</div>' : '<div class="note">Belum ada produk yang tersedia.</div>') +
     '<button class="btn2" onclick="bagikan(tautanToko(\'' + esc(addr) + '\'), \'Toko di Bazaar INDOCOIN\')">Bagikan toko</button>';
+  muatUlasanToko(a);
 }
 const tglTny = ts => new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 async function muatTanya(id) {
@@ -943,6 +964,406 @@ function bukaTautan() {
   if (pid > 0) openDetail(pid);
   else if (tk && /^0x[0-9a-fA-F]{40}$/.test(tk)) openToko(tk);
 }
+
+/* ============ PESANAN (ESCROW) ============ */
+const ESC = '0xEDEC84B0F027fbb73A16f8837F8f94B8dd938F17';                                                      // alamat BazaarEscrow (isi setelah deploy; kosong = pemesanan belum dibuka)
+const USDT = '0x55d398326f99059fF775485246999027B3197955';          // USDT (BSC-USD) di BSC, 18 desimal. Cek ulang di BscScan sebelum dipakai
+const ADMIN_WA = '';                                                 // nomor WhatsApp admin format 62..., opsional
+const escAktif = () => /^0x[0-9a-fA-F]{40}$/.test(ESC);
+const ESC_ABI = [
+ 'function getOrder(uint256) view returns (tuple(address buyer,address seller,uint256 productId,uint32 qty,uint8 status,uint16 penaltyBps,uint8 courier,uint64 createdAt,uint64 sellerLockedAt,uint64 paidAt,uint64 shippedAt,uint64 deliveredAt,uint64 disputeAt,uint256 baseIDR,uint256 rate,uint256 baseUsdt,uint256 buyerFee,uint256 sellerFee,uint256 buyerStake,uint256 sellerStake,bytes32 metaHash,bytes32 addrHash,bytes32 resiHash))',
+ 'function userOrderCount(address) view returns (uint256)', 'function userOrders(address,uint256,uint256) view returns (uint256[])',
+ 'function nextOrderId() view returns (uint256)', 'function rate() view returns (uint256)', 'function bufferBps() view returns (uint16)', 'function paused() view returns (bool)',
+ 'function payWindow() view returns (uint64)', 'function shipWindow() view returns (uint64)', 'function complaintWindow() view returns (uint64)', 'function maxTransit() view returns (uint64)', 'function adminGrace() view returns (uint64)',
+ 'function createOrder(uint256,uint32,uint256,bytes32) returns (uint256)',
+ 'function sellerLock(uint256)', 'function buyerLock(uint256)', 'function cancelBeforePayment(uint256)', 'function markShipped(uint256,uint8,bytes32)', 'function cancelNoShip(uint256)',
+ 'function confirmReceived(uint256)', 'function autoComplete(uint256)', 'function openDispute(uint256,uint8,bytes32)', 'function expireDispute(uint256)',
+ 'function resolveDispute(uint256,bool)', 'function setRate(uint256)', 'function setPaused(bool)',
+ 'event OrderCreated(uint256 indexed id, address indexed buyer, address indexed seller, uint256 productId, uint32 qty, uint256 baseIDR)'
+];
+const USDT_ABI = ['function balanceOf(address) view returns (uint256)', 'function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'];
+const KURIR_N = { 1: 'JNE', 2: 'J&T', 3: 'SiCepat', 4: 'AnterAja' };
+const ALASAN = [[1, 'Barang tidak sampai'], [2, 'Tidak sesuai spesifikasi'], [3, 'Rusak atau cacat'], [4, 'Isi paket kurang']];
+const TAGS = {
+  positif: { sesuai_deskripsi: 'Sesuai deskripsi', kualitas_bagus: 'Kualitas bagus', kemasan_rapi: 'Kemasan rapi', cepat_dikirim: 'Cepat dikirim', penjual_ramah: 'Penjual ramah', harga_sepadan: 'Harga sepadan' },
+  kurang: { kurang_sesuai: 'Kurang sesuai foto', kualitas_biasa: 'Kualitas biasa saja', kemasan_kurang: 'Kemasan kurang rapi', lambat_dikirim: 'Lambat dikirim', cacat_kecil: 'Ada cacat kecil', kurang_responsif: 'Kurang responsif' },
+  kurir: { kurir_cepat: 'Kurir cepat', kurir_lambat: 'Kurir lambat', paket_penyok: 'Paket penyok di jalan' }
+};
+const TAG_JUDUL = { positif: 'Yang bagus', kurang: 'Yang kurang', kurir: 'Soal kurir (tidak memengaruhi penjual)' };
+const TAG_NAMA = Object.assign({}, TAGS.positif, TAGS.kurang, TAGS.kurir);
+const O_LABEL = {
+  pembeli: { 1: 'Menunggu penjual mengunci jaminan', 2: 'Kunci jaminanmu lalu bayar', 3: 'Menunggu penjual mengirim', 4: 'Dalam pengiriman', 5: 'Paket sampai, periksa barang', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' },
+  penjual: { 1: 'Pesanan baru: kunci jaminan', 2: 'Menunggu pembeli mengunci dan membayar', 3: 'Cek uang masuk lalu kirim barang', 4: 'Dalam pengiriman', 5: 'Paket sampai, menunggu pembeli', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' }
+};
+const O_PERLU = { pembeli: [2, 5], penjual: [1, 3] };
+let _ord = {}, _win = null, _oTab = 'beli', _uls = { b: 0, g: [] }, _ong = null, _waAda = null;
+
+const esc_ = () => new ethers.Contract(ESC, ESC_ABI, rp_());
+const wesc = () => new ethers.Contract(ESC, ESC_ABI, _signer);
+const usdt = x => Number(ethers.utils.formatUnits(x, 18)).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USDT';
+const bintang = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+const waLink = n => 'https://wa.me/' + String(n).replace(/\D/g, '');
+function sisa(ts) {
+  const d = ts * 1000 - Date.now(); if (d <= 0) return 'sudah lewat';
+  const j = Math.floor(d / 3600000);
+  return j >= 24 ? Math.floor(j / 24) + ' hari ' + (j % 24) + ' jam' : j + ' jam ' + Math.floor((d % 3600000) / 60000) + ' menit';
+}
+async function salin(t) { try { await navigator.clipboard.writeText(String(t)); toast('Disalin'); } catch (e) { toast('Salin manual: ' + t, 6000); } }
+async function apiGet(path) {
+  await ensureSesi();
+  const r = await fetch(API + path, { headers: { 'x-wallet': _wallet, 'x-token': _tok.token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('Gagal (' + r.status + ')'));
+  return j;
+}
+/** Hitungan jaminan sama persis dengan kontrak (createOrder). */
+function taksir(goodsIDR, shipIDR, r, buf, bps) {
+  const BN = ethers.BigNumber, W = ethers.constants.WeiPerEther;
+  const base = BN.from(goodsIDR + shipIDR).mul(W).div(r), gu = BN.from(goodsIDR).mul(W).div(r);
+  const fee = gu.mul(bps).div(10000);
+  return { base, fee, stake: base.add(base.mul(buf).div(10000)).add(fee) };
+}
+function normOrder(id, o) {
+  return { id, buyer: o.buyer.toLowerCase(), seller: o.seller.toLowerCase(), productId: num(o.productId), qty: num(o.qty), status: Number(o.status), courier: Number(o.courier),
+    createdAt: num(o.createdAt), sellerLockedAt: num(o.sellerLockedAt), paidAt: num(o.paidAt), shippedAt: num(o.shippedAt), deliveredAt: num(o.deliveredAt), disputeAt: num(o.disputeAt),
+    baseIDR: num(o.baseIDR), rate: num(o.rate), buyerFee: o.buyerFee, sellerFee: o.sellerFee, buyerStake: o.buyerStake, sellerStake: o.sellerStake,
+    metaHash: o.metaHash, addrHash: o.addrHash, resiHash: o.resiHash };
+}
+async function muatPesanan(id) { const o = normOrder(id, await esc_().getOrder(id)); _ord[id] = o; return o; }
+const peranDi = o => { const w = (_wallet || '').toLowerCase(); return o.buyer === w ? 'pembeli' : o.seller === w ? 'penjual' : null; };
+const namaProduk = o => { const sp = _spec[o.metaHash.toLowerCase()]; return sp ? sp.nama : 'Produk #' + o.productId; };
+const badgeO = (o, peran) => '<span class="bdg ' + ((O_PERLU[peran] || []).includes(o.status) ? 'y' : o.status === 6 ? '' : o.status === 7 || o.status >= 8 ? 'r' : 'g') + '">' + O_LABEL[peran][o.status] + '</span>';
+
+/* ----- Daftar pesanan ----- */
+async function renderOrders() {
+  const el = $('v-orders');
+  if (!escAktif()) return;
+  if (!_wallet) { el.innerHTML = '<div class="title">Pesanan</div><div class="card"><div class="t">Hubungkan wallet untuk melihat pesananmu.</div><button class="btn navy" onclick="connectWallet()">Hubungkan wallet</button></div>'; return; }
+  el.innerHTML = '<div class="title">Pesanan</div><div class="note">Memuat…</div>';
+  try {
+    const E = esc_(), n = num(await E.userOrderCount(_wallet)), from = Math.max(0, n - 40);
+    const ids = from < n ? (await E.userOrders(_wallet, from, 40)).map(num).reverse() : [];
+    const list = await Promise.all(ids.map(muatPesanan));
+    await Promise.all(list.map(o => ambilTerverifikasi('spek', o.metaHash, _spec)));
+    const beli = list.filter(o => peranDi(o) === 'pembeli'), jual = list.filter(o => peranDi(o) === 'penjual');
+    const pakai = _oTab === 'jual' ? jual : beli;
+    el.innerHTML = '<div class="title">Pesanan</div>' +
+      '<div class="sub-tabs"><button class="' + (_oTab === 'beli' ? 'on' : '') + '" onclick="_oTab=\'beli\';renderOrders()">Pembelian (' + beli.length + ')</button><button class="' + (_oTab === 'jual' ? 'on' : '') + '" onclick="_oTab=\'jual\';renderOrders()">Penjualan (' + jual.length + ')</button></div>' +
+      (pakai.length ? pakai.map(o => ordCard(o, peranDi(o))).join('') : '<div class="card soft"><div class="t">' + (_oTab === 'jual' ? 'Belum ada pesanan masuk.' : 'Belum ada pembelian. Pilih produk di Beranda lalu tekan Pesan.') + '</div></div>');
+  } catch (e) { el.innerHTML = '<div class="title">Pesanan</div><div class="card bad"><div class="t">Gagal memuat pesanan: ' + esc(errText(e)) + '</div></div>'; }
+}
+function ordCard(o, peran) {
+  return '<div class="card" style="cursor:pointer" onclick="openOrder(' + o.id + ')"><div class="row"><span>Pesanan #' + o.id + '</span>' + badgeO(o, peran) + '</div>' +
+    '<div class="t"><b>' + esc(namaProduk(o)) + '</b> × ' + o.qty + '</div><div class="note">Total ' + rp(o.baseIDR) + ' (barang + ongkir)</div></div>';
+}
+
+/* ----- Halaman satu pesanan ----- */
+const LANGKAH = ['Pesanan dibuat', 'Penjual kunci jaminan', 'Pembeli kunci jaminan dan bayar', 'Barang dikirim', 'Paket sampai', 'Selesai'];
+function timelineO(o) {
+  const done = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6 }[o.status] || 0;
+  return '<div class="card"><div class="h">Tahap pesanan</div><div class="steps">' + LANGKAH.map((l, i) =>
+    '<div' + (i < done ? ' class="ok"' : '') + (i === done && o.status < 6 ? ' style="font-weight:800"' : '') + '>' + (i < done ? '✓ ' : i === done && o.status < 6 ? '▸ ' : '○ ') + esc(l) + '</div>').join('') + '</div></div>';
+}
+async function openOrder(id) {
+  go('orders'); _win = null;
+  const el = $('v-orders'), back = '<button class="back" onclick="renderOrders()">← Semua pesanan</button>';
+  el.innerHTML = back + '<div class="note">Memuat pesanan #' + id + '…</div>';
+  try {
+    const o = await muatPesanan(id);
+    const peran = peranDi(o) || (_isDev ? 'admin' : null);
+    if (!peran) { el.innerHTML = back + '<div class="card bad"><div class="t">Pesanan ini bukan milik wallet ini.</div></div>'; return; }
+    const E = esc_();
+    const [pay, ship, complaint, transit, grace] = await Promise.all([E.payWindow(), E.shipWindow(), E.complaintWindow(), E.maxTransit(), E.adminGrace()]);
+    _win = { pay: num(pay), ship: num(ship), complaint: num(complaint), transit: num(transit), grace: num(grace) };
+    const sp = await ambilTerverifikasi('spek', o.metaHash, _spec);
+    let info = {}, lacak = null;
+    if (peran !== 'admin') {
+      try { info = await apiGet('/bazaar/pesanan/' + id + '/buka'); } catch (e) { info = { err: errText(e) }; }
+      if (o.status >= 4 && o.status !== 7) { try { lacak = await apiGet('/bazaar/pesanan/' + id + '/lacak'); } catch (e) { lacak = null; } }
+    }
+    const lab = O_LABEL[peran] || O_LABEL.penjual;
+    el.innerHTML = back + '<div class="title">Pesanan #' + id + '</div><div class="sub">' + esc(lab[o.status]) + '</div>' + ringkasO(o, peran, sp) + (o.status >= 7 ? '' : timelineO(o)) + aksiO(o, peran, info, lacak);
+  } catch (e) { el.innerHTML = back + '<div class="card bad"><div class="t">Gagal memuat: ' + esc(errText(e)) + '</div></div>'; }
+}
+function ringkasO(o, peran, sp) {
+  const mine = peran === 'penjual' ? o.sellerStake : o.buyerStake, fee = peran === 'penjual' ? o.sellerFee : o.buyerFee;
+  return '<div class="card"><div class="h">' + esc(sp ? sp.nama : 'Produk #' + o.productId) + ' × ' + o.qty + '</div>' +
+    '<div class="row"><span>Total barang + ongkir</span><b>' + rp(o.baseIDR) + '</b></div>' +
+    (peran !== 'admin' ? '<div class="row"><span>Jaminan USDT kamu</span><b>' + usdt(mine) + '</b></div><div class="row"><span>Fee platform kamu</span><b>' + usdt(fee) + '</b></div>' : '') +
+    '<div class="row"><span>Kurs terkunci</span><b>' + rp(o.rate) + ' / USDT</b></div>' +
+    '<div class="note">Rupiah dibayar pembeli langsung ke rekening penjual. Indocoin tidak memegang uang barang; USDT di sini hanya jaminan.</div></div>';
+}
+function trackO(lacak) {
+  if (!lacak || !lacak.resi) return '<div class="card warn"><div class="t">' + (lacak && lacak.tidakCocok ? 'Resi yang tersimpan tidak cocok dengan data di blockchain. Hubungi admin.' : 'Data resi belum bisa dimuat.') + '</div></div>';
+  const r = lacak.resi, l = lacak.lacak;
+  return '<div class="card"><div class="h">Pelacakan kurir <span class="bdg">Otomatis</span></div>' +
+    '<div class="row"><span>Kurir</span><b>' + esc(r.kurir) + '</b></div><div class="row"><span>Nomor resi</span><b>' + esc(r.no) + '</b></div>' +
+    '<div class="row"><span>Status</span><b>' + esc(l.label || '-') + '</b></div>' +
+    (l.riwayat.length ? '<div style="margin-top:6px">' + l.riwayat.slice(-6).reverse().map(x => '<div class="tq"><div>' + esc(x.t) + '</div><div class="m">' + (x.ts ? new Date(x.ts).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') + '</div></div>').join('') + '</div>' : '') +
+    (r.terbaca ? '' : '<div class="note">Resi belum terbaca kurir. Resi baru biasanya baru muncul setelah paket dijemput.</div>') +
+    '<div class="note">Status diambil otomatis dari kurir lewat nomor resi, jadi penjual tidak bisa mengarang status. Diperbarui ' + new Date(l.cek).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '.</div></div>';
+}
+function rekO(r, o) {
+  if (!r) return '<div class="card warn"><div class="t">Rekening penjual belum bisa dimuat. Muat ulang halaman, atau hubungi admin.</div></div>';
+  return '<div class="card"><div class="h">Rekening penjual</div><div class="row"><span>Bank</span><b>' + esc(r.bank) + '</b></div><div class="row"><span>Nomor</span><b>' + esc(r.noRek) + '</b></div><div class="row"><span>Atas nama</span><b>' + esc(r.atasNama) + '</b></div>' +
+    '<button class="btn2" onclick="salin(\'' + esc(r.noRek) + '\')">Salin nomor rekening</button>' +
+    '<div class="note">Transfer tepat <b>' + rp(o.baseIDR) + '</b>. Kunci jaminanmu dulu, baru transfer. Jangan transfer ke rekening lain walau ada yang menyuruh.</div></div>';
+}
+function aksiO(o, peran, info, lacak) {
+  const now = Date.now() / 1000, W = _win, b = (t, fn, cls) => '<button class="' + (cls || 'btn') + '" onclick="' + fn + '">' + t + '</button>';
+  let h = '';
+  if (info && info.err) h += '<div class="card warn"><div class="t">Sebagian data tidak bisa dimuat: ' + esc(info.err) + '</div></div>';
+  if (peran === 'admin') return h + '<div class="card soft"><div class="t">Kamu melihat sebagai admin. Keputusan sengketa ada di tab Admin, Pesanan.</div></div>';
+  const batalBtn = b('Batalkan pesanan', 'batalO(' + o.id + ')', 'btn2');
+  if (o.status === 1) {
+    const dl = o.createdAt + W.pay;
+    if (peran === 'penjual') h += '<div class="card"><div class="h">Pesanan baru</div><div class="t">Kunci jaminan <b>' + usdt(o.sellerStake) + '</b> untuk menerima pesanan ini. Batas: ' + sisa(dl) + '.</div><div class="note">Setelah jaminanmu terkunci, rekeningmu terbuka untuk pembeli. Jaminan kembali penuh saat pesanan selesai.</div>' + b('Kunci jaminan', 'kunciO(' + o.id + ')') + b('Tolak pesanan', 'batalO(' + o.id + ')', 'btn2') + '</div>';
+    else h += '<div class="card warn"><div class="t">Menunggu penjual mengunci jaminan. Batas: ' + sisa(dl) + '. Jika lewat, kamu bisa membatalkan.</div></div>' + batalBtn;
+  } else if (o.status === 2) {
+    const dl = o.sellerLockedAt + W.pay;
+    if (peran === 'pembeli') h += '<div class="card"><div class="h">Langkah 1: kunci jaminan</div><div class="t">Jaminan <b>' + usdt(o.buyerStake) + '</b> (harga + fee + cadangan kurs). Batas: ' + sisa(dl) + '.</div><div class="note">Wallet akan meminta dua persetujuan: izin USDT, lalu kunci jaminan.</div>' + b('Kunci jaminan', 'kunciO(' + o.id + ')') + '</div>' + rekO(info.rekening, o) + batalBtn;
+    else h += '<div class="card warn"><div class="t">Jaminanmu sudah terkunci. Menunggu pembeli mengunci jaminan dan membayar. Batas: ' + sisa(dl) + '.</div></div>' + batalBtn;
+  } else if (o.status === 3) {
+    const dl = o.paidAt + W.ship;
+    if (peran === 'pembeli') {
+      h += '<div class="card ok"><div class="t"><b>Jaminanmu terkunci.</b> Transfer rupiah ke rekening penjual (jika belum). Penjual mengirim setelah uang masuk dan mengisi resi.</div></div>' + rekO(info.rekening, o) +
+        (info.wa ? '<a class="btn2" style="display:flex;align-items:center;justify-content:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(waLink(info.wa)) + '">Hubungi penjual lewat WhatsApp</a>' : '') +
+        '<div class="note">Batas penjual mengirim: ' + sisa(dl) + '. Jika lewat, kamu bisa klaim ganti rugi dari jaminan penjual.</div>' + (now > dl ? b('Penjual tidak mengirim: klaim ganti rugi', 'noShipO(' + o.id + ')', 'btn red') : '');
+    } else {
+      const a = info.alamat;
+      h += '<div class="card"><div class="h">Alamat pengiriman</div>' + (a ? '<div class="row"><span>Penerima</span><b>' + esc(a.nama) + '</b></div><div class="row"><span>HP pembeli</span><b>' + esc(a.hp) + '</b></div><div class="row"><span>Alamat</span><b>' + esc(a.alamat) + (a.kecamatan ? ', ' + esc(a.kecamatan) : '') + '</b></div><div class="row"><span>Kota, kode pos</span><b>' + esc(a.kota) + ' ' + esc(a.kodePos) + '</b></div><div class="row"><span>Kurir pilihan pembeli</span><b>' + esc(a.kurirNama) + '</b></div>' + (a.catatan ? '<div class="row"><span>Catatan</span><b>' + esc(a.catatan) + '</b></div>' : '') : '<div class="note">Alamat belum bisa dimuat. Muat ulang atau hubungi admin.</div>') +
+        '<div class="note">Alamat dihapus otomatis 30 hari setelah pesanan selesai. Pakai hanya untuk mengirim pesanan ini.</div></div>' +
+        '<div class="card"><div class="h">Kirim barang</div><div class="t">Cek mutasi rekeningmu: uang <b>' + rp(o.baseIDR) + '</b> dari pembeli harus sudah masuk. Mengisi resi berarti kamu mengakui uang sudah diterima.</div><div class="note">Batas isi resi: ' + sisa(dl) + '. Jika lewat, pembeli bisa klaim ganti rugi dari jaminanmu.</div>' + b('Isi resi dan kirim', 'resiO(' + o.id + ')') + '</div>';
+    }
+  } else if (o.status === 4 || o.status === 5) {
+    h += trackO(lacak);
+    const auto = o.status === 5 ? now > o.deliveredAt + W.complaint : now > o.shippedAt + W.transit + W.complaint;
+    if (peran === 'pembeli') {
+      if (o.status === 5) h += '<div class="card warn"><div class="h">Paket sampai</div><div class="t">Rekam video saat membuka paket, mulai dari paket masih tersegel (anjuran: dalam 24 jam). Batas komplain: ' + sisa(o.deliveredAt + W.complaint) + '.</div><div class="note">Video tetap di HP-mu. Kalau ada sengketa, admin menghubungi lewat WhatsApp dan kamu kirim videonya langsung.</div></div>';
+      h += b('Barang diterima, selesaikan', 'terimaO(' + o.id + ')') + b('Ada masalah, ajukan komplain', 'komplainO(' + o.id + ')', 'btn2') + (info.wa ? '<a class="btn2" style="display:flex;align-items:center;justify-content:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(waLink(info.wa)) + '">Hubungi penjual lewat WhatsApp</a>' : '');
+    } else h += '<div class="card soft"><div class="t">' + (o.status === 5 ? 'Paket sudah sampai. Pembeli punya waktu komplain sampai ' + sisa(o.deliveredAt + W.complaint) + '; setelah itu jaminan dilepas otomatis.' : 'Barang dalam perjalanan. Jaminan dilepas setelah pembeli konfirmasi atau jendela komplain habis.') + '</div></div>';
+    if (auto) h += '<div class="card ok"><div class="t">Batas waktu sudah lewat tanpa komplain. Siapa pun boleh menyelesaikan pesanan ini.</div>' + b('Selesaikan otomatis', 'autoO(' + o.id + ')') + '</div>';
+  } else if (o.status === 6) {
+    h += '<div class="card ok"><div class="t"><b>Pesanan selesai.</b> Jaminan sudah dikembalikan ke kedua pihak, fee sudah dipotong.</div></div>';
+    if (peran === 'pembeli') h += ulasanSaya(o, lacak);
+    h += trackO(lacak);
+  } else if (o.status === 7) {
+    h += '<div class="card soft"><div class="t">Pesanan dibatalkan. Jaminan yang sempat terkunci sudah dikembalikan.</div></div>';
+  } else if (o.status === 8) {
+    const dl = o.disputeAt + W.grace;
+    h += '<div class="card warn"><div class="h">Sengketa sedang diproses</div><div class="t">Admin akan menghubungi pembeli dan penjual lewat WhatsApp dan memutuskan sesuai aturan. Targetnya cepat; batas akhir keputusan: ' + sisa(dl) + '.</div><div class="note">Pembeli: siapkan video unboxing di HP untuk dikirim langsung ke admin. Jika admin tidak memutuskan sampai batas akhir, jaminan kedua pihak kembali tanpa potongan dan tanpa fee.</div>' +
+      (ADMIN_WA ? '<a class="btn2" style="display:flex;align-items:center;justify-content:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(waLink(ADMIN_WA)) + '">Hubungi admin lewat WhatsApp</a>' : '') + '</div>' + (now > dl ? b('Kembalikan jaminan (admin lewat batas)', 'expireO(' + o.id + ')') : '') + trackO(lacak);
+  } else if (o.status === 9) {
+    h += '<div class="card soft"><div class="t">Sengketa sudah diputuskan. Jaminan sudah dibagikan sesuai keputusan.</div></div>' + trackO(lacak);
+  }
+  return h;
+}
+
+/* ----- Aksi pesanan ----- */
+async function ensureUsdt(need) {
+  const U = new ethers.Contract(USDT, USDT_ABI, _signer);
+  const bal = await U.balanceOf(_wallet);
+  if (bal.lt(need)) throw new Error('Saldo USDT kurang. Butuh ' + usdt(need) + ', saldomu ' + usdt(bal));
+  const al = await U.allowance(_wallet, ESC);
+  if (al.lt(need)) { toast('Setujui izin USDT di wallet…', 60000); const t = await U.approve(ESC, need); toast('Menunggu konfirmasi izin…', 60000); await t.wait(); }
+}
+function kunciO(id) {
+  const o = _ord[id], penjual = peranDi(o) === 'penjual', need = penjual ? o.sellerStake : o.buyerStake;
+  pop({ title: 'Kunci jaminan', lines: ['Jumlah: <b>' + usdt(need) + '</b>', 'Jaminan dipegang kontrak, bukan Indocoin. Kembali penuh (dikurangi fee) saat pesanan selesai.', 'Kamu butuh sedikit BNB untuk gas.'], ok: 'Kunci jaminan', onOk: async () => {
+    try { await ensureUsdt(need); } catch (e) { toast(errText(e), 8000); return false; }
+    closePop();
+    const ok = await tx('Kunci jaminan', () => penjual ? wesc().sellerLock(id) : wesc().buyerLock(id));
+    openOrder(id); return ok;
+  } });
+}
+function batalO(id) { pop({ title: 'Batalkan pesanan?', lines: ['Jaminan yang sudah terkunci dikembalikan penuh. Stok produk dikembalikan.'], ok: 'Ya, batalkan', red: true, onOk: async () => { closePop(); if (await tx('Batalkan pesanan', () => wesc().cancelBeforePayment(id))) openOrder(id); } }); }
+function noShipO(id) { pop({ title: 'Klaim ganti rugi', lines: ['Penjual tidak mengisi resi sampai batas waktu. Pesanan dibatalkan dan kamu diganti dari jaminan penjual senilai barang + ongkir. Kamu tetap perlu meminta uang rupiah dikembalikan langsung ke penjual bila sudah transfer.'], ok: 'Klaim', red: true, onOk: async () => { closePop(); if (await tx('Klaim ganti rugi', () => wesc().cancelNoShip(id))) openOrder(id); } }); }
+function autoO(id) { pop({ title: 'Selesaikan pesanan', lines: ['Jendela komplain sudah habis. Jaminan dilepas ke kedua pihak.'], ok: 'Selesaikan', onOk: async () => { closePop(); if (await tx('Selesaikan pesanan', () => wesc().autoComplete(id))) openOrder(id); } }); }
+function expireO(id) { pop({ title: 'Kembalikan jaminan', lines: ['Admin tidak memutuskan sampai batas akhir. Jaminan kedua pihak kembali tanpa potongan dan tanpa fee.'], ok: 'Kembalikan', onOk: async () => { closePop(); if (await tx('Kembalikan jaminan', () => wesc().expireDispute(id))) openOrder(id); } }); }
+function resiO(id) {
+  const o = _ord[id];
+  pop({ title: 'Isi resi', lines: ['Isi resi = kamu mengakui uang pembeli sudah masuk ke rekeningmu.'], html: '<label class="l" for="rsK">Kurir</label><select class="inp" id="rsK">' + Object.keys(KURIR_N).map(k => '<option value="' + k + '">' + KURIR_N[k] + '</option>').join('') + '</select><label class="l" for="rsN">Nomor resi</label><input class="inp" id="rsN" maxlength="30" autocapitalize="characters"><label class="t" style="display:flex;gap:10px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="rsC" style="width:22px;height:22px;flex-shrink:0"><span>Saya sudah cek mutasi rekening dan uang ' + rp(o.baseIDR) + ' benar-benar masuk.</span></label>', ok: 'Kirim resi', onOk: async () => {
+    const kurir = Number($('rsK').value), resi = $('rsN').value.trim();
+    if (resi.length < 6) { toast('Nomor resi belum diisi'); return false; }
+    if (!$('rsC').checked) { toast('Centang konfirmasi uang masuk dulu'); return false; }
+    let r; try { r = await apiJson('/bazaar/resi', { order: id, kurir, resi }); } catch (e) { toast(errText(e), 7000); return false; }
+    closePop();
+    if (await tx('Kirim resi', () => wesc().markShipped(id, kurir, r.hash))) openOrder(id);
+  } });
+}
+function komplainO(id) {
+  pop({ title: 'Ajukan komplain', lines: ['Berubah pikiran bukan alasan komplain. Komplain hanya untuk barang yang tidak sampai, tidak sesuai spesifikasi, rusak atau cacat, atau isi kurang.', 'Admin akan menghubungi lewat WhatsApp dan meminta video unboxing dari HP-mu. Tanpa video, komplain sulit dibuktikan.'], html: '<label class="l" for="kmA">Alasan</label><select class="inp" id="kmA">' + ALASAN.map(a => '<option value="' + a[0] + '">' + a[1] + '</option>').join('') + '</select>', ok: 'Ajukan komplain', red: true, onOk: async () => {
+    const a = Number($('kmA').value); closePop();
+    if (await tx('Komplain', () => wesc().openDispute(id, a, ZERO32))) openOrder(id);
+  } });
+}
+
+/* ----- Ulasan ----- */
+function ulasanHtml() { return '<div class="h" style="margin-top:12px">Beri ulasan (opsional)</div><div id="ulsStar"></div><div id="ulsTag"></div>'; }
+function ulasanDraw() {
+  $('ulsStar').innerHTML = [1, 2, 3, 4, 5].map(i => '<button type="button" class="mini' + (_uls.b >= i ? ' g' : '') + '" style="width:18%;margin-right:1%" aria-label="' + i + ' bintang" onclick="ulasanB(' + i + ')">★</button>').join('');
+  $('ulsTag').innerHTML = Object.keys(TAGS).map(g => '<div class="note" style="margin-top:10px"><b>' + TAG_JUDUL[g] + '</b></div><div class="chips" style="flex-wrap:wrap;overflow:visible;margin-bottom:0">' + Object.keys(TAGS[g]).map(k => '<button type="button" class="chip' + (_uls.g.includes(k) ? ' on' : '') + '" onclick="ulasanT(\'' + k + '\')">' + esc(TAGS[g][k]) + '</button>').join('') + '</div>').join('') + '<div class="note">Pilih sampai 4 kata. Tidak ada kolom tulisan bebas.</div>';
+}
+function ulasanB(i) { _uls.b = i; ulasanDraw(); }
+function ulasanT(k) { const i = _uls.g.indexOf(k); if (i >= 0) _uls.g.splice(i, 1); else if (_uls.g.length < 4) _uls.g.push(k); else toast('Maksimal 4 kata'); ulasanDraw(); }
+async function kirimUlasan(id) {
+  for (let i = 0; i < 3; i++) {
+    try { await apiJson('/bazaar/ulasan', { order: id, bintang: _uls.b, tags: _uls.g }); return true; }
+    catch (e) { if (i === 2) { toast('Ulasan belum terkirim: ' + errText(e), 7000); return false; } await new Promise(r => setTimeout(r, 2500)); }
+  }
+}
+function terimaO(id) {
+  _uls = { b: 0, g: [] };
+  pop({ title: 'Barang diterima?', lines: ['Setelah kamu menekan Selesaikan, jaminan dilepas ke kedua pihak dan tidak bisa dibatalkan. Pastikan barang sudah kamu cek dan sesuai spesifikasi.'], html: ulasanHtml(), ok: 'Selesaikan pesanan', onOk: async () => {
+    closePop();
+    if (await tx('Barang diterima', () => wesc().confirmReceived(id))) { if (_uls.b) await kirimUlasan(id); openOrder(id); }
+  } });
+  ulasanDraw();
+}
+function ulasanSaya(o, lacak) {
+  const u = lacak && lacak.ulasan;
+  if (!u) return '<div class="card"><div class="h">Ulasanmu</div><div class="t">Bantu pembeli lain dengan memberi bintang dan kata-kata.</div><button class="btn navy" onclick="ulasanO(' + o.id + ',false)">Beri ulasan</button></div>';
+  return '<div class="card"><div class="h">Ulasanmu ' + (u.d ? '<span class="bdg g">diubah</span>' : '') + '</div><div class="t" style="font-size:16px">' + bintang(u.b) + '</div><div class="note">' + (u.g.map(k => esc(TAG_NAMA[k] || k)).join(' · ') || 'Tanpa kata-kata') + '</div>' + (u.bisaUbah ? '<button class="btn2" onclick="ulasanO(' + o.id + ',true)">Ubah ulasan</button><div class="note">Bisa diubah sampai 30 hari setelah ditulis, dan akan diberi tanda diubah.</div>' : '') + '</div>';
+}
+function ulasanO(id, ubah) {
+  _uls = { b: 0, g: [] };
+  pop({ title: ubah ? 'Ubah ulasan' : 'Beri ulasan', html: ulasanHtml(), ok: 'Kirim ulasan', onOk: async () => {
+    if (!_uls.b) { toast('Pilih bintang dulu'); return false; }
+    if (await kirimUlasan(id)) { toast('Ulasan tersimpan'); openOrder(id); } else return false;
+  } });
+  ulasanDraw();
+}
+const ulasanRingkas = j => !j || !j.jumlah ? '<div class="note" style="margin-top:0">Belum ada ulasan.</div>' :
+  '<div class="t"><b style="font-size:16px">' + (j.rata != null ? bintang(Math.round(j.rata)) + ' ' + j.rata.toLocaleString('id-ID') : j.jumlah + ' ulasan') + '</b>' + (j.rata != null ? ' · ' + j.jumlah + ' ulasan' : '') + '</div>' +
+  (j.rata == null ? '<div class="note">Rata-rata tampil setelah ada 3 ulasan.</div>' : '') +
+  (Object.keys(j.tag || {}).length ? '<div class="note">' + Object.entries(j.tag).sort((a, c) => c[1] - a[1]).slice(0, 4).map(([k, n]) => esc(TAG_NAMA[k] || k) + ' (' + n + ')').join(' · ') + '</div>' : '');
+async function muatUlasan(id) {
+  const box = $('ulsBox'); if (!box) return;
+  try {
+    const r = await fetch(API + '/bazaar/ulasan/produk/' + id); if (!r.ok) throw new Error();
+    const j = await r.json();
+    box.innerHTML = ulasanRingkas(j) + (j.daftar || []).slice(0, 5).map(x => '<div class="tq"><div>' + bintang(x.b) + (x.d ? ' <span class="bdg g">diubah</span>' : '') + '</div><div class="note" style="margin:2px 0">' + (x.g.map(k => esc(TAG_NAMA[k] || k)).join(' · ') || '') + '</div><div class="m">' + esc(x.w) + ' · ' + tglTny(x.ts) + '</div></div>').join('');
+  } catch (e) { box.innerHTML = '<div class="note" style="margin-top:0">Ulasan belum bisa dimuat.</div>'; }
+}
+async function muatUlasanToko(a) {
+  const box = $('ulsToko'); if (!box) return;
+  try { const r = await fetch(API + '/bazaar/ulasan/toko/' + a); if (r.ok) box.innerHTML = ulasanRingkas(await r.json()); } catch (e) {}
+}
+
+/* ----- Membuat pesanan (pembeli) ----- */
+async function pesanForm(id) {
+  if (!escAktif()) return toast('Pemesanan belum dibuka');
+  if (!_wallet) { toast('Hubungkan wallet dulu'); return connectWallet(); }
+  const p = _prods.find(x => x.id === id); if (!p) return;
+  if (p.seller.toLowerCase() === _wallet.toLowerCase()) return toast('Ini produkmu sendiri');
+  try { const r = await fetch(API + '/bazaar/wa/ada/' + p.seller); if (!(await r.json()).ada) return toast('Penjual belum melengkapi data pengiriman, belum bisa dipesan', 6000); } catch (e) { return toast('Layanan belum bisa dihubungi, coba lagi', 5000); }
+  _ong = null;
+  const sp = _spec[p.metaHash.toLowerCase()] || {};
+  pop({ title: 'Pesan: ' + esc(sp.nama || 'Produk #' + id), html:
+    '<label class="l" for="oQty">Jumlah (stok ' + p.stock + ')</label><input class="inp" id="oQty" inputmode="numeric" value="1" oninput="ongReset()">' +
+    '<label class="l" for="oNama">Nama penerima</label><input class="inp" id="oNama" maxlength="80">' +
+    '<label class="l" for="oHp">Nomor HP penerima</label><input class="inp" id="oHp" inputmode="tel" maxlength="20">' +
+    '<label class="l" for="oAlamat">Alamat lengkap</label><textarea class="inp" id="oAlamat" rows="3" maxlength="250" style="height:auto;padding:10px" placeholder="Jalan, nomor, RT/RW, patokan"></textarea>' +
+    '<label class="l" for="oKec">Kecamatan (opsional)</label><input class="inp" id="oKec" maxlength="80">' +
+    '<label class="l" for="oKota">Kota / kabupaten</label><input class="inp" id="oKota" maxlength="80">' +
+    '<label class="l" for="oPos">Kode pos</label><input class="inp" id="oPos" inputmode="numeric" maxlength="5" oninput="ongReset()">' +
+    '<label class="l" for="oCat">Catatan untuk kurir (opsional)</label><input class="inp" id="oCat" maxlength="150">' +
+    '<button class="btn2" type="button" onclick="cekOngkir(' + id + ')">Cek ongkir</button><div id="oOng"></div><div id="oSum"></div>' +
+    '<div class="note">Alamatmu disimpan terenkripsi dan hanya dibuka untuk penjual setelah jaminanmu terkunci. Dihapus 30 hari setelah pesanan selesai. Kamu membayar rupiah langsung ke penjual, bukan ke Indocoin.</div>',
+    ok: 'Buat pesanan', onOk: () => buatPesanan(id, p) });
+}
+function ongReset() { _ong = null; if ($('oOng')) { $('oOng').innerHTML = ''; $('oSum').innerHTML = ''; } }
+async function cekOngkir(id) {
+  const qty = parseInt($('oQty').value, 10), pos = $('oPos').value.trim();
+  if (!(qty >= 1)) return toast('Jumlah tidak valid');
+  if (!/^\d{5}$/.test(pos)) return toast('Isi kode pos tujuan 5 angka');
+  $('oOng').innerHTML = '<div class="note">Menghitung ongkir…</div>';
+  try {
+    const j = await apiJson('/bazaar/ongkir', { produk: id, qty, kodePos: pos });
+    window._ongList = j.daftar;
+    $('oOng').innerHTML = '<div class="h" style="margin-top:10px">Pilih kurir</div>' + j.daftar.map((x, i) => '<label class="chk" style="margin:0;padding:8px 0;border-bottom:1px solid #EEF2F7"><input type="radio" name="oK" onchange="ongPilih(' + id + ',' + i + ')"><span style="flex:1">' + esc(x.nama) + ' ' + esc(x.layanan) + '<br><span class="note" style="margin:0">Estimasi ' + esc(x.estimasi || '-') + '</span></span><b>' + rp(x.harga) + '</b></label>').join('') + '<div class="note">Penjual mengirim sendiri; kurir pilihanmu jadi acuan penjual.</div>';
+  } catch (e) { $('oOng').innerHTML = '<div class="note" style="color:var(--red)">' + esc(errText(e)) + '</div>'; }
+}
+async function ongPilih(id, i) {
+  _ong = window._ongList[i];
+  const p = _prods.find(x => x.id === id), qty = parseInt($('oQty').value, 10);
+  try {
+    const E = esc_(), [r, buf, f] = await Promise.all([E.rate(), E.bufferBps(), reg().getFee(id)]);
+    const t = taksir(p.price * qty, _ong.harga, num(r), Number(buf), Number(f.buyerBps));
+    $('oSum').innerHTML = '<div class="card soft" style="margin-top:10px"><div class="row"><span>Harga ' + qty + ' barang</span><b>' + rp(p.price * qty) + '</b></div><div class="row"><span>Ongkir ' + esc(_ong.nama) + '</span><b>' + rp(_ong.harga) + '</b></div><div class="row"><span>Bayar ke penjual</span><b>' + rp(p.price * qty + _ong.harga) + '</b></div><div class="row"><span>Jaminan USDT (taksiran)</span><b>' + usdt(t.stake) + '</b></div><div class="note">Jaminan = harga + ongkir + fee ' + pct(f.buyerBps) + ' + cadangan kurs ' + pct(buf) + '. Kembali penuh (dikurangi fee) saat selesai. Kurs dikunci saat pesanan dibuat.</div></div>';
+  } catch (e) { $('oSum').innerHTML = ''; }
+}
+async function buatPesanan(id, p) {
+  const v = k => $(k).value.trim(), qty = parseInt(v('oQty'), 10);
+  if (!(qty >= 1) || qty > p.stock) { toast('Jumlah harus 1 sampai ' + p.stock); return false; }
+  for (const [k, n] of [['oNama', 'Nama penerima'], ['oHp', 'Nomor HP'], ['oAlamat', 'Alamat lengkap'], ['oKota', 'Kota'], ['oPos', 'Kode pos']]) if (!v(k)) { toast(n + ' wajib diisi'); return false; }
+  if (!_ong) { toast('Cek ongkir dan pilih kurir dulu'); return false; }
+  let a;
+  try { a = await apiJson('/bazaar/alamat', { nama: v('oNama'), hp: v('oHp'), alamat: v('oAlamat'), kecamatan: v('oKec'), kota: v('oKota'), kodePos: v('oPos'), kurir: _ong.kurir, catatan: v('oCat') }); }
+  catch (e) { toast(errText(e), 7000); return false; }
+  closePop();
+  try {
+    toast('Buat pesanan: konfirmasi di wallet…', 60000);
+    const t = await wesc().createOrder(id, qty, _ong.harga, a.hash);
+    toast('Menunggu konfirmasi jaringan…', 60000);
+    const rc = await t.wait(), iface = new ethers.utils.Interface(ESC_ABI);
+    const ev = rc.logs.map(l => { try { return iface.parseLog(l); } catch (e) { return null; } }).find(x => x && x.name === 'OrderCreated');
+    toast('Pesanan dibuat');
+    await loadCatalog(); ev ? openOrder(num(ev.args.id)) : go('orders');
+  } catch (e) { toast('Buat pesanan gagal: ' + errText(e), 8000); }
+}
+
+/* ----- Data pengiriman penjual (WhatsApp wajib + kode pos asal) ----- */
+async function cekWa() { try { const r = await fetch(API + '/bazaar/wa/ada/' + _wallet); _waAda = (await r.json()).ada === true; } catch (e) { _waAda = null; } return _waAda; }
+function waPop(wajib) {
+  pop({ title: 'Data pengiriman toko', lines: ['Nomor WhatsApp wajib. Tersimpan terenkripsi, tidak tampil publik. Hanya dibuka untuk pembeli saat pesanan aktif dan untuk admin bila ada sengketa.', 'Kode pos asal dipakai untuk menghitung ongkir pembeli.'], html: '<label class="l" for="wNo">Nomor WhatsApp</label><input class="inp" id="wNo" inputmode="tel" placeholder="081234567890" maxlength="20"><label class="l" for="wPos">Kode pos asal kirim</label><input class="inp" id="wPos" inputmode="numeric" maxlength="5">', ok: 'Simpan', cancel: wajib ? 'Nanti' : 'Batal', onOk: async () => {
+    const wa = $('wNo').value.trim(), pos = $('wPos').value.trim();
+    if (!wa || !/^\d{5}$/.test(pos)) { toast('Isi nomor WhatsApp dan kode pos 5 angka'); return false; }
+    try { await apiJson('/bazaar/wa', { wa, kodePosAsal: pos }); _waAda = true; toast('Tersimpan'); renderSell(); } catch (e) { toast(errText(e), 7000); return false; }
+  } });
+}
+function kartuKirim() {
+  return '<div class="card' + (_waAda ? '' : ' warn') + '"><div class="h">Data pengiriman</div><div class="t">' + (_waAda ? 'Nomor WhatsApp dan kode pos asal tersimpan terenkripsi.' : 'Nomor WhatsApp dan kode pos asal belum diisi. Wajib sebelum memajang produk.') + '</div><button class="btn2" onclick="waPop(false)">' + (_waAda ? 'Ubah' : 'Isi sekarang') + '</button></div>';
+}
+function tambahProduk() { if (_waAda === false) { toast('Isi data pengiriman dulu'); waPop(true); return; } formProduk(); }
+
+/* ----- Admin: pesanan dan sengketa ----- */
+async function admPesanan() {
+  if (!escAktif()) { $('adm').innerHTML = '<div class="card soft"><div class="t">Kontrak escrow belum dipasang. Isi konstanta ESC di bazaar.html setelah deploy, lalu daftarkan lewat Atur, Modul kontrak lain.</div></div>'; return; }
+  $('adm').innerHTML = '<div class="note">Memuat…</div>';
+  try {
+    const E = esc_(), [n, rt, ps] = await Promise.all([E.nextOrderId(), E.rate(), E.paused()]);
+    const ids = []; for (let i = num(n); i >= 1 && ids.length < 40; i--) ids.push(i);
+    const list = await Promise.all(ids.map(muatPesanan));
+    await Promise.all(list.map(o => ambilTerverifikasi('spek', o.metaHash, _spec)));
+    const sg = list.filter(o => o.status === 8), lain = list.filter(o => o.status !== 8);
+    $('adm').innerHTML = '<div class="card"><div class="h">Kurs</div><div class="t">' + rp(num(rt)) + ' per 1 USDT (diisi admin sementara, nanti oracle)</div><button class="btn2" onclick="admKurs()">Ubah kurs</button><div class="note">Kurs hanya berlaku untuk pesanan baru. Pesanan berjalan memakai kurs saat dibuat.</div></div>' +
+      '<div class="card"><div class="h">Pesanan baru</div><div class="t">' + (ps ? 'Sedang dihentikan' : 'Dibuka') + '</div><button class="btn2" onclick="admJeda(' + (ps ? 'false' : 'true') + ')">' + (ps ? 'Buka lagi' : 'Hentikan pesanan baru') + '</button><div class="note">Pesanan yang sudah berjalan tetap bisa selesai.</div></div>' +
+      '<div class="h">Sengketa (' + sg.length + ')</div>' + (sg.length ? sg.map(o => '<div class="card warn"><div class="row"><span>#' + o.id + ' ' + esc(namaProduk(o)) + '</span><b>' + rp(o.baseIDR) + '</b></div><div class="note">Batas akhir keputusan: ' + sisa(o.disputeAt + (_win ? _win.grace : 7 * 86400)) + '</div><div class="two" style="margin-top:8px"><button class="mini" onclick="admKontak(' + o.id + ')">Lihat kontak</button><button class="mini" onclick="admTrack(' + o.id + ')">Lihat resi</button><button class="mini g" onclick="admPutus(' + o.id + ',true)">Pembeli menang</button><button class="mini r" onclick="admPutus(' + o.id + ',false)">Penjual menang</button></div></div>').join('') : '<div class="note">Tidak ada sengketa.</div>') +
+      '<div class="h" style="margin-top:14px">Pesanan terbaru (' + lain.length + ')</div>' + lain.map(o => '<div class="row"><span>#' + o.id + ' ' + esc(namaProduk(o)) + '</span><b>' + O_LABEL.penjual[o.status] + '</b></div>').join('');
+  } catch (e) { $('adm').innerHTML = '<div class="card bad"><div class="t">Gagal memuat: ' + esc(errText(e)) + '</div></div>'; }
+}
+function admKurs() { pop({ title: 'Ubah kurs', html: '<label class="l" for="sv">Rupiah per 1 USDT</label><input class="inp" id="sv" inputmode="numeric">', ok: 'Simpan', onOk: async () => { const v = parseInt($('sv').value, 10); if (!(v >= 1000 && v <= 100000)) { toast('Kurs harus 1.000 sampai 100.000'); return false; } closePop(); if (await tx('Ubah kurs', () => wesc().setRate(v))) admPesanan(); } }); }
+function admJeda(p) { pop({ title: p ? 'Hentikan pesanan baru?' : 'Buka pesanan baru?', lines: ['Pesanan yang sudah berjalan tidak terpengaruh.'], ok: 'Ya', onOk: async () => { closePop(); if (await tx('Atur pesanan baru', () => wesc().setPaused(p))) admPesanan(); } }); }
+async function admKontak(id) {
+  try {
+    const h = await signedHeaders('admin-pesanan', new Uint8Array(0));
+    const r = await fetch(API + '/bazaar/admin/pesanan/' + id, { headers: h }); const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('Gagal (' + r.status + ')'));
+    const a = j.alamat;
+    pop({ title: 'Kontak pesanan #' + id, cancel: false, ok: 'Tutup', html: (a ? '<div class="pop-l"><b>Pembeli:</b> ' + esc(a.nama) + '<br>HP: <a target="_blank" rel="noopener" href="' + esc(waLink(a.hp)) + '">' + esc(a.hp) + '</a><br>' + esc(a.alamat) + ', ' + esc(a.kota) + ' ' + esc(a.kodePos) + '</div>' : '<div class="pop-l">Alamat pembeli tidak ada (sudah dihapus).</div>') + '<div class="pop-l"><b>Penjual:</b> ' + (j.waPenjual ? '<a target="_blank" rel="noopener" href="' + esc(waLink(j.waPenjual)) + '">' + esc(j.waPenjual) + '</a>' : 'belum ada WhatsApp') + '</div>' });
+  } catch (e) { toast(errText(e), 6000); }
+}
+async function admTrack(id) {
+  try {
+    const h = await signedHeaders('pesanan', new Uint8Array(0));
+    const r = await fetch(API + '/bazaar/pesanan/' + id + '/lacak', { headers: h }); const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('Gagal (' + r.status + ')'));
+    pop({ title: 'Resi pesanan #' + id, cancel: false, ok: 'Tutup', html: trackO(j) });
+  } catch (e) { toast(errText(e), 6000); }
+}
+function admPutus(id, pembeli) { pop({ title: pembeli ? 'Pembeli menang?' : 'Penjual menang?', lines: [pembeli ? 'Pembeli diganti dari jaminan penjual senilai barang + ongkir (+ denda bila diatur). Penjual dicatat kalah sengketa.' : 'Jaminan dilepas ke kedua pihak, fee dipotong (+ denda dari pembeli bila diatur).', 'Keputusan tercatat di blockchain dan tidak bisa dibatalkan.'], ok: 'Putuskan', red: true, onOk: async () => { closePop(); if (await tx('Putuskan sengketa', () => wesc().resolveDispute(id, pembeli))) admPesanan(); } }); }
+
 
 /* ============ MULAI ============ */
 window.addEventListener('load', async () => {
