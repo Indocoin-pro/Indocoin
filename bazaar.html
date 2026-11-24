@@ -887,15 +887,35 @@ async function admProfil(a) {
   const pr = await ambilTerverifikasi('profil', admRow(a).s.profileHash, _prof);
   $('pf-' + a).innerHTML = pr ? '<b>' + esc(pr.namaToko) + '</b> · ' + esc(pr.kota) + ' · ' + esc(pr.bentukUsaha) + (pr.merek ? ' · Merek: ' + esc(pr.merek) : '') + '<br>' + esc(pr.deskripsi || '') + '<br><img alt="Foto toko" style="width:96px;height:96px;border-radius:10px;object-fit:cover;margin-top:6px" src="' + esc(fotoUrl(pr.fotoToko)) + '">' : 'Profil tidak ditemukan atau hash tidak cocok.';
 }
-function blobLink(mime, b64) {
-  const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-  return URL.createObjectURL(new Blob([u], { type: mime }));
+function loadScript(src) { return new Promise((ok, no) => { const t = document.createElement('script'); t.src = src; t.onload = ok; t.onerror = () => no(new Error('Gagal memuat pustaka PDF')); document.head.appendChild(t); }); }
+async function tampilDok(mime, b64) {
+  const box = $('dokView'); if (!box) return;
+  try {
+    if (/^image\//.test(mime)) { box.innerHTML = '<img alt="Berkas dokumen" style="width:100%;border-radius:10px;border:1px solid #e5e7eb" src="data:' + mime + ';base64,' + b64 + '">'; return; }
+    if (mime === 'application/pdf') {
+      if (!window.pdfjsLib) { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+      const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const pdf = await window.pdfjsLib.getDocument({ data: u }).promise;
+      box.innerHTML = '';
+      const n = Math.min(pdf.numPages, 5);
+      for (let i = 1; i <= n; i++) {
+        const pg = await pdf.getPage(i), vp = pg.getViewport({ scale: 1.6 });
+        const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+        cv.style.cssText = 'width:100%;border-radius:10px;border:1px solid #e5e7eb;margin-bottom:8px';
+        box.appendChild(cv); await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      }
+      if (pdf.numPages > n) box.insertAdjacentHTML('beforeend', '<div class="note">Menampilkan ' + n + ' dari ' + pdf.numPages + ' halaman.</div>');
+      return;
+    }
+    box.innerHTML = '<div class="note">Jenis berkas tidak bisa ditampilkan (' + esc(mime) + ').</div>';
+  } catch (e) { box.innerHTML = '<div class="note" style="color:#c94040">Gagal menampilkan berkas: ' + esc(errText(e)) + '</div>'; }
 }
 async function admDok(a) {
   try {
     toast('Tanda tangani di wallet…', 20000);
     const d = await apiAdminBaca('dokumen', admRow(a).s.docHash);
-    pop({ title: 'Dokumen penjual', lines: ['Nomor legalitas: <b>' + esc(d.nib) + '</b>', 'Nomor merek: ' + esc(d.nomorMerek || '-'), 'Wallet pengunggah: <span class="mono">' + esc(d.wallet) + '</span>', '<a href="' + blobLink(d.mime, d.fileBase64) + '" target="_blank" rel="noopener" style="font-weight:700">Buka berkas dokumen</a>', 'Cocokkan nomor NIB di oss.go.id sebelum menyetujui.'], ok: 'Tutup', cancel: false });
+    pop({ title: 'Dokumen penjual', lines: ['Nomor legalitas: <b>' + esc(d.nib) + '</b>', 'Nomor merek: ' + esc(d.nomorMerek || '-'), 'Wallet pengunggah: <span class="mono">' + esc(d.wallet) + '</span>', '<div id="dokView"><div class="note">Memuat berkas…</div></div>', 'Cocokkan nomor NIB di oss.go.id sebelum menyetujui.'], ok: 'Tutup', cancel: false });
+    tampilDok(d.mime, d.fileBase64);
   } catch (e) { toast('Gagal: ' + errText(e), 6000); }
 }
 async function admRek(a) {
