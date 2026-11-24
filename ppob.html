@@ -439,8 +439,8 @@ body{background:#ffffff;color:#0f2942;font-family:'Manrope',sans-serif;min-heigh
     <div class="modal-topbar"></div>
     <div class="success-body">
       <div class="success-icon">🔒</div>
-      <div class="success-title">INDC Sementara Nonaktif</div>
-      <div class="success-desc">Pembayaran pakai INDC sementara ditutup sampai Dana Likuid terkumpul lebih banyak dari aktivitas transaksi. Sementara ini bisa pakai USDT dulu ya!</div>
+      <div class="success-title" id="indcNoticeTitle">INDC Sementara Nonaktif</div>
+      <div class="success-desc" id="indcNoticeDesc">Pembayaran pakai INDC sementara ditutup sampai Dana Likuid terkumpul lebih banyak dari aktivitas transaksi. Sementara ini bisa pakai USDT dulu ya!</div>
       <button class="modal-ok" onclick="document.getElementById('indcNoticeOverlay').classList.remove('show')">MENGERTI</button>
     </div>
   </div>
@@ -485,6 +485,14 @@ const API_BASE = 'https://ppob-api.indocoin.id';
 // sampai Dana Likuid (Redemption Vault) cukup besar. Ganti ke true kalau
 // mau diaktifkan lagi.
 const INDC_PAYMENT_ENABLED = true;
+// Fase uji coba: bayar pakai INDC dibatasi transaksi kecil dulu.
+// Batas ini juga dijaga di backend (INDC_MAX_RUPIAH di server.js).
+const INDC_MAX_RUPIAH = 15000;
+function tampilNoticeIndcBatas(){
+  document.getElementById('indcNoticeTitle').textContent = 'Fase Uji Coba';
+  document.getElementById('indcNoticeDesc').textContent = 'Bayar pakai INDC masih fase uji coba, jadi untuk sementara khusus transaksi kecil dulu (maksimal Rp' + INDC_MAX_RUPIAH.toLocaleString('id-ID') + '). Untuk produk di atas itu, pakai USDT dulu ya!';
+  document.getElementById('indcNoticeOverlay').classList.add('show');
+}
 
 const CAT_ICON = {
   'Pulsa': '📶', 'Data': '🌐', 'PLN': '⚡', 'Games': '🎮', 'Voucher': '🎟️',
@@ -1204,6 +1212,10 @@ function pilihMetodeBayar(m){
     document.getElementById('indcNoticeOverlay').classList.add('show');
     return;
   }
+  if(m === 'indc' && buyState.produk && buyState.produk.hargaJual > INDC_MAX_RUPIAH){
+    tampilNoticeIndcBatas();
+    return;
+  }
   buyState.metode = m;
   document.getElementById('methodUsdt').classList.toggle('active', m==='usdt');
   document.getElementById('methodIndc').classList.toggle('active', m==='indc');
@@ -1648,6 +1660,10 @@ async function cekTagihanPasca(){
 function pilihMetodeBayarPasca(m){
   if(m === 'indc' && !INDC_PAYMENT_ENABLED){
     document.getElementById('indcNoticeOverlay').classList.add('show');
+    return;
+  }
+  if(m === 'indc' && pascaState.totalBayar > INDC_MAX_RUPIAH){
+    tampilNoticeIndcBatas();
     return;
   }
   pascaState.metode = m;
