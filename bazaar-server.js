@@ -386,6 +386,17 @@ function ambilDepsBawaan() {
         return { status: r.status, json: j };
       } finally { clearTimeout(t); }
     },
+    blokTerbaru: () => provider.getBlockNumber(),
+    logHarga: async (dari, sampai) => {
+      const I = E.Interface ? E.Interface : E.utils.Interface;
+      const iface = new I(['event ProductAdded(uint256 indexed id, address indexed seller, uint16 indexed category, bytes32 metaHash, uint256 priceIDR, uint256 stock)',
+        'event ProductUpdated(uint256 indexed id, bytes32 oldMetaHash, bytes32 newMetaHash, uint256 priceIDR, uint256 stock, bool active)']);
+      const t0 = [iface.getEventTopic ? iface.getEventTopic('ProductAdded') : iface.getEvent('ProductAdded').topicHash,
+        iface.getEventTopic ? iface.getEventTopic('ProductUpdated') : iface.getEvent('ProductUpdated').topicHash];
+      const lg = await provider.getLogs({ address: CFG.registry, fromBlock: dari, toBlock: sampai, topics: [t0] });
+      return lg.map((l) => { const p = iface.parseLog(l); return { id: Number(p.args.id), harga: Number(p.args.priceIDR), blok: l.blockNumber, idx: l.logIndex !== undefined ? l.logIndex : l.index }; });
+    },
+    waktuBlok: async (b) => Number((await provider.getBlock(b)).timestamp),
     getOwner: async () => {
       if (Date.now() > owner.exp) owner = { alamat: String(await kontrak.owner()).toLowerCase(), exp: Date.now() + 5 * 60 * 1000 };
       return owner.alamat;
@@ -1164,6 +1175,69 @@ function createApp(deps) {
   }
 
   // Pemantau latar: cek kurir untuk pesanan yang sedang dikirim, dan hapus alamat yang sudah lewat masa simpan.
+  // ── Harga coret (diskon): riwayat harga dibaca dari blockchain oleh server, disimpan, dan dilayani cepat ──
+  const DISKON_HARI = 14 * 86400, DISKON_MIN = 5, DISKON_BLOK_AWAL = 135250000, DISKON_CHUNK = 2000;
+  const fileDiskon = path.join(CFG.dataDir, 'diskon-state.json');
+  let dState = { blok: DISKON_BLOK_AWAL - 1, riwayat: {}, ts: {} }, dMuat = false, dHasil = { ts: 0, d: {} }, dJalan = null;
+  function diskonMuat() {
+    if (dMuat) return; dMuat = true;
+    try { const j = JSON.parse(fs.readFileSync(fileDiskon, 'utf8')); if (j && typeof j.blok === 'number') dState = Object.assign({ riwayat: {}, ts: {} }, j); } catch {}
+  }
+  function diskonHitung() {
+    const now = Math.floor(Date.now() / 1000), out = {};
+    for (const id of Object.keys(dState.riwayat)) {
+      const a = dState.riwayat[id];
+      if (a.length < 2) continue;
+      const last = a[a.length - 1];
+      if (now - last.t > DISKON_HARI) continue;
+      const w = last.t - DISKON_HARI;
+      const prev = a.slice(0, -1);
+      const inWin = prev.filter((x) => x.t >= w);
+      const before = prev.filter((x) => x.t < w).pop();
+      const base = Math.min(...inWin.map((x) => x.h), before ? before.h : Infinity);
+      if (!isFinite(base) || base <= last.h) continue;
+      const pct = Math.round((base - last.h) / base * 100);
+      if (pct >= DISKON_MIN) out[id] = { base, pct, harga: last.h };
+    }
+    return out;
+  }
+  async function diskonSegarkan() {
+    if (dJalan) return dJalan;
+    dJalan = (async () => {
+      diskonMuat();
+      const terbaru = await deps.blokTerbaru();
+      let dari = dState.blok + 1, ada = false;
+      while (dari <= terbaru) {
+        const sampai = Math.min(dari + DISKON_CHUNK - 1, terbaru);
+        let lg = null;
+        for (let t = 0; t < 4 && lg === null; t++) {
+          try { lg = await deps.logHarga(dari, sampai); } catch { await new Promise((r) => setTimeout(r, 500 * (t + 1))); }
+        }
+        if (lg === null) break; // simpan kemajuan, lanjut di putaran berikutnya
+        lg.sort((x, y) => x.blok - y.blok || x.idx - y.idx);
+        for (const e of lg) {
+          if (dState.ts[e.blok] === undefined) { try { dState.ts[e.blok] = await deps.waktuBlok(e.blok); } catch { lg = null; break; } }
+          const a = dState.riwayat[e.id] || (dState.riwayat[e.id] = []);
+          if (!a.length || a[a.length - 1].h !== e.harga) a.push({ h: e.harga, t: dState.ts[e.blok], b: e.blok });
+        }
+        if (lg === null) break;
+        dState.blok = sampai; ada = true; dari = sampai + 1;
+      }
+      if (ada) { try { tulisAtomik(fileDiskon, JSON.stringify(dState)); } catch {} }
+      dHasil = { ts: Date.now(), d: diskonHitung(), blok: dState.blok, terbaru };
+    })().finally(() => { dJalan = null; });
+    return dJalan;
+  }
+  async function diskonBaca() {
+    diskonMuat();
+    if (Date.now() - dHasil.ts > 60000) {
+      // pertama kali (belum pernah hitung): tunggu sebentar; selanjutnya jalan di latar
+      if (!dHasil.ts) { try { await Promise.race([diskonSegarkan(), new Promise((r) => setTimeout(r, 8000))]); } catch {} if (!dHasil.ts) dHasil = { ts: 0, d: diskonHitung(), blok: dState.blok }; }
+      else diskonSegarkan().catch(() => {});
+    }
+    return { d: dHasil.d, selesai: dState.blok >= (dHasil.terbaru || 0) - DISKON_CHUNK * 2, blok: dState.blok };
+  }
+
   async function pantau() {
     for (const nama of fs.readdirSync(pathBerkas('resi', ''))) {
       if (!/^\d+\.json$/.test(nama)) continue;
@@ -1289,6 +1363,7 @@ function createApp(deps) {
       return res.end(fs.readFileSync(pathBerkas(a, `${b}.json`)));
     }
 
+    if (req.method === 'GET' && a === 'diskon' && !b) return kirimJson(res, 200, await diskonBaca());
     if (req.method === 'GET' && a === 'idtoko' && !b) return kirimJson(res, 200, await idTokoDaftar(req, url));
     if (req.method === 'GET' && a === 'lencana' && !b) return kirimJson(res, 200, lencanaPublik(url));
     if (req.method === 'GET' && a === 'opsikirim' && b && !c) return kirimJson(res, 200, opsiBaca(b));
@@ -1347,6 +1422,7 @@ function createApp(deps) {
     }
   });
   server.pantau = pantau;
+  server.diskonSegarkan = diskonSegarkan;
   server.sapuAlamat = sapuAlamat;
   return server;
 }
@@ -1366,6 +1442,8 @@ function start() {
     setInterval(aman(server.pantau), 20 * 60 * 1000).unref();
     setInterval(aman(server.sapuAlamat), 6 * 3600 * 1000).unref();
   }
+  setInterval(aman(server.diskonSegarkan), 3 * 60 * 1000).unref();
+  aman(server.diskonSegarkan)();
   server.listen(CFG.port, '127.0.0.1', () => {
     console.log(`[bazaar] jalan di 127.0.0.1:${CFG.port}, data di ${CFG.dataDir}`);
   });

@@ -293,7 +293,7 @@ textarea.inp{min-height:80px;resize:vertical;}
       <div style="margin-bottom:6px">• <b>USDT</b> secukupnya untuk jaminan. Besarnya tampil jelas sebelum kamu menyetor.</div>
       <div>• Sedikit <b>BNB</b> untuk biaya gas jaringan.</div></div></div>
 
-    <div class="card"><div class="h">Biaya</div><div class="t">Fee layanan 3% sampai 10% per pihak, tergantung kategori produk, diambil dari jaminan USDT. Gas jaringan ditanggung masing-masing. <b>Fee layanan sudah termasuk pajak yang disetorkan ke negara.</b></div></div>
+    <div class="card"><div class="h">Biaya</div><div class="t">Fee layanan 3% sampai 10% per pihak, tergantung kategori produk, diambil dari jaminan USDT. Gas jaringan ditanggung masing-masing. <b>Fee layanan sudah termasuk pajak yang disetorkan ke negara.</b><div style="margin-top:8px">Hasil fee dibagi 70:30: <b>70%</b> ditarik pengembang untuk membeli INDC di market dan dibakar (burn) secara bertahap, <b>30%</b> untuk perusahaan.</div></div></div>
 
     <div class="card"><div class="h">Yang tidak dilakukan Indocoin</div><div class="t">
       <div style="margin-bottom:6px">• Tidak menerima atau menahan uang rupiah kamu.</div>
@@ -528,32 +528,17 @@ async function kotakkan(file) {
 }
 
 /* ============ KATALOG ============ */
-/* Harga coret: dihitung dari catatan blockchain, tidak bisa dipalsukan penjual.
+/* Harga coret: dihitung server dari catatan blockchain, tidak bisa dipalsukan penjual.
    Muncul langsung setelah harga turun, hilang 14 hari kemudian.
    Harga coret = harga terendah selama 14 hari sebelum penurunan (naik dulu lalu turun tidak menambah diskon). */
 const DISKON_HARI = 14 * 86400, DISKON_MIN = 5;
 async function hitungDiskon() {
+  /* Riwayat harga dibaca server dari blockchain (cepat dan stabil). Di sini hanya mengambil hasilnya. */
   try {
-    const now = Math.floor(Date.now() / 1000), byId = {};
-    const evs = [...await scanLogs(R => R.filters.ProductAdded()), ...await scanLogs(R => R.filters.ProductUpdated())];
-    evs.sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
-    evs.forEach(e => { const id = num(e.args.id), pr = num(e.args.priceIDR); const a = byId[id] || (byId[id] = []); if (!a.length || a[a.length - 1].price !== pr) a.push({ price: pr, block: e.blockNumber }); });
-    const cand = _prods.filter(p => { const a = byId[p.id]; return a && a.length > 1 && a[a.length - 1].price === p.price; });
-    const tsCache = {};
-    const ts = async b => tsCache[b] || (tsCache[b] = (await _rp.getBlock(b)).timestamp);
-    const out = {};
-    for (const p of cand) {
-      const a = byId[p.id]; for (const x of a) x.t = await ts(x.block);
-      const last = a[a.length - 1];
-      if (now - last.t > DISKON_HARI) continue;
-      const w = last.t - DISKON_HARI;
-      const inWin = a.slice(0, -1).filter(x => x.t >= w);
-      const before = a.slice(0, -1).filter(x => x.t < w).pop();
-      const base = Math.min(...inWin.map(x => x.price), before ? before.price : Infinity);
-      if (!isFinite(base) || base <= p.price) continue;
-      const pct = Math.round((base - p.price) / base * 100);
-      if (pct >= DISKON_MIN) out[p.id] = { base, pct };
-    }
+    const r = await fetch(API + '/bazaar/diskon', { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json(), out = {};
+    for (const p of _prods) { const d = j.d && j.d[p.id]; if (d && d.harga === p.price && d.base > p.price) out[p.id] = { base: d.base, pct: d.pct }; }
     _disc = out; renderGrid();
   } catch (e) {}
 }
