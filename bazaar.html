@@ -63,6 +63,8 @@ body{background:#fff;color:var(--ink);font-family:'Manrope',sans-serif;min-heigh
 .c3 .pb{padding:6px;gap:3px;}
 .c3 .pn{font-size:10px;}
 .c3 .x{display:none;}
+.idl{font-weight:700;letter-spacing:.2px;}
+.c3 .idl{font-size:9px;}
 .c3 .dsc{top:6px;left:6px;padding:1px 5px;font-size:8px;}
 .c3 .hbs{top:6px;right:6px;padding:1px 5px;font-size:8px;}
 .bdg{display:inline-block;font-size:10px;font-weight:700;color:var(--green);background:#ECFDF3;border-radius:6px;padding:2px 7px;}
@@ -180,7 +182,7 @@ textarea.inp{min-height:80px;resize:vertical;}
     <div class="title">Bazaar</div>
     <div class="sub">Produk asli komunitas dan UMKM. Semua penjual diperiksa admin sebelum tokonya tampil.</div>
     <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" type="text" aria-label="Cari produk" placeholder="Cari nama produk atau ID (3245-01)" oninput="_lim=20;renderGrid()"></div>
+      <input id="q" type="text" aria-label="Cari produk" placeholder="Cari nama produk atau ID (1523 / 01)" oninput="_lim=20;renderGrid()"></div>
     <div class="chips" id="chips"></div>
     <div class="tools">
       <select class="inp" id="srt" aria-label="Urutkan" onchange="setSort(this.value)"><option value="baru">Terbaru</option><option value="murah">Harga terendah</option><option value="mahal">Harga tertinggi</option><option value="diskon">Diskon terbesar</option></select>
@@ -594,6 +596,7 @@ let _lenc = {}, _idt = {};
 const idToko = a => _idt[String(a).toLowerCase()] || '';
 const noProduk = p => { const ids = _prods.filter(x => x.seller.toLowerCase() === p.seller.toLowerCase()).map(x => x.id).sort((a, b) => a - b); return String(ids.indexOf(p.id) + 1).padStart(2, '0'); };
 const kodeProduk = p => idToko(p.seller) ? idToko(p.seller) + '-' + noProduk(p) : '';
+const kodeKartu = p => idToko(p.seller) ? 'ID ' + idToko(p.seller) + ' / ' + noProduk(p) : '';
 const labelId = p => idToko(p.seller) ? '<span class="idk">ID Toko ' + idToko(p.seller) + '<br>ID Produk ' + noProduk(p) + '</span>' : '';
 const lvToko = a => PERISAI[_lenc[String(a).toLowerCase()]] ? _lenc[String(a).toLowerCase()] : 'hijau';
 function perisai(lv, sz) {
@@ -614,7 +617,7 @@ async function muatLencana() {
   }
 }
 const IKON_TOKO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9l1.5-5h13L20 9"/><path d="M4 9a2.5 2.5 0 005 0 2.5 2.5 0 005 0 2.5 2.5 0 005 0"/><path d="M5 12v8h14v-8M10 20v-5h4v5"/></svg>';
-const namaTokoP = p => { const pr = _prof[String(p.profileHash).toLowerCase()]; return pr ? pr.namaToko : short(p.seller); };
+const namaTokoP = p => { const pr = _prof[String(p.profileHash).toLowerCase()]; return pr ? pr.namaToko : (idToko(p.seller) ? 'Toko ' + idToko(p.seller) : short(p.seller)); };
 const barisRekam = p => p.selesai + ' pesanan selesai · ' + p.sengketa + ' sengketa';
 const visible = p => p.active && !p.takenDown && p.sellerStatus === 2 && _cats[p.category] && _cats[p.category].active;
 function renderChips() {
@@ -636,7 +639,7 @@ function bukaFilter() {
 function cardHtml(p) {
     const sp = _spec[p.metaHash.toLowerCase()];
     const foto = sp && sp.fotos && sp.fotos[0];
-    return '<div class="pc" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\')openDetail(' + p.id + ')" onclick="openDetail(' + p.id + ')"><div class="ph">' + labelId(p) + (_disc[p.id] ? '<span class="dsc">Diskon ' + _disc[p.id].pct + '%</span>' : '') + (foto ? '<img loading="lazy" alt="" src="' + esc(fotoUrl(foto)) + '">' : '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>') + '</div><div class="pb"><div class="pn">' + esc(sp ? sp.nama : 'Produk #' + p.id) + '</div><div class="pr">' + (_disc[p.id] ? '<span class="old x">' + rp(_disc[p.id].base).replace(/^Rp\s*/, '') + '</span>' : '') + '<span class="pp">' + rp(p.price) + '</span></div><div class="ps x">' + esc(KATS[p.category] || '') + '</div><div class="pk">' + perisai(lvToko(p.seller), 13) + '<span class="pkn">' + esc(namaTokoP(p)) + '</span><button class="pkt" type="button" aria-label="Lihat toko" onclick="event.stopPropagation();openToko(\'' + p.seller + '\')">' + IKON_TOKO + '</button></div></div></div>';
+    return '<div class="pc" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\')openDetail(' + p.id + ')" onclick="openDetail(' + p.id + ')"><div class="ph">' + (_disc[p.id] ? '<span class="dsc">Diskon ' + _disc[p.id].pct + '%</span>' : '') + (foto ? '<img loading="lazy" alt="" src="' + esc(fotoUrl(foto)) + '">' : '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>') + '</div><div class="pb"><div class="pn">' + esc(sp ? sp.nama : 'Produk #' + p.id) + '</div><div class="pr">' + (_disc[p.id] ? '<span class="old x">' + rp(_disc[p.id].base).replace(/^Rp\s*/, '') + '</span>' : '') + '<span class="pp">' + rp(p.price) + '</span></div><div class="ps x">' + esc(KATS[p.category] || '') + '</div>' + (kodeKartu(p) ? '<div class="ps idl">' + kodeKartu(p) + '</div>' : '') + '<div class="pk">' + perisai(lvToko(p.seller), 13) + '<span class="pkn">' + esc(namaTokoP(p)) + '</span><button class="pkt" type="button" aria-label="Lihat toko" onclick="event.stopPropagation();openToko(\'' + p.seller + '\')">' + IKON_TOKO + '</button></div></div></div>';
 }
 function renderGrid() {
   renderChips();
@@ -646,7 +649,7 @@ function renderGrid() {
   const na = filterAktif(); $('fBtn').textContent = 'Filter' + (na ? ' (' + na + ')' : '');
   const all = _prods.filter(visible).filter(p => p.stock > 0).filter(p => !_filter || p.category === _filter).filter(p => {
     if (!q) return true;
-    const mid = /^(\d{4})(?:-(\d{1,2}))?$/.exec(q);
+    const mid = /^(?:id\s*)?(\d{4})(?:\s*[-\/]\s*(\d{1,2}))?$/.exec(q);
     if (mid) return String(idToko(p.seller)) === mid[1] && (!mid[2] || noProduk(p) === mid[2].padStart(2, '0'));
     const sp = _spec[p.metaHash.toLowerCase()];
     return ((sp && sp.nama) || 'produk ' + p.id).toLowerCase().includes(q);
