@@ -856,10 +856,24 @@ function admTab(t) {
   if (!_isDev) { $('adm').innerHTML = '<div class="card bad"><div class="t">Hanya wallet Dev.</div></div>'; return; }
   ({ penjual: admPenjual, kategori: admKategori, pesanan: admPesanan, laporan: admLaporan, atur: admAtur })[t]();
 }
+let _lrp = null;
+const RPCS_LOG = ['https://bsc-rpc.publicnode.com', 'https://bsc.drpc.org', 'https://1rpc.io/bnb', 'https://bsc-dataseed.binance.org/', 'https://bsc-dataseed1.binance.org/', 'https://rpc.ankr.com/bsc', 'https://binance.llamarpc.com', 'https://bsc.publicnode.com'];
+/* Pilih RPC yang benar-benar mengembalikan log: diuji dengan rentang blok yang pasti berisi event kontrak (Add Category, blok 135327033). */
+async function pickLogRpc() {
+  if (_lrp) return _lrp;
+  for (const u of RPCS_LOG) {
+    try {
+      const p = new ethers.providers.StaticJsonRpcProvider(u, { chainId: 56, name: 'bnb' });
+      const lg = await p.getLogs({ address: REG, fromBlock: 135326900, toBlock: 135328500 });
+      if (lg && lg.length) { _lrp = p; return p; }
+    } catch (e) {}
+  }
+  throw new Error('Tidak ada RPC BSC yang bisa membaca riwayat kontrak saat ini. Coba lagi beberapa menit lagi.');
+}
 async function scanLogs(filter) {
-  const R = reg(), latest = await _rp.getBlockNumber();
+  const lp = await pickLogRpc(), R = new ethers.Contract(REG, ABI, lp), latest = await lp.getBlockNumber();
   const from = REG_BLOCK || Math.max(0, latest - 300000);
-  const jobs = []; for (let s = from; s <= latest; s += 4000) jobs.push([s, Math.min(s + 3999, latest)]);
+  const jobs = []; for (let s = from; s <= latest; s += 3000) jobs.push([s, Math.min(s + 2999, latest)]);
   const out = []; let gagal = 0;
   const ambil = async ([a, b]) => {
     for (let t = 0; t < 4; t++) {
@@ -871,7 +885,7 @@ async function scanLogs(filter) {
     const part = await Promise.all(jobs.slice(i, i + 4).map(ambil));
     part.forEach(x => out.push(...x));
   }
-  if (gagal) throw new Error('Pemindaian blockchain tidak lengkap (' + gagal + ' dari ' + jobs.length + ' bagian gagal). Coba muat ulang.');
+  if (gagal) { _lrp = null; throw new Error('Pemindaian blockchain tidak lengkap (' + gagal + ' dari ' + jobs.length + ' bagian gagal). Coba muat ulang.'); }
   return out;
 }
 async function admPenjual() {
