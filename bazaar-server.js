@@ -352,6 +352,8 @@ function ambilDepsBawaan() {
   const RPC_LOG = [process.env.BAZAAR_RPC_LOG, 'https://bsc-rpc.publicnode.com', 'https://bsc.drpc.org', 'https://1rpc.io/bnb', CFG.rpc, 'https://bsc-dataseed1.binance.org/', 'https://bsc-dataseed2.binance.org/', 'https://rpc.ankr.com/bsc', 'https://binance.llamarpc.com'].filter(Boolean);
   const rpcLogProv = [];
   let rpcLogIdx = 0;
+  const batas = (p, ms, nama) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('waktu habis (' + ms / 1000 + 's) ' + nama)), ms))]);
+  const rpcLog = (i) => rpcLogProv[i] || (rpcLogProv[i] = E.JsonRpcProvider ? new E.JsonRpcProvider(RPC_LOG[i], 56, { staticNetwork: true }) : new E.providers.StaticJsonRpcProvider(RPC_LOG[i], 56));
   let owner = { alamat: '', exp: 0 };
   return {
     verifyMessage,
@@ -389,7 +391,14 @@ function ambilDepsBawaan() {
         return { status: r.status, json: j };
       } finally { clearTimeout(t); }
     },
-    blokTerbaru: () => provider.getBlockNumber(),
+    blokTerbaru: async () => {
+      let galat = null;
+      for (let k = 0; k < RPC_LOG.length; k++) {
+        const i = (rpcLogIdx + k) % RPC_LOG.length;
+        try { const n = await batas(rpcLog(i).getBlockNumber(), 10000, RPC_LOG[i].replace(/^https?:\/\//, '').split('/')[0]); rpcLogIdx = i; return n; } catch (e) { galat = e; }
+      }
+      throw new Error('tidak bisa membaca nomor blok terbaru: ' + String((galat && (galat.shortMessage || galat.message)) || galat).slice(0, 120));
+    },
     logHarga: async (dari, sampai) => {
       const I = E.Interface ? E.Interface : E.utils.Interface;
       const iface = new I(['event ProductAdded(uint256 indexed id, address indexed seller, uint16 indexed category, bytes32 metaHash, uint256 priceIDR, uint256 stock)',
@@ -401,8 +410,7 @@ function ambilDepsBawaan() {
       for (let k = 0; k < RPC_LOG.length && lg === null; k++) {
         const i = (rpcLogIdx + k) % RPC_LOG.length;
         try {
-          if (!rpcLogProv[i]) rpcLogProv[i] = E.JsonRpcProvider ? new E.JsonRpcProvider(RPC_LOG[i], 56, { staticNetwork: true }) : new E.providers.StaticJsonRpcProvider(RPC_LOG[i], 56);
-          lg = await rpcLogProv[i].getLogs({ address: CFG.registry, fromBlock: dari, toBlock: sampai, topics: [t0] });
+          lg = await batas(rpcLog(i).getLogs({ address: CFG.registry, fromBlock: dari, toBlock: sampai, topics: [t0] }), 15000, RPC_LOG[i].replace(/^https?:\/\//, '').split('/')[0]);
           rpcLogIdx = i;
         } catch (e) { galat = e; lg = null; }
       }
@@ -1219,6 +1227,7 @@ function createApp(deps) {
     dJalan = (async () => {
       diskonMuat();
       const terbaru = await deps.blokTerbaru();
+      if (dState.blok < terbaru - 20000) console.log('[bazaar] diskon: memindai blok ' + (dState.blok + 1) + ' sampai ' + terbaru);
       let dari = dState.blok + 1, ada = false;
       while (dari <= terbaru) {
         const sampai = Math.min(dari + DISKON_CHUNK - 1, terbaru);
@@ -1235,6 +1244,7 @@ function createApp(deps) {
         }
         if (lg === null) break;
         dState.blok = sampai; ada = true; dari = sampai + 1;
+        if ((dState.blok - DISKON_BLOK_AWAL) % 50000 < DISKON_CHUNK) { try { tulisAtomik(fileDiskon, JSON.stringify(dState)); } catch {} }
       }
       if (ada) { try { tulisAtomik(fileDiskon, JSON.stringify(dState)); } catch {} }
       dHasil = { ts: Date.now(), d: diskonHitung(), blok: dState.blok, terbaru };
@@ -1248,7 +1258,7 @@ function createApp(deps) {
       if (!dHasil.ts) { try { await Promise.race([diskonSegarkan(), new Promise((r) => setTimeout(r, 8000))]); } catch {} if (!dHasil.ts) dHasil = { ts: 0, d: diskonHitung(), blok: dState.blok }; }
       else diskonSegarkan().catch(() => {});
     }
-    return { d: dHasil.d, selesai: dState.blok >= (dHasil.terbaru || 0) - DISKON_CHUNK * 2, blok: dState.blok };
+    return { d: dHasil.d, selesai: !!dHasil.terbaru && dState.blok >= dHasil.terbaru - DISKON_CHUNK * 2, blok: dState.blok, terbaru: dHasil.terbaru || 0 };
   }
 
   async function pantau() {
