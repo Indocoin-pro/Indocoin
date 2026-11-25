@@ -167,7 +167,6 @@ textarea.inp{min-height:80px;resize:vertical;}
 
   <div class="tabs" id="tabs" role="tablist" aria-label="Bagian Bazaar">
     <button class="tab on" data-v="home" onclick="go('home')">Market</button>
-    <button class="tab" data-v="orders" onclick="go('orders')">Pesanan</button>
     <button class="tab" data-v="sell" onclick="go('sell')">Jual</button>
     <button class="tab" data-v="shop" onclick="go('shop')">Toko</button>
     <button class="tab" data-v="me" onclick="go('me')">Profil</button>
@@ -207,6 +206,7 @@ textarea.inp{min-height:80px;resize:vertical;}
 
   <!-- JUAL -->
   <section id="v-sell" class="hide"></section>
+  <div id="shopBar" class="hide"><button class="btn2" style="margin:0 0 10px" onclick="go('orders')">Pesanan saya (beli dan jual)</button></div>
   <section id="v-shop" class="hide"></section>
 
   <!-- PROFIL -->
@@ -422,9 +422,10 @@ async function tx(label, fn) {
 /* ============ NAVIGASI ============ */
 function go(v) {
   ['home', 'detail', 'toko', 'orders', 'sell', 'shop', 'me', 'admin'].forEach(x => $('v-' + x).classList.toggle('hide', x !== v));
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'detail' || v === 'toko' ? 'home' : v)));
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'detail' || v === 'toko' ? 'home' : v === 'orders' ? 'shop' : v)));
   window.scrollTo(0, 0);
   if (v === 'sell' && !$('v-sell').innerHTML.trim()) renderSell();
+  $('shopBar').classList.toggle('hide', v !== 'shop');
   if (v === 'shop') renderShop();
   if (v === 'orders') renderOrders();
   if (v === 'me') renderMe();
@@ -781,7 +782,7 @@ async function kirimDaftar() {
 }
 
 /* ----- Toko (penjual disetujui) ----- */
-let _tt = 'dijual', _leg = null, _tam = null;
+let _tt = 'dijual', _leg = null, _tam = null, _waData = null;
 const DOK_NAMA = { npwp: 'NPWP', izin_edar: 'Izin edar (PIRT / BPOM / Halal)', merek: 'Merek terdaftar (DJKI)', akta: 'Akta atau SK badan usaha', lokasi: 'Foto lokasi usaha' };
 const fileB64 = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Gagal membaca berkas')); r.readAsDataURL(f); });
 async function ambilLegalitas() {
@@ -790,6 +791,7 @@ async function ambilLegalitas() {
     const r = await fetch(API + '/bazaar/saya/legalitas', { headers: h });
     if (r.ok) _leg = await r.json();
   } catch (e) {}
+  try { const h2 = await signedHeaders('saya-wa', new Uint8Array(0)); const r3 = await fetch(API + '/bazaar/saya/wa', { headers: h2 }); if (r3.ok) _waData = await r3.json(); } catch (e) {}
   try { const r2 = await fetch(API + '/bazaar/tampilan/' + _wallet.toLowerCase()); if (r2.ok) _tam = await r2.json(); } catch (e) {}
 }
 async function renderTokoDash() {
@@ -813,7 +815,7 @@ function ttBody() {
   const b = $('ttBody'); if (!b) return;
   const mine = _prods.filter(p => p.seller.toLowerCase() === _wallet.toLowerCase());
   const lihat = '<button class="btn2" onclick="_oTab=\'jual\';go(\'orders\')">Buka daftar pesanan</button>';
-  if (_tt === 'dijual') b.innerHTML = '<div class="card"><div class="h">Produkku (' + mine.length + ')</div>' + (mine.length ? mine.map(p => { const sp = _spec[p.metaHash.toLowerCase()]; return '<div class="row"><span style="flex:1">' + esc(sp ? sp.nama : 'Produk #' + p.id) + '<br><span style="font-size:10px">' + rp(p.price) + ' · stok ' + p.stock + ' · ' + stokStatus(p) + '</span></span><button class="mini" onclick="ubahProduk(' + p.id + ')">Ubah</button></div>'; }).join('') : '<div class="note">Belum ada produk.</div>') + '</div><button class="btn" onclick="go(\'sell\')">+ Tambah produk</button>';
+  if (_tt === 'dijual') b.innerHTML = '<div class="h">Katalog jualan saya (' + mine.length + ')</div>' + (mine.length ? '<div class="grid' + (_view === 3 ? ' c3' : '') + '">' + mine.sort((x, y) => y.id - x.id).map(p => '<div style="display:flex;flex-direction:column;gap:6px">' + cardHtml(p) + '<div style="display:flex;gap:6px;align-items:center"><span class="bdg ' + (p.active && !p.takenDown && p.stock > 0 ? '' : 'g') + '">' + stokStatus(p) + '</span><button class="mini" style="flex:1" onclick="ubahProduk(' + p.id + ')">Ubah</button></div></div>').join('') + '</div>' : '<div class="card"><div class="t">Belum ada produk. Pajang lewat menu Jual.</div></div>');
   else if (_tt === 'terjual') b.innerHTML = '<div class="card"><div class="row"><span>Pesanan selesai</span><b>' + _me.completedOrders + '</b></div><div class="row"><span>Pesanan berjalan</span><b>' + _me.activeOrders + '</b></div></div>' + (escAktif() ? lihat : '');
   else if (_tt === 'return') b.innerHTML = '<div class="card"><div class="t">Pesanan yang dibatalkan atau dikembalikan muncul di daftar pesananmu dengan statusnya masing-masing.</div></div>' + (escAktif() ? lihat : '');
   else if (_tt === 'sengketa') b.innerHTML = '<div class="card"><div class="row"><span>Total sengketa</span><b>' + _me.disputesTotal + '</b></div><div class="row"><span>Sengketa yang kalah</span><b>' + _me.disputesLost + '</b></div></div>' + (escAktif() ? lihat : '');
@@ -881,9 +883,11 @@ function formBank() {
     } catch (e) { toast('Gagal: ' + errText(e), 6000); return false; }
   } });
 }
-function ubahProduk(id) {
+async function ubahProduk(id) {
   const p = _prods.find(x => x.id === id);
-  pop({ title: 'Ubah produk #' + id, html: '<label class="l" for="uHarga">Harga (Rp)</label><input class="inp" id="uHarga" inputmode="numeric" value="' + p.price + '"><label class="l" for="uStok">Stok</label><input class="inp" id="uStok" inputmode="numeric" value="' + p.stock + '"><label class="l" for="uAktif">Tampil di katalog</label><select class="inp" id="uAktif"><option value="1"' + (p.active ? ' selected' : '') + '>Aktif</option><option value="0"' + (p.active ? '' : ' selected') + '>Nonaktif</option></select><button class="btn2" type="button" onclick="closePop();formProduk(' + id + ')">Ubah nama, foto, atau spesifikasi</button>', ok: 'Simpan', onOk: async () => {
+  try { await loadMe(); } catch (e) {}
+  const kunci = _me && _me.activeOrders > 0;
+  pop({ title: 'Ubah produk #' + id, html: '<label class="l" for="uHarga">Harga (Rp)</label><input class="inp" id="uHarga" inputmode="numeric" value="' + p.price + '"><label class="l" for="uStok">Stok</label><input class="inp" id="uStok" inputmode="numeric" value="' + p.stock + '"><label class="l" for="uAktif">Tampil di katalog</label><select class="inp" id="uAktif"><option value="1"' + (p.active ? ' selected' : '') + '>Aktif</option><option value="0"' + (p.active ? '' : ' selected') + '>Nonaktif</option></select>' + '<button class="btn2" type="button" onclick="closePop();formProduk(' + id + ')">Ubah nama, foto, atau spesifikasi</button>', ok: 'Simpan', onOk: async () => {
     const harga = parseInt($('uHarga').value, 10), stok = parseInt($('uStok').value, 10);
     if (!(harga > 0) || !(stok >= 0)) { toast('Harga dan stok tidak valid'); return false; }
     closePop(); const ok = await tx('Ubah produk', () => wreg().updateProduct(id, p.metaHash, harga, stok, $('uAktif').value === '1'));
@@ -903,6 +907,7 @@ async function jualanSaya() {
 
 /* ----- Form produk ----- */
 async function formProduk(editId) {
+  if (editId) { try { await loadMe(); } catch (e) {} if (_me && _me.activeOrders > 0) return pop({ title: 'Belum bisa diubah', lines: ['Nama, foto, dan spesifikasi produk tidak bisa diubah selama ada pesanan dalam pengantaran, sampai masa sengketanya lewat.', 'Harga, stok, dan status tampil tetap bisa diubah.'], cancel: false, ok: 'Mengerti' }); }
   _foto = []; _edit = editId || 0;
   let ep = null, es = null;
   if (_edit) {
@@ -1650,11 +1655,15 @@ function waPop(wajib) {
   pop({ title: 'Data pengiriman toko', lines: ['Nomor WhatsApp wajib. Tersimpan terenkripsi, tidak tampil publik. Hanya dibuka untuk pembeli saat pesanan aktif dan untuk admin bila ada sengketa.', 'Kode pos asal dipakai untuk menghitung ongkir pembeli.'], html: '<label class="l" for="wNo">Nomor WhatsApp</label><input class="inp" id="wNo" inputmode="tel" placeholder="081234567890" maxlength="20"><label class="l" for="wPos">Kode pos asal kirim</label><input class="inp" id="wPos" inputmode="numeric" maxlength="5">', ok: 'Simpan', cancel: wajib ? 'Nanti' : 'Batal', onOk: async () => {
     const wa = $('wNo').value.trim(), pos = $('wPos').value.trim();
     if (!wa || !/^\d{5}$/.test(pos)) { toast('Isi nomor WhatsApp dan kode pos 5 angka'); return false; }
-    try { await apiJson('/bazaar/wa', { wa, kodePosAsal: pos }); _waAda = true; toast('Tersimpan'); if (!$('v-shop').classList.contains('hide')) renderShop(); } catch (e) { toast(errText(e), 7000); return false; }
+    try { await apiJson('/bazaar/wa', { wa, kodePosAsal: pos }); _waAda = true; _leg = null; toast('Tersimpan'); if (!$('v-shop').classList.contains('hide')) renderShop(); } catch (e) { toast(errText(e), 7000); return false; }
   } });
 }
 function kartuKirim() {
-  return '<div class="card' + (_waAda ? '' : ' warn') + '"><div class="h">Data pengiriman</div><div class="t">' + (_waAda ? 'Nomor WhatsApp dan kode pos asal tersimpan terenkripsi.' : 'Nomor WhatsApp dan kode pos asal belum diisi. Wajib sebelum memajang produk.') + '</div><button class="btn2" onclick="waPop(false)">' + (_waAda ? 'Ubah' : 'Isi sekarang') + '</button></div>';
+  const aktif = _me && _me.activeOrders > 0, rw = (_waData && _waData.riwayat) || [];
+  return '<div class="card' + (_waAda ? '' : ' warn') + '"><div class="h">Data pengiriman</div><div class="t">' + (_waAda ? 'Nomor WhatsApp' + (_waData && _waData.wa ? ': <b>' + esc(_waData.wa) + '</b>' : '') + ' dan kode pos asal tersimpan terenkripsi.' : 'Nomor WhatsApp dan kode pos asal belum diisi. Wajib sebelum memajang produk.') + '</div>' +
+    '<button class="btn2" ' + (_waAda && aktif ? 'disabled' : '') + ' onclick="waPop(false)">' + (_waAda ? 'Ubah' : 'Isi sekarang') + '</button>' +
+    (_waAda && aktif ? '<div class="note">Tidak bisa diganti selama ada pesanan berjalan.</div>' : '') +
+    (rw.length ? '<div class="note" style="margin-top:10px"><b>Riwayat nomor lama</b></div>' + rw.slice().reverse().map(r => '<div class="note" style="margin:2px 0;color:#94a3b8">' + esc(r.wa) + ' · dipakai sampai ' + tgl(Math.floor((r.diganti || r.ts) / 1000)) + '</div>').join('') : '') + '</div>';
 }
 function tambahProduk() { go('sell'); }
 

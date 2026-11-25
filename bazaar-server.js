@@ -360,7 +360,7 @@ function ambilDepsBawaan() {
     },
     getSeller: async (w) => {
       const r = await kontrak.getSeller(w);
-      return { status: Number(r.status), bankHash: String(r.bankHash) };
+      return { status: Number(r.status), bankHash: String(r.bankHash), activeOrders: Number(r.activeOrders) };
     },
     getOrder: async (id) => {
       if (!escrow) throw new HttpError(503, 'Modul pesanan belum aktif');
@@ -868,17 +868,37 @@ function createApp(deps) {
   async function waSimpan(req) {
     const body = await bacaBody(req, LIMIT.jsonBytes);
     const wallet = await verifikasi(req, 'wa', body);
-    let st;
-    try { st = (await deps.getSeller(wallet)).status; }
+    let sl;
+    try { sl = await deps.getSeller(wallet); }
     catch { throw new HttpError(503, 'Gagal memeriksa status penjual di blockchain, coba lagi'); }
+    const st = sl.status;
     if (!st) throw new HttpError(403, 'Daftar sebagai penjual dulu');
     batasi(req, 'wa', wallet);
     const j = bacaJson(body);
     const wa = normalHp(j.wa);
     const kodePosAsal = String(j.kodePosAsal || '').trim();
     if (!/^\d{5}$/.test(kodePosAsal)) throw new HttpError(400, 'Kode pos asal kirim harus 5 angka');
-    tulisAtomik(pathBerkas('wa', `${wallet}.json`), JSON.stringify(enkripsi({ wa, kodePosAsal, ts: Date.now() })));
+    let lama = null;
+    try { lama = dekripsi(JSON.parse(fs.readFileSync(pathBerkas('wa', `${wallet}.json`), 'utf8'))); } catch {}
+    const riwayat = (lama && Array.isArray(lama.riwayat)) ? lama.riwayat.slice(-50) : [];
+    if (lama && lama.wa && lama.wa !== wa) {
+      if (sl.activeOrders > 0) throw new HttpError(409, 'Nomor WhatsApp tidak bisa diganti selama masih ada pesanan berjalan');
+      riwayat.push({ wa: lama.wa, ts: lama.ts || 0, diganti: Date.now() });
+    }
+    tulisAtomik(pathBerkas('wa', `${wallet}.json`), JSON.stringify(enkripsi({ wa, kodePosAsal, ts: Date.now(), riwayat })));
     return { ok: true };
+  }
+  async function waSaya(req) {
+    const wallet = await verifikasi(req, 'saya-wa', Buffer.alloc(0));
+    try { const d = dekripsi(JSON.parse(fs.readFileSync(pathBerkas('wa', `${wallet}.json`), 'utf8'))); return { wa: d.wa, kodePosAsal: d.kodePosAsal, riwayat: d.riwayat || [] }; }
+    catch { return { wa: '', kodePosAsal: '', riwayat: [] }; }
+  }
+  async function adminWaRiwayat(req, w) {
+    const wallet = await verifikasi(req, 'admin-wa-riwayat', Buffer.alloc(0));
+    await wajibOwner(wallet);
+    if (!isAddr(w)) throw new HttpError(400, 'Wallet tidak valid');
+    try { const d = dekripsi(JSON.parse(fs.readFileSync(pathBerkas('wa', `${low(w)}.json`), 'utf8'))); return { wa: d.wa, riwayat: d.riwayat || [] }; }
+    catch { return { wa: '', riwayat: [] }; }
   }
   function waAda(w) {
     if (!isAddr(w)) throw new HttpError(400, 'Alamat wallet tidak valid');
@@ -1210,6 +1230,8 @@ function createApp(deps) {
 
     if (req.method === 'GET' && a === 'lencana' && !b) return kirimJson(res, 200, lencanaPublik(url));
     if (req.method === 'GET' && a === 'tampilan' && b && !c) return kirimJson(res, 200, tampilanBaca(b));
+    if (req.method === 'GET' && a === 'saya' && b === 'wa' && !c) return kirimJson(res, 200, await waSaya(req));
+    if (req.method === 'GET' && a === 'admin' && b === 'wa-riwayat' && c) return kirimJson(res, 200, await adminWaRiwayat(req, c));
     if (req.method === 'GET' && a === 'saya' && b === 'legalitas' && !c) return kirimJson(res, 200, await legalitasSaya(req));
     if (req.method === 'GET' && a === 'tanya' && b && !c) return kirimJson(res, 200, tanyaDaftar(b));
     if (req.method === 'GET' && a === 'wa' && b === 'ada' && c) return kirimJson(res, 200, waAda(c));
