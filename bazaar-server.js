@@ -70,7 +70,7 @@ const LIMIT = {
 };
 
 // Batas penulisan per wallet per 24 jam, dan per IP per jam.
-const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800 };
+const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800, legalitas: 20, tampilan: 20 };
 const RATE_IP_HOUR = 200;
 
 const BENTUK_USAHA = [
@@ -265,7 +265,7 @@ function dekripsi(amplop) {
 // ─────────────────────────────────────────────────────────────────
 
 function siapkanFolder() {
-  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan']) {
+  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan', 'legalitas', 'tampilan']) {
     fs.mkdirSync(path.join(CFG.dataDir, d), { recursive: true });
   }
 }
@@ -627,6 +627,125 @@ function createApp(deps) {
       try { const d = dekripsi(JSON.parse(fs.readFileSync(path.join(dir, nama), 'utf8'))); if (isAddr(d.wallet)) out.add(d.wallet); } catch {}
     }
     return { wallets: [...out] };
+  }
+
+  // ── Legalitas toko: dokumen pendukung, lencana, tampilan toko ───
+  // NIB (40%) sudah diperiksa saat toko disetujui. Dokumen lain menambah persentase setelah admin memeriksa.
+  const JENIS_DOK = { npwp: 15, izin_edar: 15, merek: 10, akta: 10, lokasi: 10 };
+  const metaFile = (w) => pathBerkas('legalitas', `${w}.json`);
+  function bacaMeta(w) {
+    try { return dekripsi(JSON.parse(fs.readFileSync(metaFile(w), 'utf8'))); } catch { return { dok: {} }; }
+  }
+  function simpanMeta(w, m) { tulisAtomik(metaFile(w), JSON.stringify(enkripsi(m))); }
+  function hitungLegalitas(m) {
+    let pct = 40; const items = [];
+    for (const j of Object.keys(JENIS_DOK)) {
+      const d = m.dok && m.dok[j];
+      const st = d ? d.status : 'belum';
+      if (st === 'terverifikasi') pct += JENIS_DOK[j];
+      items.push({ jenis: j, bobot: JENIS_DOK[j], status: st, tidakBerlaku: !!(d && d.tidakBerlaku), ts: d ? d.ts : 0 });
+    }
+    return { pct, level: pct >= 80 ? 'emas' : pct >= 60 ? 'biru' : 'hijau', items };
+  }
+
+  async function legalitasSimpan(req) {
+    const body = await bacaBody(req, LIMIT.dokumenBodyBytes);
+    const wallet = await verifikasi(req, 'legalitas', body);
+    await wajibPenjualAktif(wallet);
+    batasi(req, 'legalitas', wallet);
+    const j = bacaJson(body);
+    const jenis = String(j.jenis || '');
+    if (!(jenis in JENIS_DOK)) throw new HttpError(400, 'Jenis dokumen tidak dikenal');
+    const tidakBerlaku = jenis === 'izin_edar' && j.tidakBerlaku === true;
+    const nomor = bersih(j.nomor, 0, 60, 'Nomor dokumen', true);
+    let mime = '';
+    if (!tidakBerlaku) {
+      if (typeof j.fileBase64 !== 'string' || !/^[A-Za-z0-9+/=]+$/.test(j.fileBase64)) throw new HttpError(400, 'Berkas dokumen tidak valid');
+      const file = Buffer.from(j.fileBase64, 'base64');
+      if (file.length === 0 || file.length > LIMIT.dokumenFileBytes) throw new HttpError(413, 'Dokumen kosong atau lebih dari 8 MB');
+      if (file.subarray(0, 4).toString('latin1') === '%PDF') mime = 'application/pdf';
+      else if (file[0] === 0xFF && file[1] === 0xD8 && file[2] === 0xFF) mime = 'image/jpeg';
+      else if (file[0] === 0x89 && file[1] === 0x50 && file[2] === 0x4E && file[3] === 0x47) mime = 'image/png';
+      else throw new HttpError(400, 'Dokumen harus PDF, JPG, atau PNG');
+      tulisAtomik(pathBerkas('legalitas', `${wallet}.${jenis}.json`), JSON.stringify(enkripsi({ mime, fileBase64: j.fileBase64 })));
+    }
+    const m = bacaMeta(wallet); m.dok = m.dok || {};
+    m.dok[jenis] = { status: 'menunggu', nomor, tidakBerlaku, mime, ts: Date.now() };
+    simpanMeta(wallet, m);
+    return hitungLegalitas(m);
+  }
+
+  async function legalitasSaya(req) {
+    const wallet = await verifikasi(req, 'saya-legalitas', Buffer.alloc(0));
+    return hitungLegalitas(bacaMeta(wallet));
+  }
+
+  // Publik: hanya tingkat lencana, tanpa isi dokumen maupun persentase.
+  function lencanaPublik(url) {
+    const daftar = String(url.searchParams.get('w') || '').split(',').map((x) => x.trim().toLowerCase()).filter(isAddr).slice(0, 60);
+    const out = {};
+    for (const w of daftar) {
+      if (!fs.existsSync(metaFile(w))) continue;
+      const h = hitungLegalitas(bacaMeta(w));
+      if (h.level !== 'hijau') out[w] = h.level;
+    }
+    return out;
+  }
+
+  async function adminLegalitasDaftar(req, w) {
+    const wallet = await verifikasi(req, 'admin-legalitas', Buffer.alloc(0));
+    await wajibOwner(wallet);
+    if (!isAddr(w)) throw new HttpError(400, 'Wallet tidak valid');
+    const m = bacaMeta(w.toLowerCase());
+    return { wallet: w.toLowerCase(), ...hitungLegalitas(m), dok: m.dok || {} };
+  }
+
+  async function adminLegalitasBerkas(req, kunci) {
+    const wallet = await verifikasi(req, 'admin-legalitas-berkas', Buffer.alloc(0));
+    await wajibOwner(wallet);
+    const mm = /^(0x[0-9a-fA-F]{40})-([a-z_]+)$/.exec(kunci);
+    if (!mm || !(mm[2] in JENIS_DOK)) throw new HttpError(400, 'Permintaan tidak valid');
+    const f = pathBerkas('legalitas', `${mm[1].toLowerCase()}.${mm[2]}.json`);
+    if (!fs.existsSync(f)) throw new HttpError(404, 'Berkas tidak ditemukan');
+    return dekripsi(JSON.parse(fs.readFileSync(f, 'utf8')));
+  }
+
+  async function adminLegalitasPutus(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'admin-legalitas-putus', body);
+    await wajibOwner(wallet);
+    const j = bacaJson(body);
+    const w = String(j.wallet || '').toLowerCase(), jenis = String(j.jenis || '');
+    if (!isAddr(w) || !(jenis in JENIS_DOK)) throw new HttpError(400, 'Permintaan tidak valid');
+    const m = bacaMeta(w);
+    if (!m.dok || !m.dok[jenis]) throw new HttpError(404, 'Dokumen belum diunggah');
+    m.dok[jenis].status = j.ok === true ? 'terverifikasi' : 'ditolak';
+    m.dok[jenis].diperiksa = Date.now();
+    simpanMeta(w, m);
+    return hitungLegalitas(m);
+  }
+
+  // Tampilan toko tambahan (foto tampilan dan galeri). Profil dan NIB di blockchain tidak diubah.
+  async function tampilanSimpan(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'tampilan', body);
+    await wajibPenjualAktif(wallet);
+    batasi(req, 'tampilan', wallet);
+    const j = bacaJson(body);
+    const hx = (v) => String(v || '').replace(/^0x/, '');
+    const tampil = hx(j.fotoTampil);
+    if (tampil && (!isHex64(tampil) || !cariFoto(tampil))) throw new HttpError(400, 'Foto tampilan belum diunggah');
+    const galeri = (Array.isArray(j.galeri) ? j.galeri : []).map(hx);
+    if (galeri.length > 6) throw new HttpError(400, 'Galeri maksimal 6 foto');
+    if (new Set(galeri).size !== galeri.length) throw new HttpError(400, 'Ada foto yang sama dipakai dua kali');
+    for (const g of galeri) if (!isHex64(g) || !cariFoto(g)) throw new HttpError(400, 'Ada foto galeri yang belum diunggah');
+    const doc = { fotoTampil: tampil, galeri, sapaan: bersih(j.sapaan, 0, 200, 'Sapaan toko', true), ts: Date.now() };
+    tulisAtomik(pathBerkas('tampilan', `${wallet}.json`), JSON.stringify(doc));
+    return doc;
+  }
+  function tampilanBaca(w) {
+    if (!isAddr(w)) throw new HttpError(400, 'Wallet tidak valid');
+    try { return JSON.parse(fs.readFileSync(pathBerkas('tampilan', `${w.toLowerCase()}.json`), 'utf8')); } catch { return { fotoTampil: '', galeri: [], sapaan: '' }; }
   }
 
   // ── Tanya jawab publik ─────────────────────────────────────────
@@ -1089,6 +1208,9 @@ function createApp(deps) {
       return res.end(fs.readFileSync(pathBerkas(a, `${b}.json`)));
     }
 
+    if (req.method === 'GET' && a === 'lencana' && !b) return kirimJson(res, 200, lencanaPublik(url));
+    if (req.method === 'GET' && a === 'tampilan' && b && !c) return kirimJson(res, 200, tampilanBaca(b));
+    if (req.method === 'GET' && a === 'saya' && b === 'legalitas' && !c) return kirimJson(res, 200, await legalitasSaya(req));
     if (req.method === 'GET' && a === 'tanya' && b && !c) return kirimJson(res, 200, tanyaDaftar(b));
     if (req.method === 'GET' && a === 'wa' && b === 'ada' && c) return kirimJson(res, 200, waAda(c));
     if (req.method === 'GET' && a === 'ulasan' && b === 'produk' && c) return kirimJson(res, 200, await ulasanProduk(c));
@@ -1111,11 +1233,16 @@ function createApp(deps) {
       if (a === 'profil' && !b) return kirimJson(res, 200, await profilSimpan(req));
       if (a === 'spek' && !b) return kirimJson(res, 200, await spekSimpan(req));
       if (a === 'dokumen' && !b) return kirimJson(res, 200, await dokumenSimpan(req));
+      if (a === 'legalitas' && !b) return kirimJson(res, 200, await legalitasSimpan(req));
+      if (a === 'tampilan' && !b) return kirimJson(res, 200, await tampilanSimpan(req));
+      if (a === 'admin' && b === 'legalitas-putus' && !c) return kirimJson(res, 200, await adminLegalitasPutus(req));
       if (a === 'rekening' && !b) return kirimJson(res, 200, await rekeningSimpan(req));
     }
 
     // Khusus wallet Dev
     if (req.method === 'GET' && a === 'admin' && b === 'daftar' && c === 'penjual') return kirimJson(res, 200, await adminDaftarPenjual(req));
+    if (req.method === 'GET' && a === 'admin' && b === 'legalitas' && c) return kirimJson(res, 200, await adminLegalitasDaftar(req, c));
+    if (req.method === 'GET' && a === 'admin' && b === 'legalitas-berkas' && c) return kirimJson(res, 200, await adminLegalitasBerkas(req, c));
     if (req.method === 'GET' && a === 'admin' && b === 'pesanan' && c) return kirimJson(res, 200, await adminPesanan(req, idPesanan(c)));
     if (req.method === 'GET' && a === 'admin' && b && c) return kirimJson(res, 200, await adminBaca(req, b, c));
 
