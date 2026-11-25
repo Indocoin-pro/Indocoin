@@ -349,6 +349,9 @@ function ambilDepsBawaan() {
       escrowTulis = new E.Contract(CFG.escrow, eAbi, w);
     }
   }
+  const RPC_LOG = [process.env.BAZAAR_RPC_LOG, 'https://bsc-rpc.publicnode.com', 'https://bsc.drpc.org', 'https://1rpc.io/bnb', CFG.rpc, 'https://bsc-dataseed1.binance.org/', 'https://bsc-dataseed2.binance.org/', 'https://rpc.ankr.com/bsc', 'https://binance.llamarpc.com'].filter(Boolean);
+  const rpcLogProv = [];
+  let rpcLogIdx = 0;
   let owner = { alamat: '', exp: 0 };
   return {
     verifyMessage,
@@ -393,7 +396,17 @@ function ambilDepsBawaan() {
         'event ProductUpdated(uint256 indexed id, bytes32 oldMetaHash, bytes32 newMetaHash, uint256 priceIDR, uint256 stock, bool active)']);
       const t0 = [iface.getEventTopic ? iface.getEventTopic('ProductAdded') : iface.getEvent('ProductAdded').topicHash,
         iface.getEventTopic ? iface.getEventTopic('ProductUpdated') : iface.getEvent('ProductUpdated').topicHash];
-      const lg = await provider.getLogs({ address: CFG.registry, fromBlock: dari, toBlock: sampai, topics: [t0] });
+      // Coba beberapa RPC bergantian: RPC bawaan Binance sering menolak pembacaan log.
+      let lg = null, galat = null;
+      for (let k = 0; k < RPC_LOG.length && lg === null; k++) {
+        const i = (rpcLogIdx + k) % RPC_LOG.length;
+        try {
+          if (!rpcLogProv[i]) rpcLogProv[i] = E.JsonRpcProvider ? new E.JsonRpcProvider(RPC_LOG[i], 56, { staticNetwork: true }) : new E.providers.StaticJsonRpcProvider(RPC_LOG[i], 56);
+          lg = await rpcLogProv[i].getLogs({ address: CFG.registry, fromBlock: dari, toBlock: sampai, topics: [t0] });
+          rpcLogIdx = i;
+        } catch (e) { galat = e; lg = null; }
+      }
+      if (lg === null) throw new Error('semua RPC gagal membaca log: ' + String((galat && (galat.shortMessage || galat.reason || galat.message)) || galat).slice(0, 120));
       return lg.map((l) => { const p = iface.parseLog(l); return { id: Number(p.args.id), harga: Number(p.args.priceIDR), blok: l.blockNumber, idx: l.logIndex !== undefined ? l.logIndex : l.index }; });
     },
     waktuBlok: async (b) => Number((await provider.getBlock(b)).timestamp),
@@ -1211,7 +1224,7 @@ function createApp(deps) {
         const sampai = Math.min(dari + DISKON_CHUNK - 1, terbaru);
         let lg = null;
         for (let t = 0; t < 4 && lg === null; t++) {
-          try { lg = await deps.logHarga(dari, sampai); } catch { await new Promise((r) => setTimeout(r, 500 * (t + 1))); }
+          try { lg = await deps.logHarga(dari, sampai); } catch (e) { if (t === 3) console.error('[bazaar] diskon: gagal baca log blok ' + dari + '-' + sampai + ': ' + (e && e.message)); await new Promise((r) => setTimeout(r, 500 * (t + 1))); }
         }
         if (lg === null) break; // simpan kemajuan, lanjut di putaran berikutnya
         lg.sort((x, y) => x.blok - y.blok || x.idx - y.idx);
