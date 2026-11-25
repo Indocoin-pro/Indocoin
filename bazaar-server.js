@@ -70,7 +70,7 @@ const LIMIT = {
 };
 
 // Batas penulisan per wallet per 24 jam, dan per IP per jam.
-const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800, legalitas: 20, tampilan: 20 };
+const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800, legalitas: 20, tampilan: 20, opsikirim: 20 };
 const RATE_IP_HOUR = 200;
 
 const BENTUK_USAHA = [
@@ -265,7 +265,7 @@ function dekripsi(amplop) {
 // ─────────────────────────────────────────────────────────────────
 
 function siapkanFolder() {
-  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan', 'legalitas', 'tampilan']) {
+  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan', 'legalitas', 'tampilan', 'idtoko', 'opsikirim']) {
     fs.mkdirSync(path.join(CFG.dataDir, d), { recursive: true });
   }
 }
@@ -341,7 +341,7 @@ function ambilDepsBawaan() {
   const kontrak = new E.Contract(CFG.registry, abi, provider);
   let escrow = null, escrowTulis = null;
   if (/^0x[0-9a-fA-F]{40}$/.test(CFG.escrow)) {
-    const eAbi = ['function getOrder(uint256) view returns (tuple(address buyer,address seller,uint256 productId,uint32 qty,uint8 status,uint16 penaltyBps,uint8 courier,uint64 createdAt,uint64 sellerLockedAt,uint64 paidAt,uint64 shippedAt,uint64 deliveredAt,uint64 disputeAt,uint256 baseIDR,uint256 rate,uint256 baseUsdt,uint256 buyerFee,uint256 sellerFee,uint256 buyerStake,uint256 sellerStake,bytes32 metaHash,bytes32 addrHash,bytes32 resiHash))',
+    const eAbi = ['function getOrder(uint256) view returns (tuple(address buyer,address seller,uint256 productId,uint32 qty,uint8 status,uint16 penaltyBps,uint8 courier,uint64 createdAt,uint64 sellerLockedAt,uint64 paidAt,uint64 shippedAt,uint64 deliveredAt,uint64 disputeAt,uint256 baseIDR,uint256 rate,uint256 baseUsdt,uint256 buyerFee,uint256 sellerFee,uint256 buyerStake,uint256 sellerStake,bytes32 metaHash,bytes32 addrHash,bytes32 resiHash,uint8 mode))',
       'function markDelivered(uint256)'];
     escrow = new E.Contract(CFG.escrow, eAbi, provider);
     if (/^(0x)?[0-9a-fA-F]{64}$/.test(CFG.reporterKey)) {
@@ -360,7 +360,7 @@ function ambilDepsBawaan() {
     },
     getSeller: async (w) => {
       const r = await kontrak.getSeller(w);
-      return { status: Number(r.status), bankHash: String(r.bankHash), activeOrders: Number(r.activeOrders) };
+      return { status: Number(r.status), bankHash: String(r.bankHash), activeOrders: Number(r.activeOrders), registeredAt: Number(r.registeredAt) };
     },
     getOrder: async (id) => {
       if (!escrow) throw new HttpError(503, 'Modul pesanan belum aktif');
@@ -748,6 +748,61 @@ function createApp(deps) {
     try { return JSON.parse(fs.readFileSync(pathBerkas('tampilan', `${w.toLowerCase()}.json`), 'utf8')); } catch { return { fotoTampil: '', galeri: [], sapaan: '' }; }
   }
 
+
+  // ── Opsi pengiriman toko: kurir (selalu), ambil di toko, antar sendiri oleh toko ──
+  const OPSI_BAWAAN = { ambil: false, antar: false, biayaAntar: 0, alamatAmbil: '', jamAmbil: '', jangkauan: '' };
+  function opsiBaca(w) {
+    if (!isAddr(w)) throw new HttpError(400, 'Wallet tidak valid');
+    try { return Object.assign({}, OPSI_BAWAAN, JSON.parse(fs.readFileSync(pathBerkas('opsikirim', `${w.toLowerCase()}.json`), 'utf8'))); } catch { return Object.assign({}, OPSI_BAWAAN); }
+  }
+  async function opsiSimpan(req) {
+    const body = await bacaBody(req, LIMIT.jsonBytes);
+    const wallet = await verifikasi(req, 'opsikirim', body);
+    await wajibPenjualAktif(wallet);
+    batasi(req, 'opsikirim', wallet);
+    const j = bacaJson(body);
+    const biaya = Math.round(Number(j.biayaAntar) || 0);
+    if (biaya < 0 || biaya > 500000) throw new HttpError(400, 'Biaya antar harus antara Rp0 dan Rp500.000');
+    const doc = {
+      ambil: !!j.ambil, antar: !!j.antar, biayaAntar: biaya,
+      alamatAmbil: bersih(j.alamatAmbil, 0, 200, 'Alamat ambil', true),
+      jamAmbil: bersih(j.jamAmbil, 0, 80, 'Jam ambil', true),
+      jangkauan: bersih(j.jangkauan, 0, 120, 'Jangkauan antar', true),
+      ts: Date.now()
+    };
+    if (doc.ambil && !doc.alamatAmbil) throw new HttpError(400, 'Isi alamat toko untuk opsi ambil di toko');
+    tulisAtomik(pathBerkas('opsikirim', `${wallet}.json`), JSON.stringify(doc));
+    return doc;
+  }
+
+  // ── ID toko 4 digit (mulai 1523), diberikan berurutan menurut waktu daftar. Hanya toko yang sudah disetujui ──
+  const ID_MULAI = 1523;
+  let petaId = null;
+  function muatPeta() {
+    if (!petaId) { try { petaId = JSON.parse(fs.readFileSync(pathBerkas('idtoko', 'peta.json'), 'utf8')); } catch { petaId = { next: ID_MULAI, map: {} }; } }
+    return petaId;
+  }
+  async function idTokoDaftar(req, url) {
+    const ip = String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || 'x');
+    catatPakai(ip, jejakIp, 3600000, RATE_IP_HOUR, 'Terlalu banyak permintaan, coba lagi nanti');
+    const daftar = [...new Set(String(url.searchParams.get('w') || '').split(',').map((x) => x.trim().toLowerCase()).filter(isAddr))].slice(0, 20);
+    const peta = muatPeta(); const out = {}; const baru = [];
+    for (const w of daftar) { if (peta.map[w]) out[w] = peta.map[w]; else baru.push(w); }
+    if (baru.length) {
+      const info = [];
+      for (const w of baru) { try { const sl = await deps.getSeller(w); if (sl.status === 2) info.push({ w, t: sl.registeredAt }); } catch {} }
+      info.sort((a, b) => a.t - b.t);
+      let ubah = false;
+      for (const x of info) {
+        if (peta.map[x.w]) { out[x.w] = peta.map[x.w]; continue; }
+        if (peta.next > 9999) break;
+        peta.map[x.w] = peta.next++; out[x.w] = peta.map[x.w]; ubah = true;
+      }
+      if (ubah) tulisAtomik(pathBerkas('idtoko', 'peta.json'), JSON.stringify(peta));
+    }
+    return out;
+  }
+
   // ── Tanya jawab publik ─────────────────────────────────────────
 
   const fileTanya = (id) => pathBerkas('tanya', `${id}.json`);
@@ -911,17 +966,23 @@ function createApp(deps) {
     const wallet = await verifikasi(req, 'alamat', body);
     batasi(req, 'alamat', wallet);
     const j = bacaJson(body);
+    const mode = Number(j.mode) || 0;
+    if (![0, 1, 2].includes(mode)) throw new HttpError(400, 'Cara terima tidak dikenal');
     const kodePos = String(j.kodePos || '').trim();
-    if (!/^\d{5}$/.test(kodePos)) throw new HttpError(400, 'Kode pos tujuan harus 5 angka');
-    const kurir = Number(j.kurir);
-    if (!KURIR[kurir]) throw new HttpError(400, 'Kurir tidak dikenal');
+    let kurir = 0;
+    if (mode === 0) {
+      if (!/^\d{5}$/.test(kodePos)) throw new HttpError(400, 'Kode pos tujuan harus 5 angka');
+      kurir = Number(j.kurir);
+      if (!KURIR[kurir]) throw new HttpError(400, 'Kurir tidak dikenal');
+    } else if (kodePos && !/^\d{5}$/.test(kodePos)) throw new HttpError(400, 'Kode pos harus 5 angka');
     const bundel = {
       wallet,
+      mode,
       nama: bersih(j.nama, 3, 80, 'Nama penerima'),
       hp: normalHp(j.hp),
-      alamat: bersih(j.alamat, 10, 250, 'Alamat lengkap'),
+      alamat: mode === 1 ? '' : bersih(j.alamat, 10, 250, 'Alamat lengkap'),
       kecamatan: bersih(j.kecamatan, 0, 80, 'Kecamatan', true),
-      kota: bersih(j.kota, 2, 80, 'Kota'),
+      kota: mode === 1 ? '' : bersih(j.kota, 2, 80, 'Kota'),
       kodePos,
       kurir,
       catatan: bersih(j.catatan, 0, 150, 'Catatan', true),
@@ -1228,7 +1289,9 @@ function createApp(deps) {
       return res.end(fs.readFileSync(pathBerkas(a, `${b}.json`)));
     }
 
+    if (req.method === 'GET' && a === 'idtoko' && !b) return kirimJson(res, 200, await idTokoDaftar(req, url));
     if (req.method === 'GET' && a === 'lencana' && !b) return kirimJson(res, 200, lencanaPublik(url));
+    if (req.method === 'GET' && a === 'opsikirim' && b && !c) return kirimJson(res, 200, opsiBaca(b));
     if (req.method === 'GET' && a === 'tampilan' && b && !c) return kirimJson(res, 200, tampilanBaca(b));
     if (req.method === 'GET' && a === 'saya' && b === 'wa' && !c) return kirimJson(res, 200, await waSaya(req));
     if (req.method === 'GET' && a === 'admin' && b === 'wa-riwayat' && c) return kirimJson(res, 200, await adminWaRiwayat(req, c));
@@ -1256,6 +1319,7 @@ function createApp(deps) {
       if (a === 'spek' && !b) return kirimJson(res, 200, await spekSimpan(req));
       if (a === 'dokumen' && !b) return kirimJson(res, 200, await dokumenSimpan(req));
       if (a === 'legalitas' && !b) return kirimJson(res, 200, await legalitasSimpan(req));
+      if (a === 'opsikirim' && !b) return kirimJson(res, 200, await opsiSimpan(req));
       if (a === 'tampilan' && !b) return kirimJson(res, 200, await tampilanSimpan(req));
       if (a === 'admin' && b === 'legalitas-putus' && !c) return kirimJson(res, 200, await adminLegalitasPutus(req));
       if (a === 'rekening' && !b) return kirimJson(res, 200, await rekeningSimpan(req));
