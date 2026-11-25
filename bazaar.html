@@ -279,8 +279,8 @@ textarea.inp{min-height:80px;resize:vertical;}
     <div class="card"><div class="h">Pelacakan kurir</div><div class="t">Nomor resi dipantau lewat Biteship. Saat paket tercatat sampai, sistem melaporkannya ke kontrak dan jendela komplain pembeli mulai berjalan. Pelaporan ini dilakukan oleh satu dompet pelapor khusus yang hanya bisa menandai paket sampai, tidak bisa memindahkan dana.</div></div>
 
     <div class="card warn"><div class="h">Batas waktu</div>
-      <div class="row"><span>Penjual mengunci jaminan</span><b>2 hari</b></div>
-      <div class="row"><span>Pembeli membayar</span><b>2 hari</b></div>
+      <div class="row"><span>Penjual menyetor jaminan (setelah pembeli)</span><b>6 jam</b></div>
+      <div class="row"><span>Pembeli transfer rupiah</span><b>setelah akad</b></div>
       <div class="row"><span>Penjual mengirim dan isi resi</span><b>2 hari</b></div>
       <div class="row"><span>Komplain setelah barang sampai</span><b>2 hari</b></div>
       <div class="row"><span>Perjalanan paket paling lama</span><b>14 hari</b></div>
@@ -977,7 +977,7 @@ async function formProduk(editId) {
   }
 }
 async function infoFee() {
-  try { const c = Number($('pKat').value); const f = await reg().feeForCategory(c); $('pFee').textContent = 'Fee kategori ini: penjual ' + pct(f.sellerBps) + ', pembeli ' + pct(f.buyerBps) + '. Jaminanmu per pesanan = 100% harga + ' + pct(f.sellerBps) + '.'; } catch (e) {}
+  try { const c = Number($('pKat').value); const f = await reg().feeForCategory(c); $('pFee').textContent = 'Fee kategori ini: penjual ' + pct(f.sellerBps) + ', pembeli ' + pct(f.buyerBps) + '.'; } catch (e) {}
 }
 function renderSlots() {
   $('pSlots').innerHTML = _foto.map((f, i) => '<div class="slot"><img alt="Foto ' + (i + 1) + '" src="' + f.url + '"><button class="x" aria-label="Hapus foto" onclick="hapusFoto(' + i + ')">×</button></div>').join('') + (_foto.length < 8 ? '<button class="slot" type="button" onclick="$(\'pFotoIn\').click()">+ Foto<br>' + _foto.length + '/8</button>' : '');
@@ -1344,7 +1344,7 @@ function bukaTautan() {
 }
 
 /* ============ PESANAN (ESCROW) ============ */
-const ESC = '0xD2705649b2E48cDbdB3dE9957f4aA3bA9947651A';                                                      // alamat BazaarEscrow (isi setelah deploy; kosong = pemesanan belum dibuka)
+const ESC = '0xCD18f5574B33C642ee4e37dD9b240f68F9CAA300';                                                      // alamat BazaarEscrow (isi setelah deploy; kosong = pemesanan belum dibuka)
 const USDT = '0x55d398326f99059fF775485246999027B3197955';          // USDT (BSC-USD) di BSC, 18 desimal. Cek ulang di BscScan sebelum dipakai
 const ADMIN_WA = '';                                                 // nomor WhatsApp admin format 62..., opsional
 const escAktif = () => /^0x[0-9a-fA-F]{40}$/.test(ESC);
@@ -1371,8 +1371,8 @@ const TAGS = {
 const TAG_JUDUL = { positif: 'Yang bagus', kurang: 'Yang kurang', kurir: 'Soal kurir (tidak memengaruhi penjual)' };
 const TAG_NAMA = Object.assign({}, TAGS.positif, TAGS.kurang, TAGS.kurir);
 const O_LABEL = {
-  pembeli: { 1: 'Menunggu penjual mengunci jaminan', 2: 'Kunci jaminanmu lalu bayar', 3: 'Menunggu penjual mengirim', 4: 'Dalam pengiriman', 5: 'Paket sampai, periksa barang', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' },
-  penjual: { 1: 'Pesanan baru: kunci jaminan', 2: 'Menunggu pembeli mengunci dan membayar', 3: 'Cek uang masuk lalu kirim barang', 4: 'Dalam pengiriman', 5: 'Paket sampai, menunggu pembeli', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' }
+  pembeli: { 1: 'Jaminanmu masuk, menunggu penjual', 2: 'Menunggu penjual', 3: 'Transfer rupiah, lalu tunggu kirim', 99: 'Menunggu penjual mengirim', 4: 'Dalam pengiriman', 5: 'Paket sampai, periksa barang', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' },
+  penjual: { 1: 'Pembeli sudah setor: setor jaminanmu', 2: 'Menunggu', 3: 'Cek uang masuk lalu kirim barang', 4: 'Dalam pengiriman', 5: 'Paket sampai, menunggu pembeli', 6: 'Selesai', 7: 'Dibatalkan', 8: 'Sengketa diproses admin', 9: 'Sengketa selesai' }
 };
 const O_PERLU = { pembeli: [2, 5], penjual: [1, 3] };
 let _ord = {}, _win = null, _oTab = 'beli', _uls = { b: 0, g: [] }, _ong = null, _waAda = null, _mode = 0, _opsiT = {}, _feeLok = 0, _oid = 0;
@@ -1496,12 +1496,8 @@ function aksiO(o, peran, info, lacak) {
   const batalBtn = b('Batalkan pesanan', 'batalO(' + o.id + ')', 'btn2');
   if (o.status === 1) {
     const dl = o.createdAt + W.pay;
-    if (peran === 'penjual') h += '<div class="card"><div class="h">Pesanan baru</div><div class="t">Kunci jaminan <b>' + usdt(o.sellerStake) + '</b> untuk menerima pesanan ini. Batas: ' + sisa(dl) + '.</div><div class="note">Setelah jaminanmu terkunci, rekeningmu terbuka untuk pembeli. Jaminan kembali penuh saat pesanan selesai.</div>' + b('Kunci jaminan', 'kunciO(' + o.id + ')') + b('Tolak pesanan', 'batalO(' + o.id + ')', 'btn2') + '</div>';
-    else h += '<div class="card warn"><div class="t">Menunggu penjual mengunci jaminan. Batas: ' + sisa(dl) + '. Jika lewat, kamu bisa membatalkan.</div></div>' + batalBtn;
-  } else if (o.status === 2) {
-    const dl = o.sellerLockedAt + W.pay;
-    if (peran === 'pembeli') h += '<div class="card"><div class="h">Langkah 1: kunci jaminan</div><div class="t">Jaminan <b>' + usdt(o.buyerStake) + '</b> (harga + fee + cadangan kurs). Batas: ' + sisa(dl) + '.</div><div class="note">Wallet akan meminta dua persetujuan: izin USDT, lalu kunci jaminan.</div>' + b('Kunci jaminan', 'kunciO(' + o.id + ')') + '</div>' + rekO(info.rekening, o) + batalBtn;
-    else h += '<div class="card warn"><div class="t">Jaminanmu sudah terkunci. Menunggu pembeli mengunci jaminan dan membayar. Batas: ' + sisa(dl) + '.</div></div>' + batalBtn;
+    if (peran === 'penjual') h += '<div class="card"><div class="h">Pesanan baru</div><div class="t"><b>Pembeli sudah menyetor jaminan.</b> Silakan setor jaminan kamu <b>' + usdt(o.sellerStake) + '</b> untuk akad transaksi. Batas: ' + sisa(dl) + '.</div><div class="note">Jika sampai batas waktu kamu belum menyetor, pesanan batal otomatis dan jaminan pembeli kembali. Setelah jaminanmu masuk, rekeningmu terbuka untuk pembeli. Jaminan kembali penuh saat pesanan selesai.</div>' + b('Setor jaminan', 'kunciO(' + o.id + ')') + b('Tolak pesanan', 'batalO(' + o.id + ')', 'btn2') + '</div>';
+    else h += '<div class="card warn"><div class="t"><b>Jaminanmu sudah masuk.</b> Menunggu penjual menyetor jaminan untuk akad. Batas: ' + sisa(dl) + '. Jika penjual tidak menyetor sampai batas, jaminanmu kembali otomatis (kamu atau siapa pun bisa memicunya).</div></div>' + batalBtn + (now > dl ? b('Kembalikan jaminan sekarang', 'batalO(' + o.id + ')', 'btn red') : '');
   } else if (o.status === 3) {
     const dl = o.paidAt + W.ship;
     if (peran === 'pembeli') {
@@ -1550,14 +1546,14 @@ async function ensureUsdt(need) {
 }
 function kunciO(id) {
   const o = _ord[id], penjual = peranDi(o) === 'penjual', need = penjual ? o.sellerStake : o.buyerStake;
-  pop({ title: 'Kunci jaminan', lines: ['Jumlah: <b>' + usdt(need) + '</b>', 'Jaminan dipegang kontrak, bukan Indocoin. Kembali penuh (dikurangi fee) saat pesanan selesai.', 'Kamu butuh sedikit BNB untuk gas.'], ok: 'Kunci jaminan', onOk: async () => {
+  pop({ title: 'Kunci jaminan', lines: ['Jumlah: <b>' + usdt(need) + '</b>', 'Jaminan dipegang kontrak, bukan Indocoin. Kembali penuh (dikurangi fee) saat pesanan selesai.', 'Kamu butuh sedikit BNB untuk gas.'], ok: 'Setor jaminan', onOk: async () => {
     try { await ensureUsdt(need); } catch (e) { toast(errText(e), 8000); return false; }
     closePop();
-    const ok = await tx('Kunci jaminan', () => penjual ? wesc().sellerLock(id) : wesc().buyerLock(id));
+    const ok = await tx('Kunci jaminan', () => wesc().sellerLock(id));
     openOrder(id); return ok;
   } });
 }
-function batalO(id) { pop({ title: 'Batalkan pesanan?', lines: ['Jaminan yang sudah terkunci dikembalikan penuh. Stok produk dikembalikan.'], ok: 'Ya, batalkan', red: true, onOk: async () => { closePop(); if (await tx('Batalkan pesanan', () => wesc().cancelBeforePayment(id))) openOrder(id); } }); }
+function batalO(id) { pop({ title: 'Batalkan pesanan?', lines: ['Jaminan pembeli dikembalikan penuh. Stok produk dikembalikan.'], ok: 'Ya, batalkan', red: true, onOk: async () => { closePop(); if (await tx('Batalkan pesanan', () => wesc().cancelBeforePayment(id))) openOrder(id); } }); }
 
 function lokalPenjualO(o, info, dl) {
   const a = info.alamat;
@@ -1728,7 +1724,11 @@ async function buatPesanan(id, p) {
   catch (e) { toast(errText(e), 7000); return false; }
   closePop();
   try {
-    toast('Buat pesanan: konfirmasi di wallet…', 60000);
+    const E0 = esc_(), [r0, buf0] = await Promise.all([E0.rate(), E0.bufferBps()]);
+    let bps0; if (_mode === 0) { const f0 = await reg().getFee(id); bps0 = Number(f0.buyerBps); } else bps0 = Number(await E0.localFeeBps());
+    const tk = taksir(p.price * qty, ship, num(r0), Number(buf0), bps0);
+    await ensureUsdt(tk.stake.mul(102).div(100));
+    toast('Setor jaminan dan buat pesanan: konfirmasi di wallet…', 60000);
     const t = _mode === 0 ? await wesc().createOrder(id, qty, ship, a.hash) : await wesc().createOrderLocal(id, qty, ship, a.hash, _mode);
     toast('Menunggu konfirmasi jaringan…', 60000);
     const rc = await t.wait(), iface = new ethers.utils.Interface(ESC_ABI);
