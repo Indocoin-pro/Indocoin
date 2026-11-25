@@ -895,10 +895,14 @@ async function scanLogs(filter) {
 async function admPenjual() {
   $('adm').innerHTML = '<div class="note">Memindai pendaftaran…</div>';
   try {
-    const ev = await scanLogs(R => R.filters.SellerRegistered());
-    const addrs = [...new Set(ev.map(e => e.args.seller))];
+    /* Daftar wallet penjual diambil dari server (berkas dokumen), lalu status tiap wallet dibaca langsung dari kontrak. */
+    const hd = await signedHeaders('admin-daftar', new Uint8Array(0));
+    const rr = await fetch(API + '/bazaar/admin/daftar/penjual', { headers: hd });
+    const jj = await rr.json().catch(() => ({}));
+    if (!rr.ok) throw new Error(jj.error || ('Gagal mengambil daftar penjual (' + rr.status + ')'));
+    const addrs = [...new Set([...(jj.wallets || []), ...(_prods || []).map(p => p.seller)])];
     const R = reg(); const rows = [];
-    for (const a of addrs) { const s = await R.getSeller(a); rows.push({ a, s }); }
+    for (const a of addrs) { const s = await R.getSeller(a); if (Number(s.status) !== 0) rows.push({ a, s }); }
     const antre = rows.filter(r => r.s.status === 1), lain = rows.filter(r => r.s.status !== 1);
     const kartu = r => '<div class="card"><div class="mono">' + esc(r.a) + '</div><div class="t"><b>' + ST[r.s.status] + '</b> · daftar ' + tgl(r.s.registeredAt) + '</div><div class="note" id="pf-' + r.a + '"></div><div class="two" style="margin-top:8px"><button class="mini" onclick="admProfil(\'' + r.a + '\')">Lihat profil</button><button class="mini" onclick="admDok(\'' + r.a + '\')">Buka dokumen</button><button class="mini" onclick="admRek(\'' + r.a + '\')">Lihat rekening</button><span></span>' +
       (r.s.status === 1 || r.s.status === 3 ? '<button class="mini g" onclick="admSeller(\'approveSeller\',\'' + r.a + '\')">Setujui</button>' : '') + (r.s.status === 1 ? '<button class="mini r" onclick="admAlasan(\'rejectSeller\',\'' + r.a + '\',\'Tolak penjual\')">Tolak</button>' : '') +
