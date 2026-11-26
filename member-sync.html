@@ -246,7 +246,30 @@
     document.getElementById('btnSyncAll').textContent = '⏳ Memindai...';
 
     try {
-      const raw = await _gateway.callStatic.getMyDownlineTree(_wallet, { gasLimit: ethers.BigNumber.from('0x5F5E100') });
+      let raw;
+      try {
+        // Baca lewat server (batas gas tinggi) — browser/wallet sering gagal untuk pohon besar
+        let resp;
+        for (let i = 0; i < 4; i++) {
+          resp = await fetch('https://bot-feed.indocoin.id/api/sync-tree?root=' + _wallet);
+          if (resp.status !== 503) break;
+          logLine('Server sedang ramai, mencoba lagi...');
+          await new Promise(r => setTimeout(r, 3000));
+        }
+        if (!resp.ok) throw new Error('server ' + resp.status);
+        const arr = await resp.json();
+        raw = arr.map(r => ({
+          user: r.user,
+          level: r.level,
+          stakedUsdt: ethers.BigNumber.from(r.stakedUsdt),
+          reportedUsdt: ethers.BigNumber.from(r.reportedUsdt),
+          pendingUsdt: ethers.BigNumber.from(r.pendingUsdt),
+          isSynced: r.isSynced
+        }));
+      } catch(srvErr) {
+        logLine('Baca lewat server gagal (' + (srvErr.message || srvErr) + '), coba langsung dari wallet...');
+        raw = await _gateway.callStatic.getMyDownlineTree(_wallet, { gasLimit: ethers.BigNumber.from('0x5F5E100') });
+      }
       _tree = raw.map(r => ({
         user: r.user,
         level: r.level,
