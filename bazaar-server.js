@@ -579,6 +579,12 @@ function createApp(deps) {
       garansi: bersih(j.garansi, 0, 200, 'Garansi', true),
       fotos,
     };
+    if (j.grup !== undefined && j.grup !== null && j.grup !== '') {
+      const g = String(j.grup);
+      if (!/^[0-9a-f]{16}$/.test(g)) throw new HttpError(400, 'Kode grup varian tidak valid');
+      doc.grup = g;
+      doc.varian = bersih(j.varian, 1, 60, 'Nama varian');
+    }
     return simpanDokumenPublik('spek', doc);
   }
 
