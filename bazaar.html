@@ -111,9 +111,16 @@ textarea.inp{min-height:80px;resize:vertical;}
 .bdg.nb{color:#1d4ed8;background:#eff6ff;}
 .bar{height:8px;border-radius:99px;background:var(--bg3);overflow:hidden;margin:6px 0;}
 .bar i{display:block;height:100%;background:var(--blue);border-radius:99px;}
-.stabs{display:flex;gap:6px;overflow-x:auto;margin:12px 0;}
-.stab{min-width:max-content;min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
-.stab.on{background:#eff6ff;border-color:var(--blue);color:#1d4ed8;}
+.stabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 6px;}
+.bdg.b{color:#1d4ed8;background:#eff6ff;}
+.nbd{display:inline-block;min-width:16px;text-align:center;font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;margin-left:3px;line-height:16px;}
+.smenu{background:#fff;border:1px solid var(--border);border-radius:12px;padding:4px;margin:0 0 10px;}
+.smenu button{display:block;width:100%;text-align:left;min-height:44px;padding:0 12px;border:0;border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.smenu button.on{background:var(--bg3);}
+button.bdg{border:0;font-family:inherit;cursor:pointer;}
+button.bdg.g.on{background:var(--navy);color:#fff;}
+.stab{min-width:0;min-height:44px;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+.stab.on{background:var(--navy);border-color:var(--navy);color:#fff;}
 .mono{font-family:ui-monospace,Menlo,monospace;font-size:10px;word-break:break-all;color:var(--muted);}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:#fff;border-top:2px solid #e5e7eb;box-shadow:0 -3px 0 -1px #f3f4f6;display:flex;height:60px;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:#9ca3af;}
@@ -479,7 +486,7 @@ async function renderCart() {
 function go(v) {
   ['home', 'detail', 'cart', 'toko', 'orders', 'sell', 'shop', 'me', 'admin'].forEach(x => $('v-' + x).classList.toggle('hide', x !== v));
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'detail' || v === 'toko' ? 'home' : v === 'orders' ? 'shop' : v)));
-  window.scrollTo(0, 0); cartBadge();
+  window.scrollTo(0, 0); cartBadge(); if (_wallet && Date.now() - _badgeTs > 60000) { _badgeTs = Date.now(); muatOrderToko(); }
   if (v === 'sell' && !$('v-sell').innerHTML.trim()) renderSell();
   $('shopBar').classList.toggle('hide', v !== 'shop');
   if (v === 'shop') renderShop();
@@ -854,7 +861,7 @@ async function kirimDaftar() {
 }
 
 /* ----- Toko (penjual disetujui) ----- */
-let _tt = 'dijual', _leg = null, _tam = null, _waData = null, _opsi = null;
+let _tt = 'order', _lainnya = false, _tokoOrd = null, _payWin = 21600, _badgeTs = 0, _leg = null, _tam = null, _waData = null, _opsi = null;
 const DOK_NAMA = { npwp: 'NPWP', izin_edar: 'Izin edar (PIRT / BPOM / Halal)', merek: 'Merek terdaftar (DJKI)', akta: 'Akta atau SK badan usaha', lokasi: 'Foto lokasi usaha' };
 const fileB64 = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Gagal membaca berkas')); r.readAsDataURL(f); });
 async function ambilLegalitas() {
@@ -876,21 +883,81 @@ async function renderTokoDash() {
   const lv = _leg ? _leg.level : 'hijau', pc = _leg ? _leg.pct : 40, foto = (_tam && _tam.fotoTampil) || (pr && pr.fotoToko);
   el.innerHTML = '<div class="card"><div style="display:flex;gap:12px;align-items:center"><div class="ph" style="width:56px;height:56px;aspect-ratio:auto;border-radius:50%;flex-shrink:0">' + (foto ? '<img alt="" src="' + esc(fotoUrl(foto)) + '">' : '') + '</div>' +
     '<div style="min-width:0"><div class="h" style="margin:0;display:flex;align-items:center;gap:5px">' + esc(pr ? pr.namaToko : 'Tokoku') + perisai(lv, 18) + '</div>' +
-    '<div class="t" style="color:var(--muted)">' + esc(pr ? pr.kota + ' · ' + pr.bentukUsaha : '') + '</div><span class="bdg">Terverifikasi</span>' + (idToko(_wallet) ? ' <span class="bdg g">ID Toko ' + idToko(_wallet) + '</span>' : '') + '</div></div></div>' +
+    '<div class="t" style="color:var(--muted)">' + esc(pr ? pr.kota + ' · ' + pr.bentukUsaha : '') + '</div><span class="bdg">Terverifikasi</span>' + (idToko(_wallet) ? ' <span class="bdg g">ID Toko ' + idToko(_wallet) + '</span>' : '') + ' <button type="button" class="bdg g" id="kirimBtn" aria-expanded="false" onclick="toggleKirim()">Data kirim</button></div></div></div>' +
+    '<div id="kirimBox" class="hide">' + kartuKirim() + '</div>' +
     '<div class="card"><div class="h">Kelengkapan legalitas</div><div class="row"><span>' + (PERISAI[lv] || PERISAI.hijau).n + '</span><b>' + pc + '%</b></div><div class="bar"><i style="width:' + pc + '%"></i></div>' +
     '<div class="note">Hanya kamu yang melihat persentase ini. Pembeli hanya melihat perisai. Tambah dokumen di tab Atur untuk menaikkan lencana.</div></div>' +
-    kartuKirim() +
-    '<div class="stabs">' + [['dijual', 'Dijual'], ['terjual', 'Terjual'], ['return', 'Return'], ['sengketa', 'Sengketa'], ['ulasan', 'Ulasan'], ['atur', 'Atur']].map(t => '<button class="stab' + (_tt === t[0] ? ' on' : '') + '" onclick="setTt(\'' + t[0] + '\')">' + t[1] + '</button>').join('') + '</div><div id="ttBody"></div>';
-  ttBody();
+    '<div id="ttBar"></div><div id="ttBody"></div>';
+  ttBar(); ttBody();
+  muatOrderToko().then(() => { ttBar(); if (_tt === 'order' || _tt === 'terjual') ttBody(); });
 }
-function setTt(t) { _tt = t; document.querySelectorAll('.stab').forEach((b, i) => b.classList.toggle('on', ['dijual', 'terjual', 'return', 'sengketa', 'ulasan', 'atur'][i] === t)); ttBody(); }
+function setTt(t) { _tt = t; _lainnya = false; ttBar(); ttBody(); }
+const TT_LAIN = [['return', 'Return'], ['sengketa', 'Sengketa'], ['ulasan', 'Ulasan'], ['atur', 'Atur']];
+function ttBar() {
+  const el = $('ttBar'); if (!el) return;
+  const n = perluToko().length, sel = TT_LAIN.find(x => x[0] === _tt);
+  el.innerHTML = '<div class="stabs">' +
+    '<button class="stab' + (_tt === 'dijual' ? ' on' : '') + '" onclick="setTt(\'dijual\')">Dijual</button>' +
+    '<button class="stab' + (_tt === 'order' ? ' on' : '') + '" onclick="setTt(\'order\')">Order' + (n ? '<span class="nbd">' + n + '</span>' : '') + '</button>' +
+    '<button class="stab' + (_tt === 'terjual' ? ' on' : '') + '" onclick="setTt(\'terjual\')">Terjual</button>' +
+    '<button class="stab' + (sel ? ' on' : '') + '" onclick="_lainnya=!_lainnya;ttBar()">' + (sel ? sel[1] : 'Lainnya') + ' ▾</button></div>' +
+    (_lainnya ? '<div class="smenu">' + TT_LAIN.map(x => '<button class="' + (_tt === x[0] ? 'on' : '') + '" onclick="setTt(\'' + x[0] + '\')">' + x[1] + '</button>').join('') + '</div>' : '');
+}
+function toggleKirim() {
+  const b = $('kirimBox'), t = $('kirimBtn'); if (!b) return;
+  const buka = b.classList.contains('hide'); b.classList.toggle('hide', !buka); t.classList.toggle('on', buka); t.setAttribute('aria-expanded', buka);
+}
+/* ----- Order masuk (sisi penjual) ----- */
+const perluToko = () => (_tokoOrd || []).filter(o => O_PERLU.penjual.includes(o.status));
+async function muatOrderToko(paksa) {
+  if (!_wallet || !escAktif()) { _tokoOrd = []; return; }
+  try {
+    const E = esc_(), n = num(await E.userOrderCount(_wallet)), from = Math.max(0, n - 40);
+    const ids = from < n ? (await E.userOrders(_wallet, from, 40)).map(num).reverse() : [];
+    const list = (await Promise.all(ids.map(muatPesanan))).filter(o => peranDi(o) === 'penjual');
+    await Promise.all(list.map(o => ambilTerverifikasi('spek', o.metaHash, _spec)));
+    try { _payWin = num(await E.payWindow()) || _payWin; } catch (e) {}
+    _tokoOrd = list;
+  } catch (e) { if (!_tokoOrd) _tokoOrd = []; }
+  badgeToko();
+}
+function badgeToko() {
+  const n = perluToko().length, t = document.querySelector('.tab[data-v="shop"]'); if (!t) return;
+  let e = t.querySelector('.nbd'); if (!n) { if (e) e.remove(); return; }
+  if (!e) { e = document.createElement('span'); e.className = 'nbd'; t.appendChild(e); }
+  e.textContent = n;
+}
+function hitungMundur(ts) {
+  const d = ts * 1000 - Date.now(); if (d <= 0) return 'waktu habis';
+  const m = Math.floor(d / 60000), j = Math.floor(m / 60), s = Math.floor((d % 60000) / 1000);
+  return (j ? j + ' jam ' : '') + (m % 60) + ' menit ' + (s < 10 ? '0' : '') + s + ' detik';
+}
+const LBL_JUAL = { 1: ['Kunci jaminan', 'r'], 3: ['Kirim barang', 'b'], 4: ['Dalam pengiriman', 'g'], 5: ['Paket sampai', 'g'], 6: ['Selesai', ''], 7: ['Dibatalkan', 'g'], 8: ['Sengketa', 'r'], 9: ['Sengketa selesai', 'g'] };
+function kartuOrderToko(o) {
+  const l = LBL_JUAL[o.status] || ['Status ' + o.status, 'g'];
+  let ket = '';
+  if (o.status === 1) ket = '<div class="t" style="color:var(--red);font-weight:700;margin-top:8px">Kunci jaminan sebelum waktu habis. Sisa <span class="cdw" data-dl="' + (o.createdAt + _payWin) + '">' + hitungMundur(o.createdAt + _payWin) + '</span></div>';
+  else if (o.status === 3) ket = '<div class="note" style="margin-top:6px">Pembeli sudah bayar. Kirim barang dan isi nomor resi.</div>';
+  return '<div class="card" style="cursor:pointer;' + (o.status === 1 ? 'border-color:#f3b4b4' : o.status === 3 ? 'border-color:#bfdbfe' : '') + '" onclick="openOrder(' + o.id + ')"><div class="row"><span>Pesanan #' + o.id + '</span><span class="bdg ' + l[1] + '">' + l[0] + '</span></div>' +
+    '<div class="t"><b>' + esc(namaProduk(o)) + '</b> × ' + o.qty + '</div><div class="note">Total ' + rp(o.baseIDR) + ' (barang + ongkir)</div>' + ket + '</div>';
+}
+setInterval(() => { document.querySelectorAll('.cdw').forEach(e => { e.textContent = hitungMundur(Number(e.dataset.dl)); }); }, 1000);
 function stokStatus(p) { return p.takenDown ? 'diturunkan admin' : p.stock === 0 ? 'stok habis' : p.active ? 'aktif' : 'nonaktif'; }
 function ttBody() {
   const b = $('ttBody'); if (!b) return;
   const mine = _prods.filter(p => p.seller.toLowerCase() === _wallet.toLowerCase());
   const lihat = '<button class="btn2" onclick="_oTab=\'jual\';go(\'orders\')">Buka daftar pesanan</button>';
   if (_tt === 'dijual') b.innerHTML = '<div class="h">Katalog jualan saya (' + mine.length + ')</div>' + (mine.length ? '<div class="grid' + (_view === 3 ? ' c3' : '') + '">' + mine.sort((x, y) => y.id - x.id).map(p => '<div style="display:flex;flex-direction:column;gap:6px">' + cardHtml(p) + '<div style="display:flex;gap:6px;align-items:center"><span class="bdg ' + (p.active && !p.takenDown && p.stock > 0 ? '' : 'g') + '">' + stokStatus(p) + '</span><button class="mini" style="flex:1" onclick="ubahProduk(' + p.id + ')">Ubah</button></div></div>').join('') + '</div>' : '<div class="card"><div class="t">Belum ada produk. Pajang lewat menu Jual.</div></div>');
-  else if (_tt === 'terjual') b.innerHTML = '<div class="card"><div class="row"><span>Pesanan selesai</span><b>' + _me.completedOrders + '</b></div><div class="row"><span>Pesanan berjalan</span><b>' + _me.activeOrders + '</b></div></div>' + (escAktif() ? lihat : '');
+  else if (_tt === 'order') {
+    if (_tokoOrd === null) { b.innerHTML = '<div class="note">Memuat pesanan…</div>'; return; }
+    const perlu = perluToko(), jalan = _tokoOrd.filter(o => [4, 5, 8].includes(o.status));
+    b.innerHTML = (perlu.length ? '<div class="note" style="margin:0 0 6px">Perlu tindakan kamu</div>' + perlu.map(kartuOrderToko).join('') : '<div class="card soft"><div class="t">Tidak ada pesanan yang perlu tindakan.</div></div>') +
+      (jalan.length ? '<div class="note" style="margin:8px 0 6px">Sedang berjalan</div>' + jalan.map(kartuOrderToko).join('') : '') + (escAktif() ? lihat : '');
+  }
+  else if (_tt === 'terjual') {
+    const sl = (_tokoOrd || []).filter(o => o.status === 6);
+    b.innerHTML = '<div class="card"><div class="row"><span>Pesanan selesai</span><b>' + _me.completedOrders + '</b></div></div>' + sl.map(kartuOrderToko).join('') + (escAktif() ? lihat : '');
+  }
   else if (_tt === 'return') b.innerHTML = '<div class="card"><div class="t">Pesanan yang dibatalkan atau dikembalikan muncul di daftar pesananmu dengan statusnya masing-masing.</div></div>' + (escAktif() ? lihat : '');
   else if (_tt === 'sengketa') b.innerHTML = '<div class="card"><div class="row"><span>Total sengketa</span><b>' + _me.disputesTotal + '</b></div><div class="row"><span>Sengketa yang kalah</span><b>' + _me.disputesLost + '</b></div></div>' + (escAktif() ? lihat : '');
   else if (_tt === 'ulasan') { b.innerHTML = '<div class="card"><div class="h">Ulasan pembeli</div><div id="ulsToko"><div class="note" style="margin-top:0">Memuat…</div></div></div>'; muatUlasanToko(_wallet.toLowerCase()); }
@@ -1513,7 +1580,7 @@ function normOrder(id, o) {
 async function muatPesanan(id) { const o = normOrder(id, await esc_().getOrder(id)); _ord[id] = o; return o; }
 const peranDi = o => { const w = (_wallet || '').toLowerCase(); return o.buyer === w ? 'pembeli' : o.seller === w ? 'penjual' : null; };
 const namaProduk = o => { const sp = _spec[o.metaHash.toLowerCase()]; return sp ? sp.nama : 'Produk #' + o.productId; };
-const badgeO = (o, peran) => '<span class="bdg ' + ((O_PERLU[peran] || []).includes(o.status) ? 'y' : o.status === 6 ? '' : o.status === 7 || o.status >= 8 ? 'r' : 'g') + '">' + O_LABEL[peran][o.status] + '</span>';
+const badgeO = (o, peran) => '<span class="bdg ' + ((O_PERLU[peran] || []).includes(o.status) ? (o.status === 1 && peran === 'penjual' ? 'r' : 'b') : o.status === 6 ? '' : o.status === 7 || o.status >= 8 ? 'r' : 'g') + '">' + O_LABEL[peran][o.status] + '</span>';
 
 /* ----- Daftar pesanan ----- */
 async function renderOrders() {
