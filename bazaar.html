@@ -171,6 +171,7 @@ textarea.inp{min-height:80px;resize:vertical;}
 
   <div class="tabs" id="tabs" role="tablist" aria-label="Bagian Bazaar">
     <button class="tab on" data-v="home" onclick="go('home')">Market</button>
+    <button class="tab" data-v="cart" onclick="go('cart')">Keranjang<span id="cartN"></span></button>
     <button class="tab" data-v="sell" onclick="go('sell')">Jual</button>
     <button class="tab" data-v="shop" onclick="go('shop')">Toko</button>
     <button class="tab" data-v="me" onclick="go('me')">Profil</button>
@@ -200,6 +201,7 @@ textarea.inp{min-height:80px;resize:vertical;}
 
   <!-- DETAIL -->
   <section id="v-detail" class="hide"></section>
+  <section id="v-cart" class="hide"></section>
   <section id="v-toko" class="hide"></section>
 
   <!-- PESANAN -->
@@ -423,15 +425,66 @@ async function tx(label, fn) {
   } catch (e) { toast(label + ' gagal: ' + errText(e), 8000); return false; }
 }
 
+/* ============ KERANJANG (rencana belanja, disimpan di browser) ============ */
+const CART_MAX = 10;
+let _cart = [], _cartW = '';
+function cartGet() { return _wallet && _cartW === _wallet.toLowerCase() ? _cart : []; }
+function cartBadge() { const n = cartGet().length; const e = $('cartN'); if (e) e.textContent = n ? ' (' + n + ')' : ''; }
+function cartAda(id) { return cartGet().includes(id); }
+/* Muat dari server (perlu sesi tanda tangan, gratis tanpa gas). */
+async function cartMuat(paksa) {
+  if (!_wallet) { toast('Hubungkan wallet dulu'); await connectWallet(); if (!_wallet) return false; }
+  if (!paksa && _cartW === _wallet.toLowerCase()) return true;
+  try { const j = await apiGet('/bazaar/saya/keranjang'); _cart = (j.ids || []).filter(Number.isInteger); _cartW = _wallet.toLowerCase(); cartBadge(); return true; }
+  catch (e) { toast('Gagal memuat keranjang: ' + errText(e), 6000); return false; }
+}
+async function cartSimpan(ids) {
+  try { const j = await apiJson('/bazaar/keranjang', { ids }); _cart = j.ids; cartBadge(); return true; }
+  catch (e) { toast('Gagal menyimpan keranjang: ' + errText(e), 6000); return false; }
+}
+async function cartToggle(id) {
+  if (!(await cartMuat())) return;
+  const a = cartGet().slice();
+  let pesan;
+  if (a.includes(id)) { a.splice(a.indexOf(id), 1); pesan = 'Dihapus dari keranjang'; }
+  else if (a.length >= CART_MAX) return toast('Keranjang penuh (maksimal ' + CART_MAX + '). Hapus satu dulu.', 5000);
+  else { a.push(id); pesan = 'Disimpan ke keranjang'; }
+  if (!(await cartSimpan(a))) return;
+  toast(pesan);
+  const b = $('cartBtn'); if (b) b.textContent = cartAda(id) ? 'Hapus dari keranjang' : 'Simpan ke keranjang';
+}
+async function cartHapus(id) { if (await cartSimpan(cartGet().filter(x => x !== id))) renderCart(); }
+async function renderCart() {
+  const el = $('v-cart');
+  el.innerHTML = '<div class="title">Keranjang</div><div class="note">Memuat…</div>';
+  if (!(await cartMuat())) { el.innerHTML = '<div class="title">Keranjang</div><div class="card"><div class="t">Hubungkan wallet dan tanda tangani pesan (gratis) untuk melihat keranjangmu.</div><button class="btn navy" onclick="renderCart()">Coba lagi</button></div>'; return; }
+  const ids = cartGet();
+  let h = '<div class="title">Keranjang</div><div class="sub">Rencana belanjamu. Maksimal ' + CART_MAX + ' produk, tersimpan di akunmu (wallet), jadi ikut ke HP mana pun. Harga dan stok selalu terbaru.</div>';
+  if (!ids.length) { el.innerHTML = h + '<div class="card"><div class="t">Keranjang masih kosong. Buka produk lalu ketuk "Simpan ke keranjang".</div><button class="btn navy" onclick="go(\'home\')">Lihat Market</button></div>'; return; }
+  let total = 0;
+  h += ids.map(id => {
+    const p = _prods.find(x => x.id === id);
+    if (!p) return '<div class="card"><div class="t">Produk #' + id + ' tidak ditemukan.</div><button class="btn2" onclick="cartHapus(' + id + ')">Hapus</button></div>';
+    const sp = _spec[p.metaHash.toLowerCase()], ok = visible(p) && p.stock > 0, foto = sp && sp.fotos && sp.fotos[0];
+    if (ok) total += p.price;
+    const own = _wallet && p.seller.toLowerCase() === _wallet.toLowerCase();
+    return '<div class="card" style="' + (ok ? '' : 'opacity:.7') + '"><div style="display:flex;gap:10px"><div class="ph" style="width:64px;height:64px;aspect-ratio:auto;border-radius:10px;flex-shrink:0" onclick="openDetail(' + id + ')">' + (foto ? '<img alt="" src="' + esc(fotoUrl(foto)) + '">' : '') + '</div>' +
+      '<div style="min-width:0;flex:1"><div class="h" style="margin:0">' + esc(sp ? sp.nama : 'Produk #' + id) + (sp && sp.varian ? ' · ' + esc(sp.varian) : '') + '</div><div class="pp">' + rp(p.price) + '</div><div class="t" style="color:var(--muted)">' + esc(namaTokoP(p)) + (ok ? ' · Stok ' + p.stock : '') + '</div>' + (ok ? '' : '<span class="bdg r">Tidak tersedia</span>') + '</div></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' + (ok && !own ? '<button class="btn navy" style="margin:0;flex:1" onclick="pesanForm(' + id + ')">Order</button>' : '') + '<button class="btn2" style="margin:0;flex:1" onclick="cartHapus(' + id + ')">Hapus</button></div></div>';
+  }).join('');
+  el.innerHTML = h + '<div class="card soft"><div class="row"><span>Perkiraan total (1 unit tiap produk, belum ongkir dan fee)</span><b>' + rp(total) + '</b></div><div class="note">Order dilakukan satu per satu karena tiap pesanan punya escrow sendiri. Setelah pesanan dibuat, produk itu otomatis keluar dari keranjang.</div></div>';
+}
+
 /* ============ NAVIGASI ============ */
 function go(v) {
-  ['home', 'detail', 'toko', 'orders', 'sell', 'shop', 'me', 'admin'].forEach(x => $('v-' + x).classList.toggle('hide', x !== v));
+  ['home', 'detail', 'cart', 'toko', 'orders', 'sell', 'shop', 'me', 'admin'].forEach(x => $('v-' + x).classList.toggle('hide', x !== v));
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === (v === 'detail' || v === 'toko' ? 'home' : v === 'orders' ? 'shop' : v)));
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0); cartBadge();
   if (v === 'sell' && !$('v-sell').innerHTML.trim()) renderSell();
   $('shopBar').classList.toggle('hide', v !== 'shop');
   if (v === 'shop') renderShop();
   if (v === 'orders') renderOrders();
+  if (v === 'cart') renderCart();
   if (v === 'me') renderMe();
   if (v === 'admin') admTab(window._admT || 'penjual');
 }
@@ -628,7 +681,7 @@ function cardHtml(p) {
     return '<div class="pc" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\')openDetail(' + p.id + ')" onclick="openDetail(' + p.id + ')"><div class="ph">' + (_disc[p.id] ? '<span class="dsc">Diskon ' + _disc[p.id].pct + '%</span>' : '') + (foto ? '<img loading="lazy" alt="" src="' + esc(fotoUrl(foto)) + '">' : '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>') + '</div><div class="pb"><div class="pn">' + esc(sp ? sp.nama : 'Produk #' + p.id) + '</div><div class="pr">' + (_disc[p.id] ? '<span class="old x">' + rp(_disc[p.id].base).replace(/^Rp\s*/, '') + '</span>' : '') + '<span class="pp">' + (_gn[p.id] > 1 ? '<span style="font-size:10px;font-weight:600;color:var(--muted)">mulai </span>' : '') + rp(p.price) + '</span></div><div class="ps x">' + esc(KATS[p.category] || '') + '</div>' + (kodeKartu(p) ? '<div class="ps idl">' + kodeKartu(p) + '</div>' : '') + '<div class="pk">' + perisai(lvToko(p.seller), 13) + '<span class="pkn">' + esc(namaTokoP(p)) + '</span><button class="pkt" type="button" aria-label="Lihat toko" onclick="event.stopPropagation();openToko(\'' + p.seller + '\')">' + IKON_TOKO + '</button></div></div></div>';
 }
 function renderGrid() {
-  renderChips();
+  renderChips(); cartBadge();
   const q = ($('q').value || '').trim().toLowerCase();
   $('grid').className = 'grid' + (_view === 3 ? ' c3' : '');
   $('v2').className = _view === 2 ? 'on' : ''; $('v3').className = _view === 3 ? 'on' : ''; $('srt').value = _sort;
@@ -699,6 +752,7 @@ async function openDetail(id) {
     (!escAktif() ? '<button class="btn navy" disabled>Pesan dan kunci jaminan — segera hadir</button>'
       : _wallet && p.seller.toLowerCase() === _wallet.toLowerCase() ? '<div class="note">Ini produkmu sendiri.</div>'
       : '<button class="btn navy" ' + (p.stock > 0 ? '' : 'disabled ') + 'onclick="pesanForm(' + id + ')">Pesan dan kunci jaminan</button>') +
+    '<button class="btn2" id="cartBtn" onclick="cartToggle(' + id + ')">' + (cartAda(id) ? 'Hapus dari keranjang' : 'Simpan ke keranjang') + '</button>' +
     '<button class="btn2" onclick="bagikan(tautanProduk(' + id + '), \'Produk di Bazaar INDOCOIN\')">Bagikan produk</button>' +
     '<button class="btn2" onclick="laporProduk(' + id + ')">Laporkan produk ini</button>' +
     (kodeProduk(p) ? '<div class="row"><span>ID Toko</span><b>' + idToko(p.seller) + '</b></div><div class="row"><span>ID Produk</span><b>' + noProduk(p) + '</b></div><div class="note">Untuk mencari cepat, ketik ' + kodeProduk(p) + ' di kotak cari Market.</div>' : '') + '<div class="note mono">Produk #' + id + ' · penjual ' + esc(p.seller) + '</div>';
@@ -1781,7 +1835,7 @@ async function buatPesanan(id, p) {
     toast('Menunggu konfirmasi jaringan…', 60000);
     const rc = await t.wait(), iface = new ethers.utils.Interface(ESC_ABI);
     const ev = rc.logs.map(l => { try { return iface.parseLog(l); } catch (e) { return null; } }).find(x => x && x.name === 'OrderCreated');
-    toast('Pesanan dibuat');
+    toast('Pesanan dibuat'); try { if (cartAda(id)) cartSimpan(cartGet().filter(x => x !== id)); } catch (e) {}
     await loadCatalog(); ev ? openOrder(num(ev.args.id)) : go('orders');
   } catch (e) { toast('Buat pesanan gagal: ' + errText(e), 8000); }
 }

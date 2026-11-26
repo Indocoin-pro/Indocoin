@@ -70,7 +70,7 @@ const LIMIT = {
 };
 
 // Batas penulisan per wallet per 24 jam, dan per IP per jam.
-const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800, legalitas: 20, tampilan: 20, opsikirim: 20 };
+const RATE_WALLET_DAY = { sesi: 30, 'foto-produk': 60, 'foto-toko': 10, spek: 60, profil: 10, dokumen: 5, rekening: 10, tanya: 20, jawab: 100, wa: 10, alamat: 20, resi: 40, ongkir: 60, ulasan: 30, pesanan: 800, legalitas: 20, tampilan: 20, opsikirim: 20, keranjang: 400 };
 const RATE_IP_HOUR = 200;
 
 const BENTUK_USAHA = [
@@ -265,7 +265,7 @@ function dekripsi(amplop) {
 // ─────────────────────────────────────────────────────────────────
 
 function siapkanFolder() {
-  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan', 'legalitas', 'tampilan', 'idtoko', 'opsikirim']) {
+  for (const d of ['foto', 'spek', 'profil', 'dokumen', 'rekening', 'tanya', 'wa', 'alamat', 'pesanan', 'resi', 'ulasan', 'legalitas', 'tampilan', 'idtoko', 'opsikirim', 'keranjang']) {
     fs.mkdirSync(path.join(CFG.dataDir, d), { recursive: true });
   }
 }
@@ -981,6 +981,26 @@ function createApp(deps) {
     tulisAtomik(pathBerkas('wa', `${wallet}.json`), JSON.stringify(enkripsi({ wa, kodePosAsal, ts: Date.now(), riwayat })));
     return { ok: true };
   }
+  // Keranjang: daftar ID produk rencana belanja, maksimal 10, hanya dibaca/ditulis pemilik wallet.
+  async function keranjangSaya(req) {
+    const wallet = await verifikasi(req, 'saya-keranjang', Buffer.alloc(0));
+    try { const d = JSON.parse(fs.readFileSync(pathBerkas('keranjang', `${wallet}.json`), 'utf8')); return { ids: Array.isArray(d.ids) ? d.ids.slice(0, 10) : [] }; }
+    catch { return { ids: [] }; }
+  }
+  async function keranjangSimpan(req) {
+    const body = await bacaBody(req, 2048);
+    const wallet = await verifikasi(req, 'keranjang', body);
+    batasi(req, 'keranjang', wallet);
+    const j = bacaJson(body);
+    if (!Array.isArray(j.ids) || j.ids.length > 10) throw new HttpError(400, 'Keranjang maksimal 10 produk');
+    const ids = [];
+    for (const x of j.ids) {
+      if (!Number.isInteger(x) || x < 1 || x > 1e9) throw new HttpError(400, 'ID produk tidak valid');
+      if (!ids.includes(x)) ids.push(x);
+    }
+    tulisAtomik(pathBerkas('keranjang', `${wallet}.json`), JSON.stringify({ ids, ts: Date.now() }));
+    return { ids };
+  }
   async function waSaya(req) {
     const wallet = await verifikasi(req, 'saya-wa', Buffer.alloc(0));
     try { const d = dekripsi(JSON.parse(fs.readFileSync(pathBerkas('wa', `${wallet}.json`), 'utf8'))); return { wa: d.wa, kodePosAsal: d.kodePosAsal, riwayat: d.riwayat || [] }; }
@@ -1397,6 +1417,7 @@ function createApp(deps) {
     if (req.method === 'GET' && a === 'lencana' && !b) return kirimJson(res, 200, lencanaPublik(url));
     if (req.method === 'GET' && a === 'opsikirim' && b && !c) return kirimJson(res, 200, opsiBaca(b));
     if (req.method === 'GET' && a === 'tampilan' && b && !c) return kirimJson(res, 200, tampilanBaca(b));
+    if (req.method === 'GET' && a === 'saya' && b === 'keranjang' && !c) return kirimJson(res, 200, await keranjangSaya(req));
     if (req.method === 'GET' && a === 'saya' && b === 'wa' && !c) return kirimJson(res, 200, await waSaya(req));
     if (req.method === 'GET' && a === 'admin' && b === 'wa-riwayat' && c) return kirimJson(res, 200, await adminWaRiwayat(req, c));
     if (req.method === 'GET' && a === 'saya' && b === 'legalitas' && !c) return kirimJson(res, 200, await legalitasSaya(req));
@@ -1412,6 +1433,7 @@ function createApp(deps) {
       if (a === 'tanya' && !b) return kirimJson(res, 200, await tanyaKirim(req));
       if (a === 'tanya' && b === 'jawab') return kirimJson(res, 200, await tanyaJawab(req));
       if (a === 'tanya' && b === 'hapus') return kirimJson(res, 200, await tanyaHapus(req));
+      if (a === 'keranjang' && !b) return kirimJson(res, 200, await keranjangSimpan(req));
       if (a === 'wa' && !b) return kirimJson(res, 200, await waSimpan(req));
       if (a === 'alamat' && !b) return kirimJson(res, 200, await alamatSimpan(req));
       if (a === 'ongkir' && !b) return kirimJson(res, 200, await ongkirHitung(req));
