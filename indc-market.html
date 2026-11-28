@@ -190,6 +190,15 @@ body{background:#ffffff;font-family:'Manrope',sans-serif;padding-bottom:80px;}
 .btn-act.buy{background:#3b82f6;color:#fff;}
 .btn-act.sell{background:linear-gradient(135deg,#0f2942,#0f2942);color:#fff;}
 .btn-act:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+.sell-closed-overlay{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;padding:20px;pointer-events:none;}
+.sell-closed-overlay.show{display:flex;}
+.sell-closed-card{pointer-events:auto;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 12px 40px rgba(15,41,66,0.22);max-width:340px;width:100%;padding:22px 20px;text-align:center;font-family:'Manrope',sans-serif;}
+.sell-closed-card .sc-ico{font-size:30px;margin-bottom:8px;}
+.sell-closed-card .sc-title{font-size:15px;font-weight:800;color:#0f2942;margin-bottom:8px;line-height:1.35;}
+.sell-closed-card .sc-desc{font-size:12px;color:#4b5563;line-height:1.6;margin-bottom:16px;}
+.sell-closed-card .sc-btn{width:100%;padding:11px;border:none;border-radius:10px;background:#0f2942;color:#fff;font-family:'Manrope',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.btn-act.closed{background:#e5e7eb;color:#6b7280;cursor:not-allowed;box-shadow:none;transform:none;}
+.btn-act.closed:hover{transform:none;box-shadow:none;}
 .btn-cancel-list{
   width:100%;padding:7px;margin-top:6px;background:transparent;
   border:1.5px solid rgba(197,48,48,0.3);border-radius:8px;cursor:pointer;
@@ -816,6 +825,17 @@ const ERC20_ABI = [
 ];
 
 let _provider, _signer, _wallet, _market, _indcTk, _usdtTk;
+
+// Penjualan ditutup untuk semua wallet, kecuali wallet Dev.
+const SELL_ALLOWED_WALLET = '0xa16E9579E19eB19e6E24B211121BdCD7996809Cc'.toLowerCase();
+function sellAllowed() { return !!_wallet && _wallet.toLowerCase() === SELL_ALLOWED_WALLET; }
+function applySellLock() { /* tombol dibiarkan normal; popup muncul saat wallet non-Dev menekan JUAL */ }
+function tampilPopupJualTutup() {
+  document.getElementById('sellClosedOverlay').classList.add('show');
+}
+function tutupPopupJual() {
+  document.getElementById('sellClosedOverlay').classList.remove('show');
+}
 let _myListingId   = 0;   // listing ID milik wallet ini
 let _queuePosition = 0;   // posisi saya di antrian
 let _queueTotal    = 0;   // total penjual aktif
@@ -963,6 +983,7 @@ async function connectWallet() {
     }
     _signer  = await _provider.getSigner();
     _wallet  = await _signer.getAddress();
+    applySellLock();
     _market  = new ethers.Contract(MARKET_ADDR, MARKET_ABI, _signer);
     _indcTk  = new ethers.Contract(INDC_ADDR,   ERC20_ABI,  _signer);
     _usdtTk  = new ethers.Contract(USDT_ADDR,   ERC20_ABI,  _signer);
@@ -2294,6 +2315,7 @@ async function doBuy() {
 
 async function doList() {
   if (!_wallet) { alert('Connect wallet dulu!'); return; }
+  if (!sellAllowed()) { tampilPopupJualTutup(); return; }
 
   // ── Pengecualian wallet developer (Firebase: sellWhitelist/<alamat huruf kecil>) ──
   // Kalau bernilai true → lolos tanpa syarat 2 stake. Kalau gagal baca → dianggap tidak dikecualikan.
@@ -2554,5 +2576,13 @@ window.addEventListener('load', async () => {
   setInterval(loadMarketData, 30000);
 });
 </script>
+<div class="sell-closed-overlay" id="sellClosedOverlay">
+  <div class="sell-closed-card">
+    <div class="sc-ico">🔒</div>
+    <div class="sc-title">Market Internal Sudah Ditutup untuk Penjualan</div>
+    <div class="sc-desc">Terima kasih sudah ikut membangun market ini. Penjualan INDC di sini sudah ditutup. Fitur terbaru kami akan membawa INDC kamu ke DEX, ditunggu ya!</div>
+    <button class="sc-btn" onclick="tutupPopupJual()">Siap</button>
+  </div>
+</div>
 </body>
 </html>
